@@ -56,7 +56,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native candidate act
       const holding=database.withContext(prepared.fixture.fixture.own,async(transaction)=>{
         await transaction.execute(sql`select id from public.message_deliveries where id=${previous.unused.deliveryId} for update`);
         held.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);
-        release.promise.then(()=>{released=true;});
+        void release.promise.then(()=>{released=true;});
         while(!released)await transaction.execute(sql`select pg_sleep(0.25)`);
       });
       const holderPid=await held.promise;

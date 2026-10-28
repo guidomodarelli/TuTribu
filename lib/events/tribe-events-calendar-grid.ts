@@ -110,7 +110,10 @@ export function groupOccurrencesByDay(
   for (const occurrence of occurrences) {
     const dayKey = getBuenosAiresDateKey(occurrence.startsAt);
 
-    (groupedOccurrences[dayKey] ??= []).push(occurrence);
+    const dayOccurrences = groupedOccurrences[dayKey] ?? [];
+
+    dayOccurrences.push(occurrence);
+    groupedOccurrences[dayKey] = dayOccurrences;
   }
 
   return groupedOccurrences;

@@ -30,7 +30,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete no
       expect(await readOriginal()).toEqual(before);
       expect(after.original).toEqual({ state: "cancelled", version: 2 });
       expect(after.children).toHaveLength(1);
-      expect(after.children[0]).toMatchObject({ id: result.result.recoveryDeliveryId, state: "queued", notification_group_id: fixture.original.groupId, notification_group_audience: "reviewer", source_resource_id: fixture.original.groupId, recovery_of_delivery_id: fixture.original.deliveryId, deadline: before.deadline, frozen_intent: { format: 2, manifest: before.frozen_intent.manifest, senderId: fixture.senderId, subject: before.frozen_intent.subject, text: before.frozen_intent.text, href: before.frozen_intent.href } });
+      expect(after.children.at(0)).toMatchObject({ id: result.result.recoveryDeliveryId, state: "queued", notification_group_id: fixture.original.groupId, notification_group_audience: "reviewer", source_resource_id: fixture.original.groupId, recovery_of_delivery_id: fixture.original.deliveryId, deadline: before.deadline, frozen_intent: { format: 2, manifest: before.frozen_intent.manifest, senderId: fixture.senderId, subject: before.frozen_intent.subject, text: before.frozen_intent.text, href: before.frozen_intent.href } });
       expect(after.effects).toEqual({ attempts: 0, reservations: 0, audits: 1, completed_operations: 1, exact_owner_clock: true });
       const current = await fixture.execute((transaction) => new PostgresAdmissionNotificationDeliveryAuthority(transaction, fixture.authorize, fixture.readSecurityConfig).read({ tribeId: fixture.tribeId, deliveryId: result.result.recoveryDeliveryId }));
       expect(current.status).toBe("current");

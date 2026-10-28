@@ -57,7 +57,7 @@ type ProviderMessage = { id?: unknown; direction?: unknown; channel?: unknown; s
 
 /** @param message - Provider message from a send response or a correlated 409. @param intent - Original prepared intent. @returns The own receipt for that message, unknown when it is not an outbound message of this channel. */
 function classifyProviderMessage(message: ProviderMessage | undefined, intent: PreparedMessageDeliveryMaterial["intent"]): Omit<MessageDeliveryReceipt, "context"> {
-  if (!message || message.direction !== ZAVU_MESSAGE_DIRECTION.outbound || message.channel !== intent.channel || typeof message.id !== "string" || !message.id) return { outcome: MESSAGE_ATTEMPT_STATE.unknown, providerMessageId: null, correlationId: null, reason: MESSAGING_ERROR_CODE.upstreamPayloadUnusable };
+  if (message?.direction !== ZAVU_MESSAGE_DIRECTION.outbound || message.channel !== intent.channel || typeof message.id !== "string" || !message.id) return { outcome: MESSAGE_ATTEMPT_STATE.unknown, providerMessageId: null, correlationId: null, reason: MESSAGING_ERROR_CODE.upstreamPayloadUnusable };
   const providerMessageId = message.id;
   if (message.status === ZAVU_DELIVERY_STATUS.delivered || message.status === ZAVU_DELIVERY_STATUS.read) return { outcome: MESSAGE_ATTEMPT_STATE.delivered, providerMessageId, correlationId: null, reason: MESSAGE_RECEIPT_REASON.delivered };
   if (message.status === ZAVU_DELIVERY_STATUS.queued || message.status === ZAVU_DELIVERY_STATUS.sending || message.status === ZAVU_DELIVERY_STATUS.sent) return { outcome: MESSAGE_ATTEMPT_STATE.accepted, providerMessageId, correlationId: null, reason: MESSAGE_RECEIPT_REASON.accepted };
@@ -69,7 +69,7 @@ function classifyProviderMessage(message: ProviderMessage | undefined, intent: P
 function conflictOriginalMessage(error: unknown): ProviderMessage | undefined {
   const body = typeof error === "object" && error !== null && "error" in error ? (error as { error?: unknown }).error : undefined;
   const message = typeof body === "object" && body !== null && "message" in body ? (body as { message?: unknown }).message : undefined;
-  return typeof message === "object" && message !== null ? message as ProviderMessage : undefined;
+  return typeof message === "object" && message !== null ? message : undefined;
 }
 
 /** @param message - Original message returned with a 409. @param intent - This attempt. @returns Whether it is the same outbound send: channel, sender and recipient match; email recipients compare case-insensitively. */

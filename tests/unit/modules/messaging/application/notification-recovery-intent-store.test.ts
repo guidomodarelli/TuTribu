@@ -15,7 +15,8 @@ describe("notification recovery local references", () => {
   });
   it.each(["consent", "recipient", "wrong_viewer", "invalid_original"] as const)("should block unusable stored %s metadata rather than discard the attempted original", (scenario) => {
     const viewerId = randomUUID(), slug = `synthetic-${randomUUID()}`, key = `tutribu.notification-recovery.v1:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`;
-    const value = { viewerId: scenario === "wrong_viewer" ? randomUUID() : viewerId, slug, draft: null, reference: scenario === "invalid_original" ? { operationId: "invalid" } : null, ...(scenario === "consent" ? { confirmed: true } : scenario === "recipient" ? { recipient: "synthetic-private" } : {}) };
+    const recipientField = scenario === "recipient" ? { recipient: "synthetic-private" } : {};
+    const value = { viewerId: scenario === "wrong_viewer" ? randomUUID() : viewerId, slug, draft: null, reference: scenario === "invalid_original" ? { operationId: "invalid" } : null, ...(scenario === "consent" ? { confirmed: true } : recipientField) };
     sessionStorage.setItem(key, JSON.stringify(value));
     expect(createNotificationRecoveryIntentStore().read(viewerId, slug)).toEqual({ state: "unavailable" });
     sessionStorage.removeItem(key);

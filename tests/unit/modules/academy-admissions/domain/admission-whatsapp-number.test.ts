@@ -44,7 +44,7 @@ describe("declared admission WhatsApp number", () => {
   });
 
   it.each(["4155552671", "+14155552671 ext. 5", "invalid", "+000"])("should reject unusable declared input %s without exposing it", (value) => {
-    expect(() => normalizeAdmissionWhatsappNumber(value)).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => normalizeAdmissionWhatsappNumber(value)).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should require the number on submission and on an existing pending after the leader enables it", () => {

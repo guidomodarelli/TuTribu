@@ -5,10 +5,11 @@ import { toast } from "@golfo/ui";
 
 import { TribeWelcomeManagement } from "@/components/tribes/tribe-welcome-management";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -797,7 +798,7 @@ describe("TribeWelcomeManagement", () => {
               isActive: true,
               label: "WhatsApp",
               message:
-                "  Hola​   tribu\r\n\n\n\n\nVengo de la web  ",
+                "  Hola\u{200B}   tribu\r\n\n\n\n\nVengo de la web  ",
               phoneNumber: "+54 9 11 1234 5678",
               sortOrder: 1,
               type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,

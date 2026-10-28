@@ -39,11 +39,10 @@ describe("PostgresTribeCreatorWhitelistRepository", () => {
   it("returns false when the whitelist table is not yet available in Postgres", async () => {
     const repository = new PostgresTribeCreatorWhitelistRepository(
       async () => {
-        throw {
-          code: "42P01",
-          message:
-            'relation "public.tribe_creator_whitelist" does not exist',
-        };
+        throw Object.assign(
+          new Error('relation "public.tribe_creator_whitelist" does not exist'),
+          { code: "42P01" }
+        );
       }
     );
 
@@ -51,20 +50,16 @@ describe("PostgresTribeCreatorWhitelistRepository", () => {
   });
 
   it("rethrows unrelated database errors even if the message mentions the whitelist table", async () => {
+    const permissionError = Object.assign(
+      new Error('permission denied for relation "public.tribe_creator_whitelist"'),
+      { code: "42501" }
+    );
     const repository = new PostgresTribeCreatorWhitelistRepository(
       async () => {
-        throw {
-          code: "42501",
-          message:
-            'permission denied for relation "public.tribe_creator_whitelist"',
-        };
+        throw permissionError;
       }
     );
 
-    await expect(repository.isEmailAllowed("missing@example.com")).rejects.toEqual({
-      code: "42501",
-      message:
-        'permission denied for relation "public.tribe_creator_whitelist"',
-    });
+    await expect(repository.isEmailAllowed("missing@example.com")).rejects.toBe(permissionError);
   });
 });

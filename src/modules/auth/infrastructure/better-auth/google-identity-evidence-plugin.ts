@@ -57,7 +57,7 @@ export function googleIdentityEvidencePlugin():BetterAuthPlugin {
         }
         try {
           const account=await context.context.internalAdapter.findAccountByProviderId(candidate.subject,GOOGLE_IDENTITY_PROVIDER);
-          if(!account||account.userId!==login.user.id||account.accountId!==candidate.subject||account.providerId!==GOOGLE_IDENTITY_PROVIDER) {
+          if(account?.userId!==login.user.id||account.accountId!==candidate.subject||account.providerId!==GOOGLE_IDENTITY_PROVIDER) {
             scope.captureFailure={code:AUTH_EVIDENCE_CAPTURE_FAILURE.binding};
             return;
           }

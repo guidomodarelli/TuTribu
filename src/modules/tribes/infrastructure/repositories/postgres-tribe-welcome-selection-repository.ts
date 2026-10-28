@@ -91,7 +91,7 @@ export class PostgresTribeWelcomeSelectionRepository
           end as status
       `);
 
-      const row = (result.rows?.[0] ?? null) as RecordSelectionRow | null;
+      const row = (result.rows[0] ?? null) as RecordSelectionRow | null;
       const status = row?.status;
 
       if (status === TRIBE_WELCOME_SELECTION_STATUS.recorded) {
@@ -125,7 +125,7 @@ export class PostgresTribeWelcomeSelectionRepository
         order by tribe_welcome_selections.selected_at desc
       `);
 
-      return ((result.rows ?? []) as SelectionRow[]).map(mapSelection);
+      return (result.rows as SelectionRow[]).map(mapSelection);
     });
   }
 
@@ -151,7 +151,7 @@ export class PostgresTribeWelcomeSelectionRepository
         order by tribe_welcome_selections.selected_at desc
       `);
 
-      return ((result.rows ?? []) as SelectionRow[]).map(mapSelection);
+      return (result.rows as SelectionRow[]).map(mapSelection);
     });
   }
 }

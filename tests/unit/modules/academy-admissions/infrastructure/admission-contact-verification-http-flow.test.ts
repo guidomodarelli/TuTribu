@@ -43,7 +43,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant c
         const post = (path: string, body: unknown) => fetch(`${base}${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) });
         const invalidPaths = ["/challenges", `/challenges/${randomUUID()}/verify`, `/challenges/${randomUUID()}/resend`, `/requests/${randomUUID()}/proof`];
         for (const path of invalidPaths) {
-          const body = path.endsWith("/verify") ? { operationId: randomUUID(), confirmed: true, verificationCode: "123456" } : path.endsWith("/resend") ? { operationId: randomUUID(), confirmed: true } : path.endsWith("/proof") ? { operationId: randomUUID(), confirmed: true, expectedVersion: 1, proofId: randomUUID() } : { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1, channel: "email" };
+          const body = invalidPathProposal(path);
           for (const field of ["sender", "destination", "body", "text", "purpose", "verified", "apiKey", "connectionId"]) {
             const rejected = await post(path, { ...body, [field]: "synthetic-untrusted-authority" });
             expect(rejected.status).toBe(400);
@@ -159,3 +159,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant c
     });
   }, 900_000);
 });
+
+/**
+ * Builds the original explicit proposal that each own admission subpath accepts.
+ *
+ * @param path - Own admission subpath under test.
+ * @returns A fresh proposal for that subpath.
+ */
+function invalidPathProposal(path: string) {
+  if (path.endsWith("/verify")) return { operationId: randomUUID(), confirmed: true, verificationCode: "123456" };
+  if (path.endsWith("/resend")) return { operationId: randomUUID(), confirmed: true };
+  if (path.endsWith("/proof")) return { operationId: randomUUID(), confirmed: true, expectedVersion: 1, proofId: randomUUID() };
+  return { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1, channel: "email" };
+}

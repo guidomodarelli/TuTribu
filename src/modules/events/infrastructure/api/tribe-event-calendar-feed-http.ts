@@ -54,8 +54,7 @@ const PRIVACY_HEADERS = {
   [HEADER.robotsTag]: HEADER_VALUE.noIndex,
 } as const;
 
-const CACHE_HEADER_VALUE =
-  HEADER_VALUE.privateMaxAgePrefix + TRIBE_EVENT_CALENDAR_FEED_REFRESH.cacheMaxAgeSeconds;
+const CACHE_HEADER_VALUE = `${HEADER_VALUE.privateMaxAgePrefix}${TRIBE_EVENT_CALENDAR_FEED_REFRESH.cacheMaxAgeSeconds}`;
 
 /**
  * Strong ETag of a feed body. The body is deterministic for the same data

@@ -74,6 +74,162 @@ function roundMilliseconds(milliseconds: number) {
   return Math.round(milliseconds * MILLISECONDS_ROUNDING_FACTOR) / MILLISECONDS_ROUNDING_FACTOR;
 }
 
+/** Pool being observed and the usage window currently being accumulated. */
+type PoolMetricsState = {
+  pool: Pool;
+  maximumConnections: number;
+  usageWindow: PostgresPoolUsageWindow;
+  windowStartedAt: Date;
+};
+
+function readQueuedCheckouts(pool: Pool) {
+  return Math.max(0, pool.waitingCount - pool.idleCount);
+}
+
+function readCheckedOutConnections(pool: Pool) {
+  return pool.totalCount - pool.idleCount;
+}
+
+function observePeaks(state: PoolMetricsState) {
+  const { pool, usageWindow } = state;
+  usageWindow.peakQueuedCheckouts = Math.max(usageWindow.peakQueuedCheckouts, readQueuedCheckouts(pool));
+  usageWindow.peakCheckedOutConnections = Math.max(usageWindow.peakCheckedOutConnections, readCheckedOutConnections(pool));
+  usageWindow.peakOpenConnections = Math.max(usageWindow.peakOpenConnections, pool.totalCount);
+}
+
+/**
+ * Counts a checkout request and returns the callback that records how it ended.
+ *
+ * @param state - Observed pool and current window.
+ * @returns Idempotent callback taking the checkout error, if any.
+ */
+function beginCheckout(state: PoolMetricsState) {
+  const { pool, maximumConnections } = state;
+  const startedAt = performance.now();
+  const queued = pool.totalCount >= maximumConnections && pool.idleCount <= pool.waitingCount;
+  state.usageWindow.checkouts += 1;
+  if (queued) state.usageWindow.queuedCheckouts += 1;
+  let finished = false;
+  return (error: unknown) => {
+    if (finished) return;
+    finished = true;
+    const { usageWindow } = state;
+    const elapsedMilliseconds = performance.now() - startedAt;
+    usageWindow.checkoutTotalMilliseconds += elapsedMilliseconds;
+    usageWindow.checkoutMaximumMilliseconds = Math.max(usageWindow.checkoutMaximumMilliseconds, elapsedMilliseconds);
+    if (queued) {
+      usageWindow.queuedCheckoutMaximumMilliseconds = Math.max(usageWindow.queuedCheckoutMaximumMilliseconds, elapsedMilliseconds);
+    }
+    if (error) usageWindow.checkoutFailures += 1;
+    observePeaks(state);
+  };
+}
+
+/**
+ * Wraps `pool.connect` (callback and promise forms) to time every checkout.
+ *
+ * @param state - Observed pool and current window.
+ */
+function instrumentConnect(state: PoolMetricsState) {
+  const { pool } = state;
+  const originalConnect = pool.connect.bind(pool) as ConnectFunction;
+  const instrumentedConnect: ConnectFunction = (callback) => {
+    const finishCheckout = beginCheckout(state);
+    if (typeof callback === "function") {
+      const result = originalConnect((error, client, done) => {
+        finishCheckout(error);
+        callback(error, client, done);
+      });
+      observePeaks(state);
+      return result;
+    }
+    const checkout = originalConnect() as Promise<PoolClient>;
+    observePeaks(state);
+    return checkout.then(
+      (client) => {
+        finishCheckout(undefined);
+        return client;
+      },
+      (error: unknown) => {
+        finishCheckout(error);
+        throw error;
+      }
+    );
+  };
+  pool.connect = instrumentedConnect as Pool["connect"];
+}
+
+/**
+ * Counts the pool connection events in the current window.
+ *
+ * @param state - Observed pool and current window.
+ */
+function countPoolEvents(state: PoolMetricsState) {
+  const { pool } = state;
+  pool.on("connect", () => { state.usageWindow.connectionsOpened += 1; });
+  pool.on("remove", () => { state.usageWindow.connectionsRemoved += 1; });
+  pool.on("acquire", () => {
+    state.usageWindow.acquisitions += 1;
+    observePeaks(state);
+  });
+  pool.on("release", (error: unknown) => {
+    state.usageWindow.releases += 1;
+    if (error) state.usageWindow.errorReleases += 1;
+  });
+}
+
+/**
+ * Builds the callback that closes the current window and logs it, when the pool was in use.
+ *
+ * @param state - Observed pool and current window.
+ * @param input - Pool owner label.
+ * @returns Callback run on every interval and when the pool ends.
+ */
+function createUsageWindowLogger(state: PoolMetricsState, input: AttachPostgresPoolMetricsInput) {
+  const { pool, maximumConnections } = state;
+  const poolInstanceId = randomUUID();
+  const logger = createServerLogger({
+    feature: POSTGRES_POOL_METRICS_LOG.feature,
+    operation: POSTGRES_POOL_METRICS_LOG.operation,
+    requestId: POSTGRES_POOL_METRICS_LOG.requestId,
+  });
+
+  return () => {
+    const usageWindow = state.usageWindow;
+    const checkedOutConnections = readCheckedOutConnections(pool);
+    const queuedCheckouts = readQueuedCheckouts(pool);
+    // A checkout that started in an earlier window can finish (or fail) in this one, so its completion counts as activity.
+    const hadActivity = usageWindow.checkouts > 0 || usageWindow.acquisitions > 0 || usageWindow.checkoutFailures > 0 || usageWindow.releases > 0 || usageWindow.connectionsOpened > 0 || usageWindow.connectionsRemoved > 0;
+    if (!hadActivity && checkedOutConnections === 0 && queuedCheckouts === 0) return;
+    // Sample before closing so occupancy held through the whole window still counts as its peak.
+    observePeaks(state);
+    const closedWindow = state.usageWindow;
+    const closedWindowStartedAt = state.windowStartedAt;
+    state.usageWindow = createEmptyUsageWindow();
+    state.windowStartedAt = new Date();
+    // Seed the next window with the occupancy it inherits, even if no checkout happens in it.
+    observePeaks(state);
+    logger.info({
+      message: POSTGRES_POOL_METRICS_LOG.message,
+      metadata: {
+        poolOperation: input.poolOperation,
+        poolInstanceId,
+        maximumConnections,
+        windowStartedAt: closedWindowStartedAt.toISOString(),
+        windowEndedAt: state.windowStartedAt.toISOString(),
+        ...closedWindow,
+        checkoutTotalMilliseconds: roundMilliseconds(closedWindow.checkoutTotalMilliseconds),
+        checkoutMaximumMilliseconds: roundMilliseconds(closedWindow.checkoutMaximumMilliseconds),
+        queuedCheckoutMaximumMilliseconds: roundMilliseconds(closedWindow.queuedCheckoutMaximumMilliseconds),
+        openConnections: pool.totalCount,
+        idleConnections: pool.idleCount,
+        checkedOutConnections,
+        queuedCheckoutsNow: queuedCheckouts,
+      },
+    });
+  };
+}
+
 /**
  * Instruments a pool with in-memory usage counters and logs one structured
  * window per interval while the pool is in use. Only counts, durations and
@@ -90,114 +246,17 @@ function roundMilliseconds(milliseconds: number) {
  */
 export function attachPostgresPoolMetrics(input: AttachPostgresPoolMetricsInput) {
   const { pool, maximumConnections } = input;
-  const poolInstanceId = randomUUID();
-  const logger = createServerLogger({
-    feature: POSTGRES_POOL_METRICS_LOG.feature,
-    operation: POSTGRES_POOL_METRICS_LOG.operation,
-    requestId: POSTGRES_POOL_METRICS_LOG.requestId,
-  });
-  let usageWindow = createEmptyUsageWindow();
-  let windowStartedAt = new Date();
-
-  const readQueuedCheckouts = () => Math.max(0, pool.waitingCount - pool.idleCount);
-  const readCheckedOutConnections = () => pool.totalCount - pool.idleCount;
-  const observePeaks = () => {
-    usageWindow.peakQueuedCheckouts = Math.max(usageWindow.peakQueuedCheckouts, readQueuedCheckouts());
-    usageWindow.peakCheckedOutConnections = Math.max(usageWindow.peakCheckedOutConnections, readCheckedOutConnections());
-    usageWindow.peakOpenConnections = Math.max(usageWindow.peakOpenConnections, pool.totalCount);
+  const state: PoolMetricsState = {
+    pool,
+    maximumConnections,
+    usageWindow: createEmptyUsageWindow(),
+    windowStartedAt: new Date(),
   };
 
-  const beginCheckout = () => {
-    const startedAt = performance.now();
-    const queued = pool.totalCount >= maximumConnections && pool.idleCount <= pool.waitingCount;
-    usageWindow.checkouts += 1;
-    if (queued) usageWindow.queuedCheckouts += 1;
-    let finished = false;
-    return (error: unknown) => {
-      if (finished) return;
-      finished = true;
-      const elapsedMilliseconds = performance.now() - startedAt;
-      usageWindow.checkoutTotalMilliseconds += elapsedMilliseconds;
-      usageWindow.checkoutMaximumMilliseconds = Math.max(usageWindow.checkoutMaximumMilliseconds, elapsedMilliseconds);
-      if (queued) {
-        usageWindow.queuedCheckoutMaximumMilliseconds = Math.max(usageWindow.queuedCheckoutMaximumMilliseconds, elapsedMilliseconds);
-      }
-      if (error) usageWindow.checkoutFailures += 1;
-      observePeaks();
-    };
-  };
+  instrumentConnect(state);
+  countPoolEvents(state);
 
-  const originalConnect = pool.connect.bind(pool) as ConnectFunction;
-  const instrumentedConnect: ConnectFunction = (callback) => {
-    const finishCheckout = beginCheckout();
-    if (typeof callback === "function") {
-      const result = originalConnect((error, client, done) => {
-        finishCheckout(error);
-        callback(error, client, done);
-      });
-      observePeaks();
-      return result;
-    }
-    const checkout = originalConnect() as Promise<PoolClient>;
-    observePeaks();
-    return checkout.then(
-      (client) => {
-        finishCheckout(undefined);
-        return client;
-      },
-      (error: unknown) => {
-        finishCheckout(error);
-        throw error;
-      }
-    );
-  };
-  pool.connect = instrumentedConnect as Pool["connect"];
-
-  pool.on("connect", () => { usageWindow.connectionsOpened += 1; });
-  pool.on("remove", () => { usageWindow.connectionsRemoved += 1; });
-  pool.on("acquire", () => {
-    usageWindow.acquisitions += 1;
-    observePeaks();
-  });
-  pool.on("release", (error: unknown) => {
-    usageWindow.releases += 1;
-    if (error) usageWindow.errorReleases += 1;
-  });
-
-  const logUsageWindow = () => {
-    const checkedOutConnections = readCheckedOutConnections();
-    const queuedCheckouts = readQueuedCheckouts();
-    // A checkout that started in an earlier window can finish (or fail) in this one, so its completion counts as activity.
-    const hadActivity = usageWindow.checkouts > 0 || usageWindow.acquisitions > 0 || usageWindow.checkoutFailures > 0 || usageWindow.releases > 0 || usageWindow.connectionsOpened > 0 || usageWindow.connectionsRemoved > 0;
-    if (!hadActivity && checkedOutConnections === 0 && queuedCheckouts === 0) return;
-    // Sample before closing so occupancy held through the whole window still counts as its peak.
-    observePeaks();
-    const closedWindow = usageWindow;
-    const closedWindowStartedAt = windowStartedAt;
-    usageWindow = createEmptyUsageWindow();
-    windowStartedAt = new Date();
-    // Seed the next window with the occupancy it inherits, even if no checkout happens in it.
-    observePeaks();
-    logger.info({
-      message: POSTGRES_POOL_METRICS_LOG.message,
-      metadata: {
-        poolOperation: input.poolOperation,
-        poolInstanceId,
-        maximumConnections,
-        windowStartedAt: closedWindowStartedAt.toISOString(),
-        windowEndedAt: windowStartedAt.toISOString(),
-        ...closedWindow,
-        checkoutTotalMilliseconds: roundMilliseconds(closedWindow.checkoutTotalMilliseconds),
-        checkoutMaximumMilliseconds: roundMilliseconds(closedWindow.checkoutMaximumMilliseconds),
-        queuedCheckoutMaximumMilliseconds: roundMilliseconds(closedWindow.queuedCheckoutMaximumMilliseconds),
-        openConnections: pool.totalCount,
-        idleConnections: pool.idleCount,
-        checkedOutConnections,
-        queuedCheckoutsNow: queuedCheckouts,
-      },
-    });
-  };
-
+  const logUsageWindow = createUsageWindowLogger(state, input);
   const interval = setInterval(logUsageWindow, input.logIntervalMilliseconds);
   interval.unref();
 

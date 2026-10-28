@@ -13,7 +13,7 @@ describe("visible activation prerequisites",()=>{
   it("should require saved countries for a phone capability and close a suspended candidate",()=>{const fixture=requirementsFixture(),candidate={...fixture.candidate,capabilities:[{...fixture.candidate.capabilities[0],channel:"sms" as const}]};expect(assessMessagingActivationRequirements(candidate,fixture.usage,fixture.now)).toMatchObject({eligible:false,messages:[expect.stringMatching(/países/i)]});expect(assessMessagingActivationRequirements(candidate,{...fixture.usage,policy:{...fixture.usage.policy,allowedCountries:["AR"]}},fixture.now).eligible).toBe(true);expect(assessMessagingActivationRequirements({...fixture.candidate,state:"suspended"},fixture.usage,fixture.now)).toMatchObject({eligible:false,messages:[expect.stringMatching(/suspendida/i)]});});
 
   it("should name the next moment a channel test changes freshness, and nothing to wait for when none can",()=>{
-    const fixture=requirementsFixture(),capability=fixture.candidate.capabilities[0],testedMs=Date.parse(capability.testedAt!);
+    const fixture=requirementsFixture(),capability=fixture.candidate.capabilities[0],testedMs=Date.parse(capability.testedAt);
     // A recent test becomes stale just after its window closes; eligibility can change exactly then.
     expect(nextMessagingActivationFreshnessChange(fixture.candidate,fixture.now)).toBe(testedMs+MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS+1);
     // A test stamped ahead of this clock becomes usable when the clock reaches it.

@@ -103,9 +103,7 @@ export function approveTribeEventProposal({
         command.visibleMonth === null
           ? []
           : buildTribeEventOccurrences(
-              [result.event],
-              [],
-              [],
+              { attendances: [], events: [result.event], exceptions: [] },
               createBuenosAiresMonthRange(command.visibleMonth)
             ),
       proposal: result.proposal,

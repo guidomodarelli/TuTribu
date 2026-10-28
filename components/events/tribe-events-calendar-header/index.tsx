@@ -107,6 +107,184 @@ const VIEW_MODE_OPTIONS = [
   { icon: CalendarDaysIcon, label: COPY.viewCalendar, viewMode: TRIBE_EVENTS_VIEW_MODE.calendar },
 ] as const;
 
+type TribeEventsCalendarMonthNavigationProps = Pick<
+  TribeEventsCalendarHeaderProps,
+  "month" | "monthTransitionDirection" | "nextMonthHref" | "previousMonthHref"
+> & {
+  onNextMonthClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+  onPreviousMonthClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+};
+
+/** Previous and next month links around the month title. */
+function TribeEventsCalendarMonthNavigation({
+  month,
+  monthTransitionDirection,
+  nextMonthHref,
+  onNextMonthClick,
+  onPreviousMonthClick,
+  previousMonthHref,
+}: TribeEventsCalendarMonthNavigationProps) {
+  return (
+    <div className={styles.TribeEventsCalendarHeader__monthNavigation}>
+      <Link
+        aria-label={COPY.previousMonth}
+        className={cn(
+          styles.TribeEventsCalendarHeader__iconLink,
+          styles["TribeEventsCalendarHeader__iconLink--previous"]
+        )}
+        href={previousMonthHref}
+        onClick={onPreviousMonthClick}
+      >
+        <ChevronLeftIcon aria-hidden />
+      </Link>
+      {/* Keyed by month so the title replays its entrance on every change. */}
+      <h1
+        className={styles.TribeEventsCalendarHeader__title}
+        data-month-transition={monthTransitionDirection}
+        key={month}
+      >
+        {formatBuenosAiresMonthTitle(month)}
+      </h1>
+      <Link
+        aria-label={COPY.nextMonth}
+        className={cn(
+          styles.TribeEventsCalendarHeader__iconLink,
+          styles["TribeEventsCalendarHeader__iconLink--next"]
+        )}
+        href={nextMonthHref}
+        onClick={onNextMonthClick}
+      >
+        <ChevronRightIcon aria-hidden />
+      </Link>
+    </div>
+  );
+}
+
+type TribeEventsViewModeToggleProps = Required<
+  Pick<TribeEventsCalendarHeaderProps, "onChooseViewMode" | "shouldAnimateViewMode" | "viewMode">
+>;
+
+/** Calendar and list view buttons with the marker gliding to the active one. */
+function TribeEventsViewModeToggle({
+  onChooseViewMode,
+  shouldAnimateViewMode,
+  viewMode,
+}: TribeEventsViewModeToggleProps) {
+  return (
+    <div
+      aria-label={COPY.viewModeLabel}
+      className={styles.TribeEventsCalendarHeader__viewToggle}
+      role={ROLE_GROUP}
+    >
+      {VIEW_MODE_OPTIONS.map((option) => {
+        const isActive = viewMode === option.viewMode;
+        const ViewModeIcon = option.icon;
+
+        // The marker is the button's sibling, not its child: the press
+        // transform would otherwise lift it above the other button.
+        return (
+          <span className={styles.TribeEventsCalendarHeader__viewSlot} key={option.viewMode}>
+            {isActive ? (
+              <motion.span
+                aria-hidden
+                className={styles.TribeEventsCalendarHeader__viewIndicator}
+                layoutId={VIEW_MODE_INDICATOR_LAYOUT_ID}
+                transition={shouldAnimateViewMode ? SPRING_LAYOUT : INSTANT_TRANSITION}
+              />
+            ) : null}
+            <Button
+              aria-pressed={isActive}
+              className={cn(
+                styles.TribeEventsCalendarHeader__viewButton,
+                isActive && styles["TribeEventsCalendarHeader__viewButton--active"]
+              )}
+              size={BUTTON_ATTRIBUTE.sizeIcon}
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantGhost}
+              onClick={() => onChooseViewMode(option.viewMode)}
+            >
+              <ViewModeIcon aria-hidden />
+              <span className={styles.TribeEventsCalendarHeader__srOnly}>{option.label}</span>
+            </Button>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+type TribeEventsCalendarActionsProps = Pick<
+  TribeEventsCalendarHeaderProps,
+  "canManageEvents" | "onCreateEvent" | "onOpenProposals" | "onProposeEvent" | "onSubscribeCalendar"
+> &
+  Required<Pick<TribeEventsCalendarHeaderProps, "canProposeEvents" | "pendingProposalCount">>;
+
+/** Proposal, creation and calendar subscription actions the viewer can use. */
+function TribeEventsCalendarActions({
+  canManageEvents,
+  canProposeEvents,
+  onCreateEvent,
+  onOpenProposals,
+  onProposeEvent,
+  onSubscribeCalendar,
+  pendingProposalCount,
+}: TribeEventsCalendarActionsProps) {
+  return (
+    <>
+      {canManageEvents && pendingProposalCount > 0 && onOpenProposals ? (
+        // The count rolls when it changes; the label keeps the exact
+        // number for assistive technology while both digits overlap.
+        <Button
+          aria-label={COPY.pendingProposalsLabel(pendingProposalCount)}
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
+          onClick={onOpenProposals}
+        >
+          <InboxIcon aria-hidden />
+          {COPY.pendingProposalsButton}
+          {COPY.pendingProposalsCountOpen}
+          <AnimatedCount value={pendingProposalCount} />
+          {COPY.pendingProposalsCountClose}
+        </Button>
+      ) : null}
+      {canManageEvents ? (
+        <Button type={BUTTON_ATTRIBUTE.typeButton} onClick={onCreateEvent}>
+          {COPY.createButton}
+        </Button>
+      ) : null}
+      {canProposeEvents && onOpenProposals ? (
+        <Button
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantGhost}
+          onClick={onOpenProposals}
+        >
+          {COPY.myProposalsButton}
+        </Button>
+      ) : null}
+      {onSubscribeCalendar ? (
+        <Button
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantGhost}
+          onClick={onSubscribeCalendar}
+        >
+          <RssIcon aria-hidden />
+          {COPY.subscribeCalendarButton}
+        </Button>
+      ) : null}
+      {canProposeEvents && onProposeEvent ? (
+        <Button
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
+          onClick={onProposeEvent}
+        >
+          <LightbulbIcon aria-hidden />
+          {COPY.proposeButton}
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Month navigation, "Hoy" shortcut with the Buenos Aires clock, view toggle,
  * the type filter, the create action and "Propuestas (N)" for managers, and
@@ -151,38 +329,14 @@ export function TribeEventsCalendarHeader({
 
   return (
     <header className={styles.TribeEventsCalendarHeader}>
-      <div className={styles.TribeEventsCalendarHeader__monthNavigation}>
-        <Link
-          aria-label={COPY.previousMonth}
-          className={cn(
-            styles.TribeEventsCalendarHeader__iconLink,
-            styles["TribeEventsCalendarHeader__iconLink--previous"]
-          )}
-          href={previousMonthHref}
-          onClick={handleMonthLinkClick(previousMonth)}
-        >
-          <ChevronLeftIcon aria-hidden />
-        </Link>
-        {/* Keyed by month so the title replays its entrance on every change. */}
-        <h1
-          className={styles.TribeEventsCalendarHeader__title}
-          data-month-transition={monthTransitionDirection}
-          key={month}
-        >
-          {formatBuenosAiresMonthTitle(month)}
-        </h1>
-        <Link
-          aria-label={COPY.nextMonth}
-          className={cn(
-            styles.TribeEventsCalendarHeader__iconLink,
-            styles["TribeEventsCalendarHeader__iconLink--next"]
-          )}
-          href={nextMonthHref}
-          onClick={handleMonthLinkClick(nextMonth)}
-        >
-          <ChevronRightIcon aria-hidden />
-        </Link>
-      </div>
+      <TribeEventsCalendarMonthNavigation
+        month={month}
+        monthTransitionDirection={monthTransitionDirection}
+        nextMonthHref={nextMonthHref}
+        previousMonthHref={previousMonthHref}
+        onNextMonthClick={handleMonthLinkClick(nextMonth)}
+        onPreviousMonthClick={handleMonthLinkClick(previousMonth)}
+      />
       <div className={styles.TribeEventsCalendarHeader__toolbar}>
         <div className={styles.TribeEventsCalendarHeader__todayGroup}>
           <Link
@@ -197,95 +351,20 @@ export function TribeEventsCalendarHeader({
           ) : null}
         </div>
         <div className={styles.TribeEventsCalendarHeader__actions}>
-          <div
-            aria-label={COPY.viewModeLabel}
-            className={styles.TribeEventsCalendarHeader__viewToggle}
-            role={ROLE_GROUP}
-          >
-            {VIEW_MODE_OPTIONS.map((option) => {
-              const isActive = viewMode === option.viewMode;
-              const ViewModeIcon = option.icon;
-
-              // The marker is the button's sibling, not its child: the press
-              // transform would otherwise lift it above the other button.
-              return (
-                <span className={styles.TribeEventsCalendarHeader__viewSlot} key={option.viewMode}>
-                  {isActive ? (
-                    <motion.span
-                      aria-hidden
-                      className={styles.TribeEventsCalendarHeader__viewIndicator}
-                      layoutId={VIEW_MODE_INDICATOR_LAYOUT_ID}
-                      transition={shouldAnimateViewMode ? SPRING_LAYOUT : INSTANT_TRANSITION}
-                    />
-                  ) : null}
-                  <Button
-                    aria-pressed={isActive}
-                    className={cn(
-                      styles.TribeEventsCalendarHeader__viewButton,
-                      isActive && styles["TribeEventsCalendarHeader__viewButton--active"]
-                    )}
-                    size={BUTTON_ATTRIBUTE.sizeIcon}
-                    type={BUTTON_ATTRIBUTE.typeButton}
-                    variant={BUTTON_ATTRIBUTE.variantGhost}
-                    onClick={() => onChooseViewMode(option.viewMode)}
-                  >
-                    <ViewModeIcon aria-hidden />
-                    <span className={styles.TribeEventsCalendarHeader__srOnly}>{option.label}</span>
-                  </Button>
-                </span>
-              );
-            })}
-          </div>
-          {canManageEvents && pendingProposalCount > 0 && onOpenProposals ? (
-            // The count rolls when it changes; the label keeps the exact
-            // number for assistive technology while both digits overlap.
-            <Button
-              aria-label={COPY.pendingProposalsLabel(pendingProposalCount)}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={onOpenProposals}
-            >
-              <InboxIcon aria-hidden />
-              {COPY.pendingProposalsButton}
-              {COPY.pendingProposalsCountOpen}
-              <AnimatedCount value={pendingProposalCount} />
-              {COPY.pendingProposalsCountClose}
-            </Button>
-          ) : null}
-          {canManageEvents ? (
-            <Button type={BUTTON_ATTRIBUTE.typeButton} onClick={onCreateEvent}>
-              {COPY.createButton}
-            </Button>
-          ) : null}
-          {canProposeEvents && onOpenProposals ? (
-            <Button
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={onOpenProposals}
-            >
-              {COPY.myProposalsButton}
-            </Button>
-          ) : null}
-          {onSubscribeCalendar ? (
-            <Button
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={onSubscribeCalendar}
-            >
-              <RssIcon aria-hidden />
-              {COPY.subscribeCalendarButton}
-            </Button>
-          ) : null}
-          {canProposeEvents && onProposeEvent ? (
-            <Button
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={onProposeEvent}
-            >
-              <LightbulbIcon aria-hidden />
-              {COPY.proposeButton}
-            </Button>
-          ) : null}
+          <TribeEventsViewModeToggle
+            shouldAnimateViewMode={shouldAnimateViewMode}
+            viewMode={viewMode}
+            onChooseViewMode={onChooseViewMode}
+          />
+          <TribeEventsCalendarActions
+            canManageEvents={canManageEvents}
+            canProposeEvents={canProposeEvents}
+            pendingProposalCount={pendingProposalCount}
+            onCreateEvent={onCreateEvent}
+            onOpenProposals={onOpenProposals}
+            onProposeEvent={onProposeEvent}
+            onSubscribeCalendar={onSubscribeCalendar}
+          />
         </div>
       </div>
       {typeFilter ? (

@@ -1,13 +1,12 @@
 /** Proposes system approval from current trusted list or exact personal authorization without writing access. @module automatic-admission-decision */
 import type { AdmissionRequest } from "./admission-request";
 import type { AdmissionDecision } from "./admission-decision";
-import type { AdmissionSubmissionFacts } from "../policies/admission-eligibility";
+import { type AdmissionSubmissionFacts, evaluateAdmissionSubmission  } from "../policies/admission-eligibility";
 import { ADMISSION_ERROR_CODE, type AdmissionErrorCode } from "../../constants/admission-errors";
 import { ADMISSION_EVIDENCE_KIND, ADMISSION_OUTCOME } from "../../constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE } from "../../constants/admission-request";
 import { ADMISSION_DECISION_ACTOR_KIND, ADMISSION_DECISION_RULE } from "../../constants/admission-decision";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
-import { evaluateAdmissionSubmission } from "../policies/admission-eligibility";
 import { snapshotAdmissionDecisionEvidence } from "../value-objects/admission-decision-evidence";
 
 /** The consumed list reference remains private and versioned independently of contact binding. */
@@ -26,15 +25,15 @@ export function proposeAutomaticAdmissionDecision(input: { facts: AutomaticAdmis
   if (!facts.account || !policy
     || request.tribeId !== facts.tribe.id || request.userId !== facts.account.userId || request.originalPolicy.version !== policy.version
     || request.originalPolicy.verificationEpoch !== policy.verificationEpoch || !request.bindingId
-    || !request.contact || !facts.contact || request.contact.type !== facts.contact.type || request.contact.value !== facts.contact.value
+    || !request.contact || request.contact.type !== facts.contact?.type || request.contact.value !== facts.contact.value
     || request.source !== facts.source.kind) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
   const invitation = facts.source.kind === ADMISSION_REQUEST_SOURCE.personal ? facts.source.invitation : null;
   if (invitation && (request.invitationId !== invitation.id || !Number.isInteger(invitation.version) || invitation.version <= 0 || request.requiresAllowlist !== invitation.requiresAllowlist)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
   const requiresAllowlist = invitation?.requiresAllowlist ?? true;
-  if (requiresAllowlist && (!entry || !entry.id || !Number.isInteger(entry.version) || entry.version <= 0)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
+  if (requiresAllowlist && (!entry?.id || !Number.isInteger(entry.version) || entry.version <= 0)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
   const outcome = evaluateAdmissionSubmission({ ...facts, now });
   if (outcome.outcome !== ADMISSION_OUTCOME.admitted || !outcome.bindContact || outcome.evidenceKind !== request.evidence.kind) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
-  if (request.evidence.kind === ADMISSION_EVIDENCE_KIND.base && (!facts.baseEvidence || request.evidence.identityEvidenceId !== facts.baseEvidence.id || request.evidence.verifiedAt.getTime() !== facts.baseEvidence.verifiedAt.getTime() || request.evidence.verifiedAt > now)) return deny(ADMISSION_ERROR_CODE.contactEvidenceRequired);
+  if (request.evidence.kind === ADMISSION_EVIDENCE_KIND.base && (request.evidence.identityEvidenceId !== facts.baseEvidence?.id || request.evidence.verifiedAt.getTime() !== facts.baseEvidence.verifiedAt.getTime() || request.evidence.verifiedAt > now)) return deny(ADMISSION_ERROR_CODE.contactEvidenceRequired);
   if (request.evidence.kind === ADMISSION_EVIDENCE_KIND.local && (request.evidence.proofId !== facts.localProof?.id || request.proofId !== facts.localProof.id || request.evidence.verifiedAt.getTime() !== facts.localProof.verifiedAt.getTime())) return deny(ADMISSION_ERROR_CODE.proofUnavailable);
   const decision: AdmissionDecision = { id: input.decisionId, requestId: request.id, tribeId: request.tribeId, userId: request.userId, requestVersion: request.version,
     outcome: ADMISSION_REQUEST_STATUS.approved, actorUserId: null, actorKind: ADMISSION_DECISION_ACTOR_KIND.system, rule: ADMISSION_DECISION_RULE.automatic,

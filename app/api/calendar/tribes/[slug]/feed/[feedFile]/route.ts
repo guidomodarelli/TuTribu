@@ -63,6 +63,51 @@ function readQueryObject(request: Request): Record<string, string | string[]> {
   return query;
 }
 
+type CalendarFeedModules = Awaited<ReturnType<typeof createCalendarFeedModules>>;
+
+type FoundTribeEventCalendarFeed = Extract<
+  Awaited<ReturnType<CalendarFeedModules["events"]["useCases"]["getTribeEventCalendarFeed"]>>,
+  { status: typeof TRIBE_EVENT_MUTATION_STATUS.found }
+>;
+
+type ServedFeedContext = {
+  feed: FoundTribeEventCalendarFeed;
+  logger: ReturnType<typeof createServerLogger>;
+  request: Request;
+  slug: string;
+};
+
+/**
+ * Serves a found feed as an `.ics` file, or a 304 when the client already
+ * holds the same version (`If-None-Match`).
+ */
+function createServedFeedResponse({ feed, logger, request, slug }: ServedFeedContext): Response {
+  const icsFile = buildTribeCalendarFeedIcsFile({
+    calendarName: feed.calendarName,
+    series: feed.series,
+  });
+  const etag = buildCalendarFeedEtag(icsFile.content);
+  const isNotModified = matchesIfNoneMatch(request, etag);
+
+  logger.info({
+    message: CALENDAR_FEED_ROUTE_LOG.servedMessage,
+    metadata: {
+      result: isNotModified ? CALENDAR_FEED_RESULT.notModified : CALENDAR_FEED_RESULT.served,
+      seriesCount: feed.series.length,
+      tribeSlug: slug,
+      userId: feed.ownerUserId,
+    },
+  });
+
+  return isNotModified
+    ? createCalendarFeedNotModifiedResponse(etag)
+    : createCalendarFeedResponse({
+        content: icsFile.content,
+        contentType: icsFile.contentType,
+        etag,
+      });
+}
+
 /**
  * Public subscribed calendar of a tribe (`webcal://` or `https://`). There is
  * no session and no cookie: the personal token in the path is the credential.
@@ -141,30 +186,7 @@ export async function GET(request: Request, context: TribeCalendarFeedRouteConte
       );
     }
 
-    const icsFile = buildTribeCalendarFeedIcsFile({
-      calendarName: feed.calendarName,
-      series: feed.series,
-    });
-    const etag = buildCalendarFeedEtag(icsFile.content);
-    const isNotModified = matchesIfNoneMatch(request, etag);
-
-    logger.info({
-      message: CALENDAR_FEED_ROUTE_LOG.servedMessage,
-      metadata: {
-        result: isNotModified ? CALENDAR_FEED_RESULT.notModified : CALENDAR_FEED_RESULT.served,
-        seriesCount: feed.series.length,
-        tribeSlug: slug,
-        userId: feed.ownerUserId,
-      },
-    });
-
-    return isNotModified
-      ? createCalendarFeedNotModifiedResponse(etag)
-      : createCalendarFeedResponse({
-          content: icsFile.content,
-          contentType: icsFile.contentType,
-          etag,
-        });
+    return createServedFeedResponse({ feed, logger, request, slug });
   } catch (error) {
     logger.error({
       message: CALENDAR_FEED_ROUTE_LOG.failureMessage,

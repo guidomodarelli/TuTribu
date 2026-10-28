@@ -29,7 +29,6 @@
     padding-bottom: clamp(1rem, 3vw, 2rem);
 
     @media (min-width: 64rem) {
-      padding-bottom: 0;
       position: sticky;
       top: 3.5rem;
       align-self: start;

@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeAll, afterAll } from "vitest";
 import { render as renderComponent, screen } from "@testing-library/react";
+import type * as GolfoUiModule from "@golfo/ui";
 
 const refreshMock = vi.fn();
 
@@ -13,7 +14,7 @@ vi.mock("next/navigation", () => ({
 // Actual shared component behavior is exercised in golfo-ui.test.tsx.
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

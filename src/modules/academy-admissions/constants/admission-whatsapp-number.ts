@@ -6,7 +6,7 @@ export const ADMISSION_WHATSAPP_OPERATION = "update_admission_whatsapp";
 /** Distinguishes an exact local correction intent from submission and cancellation. */
 export const ADMISSION_WHATSAPP_INTENT_KIND = "whatsapp";
 /** Validates only the canonical number in own public DTOs, independently of raw-input normalization. */
-export const ADMISSION_WHATSAPP_CANONICAL_PATTERN = /^\+[1-9][0-9]{1,14}$/u;
+export const ADMISSION_WHATSAPP_CANONICAL_PATTERN = /^\+[1-9]\d{1,14}$/u;
 /** Records version lineage without retaining the current or former declared number. */
 export const ADMISSION_WHATSAPP_AUDIT_EVENT = "whatsapp_number_changed";
 /** Shares the versioned constraint identity with the ORM projection. */

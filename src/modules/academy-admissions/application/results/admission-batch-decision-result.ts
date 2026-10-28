@@ -28,7 +28,8 @@ export function projectAdmissionBatchDecisionResult(operationId: string, selecti
   const resultsById = new Map(original.result.results.map((item) => [item.admissionRequestId.toLowerCase(), item]));
   if (original.result.results.length !== selection.length || resultsById.size !== selection.length || selection.some((item) => !resultsById.has(item.admissionRequestId.toLowerCase()))) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   const items = selection.map((selected) => {
-    const result = resultsById.get(selected.admissionRequestId.toLowerCase())!;
+    const result = resultsById.get(selected.admissionRequestId.toLowerCase());
+    if (!result) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
     return "version" in result
       ? { requestId: selected.admissionRequestId, status: result.status, version: result.version, safeMessage: ADMISSION_BATCH_DECISION_MESSAGE[result.status] }
       : { requestId: selected.admissionRequestId, status: result.status, code: result.code, safeMessage: ADMISSION_ERROR_MESSAGE[result.code] };
@@ -37,7 +38,13 @@ export function projectAdmissionBatchDecisionResult(operationId: string, selecti
   const failedCount = items.length - completedCount;
   return admissionBatchResultSchema.parse({
     operationId, state: OPERATION_STATE.completed,
-    result: completedCount > 0 && failedCount > 0 ? ADMISSION_BATCH_RESULT.mixed : failedCount > 0 ? ADMISSION_BATCH_RESULT.allRejected : ADMISSION_BATCH_RESULT.allSucceeded,
+    result: summarizeCompletedAdmissionBatch(completedCount, failedCount),
     completedCount, failedCount, unresolvedCount: 0, items,
   });
+}
+
+/** @param completedCount - Confirmed decisions. @param failedCount - Rows that did not change. @returns The terminal summary for a completed batch. */
+function summarizeCompletedAdmissionBatch(completedCount: number, failedCount: number) {
+  if (failedCount === 0) return ADMISSION_BATCH_RESULT.allSucceeded;
+  return completedCount > 0 ? ADMISSION_BATCH_RESULT.mixed : ADMISSION_BATCH_RESULT.allRejected;
 }

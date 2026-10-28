@@ -23,6 +23,12 @@ import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-r
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { runPrivateBrowserRequest } from "@/tests/support/private-browser-request";
 
+/** @param error - Private browser or assertion failure, never persisted. @returns Only its fixed failure classification. */
+function classifyFailure(error: unknown) {
+  if (error instanceof Error && error.name === "TimeoutError") return VALIDATION.failureCodes.timeout;
+  return error instanceof Error && error.name === "AssertionError" ? VALIDATION.failureCodes.assertion : VALIDATION.failureCodes.unexpected;
+}
+
 describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledValue)("native terminal action focus", () => {
   it("keeps a keyboard destination after real cancellation and approval in both engines and viewports", async () => {
     const root = process.env[VALIDATION.artifactVariable];
@@ -99,7 +105,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
             await writeFile(join(root, "observations.json"), JSON.stringify({ observations, realMessages: 0 }, null, 2));
           } catch (error) {
             // Private browser errors can retain transport traces; project only fixed classifications and UI counters.
-            const code = error instanceof Error && error.name === "TimeoutError" ? VALIDATION.failureCodes.timeout : error instanceof Error && error.name === "AssertionError" ? VALIDATION.failureCodes.assertion : VALIDATION.failureCodes.unexpected;
+            const code = classifyFailure(error);
             const pages = browser.contexts().flatMap((context) => context.pages());
             const interfaces = await Promise.all(pages.map(async (page) => ({
               cancellationMessages: await page.getByText(ADMISSION_UI_COPY.cancelled, { exact: true }).count(),

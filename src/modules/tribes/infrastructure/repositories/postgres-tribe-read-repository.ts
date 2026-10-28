@@ -168,7 +168,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         where slug = ${slug}
         limit 1
       `);
-      const data = (result.rows?.[0] ?? null) as PostgresTribeRow | null;
+      const data = (result.rows[0] ?? null) as PostgresTribeRow | null;
 
       if (!data) {
         return null;
@@ -201,7 +201,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           on tribes.slug = ${slug}
         limit 1
       `);
-      const data = (result.rows?.[0] ?? null) as
+      const data = (result.rows[0] ?? null) as
         | PostgresMembershipAccessWithTribeRow
         | null;
       const status = normalizeMembershipStatus(data?.status ?? null);
@@ -236,7 +236,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         left join public.tribes
           on tribes.slug = ${slug}
       `);
-      const data = (result.rows?.[0] ?? null) as PostgresMembershipAccessRow | null;
+      const data = (result.rows[0] ?? null) as PostgresMembershipAccessRow | null;
       const status = normalizeMembershipStatus(data?.status ?? null);
 
       if (!status) {
@@ -285,7 +285,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         order by tribes.name asc
       `);
 
-      return ((result.rows ?? []) as Array<
+      return (result.rows as Array<
         PostgresMembershipTribeRow & {
           has_channel_read_access?: boolean | null;
           has_community_access?: boolean | null;
@@ -322,7 +322,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         from public.list_visible_tribe_members_by_slug(${slug})
       `);
 
-      return ((result.rows ?? []) as PostgresTribeMemberRow[]).map(
+      return (result.rows as PostgresTribeMemberRow[]).map(
         mapTribeMemberRow
       );
     });

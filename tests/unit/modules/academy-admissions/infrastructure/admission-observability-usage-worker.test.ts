@@ -25,7 +25,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native usage and w
       const issued = await fixture.issue();
       if (issued.state !== "completed" || issued.result.outcome !== "issued") throw new Error("Usage metrics fixture failed: challenge_unavailable");
       expect(await reader.readMetrics(scope)).toMatchObject({ verification: [{ channel: "email", issued: 1, verified: 0, failedAttempts: 0 }], deliveries: { queued: 1 }, attempts: { inFlight: 0 }, usage: { policyVersion: 1, verificationToday: 0, notificationToday: 0 } });
-      const repository = new PostgresMessageDeliveryRepository((actor, run) => database.withContext({ userId: actor, email: null }, run), async () => true, async () => fixture.config);
+      const repository = new PostgresMessageDeliveryRepository({ execute: (actor, run) => database.withContext({ userId: actor, email: null }, run), authorizeMaintenance: async () => true, readSecurityConfig: async () => fixture.config });
       const claim = (await repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
       const authorization = await repository.authorize(claim, randomUUID());
       if (authorization.outcome !== "authorized") throw new Error("Usage metrics fixture failed: charged_marker_unavailable");

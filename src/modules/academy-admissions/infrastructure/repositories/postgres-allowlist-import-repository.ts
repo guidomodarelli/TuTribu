@@ -53,7 +53,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
   /** @param database - Authorized transaction. @param context - Current actor/tenant. @param importId - Exact own preview. @param writing - Lock intent selected by server operation. @returns Current private record or closed absence after expiry/legacy context. */
   private async record(database: RequestDatabase, context: AuthorizedAdmissionContext, importId: string, writing = false) {
     const record = (await database.execute<AllowlistImportRecord>(sql`select * from public.academy_allowlist_imports where id=${importId} and tribe_id=${context.tribeId} and actor_user_id=${context.userId} ${writing ? sql`for update` : sql`for share`}`)).rows[0];
-    if (!record || !record.security_environment || !record.security_epoch || new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (!record?.security_environment || !record.security_epoch || new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     return record;
   }
   /** @param database - Authorized transaction. @param importId - Existing own record. @param tribeId - Native tenant. @returns Original ordered private rows without DTO/schema row validation. */
@@ -79,7 +79,6 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
   }
   /** @param input - Explicit bounded parsed file, native scope and exact policy version. @returns Original preview reference, without creating or editing list entries. */
   async preview(input: Parameters<AllowlistImportRepository["preview"]>[0]): Promise<AdmissionOperationResult<AllowlistImportReference>> {
-    if (!input.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const operation = REAUTHENTICATION_OPERATION.previewAllowlistImport;
     const command: AdmissionOperationCommand = { actorUserId: input.context.userId, tribeId: input.context.tribeId, operationType: operation, idempotencyKey: input.operationId, intent: { confirmed: true, expectedPolicyVersion: input.expectedPolicyVersion, contactType: input.contactType, csvText: input.csvText } };
     const ledger = this.ledger(input.context, operation, input.context.tribeId);
@@ -127,7 +126,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
   }
   /** @param input - Explicit selected pending rows and current scope. @returns Original bounded confirmation progress/result. */
   async confirm(input: Parameters<AllowlistImportRepository["confirm"]>[0]): Promise<AdmissionOperationResult<AllowlistImportConfirmationResult>> {
-    if (!input.confirmed || !Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || input.selectedRows.length === 0 || input.selectedRows.length > ADMISSION_LIMIT.csvDataRowCount || new Set(input.selectedRows).size !== input.selectedRows.length) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if (!Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || input.selectedRows.length === 0 || input.selectedRows.length > ADMISSION_LIMIT.csvDataRowCount || new Set(input.selectedRows).size !== input.selectedRows.length) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const selectedRows = [...input.selectedRows].sort((first, second) => first - second), operation = REAUTHENTICATION_OPERATION.confirmAllowlistImport;
     const command: AdmissionOperationCommand = { actorUserId: input.context.userId, tribeId: input.context.tribeId, operationType: operation, idempotencyKey: input.operationId, intent: { confirmed: true, importId: input.importId, expectedVersion: input.expectedVersion, selectedRows } };
     const ledger = this.ledger(input.context, operation, input.importId);
@@ -146,38 +145,49 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
     const config = await this.readSecurityConfig();
     if (config.recoveryLocked || config.environment !== record.security_environment || config.securityEpoch !== record.security_epoch || !config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].keys.has(record.fingerprint_key_id)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     if (policy.version !== record.policy_version || policy.contact_type !== record.contact_type) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-    if (record.active_operation_id !== ledgerId) {
-      const accepted = (await database.execute(sql`select operation_id from public.academy_allowlist_import_selections where operation_id=${ledgerId} and import_id=${record.id} and tribe_id=${record.tribe_id} and actor_user_id=${record.actor_user_id}`)).rows[0];
-      if (record.active_operation_id) {
-        const active = (await database.execute<{ state: string; lease_until: Date | string | null }>(sql`select state,lease_until from public.academy_admission_operations where id=${record.active_operation_id} and actor_user_id=${input.context.userId} and tribe_id=${input.context.tribeId} for update`)).rows[0];
-        if (active?.state === OPERATION_STATE.started && active.lease_until && new Date(active.lease_until) > await admissionDatabaseNow(database)) throw new AdmissionOperationError(accepted ? ADMISSION_ERROR_CODE.operationUnresolved : ADMISSION_ERROR_CODE.allowlistImportConflict);
-      }
-      if (accepted) {
-        const remaining = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and row_number in (${sql.join(selectedRows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}) and outcome is null`)).rows[0].count;
-        if (remaining > 0) {
-          await database.execute(sql`update public.academy_allowlist_imports set active_operation_id=${ledgerId} where id=${record.id}`);
-          return { completed: false };
-        }
-        return { completed: true, result: await this.confirmationResult(database, record) };
-      }
-      const rows = await this.rows(database, input.importId, input.context.tribeId), snapshot = mapAllowlistImport(record, rows), now = await admissionDatabaseNow(database);
-      const selected = selectAllowlistImportRows({ preview: snapshot, expectedVersion: input.expectedVersion, selectedRows, confirmed: true, context: { actorUserId: input.context.userId, tribeId: input.context.tribeId, policyVersion: policy.version, contactType: policy.contact_type, now } });
-      const allSelected = selected.rows.filter((row) => row.selected).map((row) => row.rowNumber);
-      const updated = (await database.execute(sql`update public.academy_allowlist_imports set state=${selected.state},selected_rows=array[${sql.join(allSelected.map((rowNumber) => sql`${rowNumber}`), sql`,`)}]::integer[],version=${selected.version},active_operation_id=${ledgerId} where id=${record.id} and version=${record.version} returning id`)).rows[0];
-      if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.allowlistImportConflict);
-      await database.execute(sql`insert into public.academy_allowlist_import_selections(operation_id,import_id,tribe_id,actor_user_id,expected_version,selected_rows,accepted_at) values (${ledgerId},${record.id},${record.tribe_id},${record.actor_user_id},${input.expectedVersion},array[${sql.join(selectedRows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}]::integer[],${now})`);
-      return { completed: false };
-    }
+    if (record.active_operation_id !== ledgerId) return this.acceptSelection(database, ledgerId, { input, selectedRows, record, policy });
     const pending = (await database.execute<AllowlistImportStoredRow>(sql`select * from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and row_number in (${sql.join(selectedRows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}) and outcome is null order by row_number limit ${ALLOWLIST_IMPORT_BLOCK_SIZE} for update`)).rows;
-    if (pending.length) {
-      for (const row of pending) await this.confirmRow(database, ledgerId, record, row, config, input.context);
-      const currentConfig = await this.readSecurityConfig();
-      if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !currentConfig.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].keys.has(config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].activeKeyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      if (new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      const completed = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and outcome is not null`)).rows[0].count;
-      await database.execute(sql`update public.academy_allowlist_imports set completed_rows=${completed},version=version+1 where id=${record.id} and version=${record.version}`);
-      return { completed: false };
+    if (pending.length) return this.confirmBlock(database, ledgerId, { input, record, pending, config });
+    return this.completeConfirmation(database, ledgerId, record);
+  }
+
+  /** @param database - One original transaction. @param ledgerId - Actual current claim. @param step - Immutable public command, stable explicit rows, locked own import and current policy. @returns Accepted selection progress, or the final snapshot of an already accepted selection. @throws AdmissionOperationError while another live confirmation owns the import. */
+  private async acceptSelection(database: RequestDatabase, ledgerId: string, { input, selectedRows, record, policy }: { input: Parameters<AllowlistImportRepository["confirm"]>[0]; selectedRows: number[]; record: AllowlistImportRecord; policy: Awaited<ReturnType<PostgresAllowlistImportRepository["policy"]>> }): Promise<{ completed: false } | { completed: true; result: AllowlistImportConfirmationResult }> {
+    const accepted = (await database.execute(sql`select operation_id from public.academy_allowlist_import_selections where operation_id=${ledgerId} and import_id=${record.id} and tribe_id=${record.tribe_id} and actor_user_id=${record.actor_user_id}`)).rows[0];
+    if (record.active_operation_id) {
+      const active = (await database.execute<{ state: string; lease_until: Date | string | null }>(sql`select state,lease_until from public.academy_admission_operations where id=${record.active_operation_id} and actor_user_id=${input.context.userId} and tribe_id=${input.context.tribeId} for update`)).rows[0];
+      if (active?.state === OPERATION_STATE.started && active.lease_until && new Date(active.lease_until) > await admissionDatabaseNow(database)) throw new AdmissionOperationError(accepted ? ADMISSION_ERROR_CODE.operationUnresolved : ADMISSION_ERROR_CODE.allowlistImportConflict);
     }
+    if (accepted) {
+      const remaining = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and row_number in (${sql.join(selectedRows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}) and outcome is null`)).rows[0].count;
+      if (remaining > 0) {
+        await database.execute(sql`update public.academy_allowlist_imports set active_operation_id=${ledgerId} where id=${record.id}`);
+        return { completed: false };
+      }
+      return { completed: true, result: await this.confirmationResult(database, record) };
+    }
+    const rows = await this.rows(database, input.importId, input.context.tribeId), snapshot = mapAllowlistImport(record, rows), now = await admissionDatabaseNow(database);
+    const selected = selectAllowlistImportRows({ preview: snapshot, expectedVersion: input.expectedVersion, selectedRows, confirmed: true, context: { actorUserId: input.context.userId, tribeId: input.context.tribeId, policyVersion: policy.version, contactType: policy.contact_type, now } });
+    const allSelected = selected.rows.filter((row) => row.selected).map((row) => row.rowNumber);
+    const updated = (await database.execute(sql`update public.academy_allowlist_imports set state=${selected.state},selected_rows=array[${sql.join(allSelected.map((rowNumber) => sql`${rowNumber}`), sql`,`)}]::integer[],version=${selected.version},active_operation_id=${ledgerId} where id=${record.id} and version=${record.version} returning id`)).rows[0];
+    if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.allowlistImportConflict);
+    await database.execute(sql`insert into public.academy_allowlist_import_selections(operation_id,import_id,tribe_id,actor_user_id,expected_version,selected_rows,accepted_at) values (${ledgerId},${record.id},${record.tribe_id},${record.actor_user_id},${input.expectedVersion},array[${sql.join(selectedRows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}]::integer[],${now})`);
+    return { completed: false };
+  }
+
+  /** @param database - One original transaction. @param ledgerId - Actual current claim. @param block - Immutable public command, locked own import, pending selected rows and the protected key snapshot. @returns Progress after confirming one bounded block. @throws AdmissionOperationError when protection or lifetime changed meanwhile. */
+  private async confirmBlock(database: RequestDatabase, ledgerId: string, { input, record, pending, config }: { input: Parameters<AllowlistImportRepository["confirm"]>[0]; record: AllowlistImportRecord; pending: AllowlistImportStoredRow[]; config: MessagingSecurityConfig }): Promise<{ completed: false }> {
+    for (const row of pending) await this.confirmRow(database, ledgerId, { record, row, config, context: input.context });
+    const currentConfig = await this.readSecurityConfig();
+    if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !currentConfig.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].keys.has(config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].activeKeyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    const completed = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and outcome is not null`)).rows[0].count;
+    await database.execute(sql`update public.academy_allowlist_imports set completed_rows=${completed},version=version+1 where id=${record.id} and version=${record.version}`);
+    return { completed: false };
+  }
+
+  /** @param database - One original transaction. @param ledgerId - Actual current claim. @param record - Locked own import. @returns The immutable final snapshot, completing the import once every selected row has an outcome. */
+  private async completeConfirmation(database: RequestDatabase, ledgerId: string, record: AllowlistImportRecord): Promise<{ completed: true; result: AllowlistImportConfirmationResult }> {
     const remaining = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and row_number in (${sql.join(record.selected_rows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}) and outcome is null`)).rows[0].count;
     if (remaining === 0 && record.state !== ADMISSION_IMPORT_PUBLIC_STATE.completed) {
       await database.execute(sql`update public.academy_allowlist_import_rows set outcome=${ADMISSION_IMPORT_ROW_OUTCOME.skipped},confirmed_operation_id=${ledgerId},committed_at=clock_timestamp() where import_id=${record.id} and tribe_id=${record.tribe_id} and outcome is null and row_number not in (${sql.join(record.selected_rows.map((rowNumber) => sql`${rowNumber}`), sql`,`)})`);
@@ -190,13 +200,14 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
     }
     return { completed: true, result: await this.confirmationResult(database, record) };
   }
+
   /** @param database - Current transaction. @param record - Actual own progress. @returns Aggregate original outcome counts, never unconfirmed work. */
   private async confirmationResult(database: RequestDatabase, record: AllowlistImportRecord): Promise<AllowlistImportConfirmationResult> {
     const counts = (await database.execute<{ added: number; unchanged: number; skipped: number; conflict: number }>(sql`select count(*) filter(where outcome='added')::int as added,count(*) filter(where outcome='unchanged')::int as unchanged,count(*) filter(where outcome='skipped')::int as skipped,count(*) filter(where outcome='conflict')::int as conflict from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id}`)).rows[0];
     return { importId: record.id, sourceVersion: record.version, state: record.state, counts: { selected: record.selected_rows.length, ...counts } };
   }
-  /** @param database - Original block transaction. @param ledgerId - Parent original operation. @param record - Locked own import. @param row - Pending private row, never a provider DTO. @param config - Current protected key/epoch snapshot. @param context - Current native leader. @returns After an actual entry/no-op/conflict and its row outcome are staged together. */
-  private async confirmRow(database: RequestDatabase, ledgerId: string, record: AllowlistImportRecord, row: AllowlistImportStoredRow, config: MessagingSecurityConfig, context: AuthorizedAdmissionContext): Promise<void> {
+  /** @param database - Original block transaction. @param ledgerId - Parent original operation. @param work - Locked own import (`record`), pending private row, never a provider DTO (`row`), current protected key/epoch snapshot (`config`) and current native leader (`context`). @returns After an actual entry/no-op/conflict and its row outcome are staged together. */
+  private async confirmRow(database: RequestDatabase, ledgerId: string, { record, row, config, context }: { record: AllowlistImportRecord; row: AllowlistImportStoredRow; config: MessagingSecurityConfig; context: AuthorizedAdmissionContext }): Promise<void> {
     const validation = row.validation_result, contact = validation.contact;
     if (validation.errors.length || !contact || !record.selected_rows.includes(row.row_number)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     const existing = (await database.execute<AllowlistEntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${record.tribe_id} and contact_type=${record.contact_type} and normalized_contact=${contact.value} for update`)).rows[0];

@@ -74,7 +74,7 @@ function sameContact(first: AdmissionContact | null, second: AdmissionContact | 
 function hasCurrentBaseEmail(facts: AdmissionSubmissionFacts): boolean {
   const evidence = facts.baseEvidence;
   const account = facts.account;
-  return Boolean(account && account.googleAccount && evidence && !evidence.invalidated
+  return Boolean(account?.googleAccount && evidence && !evidence.invalidated
     && evidence.authority !== ADMISSION_GLOBAL_EMAIL_AUTHORITY.insufficient
     && evidence.userId === account.userId && evidence.accountId === account.googleAccount.id
     && evidence.subject === account.googleAccount.subject
@@ -135,66 +135,104 @@ function hasUsableAppliedProof(facts: AdmissionSubmissionFacts, proof: Admission
  */
 function evaluateAdmission(
   facts: AdmissionSubmissionFacts,
-  stage: "submission" | "review" | "preview",
+  stage: AdmissionEvaluationStage,
   appliedProof: AdmissionLocalProofFacts | null,
   requestId: string | null,
 ): AdmissionEligibilityResult {
-  const denied = (reason: DenialReason): AdmissionEligibilityResult => ({ outcome: ADMISSION_OUTCOME.denied, reason });
-  if (!facts.account) return denied(ADMISSION_DENIAL_REASON.unauthenticated);
+  const account = facts.account;
+  if (!account) return deniedAdmission(ADMISSION_DENIAL_REASON.unauthenticated);
   const membership = facts.membership;
-  if (membership && (membership.tribeId !== facts.tribe.id || membership.userId !== facts.account.userId)) return denied(ADMISSION_DENIAL_REASON.scopeMismatch);
+  if (membership && (membership.tribeId !== facts.tribe.id || membership.userId !== account.userId)) return deniedAdmission(ADMISSION_DENIAL_REASON.scopeMismatch);
   if (membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted) {
     return { outcome: ADMISSION_OUTCOME.alreadyMember, membershipEffect: ADMISSION_MEMBERSHIP_EFFECT.none };
   }
   const policy = facts.policy;
-  if (!facts.tribe.isAcademy || !facts.tribe.controlActivated || !facts.tribe.evaluatorEnabled || facts.tribe.recoveryLocked || !policy?.isOpen || !policy.activatedAt) return denied(ADMISSION_DENIAL_REASON.closed);
-  const isSupportedPolicy = (policy.mode === ADMISSION_POLICY_MODE.manualReview || policy.mode === ADMISSION_POLICY_MODE.allowlist)
-    && (policy.contactType === ADMISSION_CONTACT_TYPE.email || policy.contactType === ADMISSION_CONTACT_TYPE.phone);
-  if (!isSupportedPolicy) return denied(ADMISSION_DENIAL_REASON.closed);
-  if (policy.tribeId !== facts.tribe.id) return denied(ADMISSION_DENIAL_REASON.scopeMismatch);
-  if (membership) {
-    const isCommercial = (membership.status === TRIBE_MEMBERSHIP_STATUS.blocked && membership.statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked)
-      || (membership.status === TRIBE_MEMBERSHIP_STATUS.removed && membership.statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive);
-    if (!isCommercial || membership.role !== TRIBE_MEMBER_ROLE.tribemate) return denied(ADMISSION_DENIAL_REASON.membershipRestricted);
-    if (membership.commercialRecoveryStatus === null) return denied(ADMISSION_DENIAL_REASON.recoveryUnknown);
-  }
-  if (stage !== "preview" && policy.requiresWhatsappNumber && !facts.whatsappNumber) return denied(ADMISSION_DENIAL_REASON.whatsappNumberRequired);
-  if (facts.contact && facts.contact.type !== policy.contactType) return denied(ADMISSION_DENIAL_REASON.contactTypeMismatch);
-  if (facts.contact?.type === ADMISSION_CONTACT_TYPE.email && facts.contact.value !== facts.account.normalizedEmail) return denied(ADMISSION_DENIAL_REASON.contactAccountMismatch);
-  if (policy.contactType === ADMISSION_CONTACT_TYPE.phone && policy.mode === ADMISSION_POLICY_MODE.allowlist && !policy.requiresAdditionalVerification) return denied(ADMISSION_DENIAL_REASON.closed);
+  if (!facts.tribe.isAcademy || !facts.tribe.controlActivated || !facts.tribe.evaluatorEnabled || facts.tribe.recoveryLocked || !policy?.isOpen || !policy.activatedAt) return deniedAdmission(ADMISSION_DENIAL_REASON.closed);
+  // Stored policies may carry an obsolete discriminator; close them instead of falling through.
+  const storedMode = policy.mode as string, storedContactType = policy.contactType as string;
+  const isSupportedPolicy = (storedMode === ADMISSION_POLICY_MODE.manualReview || storedMode === ADMISSION_POLICY_MODE.allowlist)
+    && (storedContactType === ADMISSION_CONTACT_TYPE.email || storedContactType === ADMISSION_CONTACT_TYPE.phone);
+  if (!isSupportedPolicy) return deniedAdmission(ADMISSION_DENIAL_REASON.closed);
+  const blocked = admissionBlockReason({ facts, account, policy, stage });
+  if (blocked) return deniedAdmission(blocked);
 
-  let evidenceKind: EvidenceKind = facts.contact ? ADMISSION_EVIDENCE_KIND.declared : ADMISSION_EVIDENCE_KIND.none;
+  const evidenceKind = resolveEvidenceKind({ facts, policy, stage, appliedProof, requestId });
+  if (evidenceKind === null) return { outcome: ADMISSION_OUTCOME.verificationRequired, reason: ADMISSION_DENIAL_REASON.proofRequired };
+  const hasTrustedContact = evidenceKind === ADMISSION_EVIDENCE_KIND.base || evidenceKind === ADMISSION_EVIDENCE_KIND.local;
+  if (hasTrustedContact && facts.contactBinding && sameContact(facts.contactBinding.contact, facts.contact) && facts.contactBinding.ownerUserId !== account.userId) return deniedAdmission(ADMISSION_DENIAL_REASON.contactConflict);
+
+  const invitation = facts.source.kind === ADMISSION_SOURCE_KIND.personal ? facts.source.invitation : null;
+  const invitationDenial = invitation ? invitationDenialReason({ invitation, facts, policy, stage, hasTrustedContact }) : null;
+  if (invitationDenial) return deniedAdmission(invitationDenial);
+  return evaluateAllowlistOutcome({ facts, account, policy, invitation, evidenceKind, hasTrustedContact });
+}
+
+type AdmissionEvaluationStage = "submission" | "review" | "preview";
+type AdmissionAccountFacts = NonNullable<AdmissionSubmissionFacts["account"]>;
+type PersonalInvitationFacts = Extract<AdmissionSourceFacts, { kind: "personal" }>["invitation"];
+
+/** @param reason - Closed denial reason. @returns The denied outcome. */
+function deniedAdmission(reason: DenialReason): AdmissionEligibilityResult {
+  return { outcome: ADMISSION_OUTCOME.denied, reason };
+}
+
+/** @param membership - Current non-legible membership. @returns Why that membership cannot be recovered by admission, or `null` for a commercial tribemate recovery. */
+function membershipRestriction(membership: AdmissionMembershipFacts): DenialReason | null {
+  const isCommercial = (membership.status === TRIBE_MEMBERSHIP_STATUS.blocked && membership.statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked)
+    || (membership.status === TRIBE_MEMBERSHIP_STATUS.removed && membership.statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive);
+  if (!isCommercial || membership.role !== TRIBE_MEMBER_ROLE.tribemate) return ADMISSION_DENIAL_REASON.membershipRestricted;
+  return membership.commercialRecoveryStatus === null ? ADMISSION_DENIAL_REASON.recoveryUnknown : null;
+}
+
+/** @returns The first policy, membership, declared-number or contact rule the presentation breaks, or `null`. */
+function admissionBlockReason({ facts, account, policy, stage }: { facts: AdmissionSubmissionFacts; account: AdmissionAccountFacts; policy: AdmissionPolicy; stage: AdmissionEvaluationStage }): DenialReason | null {
+  if (policy.tribeId !== facts.tribe.id) return ADMISSION_DENIAL_REASON.scopeMismatch;
+  const restriction = facts.membership ? membershipRestriction(facts.membership) : null;
+  if (restriction) return restriction;
+  if (stage !== "preview" && policy.requiresWhatsappNumber && !facts.whatsappNumber) return ADMISSION_DENIAL_REASON.whatsappNumberRequired;
+  if (facts.contact && facts.contact.type !== policy.contactType) return ADMISSION_DENIAL_REASON.contactTypeMismatch;
+  if (facts.contact?.type === ADMISSION_CONTACT_TYPE.email && facts.contact.value !== account.normalizedEmail) return ADMISSION_DENIAL_REASON.contactAccountMismatch;
+  if (policy.contactType === ADMISSION_CONTACT_TYPE.phone && policy.mode === ADMISSION_POLICY_MODE.allowlist && !policy.requiresAdditionalVerification) return ADMISSION_DENIAL_REASON.closed;
+  return null;
+}
+
+/** @returns Local evidence when a usable proof exists, base evidence for a current Google email, else declared or none; `null` when the policy requires a proof that is missing. */
+function resolveEvidenceKind({ facts, policy, stage, appliedProof, requestId }: { facts: AdmissionSubmissionFacts; policy: AdmissionPolicy; stage: AdmissionEvaluationStage; appliedProof: AdmissionLocalProofFacts | null; requestId: string | null }): EvidenceKind | null {
   const hasAppliedEvidence = stage === "review" && hasUsableAppliedProof(facts, appliedProof, requestId);
   if (policy.requiresAdditionalVerification) {
     const hasLocalEvidence = stage === "review" ? hasAppliedEvidence : hasAvailableLocalProof(facts);
-    if (!hasLocalEvidence) return { outcome: ADMISSION_OUTCOME.verificationRequired, reason: ADMISSION_DENIAL_REASON.proofRequired };
-    evidenceKind = ADMISSION_EVIDENCE_KIND.local;
-  } else if (hasAppliedEvidence) {
-    evidenceKind = ADMISSION_EVIDENCE_KIND.local;
-  } else if (hasCurrentBaseEmail(facts)) evidenceKind = ADMISSION_EVIDENCE_KIND.base;
-  const hasTrustedContact = evidenceKind === ADMISSION_EVIDENCE_KIND.base || evidenceKind === ADMISSION_EVIDENCE_KIND.local;
-  if (hasTrustedContact && facts.contactBinding && sameContact(facts.contactBinding.contact, facts.contact) && facts.contactBinding.ownerUserId !== facts.account.userId) return denied(ADMISSION_DENIAL_REASON.contactConflict);
-
-  const invitation = facts.source.kind === ADMISSION_SOURCE_KIND.personal ? facts.source.invitation : null;
-  if (invitation) {
-    const expectedStatus = stage === "review" ? ADMISSION_INVITATION_STATUS.redeemed : ADMISSION_INVITATION_STATUS.active;
-    const isNewInvitationExpired = stage !== "review" && invitation.expiresAt && facts.now.getTime() >= invitation.expiresAt.getTime();
-    if (invitation.tribeId !== facts.tribe.id || invitation.status !== expectedStatus || invitation.authorizationRevoked || isNewInvitationExpired) return denied(ADMISSION_DENIAL_REASON.invitationUnusable);
-    if (stage !== "review" && policy.contactType === ADMISSION_CONTACT_TYPE.phone && !policy.requiresAdditionalVerification) return denied(ADMISSION_DENIAL_REASON.phoneInvitationUnavailable);
-    if (!hasTrustedContact || !sameContact(invitation.contact, facts.contact)) return denied(ADMISSION_DENIAL_REASON.invitationRecipientUnproven);
+    return hasLocalEvidence ? ADMISSION_EVIDENCE_KIND.local : null;
   }
+  if (hasAppliedEvidence) return ADMISSION_EVIDENCE_KIND.local;
+  if (hasCurrentBaseEmail(facts)) return ADMISSION_EVIDENCE_KIND.base;
+  return facts.contact ? ADMISSION_EVIDENCE_KIND.declared : ADMISSION_EVIDENCE_KIND.none;
+}
+
+/** @returns Why the personal invitation cannot be used at this stage by this contact, or `null`. */
+function invitationDenialReason({ invitation, facts, policy, stage, hasTrustedContact }: { invitation: PersonalInvitationFacts; facts: AdmissionSubmissionFacts; policy: AdmissionPolicy; stage: AdmissionEvaluationStage; hasTrustedContact: boolean }): DenialReason | null {
+  const expectedStatus = stage === "review" ? ADMISSION_INVITATION_STATUS.redeemed : ADMISSION_INVITATION_STATUS.active;
+  const isNewInvitationExpired = stage !== "review" && invitation.expiresAt && facts.now.getTime() >= invitation.expiresAt.getTime();
+  if (invitation.tribeId !== facts.tribe.id || invitation.status !== expectedStatus || invitation.authorizationRevoked || isNewInvitationExpired) return ADMISSION_DENIAL_REASON.invitationUnusable;
+  if (stage !== "review" && policy.contactType === ADMISSION_CONTACT_TYPE.phone && !policy.requiresAdditionalVerification) return ADMISSION_DENIAL_REASON.phoneInvitationUnavailable;
+  if (!hasTrustedContact || !sameContact(invitation.contact, facts.contact)) return ADMISSION_DENIAL_REASON.invitationRecipientUnproven;
+  return null;
+}
+
+/** @returns Denial for an unmet list without exceptions, pending for manual review or an exception, else admission with its membership effect. */
+function evaluateAllowlistOutcome({ facts, account, policy, invitation, evidenceKind, hasTrustedContact }: { facts: AdmissionSubmissionFacts; account: AdmissionAccountFacts; policy: AdmissionPolicy; invitation: PersonalInvitationFacts | null; evidenceKind: EvidenceKind; hasTrustedContact: boolean }): AdmissionEligibilityResult {
   const entry = facts.allowlistEntry;
-  const matchesAllowlist = Boolean(hasTrustedContact && entry && entry.tribeId === facts.tribe.id && entry.enabled
-    && sameContact(entry.contact, facts.contact) && (entry.boundUserId === null || entry.boundUserId === facts.account.userId));
+  const matchesAllowlist = hasTrustedContact && entry?.tribeId === facts.tribe.id && entry.enabled
+    && sameContact(entry.contact, facts.contact) && (entry.boundUserId === null || entry.boundUserId === account.userId);
   const requiresAllowlist = invitation ? invitation.requiresAllowlist : policy.mode === ADMISSION_POLICY_MODE.allowlist;
   let requiresExceptionReason = false;
   if (requiresAllowlist && !matchesAllowlist) {
-    if (invitation || !policy.allowCommonExceptions) return denied(ADMISSION_DENIAL_REASON.allowlistUnmet);
+    if (invitation || !policy.allowCommonExceptions) return deniedAdmission(ADMISSION_DENIAL_REASON.allowlistUnmet);
     requiresExceptionReason = true;
   }
   if (policy.mode === ADMISSION_POLICY_MODE.manualReview || requiresExceptionReason) {
     return { outcome: ADMISSION_OUTCOME.pending, evidenceKind, bindContact: hasTrustedContact, requiresExceptionReason };
   }
+  const membership = facts.membership;
   return {
     outcome: ADMISSION_OUTCOME.admitted, evidenceKind, bindContact: hasTrustedContact,
     membershipEffect: membership ? ADMISSION_MEMBERSHIP_EFFECT.recover : ADMISSION_MEMBERSHIP_EFFECT.create,
@@ -234,20 +272,24 @@ export type AdmissionAction = (typeof ADMISSION_ACTION)[keyof typeof ADMISSION_A
  * @returns Whether the current actor can perform this action on this resource.
  */
 export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, action: AdmissionAction, resource: { tribeId: string; applicantUserId?: string }): boolean {
-  if (!actor || actor.tribeId !== resource.tribeId) return false;
+  if (actor?.tribeId !== resource.tribeId) return false;
   if (action === ADMISSION_ACTION.readSecret || action === ADMISSION_ACTION.grantProductOrRole) return false;
   if (action === ADMISSION_ACTION.readOwnRequest || action === ADMISSION_ACTION.cancelOwnRequest || action === ADMISSION_ACTION.attachOwnProof || action === ADMISSION_ACTION.updateOwnWhatsappNumber) return actor.userId === resource.applicantUserId;
   const isLeader = actor.status === TRIBE_MEMBERSHIP_STATUS.active && actor.role === TRIBE_MEMBER_ROLE.leader;
   const isReviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
   if (action === ADMISSION_ACTION.decideRequest || action === ADMISSION_ACTION.rejectRequest) return isReviewer && Boolean(resource.applicantUserId) && actor.userId !== resource.applicantUserId;
   if (action === ADMISSION_ACTION.readInbox || action === ADMISSION_ACTION.readReviewHistory || action === ADMISSION_ACTION.readConnectionAlert || action === ADMISSION_ACTION.updateOwnNotificationPreferences) return isReviewer;
-  if (action === ADMISSION_ACTION.manageConnection) return isLeader;
-  return isLeader && (
-    action === ADMISSION_ACTION.readPolicy || action === ADMISSION_ACTION.configurePolicy || action === ADMISSION_ACTION.manageAllowlist
-    || action === ADMISSION_ACTION.manageInvitations || action === ADMISSION_ACTION.readConnectionMetadata
-    || action === ADMISSION_ACTION.cancelByManagement || action === ADMISSION_ACTION.allowEarlyRetry
-    || action === ADMISSION_ACTION.readAudit
-  );
+  // Every remaining action is listed explicitly so a new action stays denied until it is classified here.
+  switch (action) {
+    case ADMISSION_ACTION.manageConnection:
+    case ADMISSION_ACTION.readPolicy: case ADMISSION_ACTION.configurePolicy: case ADMISSION_ACTION.manageAllowlist:
+    case ADMISSION_ACTION.manageInvitations: case ADMISSION_ACTION.readConnectionMetadata:
+    case ADMISSION_ACTION.cancelByManagement: case ADMISSION_ACTION.allowEarlyRetry:
+    case ADMISSION_ACTION.readAudit:
+      return isLeader;
+    default:
+      return false;
+  }
 }
 
 /** Retains attached historical proof without treating its original apply window as expiry. */
@@ -265,7 +307,7 @@ export type PendingAdmissionReviewFacts = AdmissionSubmissionFacts & {
  */
 export function evaluatePendingAdmissionReview(facts: PendingAdmissionReviewFacts): { eligible: boolean; requiresExplicitDecision: true; reason?: DenialReason } {
   const failure = (reason: DenialReason) => ({ eligible: false, requiresExplicitDecision: true as const, reason });
-  if (!facts.account || facts.request.userId !== facts.account.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
+  if (facts.account?.userId !== facts.request.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
   if (!canPerformAdmissionAction(facts.reviewer, ADMISSION_ACTION.decideRequest, { tribeId: facts.tribe.id, applicantUserId: facts.request.userId })) return failure(ADMISSION_DENIAL_REASON.reviewerUnauthorized);
   const evaluation = evaluatePendingAdmissionEligibility(facts);
   if (!evaluation.eligible) return failure(evaluation.reason);
@@ -282,7 +324,7 @@ export function evaluatePendingAdmissionEligibility(facts: Omit<PendingAdmission
   | { eligible: false; reason: DenialReason }
   | { eligible: true; requiresExceptionReason: boolean } {
   const failure = (reason: DenialReason) => ({ eligible: false as const, reason });
-  if (!facts.account || facts.request.userId !== facts.account.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
+  if (facts.account?.userId !== facts.request.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
   if (facts.now.getTime() >= facts.request.expiresAt.getTime()) return failure(ADMISSION_DENIAL_REASON.requestExpired);
   const attached = facts.request.attachedEvidence;
   if (attached?.status === ADMISSION_PROOF_STATUS.invalid) return failure(ADMISSION_DENIAL_REASON.evidenceRevoked);

@@ -114,26 +114,34 @@ export function groupTribeEventExceptionsByEvent(
 }
 
 /**
+ * Series, attendance summaries, and exceptions to expand into occurrences.
+ */
+export type TribeEventOccurrenceListing = {
+  attendances: TribeEventOccurrenceAttendance[];
+  events: TribeEvent[];
+  exceptions: readonly TribeEventOccurrenceException[];
+};
+
+/**
  * Expands every event into its occurrences inside the range, applying its
  * cancelled and moved dates and attaching the attendance summary of each slot
  * (keyed by the original start, so a moved date keeps its answers), sorted
  * by effective start time.
  *
- * @param events - Series to expand.
- * @param attendances - Attendance summaries of the slots in the range.
- * @param exceptions - Exceptions of those series.
+ * @param listing - Series to expand (`events`), attendance summaries of the
+ *   slots in the range (`attendances`), and exceptions of those series
+ *   (`exceptions`).
  * @param range - Visible range, in UTC.
  * @param rangeMatch - How occurrences are matched against the range; see
  *   `expandTribeEventOccurrencesWithExceptions`. Defaults to matching by start.
  * @returns Occurrence results ready for the UI.
  */
 export function buildTribeEventOccurrences(
-  events: TribeEvent[],
-  attendances: TribeEventOccurrenceAttendance[],
-  exceptions: readonly TribeEventOccurrenceException[],
+  listing: TribeEventOccurrenceListing,
   range: TribeEventDateRange,
   rangeMatch?: TribeEventRangeMatch
 ): TribeEventOccurrenceResult[] {
+  const { attendances, events, exceptions } = listing;
   const attendanceByKey = new Map(
     attendances.map((attendance) => [
       buildTribeEventOccurrenceKey(

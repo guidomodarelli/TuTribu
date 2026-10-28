@@ -59,7 +59,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("admission nati
           for (const browserType of [chromium, webkit]) {
             const browser = await browserType.launch({ headless: true });
             try {
-              for (const width of [390, 1280]) {
+              /** Verifies anonymous and own admission reads in one isolated context at the given width. */
+              const verifyQueryView = async (width: number) => {
                 const context = await browser.newContext({ viewport: { width, height: 900 } });
                 try {
                   const page = await context.newPage();
@@ -75,7 +76,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("admission nati
                   const invalid = await page.evaluate(async (url) => { const response = await fetch(url); return { status: response.status, body: await response.json() }; }, `${base}/own-request?userId=foreign`);
                   expect(invalid).toMatchObject({ status: 400, body: { code: "invalid_input" } });
                 } finally { await context.close(); }
-              }
+              };
+              for (const width of [390, 1280]) await verifyQueryView(width);
             } finally { await browser.close(); }
           }
         } finally { if (server.exitCode === null) server.kill(); await exited; }

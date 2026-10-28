@@ -23,23 +23,38 @@ const MESSAGING_PROVIDER_OPERATION = { read: "read", send: "send" } as const;
  * @returns A closed own failure with minimal private HTTP metadata.
  */
 export function normalizeMessagingProviderFailure(error: unknown, context: { operation: "read" | "send"; dispatchAuthorized: boolean }): MessagingFailure {
-  const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" && Number.isInteger(error.status) ? error.status : undefined;
+  const status = upstreamStatus(error);
   const details = { cause: error, ...(status !== undefined ? { upstreamStatus: status } : {}) };
   const possibleDispatch = context.operation === MESSAGING_PROVIDER_OPERATION.send && context.dispatchAuthorized;
-  if (status !== undefined) {
-    if (status === HTTP_STATUS.requestTimeout) return messagingFailure(possibleDispatch ? MESSAGING_ERROR_CODE.deliveryUnknown : MESSAGING_ERROR_CODE.transportTimeout, details);
-    if (status === HTTP_STATUS.unauthorized) return messagingFailure(MESSAGING_ERROR_CODE.invalidCredentials, details);
-    if (status === HTTP_STATUS.forbidden) return messagingFailure(MESSAGING_ERROR_CODE.missingCapability, details);
-    if (status === HTTP_STATUS.tooManyRequests) return messagingFailure(MESSAGING_ERROR_CODE.providerRateLimited, details);
-    if (status === HTTP_STATUS.conflict && possibleDispatch) return messagingFailure(MESSAGING_ERROR_CODE.deliveryUnknown, details);
-    if (status >= HTTP_STATUS.serverError) return messagingFailure(possibleDispatch ? MESSAGING_ERROR_CODE.deliveryUnknown : MESSAGING_ERROR_CODE.dependencyUnavailable, details);
-    if (status === HTTP_STATUS.notFound) return messagingFailure(MESSAGING_ERROR_CODE.resourceUnavailable, details);
-    if (status >= HTTP_STATUS.badRequest) return messagingFailure(MESSAGING_ERROR_CODE.upstreamRejected, details);
-  }
+  const statusCode = status === undefined ? undefined : upstreamStatusCode(status, possibleDispatch);
+  if (statusCode) return messagingFailure(statusCode, details);
   if (possibleDispatch) return messagingFailure(MESSAGING_ERROR_CODE.deliveryUnknown, details);
-  if (error instanceof APIConnectionTimeoutError || (error instanceof DOMException && error.name === "TimeoutError")) return messagingFailure(MESSAGING_ERROR_CODE.transportTimeout, details);
-  if (error instanceof APIConnectionError) return messagingFailure(MESSAGING_ERROR_CODE.dependencyUnavailable, details);
-  return messagingFailure(MESSAGING_ERROR_CODE.unexpectedFailure, details);
+  return messagingFailure(transportFailureCode(error), details);
+}
+
+/** @param error - Real caught SDK/transport value. @returns Its integer HTTP status, when it carries one. */
+function upstreamStatus(error: unknown): number | undefined {
+  return typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" && Number.isInteger(error.status) ? error.status : undefined;
+}
+
+/** @param status - Upstream HTTP status. @param possibleDispatch - Whether an authorized send may already have dispatched. @returns The own code for that status, or undefined for a non-error status. */
+function upstreamStatusCode(status: number, possibleDispatch: boolean) {
+  if (status === HTTP_STATUS.requestTimeout) return possibleDispatch ? MESSAGING_ERROR_CODE.deliveryUnknown : MESSAGING_ERROR_CODE.transportTimeout;
+  if (status === HTTP_STATUS.unauthorized) return MESSAGING_ERROR_CODE.invalidCredentials;
+  if (status === HTTP_STATUS.forbidden) return MESSAGING_ERROR_CODE.missingCapability;
+  if (status === HTTP_STATUS.tooManyRequests) return MESSAGING_ERROR_CODE.providerRateLimited;
+  if (status === HTTP_STATUS.conflict && possibleDispatch) return MESSAGING_ERROR_CODE.deliveryUnknown;
+  if (status >= HTTP_STATUS.serverError) return possibleDispatch ? MESSAGING_ERROR_CODE.deliveryUnknown : MESSAGING_ERROR_CODE.dependencyUnavailable;
+  if (status === HTTP_STATUS.notFound) return MESSAGING_ERROR_CODE.resourceUnavailable;
+  if (status >= HTTP_STATUS.badRequest) return MESSAGING_ERROR_CODE.upstreamRejected;
+  return undefined;
+}
+
+/** @param error - Real caught SDK/transport value without a usable HTTP status. @returns Timeout, unavailable transport, or unexpected failure. */
+function transportFailureCode(error: unknown) {
+  if (error instanceof APIConnectionTimeoutError || (error instanceof DOMException && error.name === "TimeoutError")) return MESSAGING_ERROR_CODE.transportTimeout;
+  if (error instanceof APIConnectionError) return MESSAGING_ERROR_CODE.dependencyUnavailable;
+  return MESSAGING_ERROR_CODE.unexpectedFailure;
 }
 
 /**

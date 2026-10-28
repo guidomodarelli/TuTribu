@@ -14,14 +14,14 @@ type ResponseWriter = (command: RecordedCommand, response: ServerResponse) => vo
 /** @param write - Own loopback protocol fixture. @returns Bounded real HTTP listener and observed commands. */
 async function driverBoundary(write: ResponseWriter) {
   const commands: RecordedCommand[] = [];
-  const server = createServer(async (request: IncomingMessage, response) => {
+  const server = createServer((request: IncomingMessage, response) => { void (async () => {
     let body = "";
-    for await (const chunk of request) body += chunk;
+    for await (const chunk of request) body += String(chunk);
     const command = { method: request.method ?? "", path: request.url ?? "", ...(body ? { body: JSON.parse(body) as Record<string, unknown> } : {}) };
     commands.push(command);
     response.setHeader("content-type", "application/json");
     write(command, response);
-  });
+  })(); });
   await new Promise<void>((fulfill) => server.listen(0, DRIVER.host, fulfill));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("DriverBoundary.listen failed: loopback_port_missing");

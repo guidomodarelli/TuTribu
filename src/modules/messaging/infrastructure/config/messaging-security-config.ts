@@ -13,6 +13,31 @@ export type MessagingSecurityConfig = {
 };
 
 /**
+ * @param purpose - Fixed key purpose.
+ * @param ring - Hosting-supplied keyring, possibly missing.
+ * @param seenMaterial - Importer-owned copies of every key already imported, to reject reuse across purposes.
+ * @returns The imported non-extractable keyring.
+ * @throws MessagingCryptographyError for an incomplete, reused or inactive keyring.
+ */
+async function importKeyring(purpose: MessagingKeyPurpose, ring: MessagingKeyringInput | undefined, seenMaterial: Uint8Array[]): Promise<MessagingKeyring> {
+  if (!ring?.activeKeyId || !ring.keys.length) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
+  const keys = new Map<string, CryptoKey>();
+  for (const entry of ring.keys) {
+    if (!entry.id || keys.has(entry.id) || entry.material.byteLength !== MESSAGING_CRYPTO.keyBytes) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
+    if (seenMaterial.some((material) => material.every((byte, index) => byte === entry.material[index]))) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.reusedKey);
+    const material = Uint8Array.from(entry.material);
+    seenMaterial.push(material);
+    const encrypts = purpose === MESSAGING_KEY_PURPOSE.credential || purpose === MESSAGING_KEY_PURPOSE.otpEnvelope;
+    const key = await crypto.subtle.importKey("raw", material,
+      encrypts ? { name: MESSAGING_CRYPTO.aesAlgorithm } : { name: MESSAGING_CRYPTO.macAlgorithm, hash: MESSAGING_CRYPTO.macHash },
+      false, encrypts ? ["encrypt", "decrypt"] : ["sign", "verify"]);
+    keys.set(entry.id, key);
+  }
+  if (!keys.has(ring.activeKeyId)) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyUnavailable);
+  return { purpose, activeKeyId: ring.activeKeyId, keys };
+}
+
+/**
  * Builds a private per-operation config from hosting-secret inputs, never database rows.
  *
  * Key ids are routing metadata, not key separation. Material must be independent
@@ -31,24 +56,11 @@ export async function createMessagingSecurityConfig(input: {
   if (!input.environment.trim() || !input.securityEpoch.trim() || typeof input.recoveryLocked !== "boolean") throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
   const seenMaterial: Uint8Array[] = [];
   const keyrings = {} as Record<MessagingKeyPurpose, MessagingKeyring>;
+  // Hosting secrets are parsed at runtime: a purpose may still be missing.
+  const inputRings: Partial<Record<MessagingKeyPurpose, MessagingKeyringInput>> = input.keyrings;
   try {
     for (const purpose of Object.values(MESSAGING_KEY_PURPOSE)) {
-    const ring = input.keyrings[purpose];
-    if (!ring || !ring.activeKeyId || !ring.keys.length) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
-    const keys = new Map<string, CryptoKey>();
-    for (const entry of ring.keys) {
-      if (!entry.id || keys.has(entry.id) || entry.material.byteLength !== MESSAGING_CRYPTO.keyBytes) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.invalidConfiguration);
-      if (seenMaterial.some((material) => material.every((byte, index) => byte === entry.material[index]))) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.reusedKey);
-      const material = Uint8Array.from(entry.material);
-      seenMaterial.push(material);
-      const encrypts = purpose === MESSAGING_KEY_PURPOSE.credential || purpose === MESSAGING_KEY_PURPOSE.otpEnvelope;
-      const key = await crypto.subtle.importKey("raw", material,
-        encrypts ? { name: MESSAGING_CRYPTO.aesAlgorithm } : { name: MESSAGING_CRYPTO.macAlgorithm, hash: MESSAGING_CRYPTO.macHash },
-        false, encrypts ? ["encrypt", "decrypt"] : ["sign", "verify"]);
-      keys.set(entry.id, key);
-    }
-    if (!keys.has(ring.activeKeyId)) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyUnavailable);
-    keyrings[purpose] = { purpose, activeKeyId: ring.activeKeyId, keys };
+    keyrings[purpose] = await importKeyring(purpose, inputRings[purpose], seenMaterial);
     }
     return { environment: input.environment, securityEpoch: input.securityEpoch, recoveryLocked: input.recoveryLocked, keyrings };
   } finally {

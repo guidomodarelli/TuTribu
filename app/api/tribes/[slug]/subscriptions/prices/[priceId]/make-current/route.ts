@@ -90,6 +90,16 @@ export async function POST(
           HTTP_STATUS.notFound
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
       default:
         return createJsonResponse(
           { message: CURRENT_PRICE_ROUTE_RESPONSE.forbiddenMessage },

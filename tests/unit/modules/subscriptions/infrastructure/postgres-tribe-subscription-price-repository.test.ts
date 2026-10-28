@@ -4,7 +4,7 @@ import {
   TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
-import { PostgresTribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
+import { PostgresTribeSubscriptionPriceRepository, type PostgresTribeSubscriptionPriceRepositoryDependencies } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
 import { createLegacyMembershipExecutorFixture } from "@/tests/support/legacy-membership-executor-fixture";
 
 function getSqlText(statement: unknown): string {
@@ -26,7 +26,7 @@ function getSqlText(statement: unknown): string {
         chunk &&
         typeof chunk === "object" &&
         "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
+        Array.isArray((chunk).value)
       ) {
         return (chunk as { value: string[] }).value.join("");
       }
@@ -38,16 +38,16 @@ function getSqlText(statement: unknown): string {
 
 function createRepository(
   execute: Mock,
-  createMercadoPagoPlan: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[1]> = vi.fn(async () => "plan-1"),
-  refreshMercadoPagoAccessToken: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[4]> = vi.fn(async () => ({
+  createMercadoPagoPlan: PostgresTribeSubscriptionPriceRepositoryDependencies["createMercadoPagoPlan"] = vi.fn(async () => "plan-1"),
+  refreshMercadoPagoAccessToken: PostgresTribeSubscriptionPriceRepositoryDependencies["refreshMercadoPagoAccessToken"] = vi.fn(async () => ({
     accessToken: "fresh-access-token",
     expiresIn: 3600,
     providerAccountId: "seller-1",
     refreshToken: "new-refresh-token",
   })),
-  getMercadoPagoPlanStatus: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[5]> = vi.fn(async () => "active"),
-  getMercadoPagoSubscriptionStatus: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[6]> = vi.fn(async () => "authorized"),
-  updateMercadoPagoPlan: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[2]> = vi.fn(async () => ({
+  getMercadoPagoPlanStatus: PostgresTribeSubscriptionPriceRepositoryDependencies["getMercadoPagoPlanStatus"] = vi.fn(async () => "active"),
+  getMercadoPagoSubscriptionStatus: PostgresTribeSubscriptionPriceRepositoryDependencies["getMercadoPagoSubscriptionStatus"] = vi.fn(async () => "authorized"),
+  updateMercadoPagoPlan: PostgresTribeSubscriptionPriceRepositoryDependencies["updateMercadoPagoPlan"] = vi.fn(async () => ({
     amountCents: 500000,
     currency: "ARS",
     externalReference: "tutribu:price:price-1",
@@ -55,7 +55,7 @@ function createRepository(
     reason: "Plan mensual", trial: null,
     status: "active" as const,
   })),
-  getMercadoPagoPlan: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[3]> = vi.fn(async () => ({
+  getMercadoPagoPlan: PostgresTribeSubscriptionPriceRepositoryDependencies["getMercadoPagoPlan"] = vi.fn(async () => ({
     amountCents: 500000,
     currency: "ARS",
     externalReference: "tutribu:price:price-1",
@@ -71,16 +71,16 @@ function createRepository(
     if (query.startsWith("select ") && query.includes("tribe.admissions_control_activated_at")) return Promise.resolve({ rows: [] });
     return executeWithResourceLocks(statement, ...parameters);
   };
-  return new PostgresTribeSubscriptionPriceRepository(
-    async (callback) => callback({ execute: executeLegacyDatabase } as never),
+  return new PostgresTribeSubscriptionPriceRepository({
+    executeWithDatabase: async (callback) => callback({ execute: executeLegacyDatabase } as never),
     createMercadoPagoPlan,
     updateMercadoPagoPlan,
     getMercadoPagoPlan,
     refreshMercadoPagoAccessToken,
     getMercadoPagoPlanStatus,
     getMercadoPagoSubscriptionStatus,
-    createPaidAdmissionResolutionWriter
-  );
+    createAdmissionResolution: createPaidAdmissionResolutionWriter,
+  });
 }
 
 function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
@@ -129,7 +129,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should list prices with connected Mercado Pago health when token refresh succeeds", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
@@ -271,7 +271,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep paused prices visible while preserving subscriber diagnostics", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           ...createSubscriptionPriceRow({
@@ -304,7 +304,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should expose update trial policy for synchronized Mercado Pago prices", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           ...createSubscriptionPriceRow({
@@ -336,7 +336,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should list Mercado Pago health as requiring reconnection when token refresh fails", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
@@ -446,7 +446,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should list expired Mercado Pago integration without refresh token as requiring reconnection", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
@@ -592,12 +592,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   );
 
   it("does not clear free-join mode for prices without provider plans", async () => {
-    const executedSqlTexts: string[] = [];
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      executedSqlTexts.push(sqlText);
-
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async () => {
       return {
         rows: [
           {
@@ -627,10 +622,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
         executedSqlTexts.push(sqlText);
 
-        if (
-          sqlText.includes("then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}") ||
-          sqlText.includes("not exists (select 1 from target_tribe)")
-        ) {
+        if (sqlText.includes("not exists (select 1 from target_tribe)")) {
           return {
             rows: [
               {
@@ -677,7 +669,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   it(
     "returns freeJoinIsCurrent from the list query",
     async () => {
-      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
         rows: [
           {
             access_token: null,
@@ -795,7 +787,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             ],
           };
         }),
-      } as never);
+      });
 
       transactionEvents.push("transaction:end");
 
@@ -806,30 +798,30 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
       return "plan-1";
     });
-    const repository = new PostgresTribeSubscriptionPriceRepository(
+    const repository = new PostgresTribeSubscriptionPriceRepository({
       executeWithDatabase,
       createMercadoPagoPlan,
-      vi.fn(async () => ({
-        amountCents: 500000,
-        currency: "ARS",
-        externalReference: "tutribu:price:price-1",
-        id: "plan-1",
-        reason: "Plan mensual", trial: null,
-        status: "active" as const,
-      })),
-      vi.fn(async () => ({
-        amountCents: 500000,
-        currency: "ARS",
-        externalReference: "tutribu:price:price-1",
-        id: "plan-1",
-        reason: "Plan mensual", trial: null,
-        status: "active" as const,
-      })),
-      vi.fn(),
-      vi.fn(async () => "active"),
-      vi.fn(async () => "authorized"),
-      createPaidAdmissionResolutionWriter
-    );
+      updateMercadoPagoPlan: vi.fn(async () => ({
+          amountCents: 500000,
+          currency: "ARS",
+          externalReference: "tutribu:price:price-1",
+          id: "plan-1",
+          reason: "Plan mensual", trial: null,
+          status: "active" as const,
+        })),
+      getMercadoPagoPlan: vi.fn(async () => ({
+          amountCents: 500000,
+          currency: "ARS",
+          externalReference: "tutribu:price:price-1",
+          id: "plan-1",
+          reason: "Plan mensual", trial: null,
+          status: "active" as const,
+        })),
+      refreshMercadoPagoAccessToken: vi.fn(),
+      getMercadoPagoPlanStatus: vi.fn(async () => "active"),
+      getMercadoPagoSubscriptionStatus: vi.fn(async () => "authorized"),
+      createAdmissionResolution: createPaidAdmissionResolutionWriter,
+    });
 
     await repository.create({ paymentIntegrationId: "integration-1",
       amountCents: 500000,
@@ -983,7 +975,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("returns the current paid offer by slug only when free join is not the current option", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           amount_cents: 500000,
@@ -1009,7 +1001,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("returns an unavailable offer when no current paid price is exposed", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [] }); });
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({ rows: [] }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -1944,7 +1936,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           access_token: "access-token",
@@ -2570,11 +2562,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should restore free-join mode when a provider webhook cancels the current paid price", async () => {
-    const executedSqlTexts: string[] = [];
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
-
-      executedSqlTexts.push(sqlText);
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
         return {
@@ -2991,8 +2980,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
-        const queryChunks = (statement as { queryChunks?: unknown[] })
-          ?.queryChunks ?? [];
+        const queryChunks =
+          (statement as { queryChunks?: unknown[] }).queryChunks ?? [];
 
         for (const chunk of queryChunks) {
           if (

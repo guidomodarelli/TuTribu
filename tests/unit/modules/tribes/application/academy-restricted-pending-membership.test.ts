@@ -64,7 +64,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native moderation 
       expect(await paid.reconcileSubscriberDiagnostics({ tribeSlug: scenario.slug })).toMatchObject({ status: "verified", verifiedCount: 1 });
       expect(await snapshot()).toEqual(closed);
       const unexpected = async () => { throw new Error("AcademyRestrictedPendingMembershipTest: provider mutation unexpectedly invoked"); };
-      const webhook = new PostgresTribeMemberSubscriptionRepository((run) => database.withContext({ userId: fixture.userId, email: null }, run), unexpected, unexpected, async () => "authorized", unexpected, unexpected, unexpected, createPaidAdmissionResolutionWriter, randomUUID());
+      const webhook = new PostgresTribeMemberSubscriptionRepository({ executeWithDatabase: (run) => database.withContext({ userId: fixture.userId, email: null }, run), createMercadoPagoPreapprovalSubscription: unexpected, getMercadoPagoPreapprovalDetails: unexpected, getMercadoPagoPreapprovalStatus: async () => "authorized", updateMercadoPagoPreapprovalStatus: unexpected, updateMercadoPagoPreapprovalBackUrl: unexpected, refreshMercadoPagoAccessToken: unexpected, createAdmissionResolution: createPaidAdmissionResolutionWriter, requestId: randomUUID() });
       expect(await webhook.handleWebhook({ eventId: randomUUID(), resourceId: scenario.providerId, topic: SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerWebhookTopic })).toMatchObject({ status: "processed" });
       expect(await snapshot()).toEqual(closed);
       expect(await recipient.commands.submit.execute({ ...scenario.submission, operationId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });

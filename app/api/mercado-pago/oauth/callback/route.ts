@@ -79,8 +79,7 @@ export async function GET(request: Request) {
   if (
     !code ||
     !verifiedState ||
-    !authenticatedMember ||
-    authenticatedMember.id !== verifiedState.memberId
+    authenticatedMember?.id !== verifiedState.memberId
   ) {
     redirect(ROUTES.home);
   }

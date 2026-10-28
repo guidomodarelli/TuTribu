@@ -96,7 +96,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native CSV bro
               await page.getByText("Agregada · Versión de entrada 1", { exact: true }).first().waitFor({ state: "visible" });
               expect(await page.getByRole("checkbox", { name: "Seleccionar fila 1", exact: true }).isDisabled()).toBe(true);
               expect(await page.getByRole("checkbox", { name: "Seleccionar fila 26", exact: true }).isChecked()).toBe(true);
-              if (capture) await captureAdmissionReview(page, "allowlist-import-partial", forbidden, "allowlist-import-captures.json", { selector });
+              await captureAdmissionReview(page, "allowlist-import-partial", forbidden, "allowlist-import-captures.json", { selector });
               await database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql.raw("drop trigger synthetic_import_browser_failure on public.academy_allowlist_import_rows")); await transaction.execute(sql.raw("drop function public.synthetic_import_browser_failure()")); await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where actor_user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and idempotency_key=${writes[1].operationId}`); });
               await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
               await page.getByRole("checkbox", { name: "Confirmo incorporar sólo las filas elegidas", exact: true }).click(); await page.getByRole("button", { name: "Retomar filas pendientes", exact: true }).click();

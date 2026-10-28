@@ -2,6 +2,7 @@
 
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { BASE_ERROR_CODES } from "better-auth";
+import type * as BetterAuthModule from "better-auth";
 import { APIError } from "better-auth/api";
 describe("Better Auth configuration", () => {
   const originalEnvironment = { ...process.env };
@@ -34,7 +35,7 @@ describe("Better Auth configuration", () => {
     });
 
     vi.doMock("better-auth", async (importOriginal) => ({
-      ...(await importOriginal<typeof import("better-auth")>()),
+      ...(await importOriginal<typeof BetterAuthModule>()),
       betterAuth: mockBetterAuth,
     }));
     vi.doMock("@better-auth/drizzle-adapter", () => ({
@@ -100,7 +101,7 @@ describe("Better Auth configuration", () => {
     });
 
     vi.doMock("better-auth", async (importOriginal) => ({
-      ...(await importOriginal<typeof import("better-auth")>()),
+      ...(await importOriginal<typeof BetterAuthModule>()),
       betterAuth: mockBetterAuth,
     }));
     vi.doMock("@better-auth/drizzle-adapter", () => ({
@@ -158,7 +159,7 @@ describe("Better Auth configuration", () => {
     });
 
     vi.doMock("better-auth", async (importOriginal) => ({
-      ...(await importOriginal<typeof import("better-auth")>()),
+      ...(await importOriginal<typeof BetterAuthModule>()),
       betterAuth: mockBetterAuth,
     }));
     vi.doMock("@better-auth/drizzle-adapter", () => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { Button, Checkbox, Dialog, DialogContent, Input, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
@@ -224,18 +224,23 @@ function focusFormControl(form: HTMLFormElement, fieldId: ExceptionFormFieldId):
   }
 }
 
+/** Label of the submit button for the current mode and save state. */
+function resolveSubmitLabel(isMove: boolean, isSaving: boolean): string {
+  if (isSaving) {
+    return COPY.saving;
+  }
+
+  return isMove ? COPY.moveSubmit : COPY.cancelSubmit;
+}
+
 /**
- * Form to cancel or move a single date of a series. It only changes that
- * date, and the copy says so explicitly so it is never confused with
- * editing the whole series.
+ * Values of the exception form plus the update rules that keep the end of a
+ * moved date in step with its start.
+ *
+ * @param occurrence - Date being changed, used for the initial values and its length.
+ * @returns Form values, validation state and their update actions.
  */
-export function TribeEventOccurrenceExceptionDialog({
-  isSaving,
-  mode,
-  occurrence,
-  onClose,
-  onSubmit,
-}: TribeEventOccurrenceExceptionDialogProps) {
+function useExceptionFormState(occurrence: TribeEventOccurrenceResult | null) {
   const [values, setValues] = useState<ExceptionFormValues>(() =>
     createInitialValues(occurrence)
   );
@@ -248,12 +253,6 @@ export function TribeEventOccurrenceExceptionDialog({
   // from it), every start change moves it one original duration later. The
   // first explicit edit of an end field hands the end over to the manager.
   const [isEndSuggested, setIsEndSuggested] = useState(durationMilliseconds !== null);
-  const isMove = mode === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved;
-  const dateLabel = occurrence ? formatBuenosAiresWeekdayDay(occurrence.originalStartsAt, true) : EMPTY_VALUE;
-
-  /** Validation message of a control, shown under it while it is the one to fix. */
-  const getFieldError = (fieldId: ExceptionFormFieldId) =>
-    validationIssue?.fieldId === fieldId ? validationIssue.message : undefined;
 
   const updateField = (field: keyof ExceptionFormValues, value: string) => {
     setValidationIssue(null);
@@ -299,7 +298,158 @@ export function TribeEventOccurrenceExceptionDialog({
     }));
   };
 
-  const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
+  /** Validation message of a control, shown under it while it is the one to fix. */
+  const getFieldError = (fieldId: ExceptionFormFieldId) =>
+    validationIssue?.fieldId === fieldId ? validationIssue.message : undefined;
+
+  return {
+    endsOnAnotherDay,
+    getFieldError,
+    setValidationIssue,
+    toggleEndsOnAnotherDay,
+    updateEndField,
+    updateField,
+    updateStartField,
+    validationIssue,
+    values,
+  };
+}
+
+type MoveScheduleFieldsProps = Pick<
+  ReturnType<typeof useExceptionFormState>,
+  | "endsOnAnotherDay"
+  | "getFieldError"
+  | "toggleEndsOnAnotherDay"
+  | "updateEndField"
+  | "updateStartField"
+  | "values"
+>;
+
+/** New date, start and end of a moved date, with «Termina otro día». */
+function MoveScheduleFields({
+  endsOnAnotherDay,
+  getFieldError,
+  toggleEndsOnAnotherDay,
+  updateEndField,
+  updateStartField,
+  values,
+}: MoveScheduleFieldsProps) {
+  return (
+    <>
+      <Input
+        error={getFieldError(FIELD_ID.date)}
+        id={FIELD_ID.date}
+        label={COPY.dateLabel}
+        required
+        type={INPUT_TYPE.date}
+        value={values.date}
+        onChange={(event) => updateStartField("date", event.currentTarget.value)}
+      />
+      <div className={styles.TribeEventOccurrenceExceptionDialog__row}>
+        <Input
+          error={getFieldError(FIELD_ID.startsTime)}
+          id={FIELD_ID.startsTime}
+          label={COPY.startsTimeLabel}
+          required
+          type={INPUT_TYPE.time}
+          value={values.startsTime}
+          onChange={(event) => updateStartField("startsTime", event.currentTarget.value)}
+        />
+        <Input
+          error={getFieldError(FIELD_ID.endsTime)}
+          id={FIELD_ID.endsTime}
+          label={COPY.endsTimeLabel}
+          type={INPUT_TYPE.time}
+          value={values.endsTime}
+          onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
+        />
+      </div>
+      <AnimatePresence initial={false}>
+        {endsOnAnotherDay ? (
+          <motion.div key={FIELD_ID.endsDate} {...CONDITIONAL_FIELD_MOTION}>
+            {/* No native `min`: an earlier end must reach the Spanish
+                inline error instead of a browser-language bubble. */}
+            <Input
+              error={getFieldError(FIELD_ID.endsDate)}
+              id={FIELD_ID.endsDate}
+              label={COPY.endsDateLabel}
+              type={INPUT_TYPE.date}
+              value={values.endsDate}
+              onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <div className={styles.TribeEventOccurrenceExceptionDialog__toggle}>
+        <Checkbox
+          checked={endsOnAnotherDay}
+          id={FIELD_ID.endsOnAnotherDay}
+          onCheckedChange={(checked) => toggleEndsOnAnotherDay(checked === true)}
+        />
+        <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
+      </div>
+    </>
+  );
+}
+
+type ExceptionFormActionsProps = Pick<TribeEventOccurrenceExceptionDialogProps, "isSaving" | "onClose"> & {
+  isMove: boolean;
+};
+
+/** Back and submit buttons; cancelling a date uses the danger look. */
+function ExceptionFormActions({ isMove, isSaving, onClose }: ExceptionFormActionsProps) {
+  return (
+    <div className={styles.TribeEventOccurrenceExceptionDialog__actions}>
+      <Button
+        type={BUTTON_ATTRIBUTE.typeButton}
+        variant={BUTTON_ATTRIBUTE.variantGhost}
+        onClick={onClose}
+      >
+        {COPY.backButton}
+      </Button>
+      <Button
+        disabled={isSaving}
+        type={BUTTON_ATTRIBUTE.typeSubmit}
+        variant={isMove ? undefined : BUTTON_ATTRIBUTE.variantDanger}
+      >
+        {resolveSubmitLabel(isMove, isSaving)}
+      </Button>
+    </div>
+  );
+}
+
+/** Optional reason shown next to the changed date. */
+function ExceptionReasonField({ onChange, value }: { onChange: (value: string) => void; value: string }) {
+  return (
+    <Textarea
+      id={FIELD_ID.reason}
+      label={COPY.reasonLabel}
+      maxLength={TRIBE_EVENT_OCCURRENCE_EXCEPTION_REASON_MAX_LENGTH}
+      placeholder={COPY.reasonPlaceholder}
+      value={value}
+      onChange={(event) => onChange(event.currentTarget.value)}
+    />
+  );
+}
+
+/**
+ * Form to cancel or move a single date of a series. It only changes that
+ * date, and the copy says so explicitly so it is never confused with
+ * editing the whole series.
+ */
+export function TribeEventOccurrenceExceptionDialog({
+  isSaving,
+  mode,
+  occurrence,
+  onClose,
+  onSubmit,
+}: TribeEventOccurrenceExceptionDialogProps) {
+  const formState = useExceptionFormState(occurrence);
+  const { endsOnAnotherDay, getFieldError, setValidationIssue, updateField, values } = formState;
+  const isMove = mode === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved;
+  const dateLabel = occurrence ? formatBuenosAiresWeekdayDay(occurrence.originalStartsAt, true) : EMPTY_VALUE;
+
+  const handleSubmit = (submitEvent: SubmitEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
 
     if (isSaving) {
@@ -344,85 +494,20 @@ export function TribeEventOccurrenceExceptionDialog({
           onSubmit={handleSubmit}
         >
           {isMove ? (
-            <>
-              <Input
-                error={getFieldError(FIELD_ID.date)}
-                id={FIELD_ID.date}
-                label={COPY.dateLabel}
-                required
-                type={INPUT_TYPE.date}
-                value={values.date}
-                onChange={(event) => updateStartField("date", event.currentTarget.value)}
-              />
-              <div className={styles.TribeEventOccurrenceExceptionDialog__row}>
-                <Input
-                  error={getFieldError(FIELD_ID.startsTime)}
-                  id={FIELD_ID.startsTime}
-                  label={COPY.startsTimeLabel}
-                  required
-                  type={INPUT_TYPE.time}
-                  value={values.startsTime}
-                  onChange={(event) => updateStartField("startsTime", event.currentTarget.value)}
-                />
-                <Input
-                  error={getFieldError(FIELD_ID.endsTime)}
-                  id={FIELD_ID.endsTime}
-                  label={COPY.endsTimeLabel}
-                  type={INPUT_TYPE.time}
-                  value={values.endsTime}
-                  onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
-                />
-              </div>
-              <AnimatePresence initial={false}>
-                {endsOnAnotherDay ? (
-                  <motion.div key={FIELD_ID.endsDate} {...CONDITIONAL_FIELD_MOTION}>
-                    {/* No native `min`: an earlier end must reach the Spanish
-                        inline error instead of a browser-language bubble. */}
-                    <Input
-                      error={getFieldError(FIELD_ID.endsDate)}
-                      id={FIELD_ID.endsDate}
-                      label={COPY.endsDateLabel}
-                      type={INPUT_TYPE.date}
-                      value={values.endsDate}
-                      onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-              <div className={styles.TribeEventOccurrenceExceptionDialog__toggle}>
-                <Checkbox
-                  checked={endsOnAnotherDay}
-                  id={FIELD_ID.endsOnAnotherDay}
-                  onCheckedChange={(checked) => toggleEndsOnAnotherDay(checked === true)}
-                />
-                <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
-              </div>
-            </>
+            <MoveScheduleFields
+              endsOnAnotherDay={endsOnAnotherDay}
+              getFieldError={getFieldError}
+              toggleEndsOnAnotherDay={formState.toggleEndsOnAnotherDay}
+              updateEndField={formState.updateEndField}
+              updateStartField={formState.updateStartField}
+              values={values}
+            />
           ) : null}
-          <Textarea
-            id={FIELD_ID.reason}
-            label={COPY.reasonLabel}
-            maxLength={TRIBE_EVENT_OCCURRENCE_EXCEPTION_REASON_MAX_LENGTH}
-            placeholder={COPY.reasonPlaceholder}
+          <ExceptionReasonField
             value={values.reason}
-            onChange={(event) => updateField("reason", event.currentTarget.value)}
+            onChange={(reason) => updateField("reason", reason)}
           />
-          <div className={styles.TribeEventOccurrenceExceptionDialog__actions}>
-            <Button
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={onClose}
-            >
-              {COPY.backButton}
-            </Button>
-            <Button
-              disabled={isSaving}
-              type={BUTTON_ATTRIBUTE.typeSubmit}
-              variant={isMove ? undefined : BUTTON_ATTRIBUTE.variantDanger}
-            >
-              {isSaving ? COPY.saving : isMove ? COPY.moveSubmit : COPY.cancelSubmit}
-            </Button>
-          </div>
+          <ExceptionFormActions isMove={isMove} isSaving={isSaving} onClose={onClose} />
         </form>
       </DialogContent>
     </Dialog>

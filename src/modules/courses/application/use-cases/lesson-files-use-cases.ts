@@ -1,6 +1,6 @@
 import {
   COURSE_MUTATION_STATUS,
-  LESSON_FILES,
+  LESSON_FILES, LESSON_FILE_CLEANUP 
 } from "@/src/modules/courses/constants/courses";
 import type { LessonFileDraftCommand } from "@/src/modules/courses/application/commands/course-commands";
 import type {
@@ -14,7 +14,6 @@ import type {
   LessonFileRepository,
   LessonFileUploadCreationResult,
 } from "@/src/modules/courses/domain/repositories/lesson-file-repository";
-import { LESSON_FILE_CLEANUP } from "@/src/modules/courses/constants/courses";
 import {
   isAttachmentAssetId,
   isValidAttachmentUploadDeclaration,
@@ -71,7 +70,7 @@ export function normalizeLessonFileDrafts(
   const seenAssetIds = new Set<string>();
 
   for (const draft of rawDrafts) {
-    const assetId = (draft.assetId ?? "").trim();
+    const assetId = draft.assetId.trim();
 
     if (!isAttachmentAssetId(assetId) || seenAssetIds.has(assetId)) {
       return { status: COURSE_MUTATION_STATUS.invalidFile };

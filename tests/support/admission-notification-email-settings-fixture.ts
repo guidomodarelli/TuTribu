@@ -41,7 +41,7 @@ export async function prepareAdmissionEmailSettings(database: AcademyAdmissionTe
   const readSecurityConfig = async () => ({ ...fixture.config, recoveryLocked, keyrings: { ...fixture.config.keyrings, credential: credentialAvailable ? fixture.config.keyrings.credential : { ...fixture.config.keyrings.credential, activeKeyId: replacementKeyId, keys: new Map([[replacementKeyId, replacementKey]]) } } });
   const repository = new PostgresAdmissionNotificationEmailSettingsRepository(async (_context, run) => {
     const result = await database.withContext(own, run);
-    if (loseReply && result && typeof result === "object" && "state" in result && result.state === "completed") { loseReply = false; throw new Error("Synthetic settings COMMIT reply lost"); }
+    if (loseReply && typeof result === "object" && result !== null && "state" in result && result.state === "completed") { loseReply = false; throw new Error("Synthetic settings COMMIT reply lost"); }
     return result;
   }, readSecurityConfig);
   /** @returns After selecting only the native synthetic version; no production activation is claimed. */

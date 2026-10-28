@@ -56,7 +56,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("legacy admission ent
       await prepareMembershipPrice(database,fixture);
       let providerCalls=0;
       const unexpected=async()=>{providerCalls+=1;throw new Error("Controlled academy checkout unexpectedly called provider");};
-      const repository=new PostgresTribeMemberSubscriptionRepository(fixture.execute,unexpected,unexpected,unexpected,unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+      const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:fixture.execute,createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
       const result=await repository.startOpenJoinSubscription({tribeSlug:fixture.slug,idempotencyKey:randomUUID()});
       expect(providerCalls).toBe(0);
       expect(result).toMatchObject({status:"missing_current_price"});
@@ -85,11 +85,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("legacy admission ent
       const create=async()=>{providerCalls+=1;return {providerSubscriptionId:providerId,checkoutUrl};};
       const unexpected=async()=>{throw new Error("Classic checkout unexpectedly invoked a different provider operation");};
       const updateBackUrl=async()=>undefined;
-      const repository=new PostgresTribeMemberSubscriptionRepository(fixture.execute,create,unexpected,unexpected,unexpected,updateBackUrl,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+      const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:fixture.execute,createMercadoPagoPreapprovalSubscription:create,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:updateBackUrl,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
       const command={tribeSlug:fixture.slug,idempotencyKey:randomUUID()};
-      const result=entryPoint==="invited" ? await repository.startCurrentPriceSubscription({...command,invitationToken:fixture.token})
-        : entryPoint==="retry" ? await repository.retryCurrentPriceSubscriptionPayment(command)
-        : await repository.startOpenJoinSubscription(command);
+      /** @returns The checkout started through this legacy entry point. */
+      const startCheckout=async()=>{
+        if(entryPoint==="invited")return repository.startCurrentPriceSubscription({...command,invitationToken:fixture.token});
+        if(entryPoint==="retry")return repository.retryCurrentPriceSubscriptionPayment(command);
+        return repository.startOpenJoinSubscription(command);
+      };
+      const result=await startCheckout();
       expect(result).toMatchObject({status:"pending",checkoutUrl});
       expect(providerCalls).toBe(1);
       await database.withContext(fixture.own,async(transaction)=>{
@@ -136,7 +140,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("legacy admission ent
       await prepareMembershipPrice(database,fixture);
       let providerCalls=0;
       const unexpected=async()=>{providerCalls+=1;throw new Error("Protected entry unexpectedly invoked provider");};
-      const repository=new PostgresTribeMemberSubscriptionRepository(fixture.execute,unexpected,unexpected,unexpected,unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+      const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:fixture.execute,createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
       expect(await repository.startOpenJoinSubscription({tribeSlug:fixture.slug,idempotencyKey:randomUUID()})).toEqual({status:"missing_current_price"});
       expect(providerCalls).toBe(0);
     });
@@ -156,7 +160,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("legacy admission ent
         return result;
       };
       const unexpected=async()=>{providerCalls+=1;throw new Error("Changed academy mode unexpectedly invoked provider");};
-      const repository=new PostgresTribeMemberSubscriptionRepository(execute,unexpected,unexpected,unexpected,unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+      const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:execute,createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
       expect(await repository.startOpenJoinSubscription({tribeSlug:fixture.slug,idempotencyKey:randomUUID()})).toEqual({status:"payment_blocked"});
       expect(changedMode).toBe(true);
       expect(providerCalls).toBe(0);

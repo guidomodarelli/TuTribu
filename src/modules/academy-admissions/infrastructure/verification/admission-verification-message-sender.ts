@@ -20,8 +20,8 @@ export class ScopedAdmissionVerificationDispatcher implements AdmissionContactCh
   /** @param intent - Exact confirmed own account/session/tribe/challenge identity. @returns After bounded focal observation; the original attempt preserves uncertain work. */
   async dispatch(intent:AdmissionChallengeDispatchIntent):Promise<void>{
     const original:AdmissionChallengeDispatchIntent={userId:intent.userId,sessionId:intent.sessionId,tribeId:intent.tribeId,requestId:intent.requestId,challengeId:intent.challengeId},resolved=await this.dependencies.resolve(original),scope=resolved.scope;
-    if(scope.purpose!==ADMISSION_VERIFICATION_PURPOSE.admission||scope.applicantUserId!==original.userId||scope.tribeId!==original.tribeId||scope.challengeId!==original.challengeId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-    const authorize=async()=>{const current=await this.dependencies.readSecurityFacts();return current.recoveryLocked===false&&current.environment===resolved.environment&&current.securityEpoch===resolved.securityEpoch;};
+    if((scope.purpose as string)!==ADMISSION_VERIFICATION_PURPOSE.admission||scope.applicantUserId!==original.userId||scope.tribeId!==original.tribeId||scope.challengeId!==original.challengeId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    const authorize=async()=>{const current=await this.dependencies.readSecurityFacts();return !current.recoveryLocked&&current.environment===resolved.environment&&current.securityEpoch===resolved.securityEpoch;};
     await this.dependencies.createDispatcher(scope,authorize).execute();
   }
 }

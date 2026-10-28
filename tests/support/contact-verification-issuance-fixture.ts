@@ -52,7 +52,7 @@ export async function prepareContactVerificationIssuer(database: AcademyAdmissio
   });
   const authorize = async (transaction: RequestDatabase) => Boolean((await transaction.execute(sql`select id from public.tribes where id=${tribeId} for share`)).rows[0]);
   const ledger = new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), authorize, async () => fixture.config);
-  const issue = (expectedCurrentChallengeId: string | null = null, operationId = randomUUID(), readConfig = async () => fixture.config, beforeIssue = async (_transaction: RequestDatabase) => {}) => {
+  const issue = (expectedCurrentChallengeId: string | null = null, operationId = randomUUID(), readConfig = async () => fixture.config, beforeIssue: (transaction: RequestDatabase) => Promise<void> = async () => {}) => {
     const command = { actorUserId: fixture.userId, tribeId, operationType: expectedCurrentChallengeId === null ? VERIFICATION_ISSUANCE_OPERATION.issue : VERIFICATION_ISSUANCE_OPERATION.resend, idempotencyKey: operationId, intent: { expectedCurrentChallengeId, contact: scope.contact.value, channel: scope.channel, purpose, connectionId, connectionVersion: 1 } };
     return ledger.run(command, contactVerificationIssuanceSnapshotSchema, async (transaction, ledgerId) => {
       await beforeIssue(transaction);

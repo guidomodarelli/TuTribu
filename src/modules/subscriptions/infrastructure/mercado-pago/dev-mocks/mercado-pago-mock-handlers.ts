@@ -243,26 +243,25 @@ export function resolveMercadoPagoMockOptions(
     : {};
 }
 
-/**
- * Creates the request handlers of an isolated in-memory Mercado Pago account.
- *
- * Each call owns its own state, so restarting the server or a test resets it.
- *
- * @param options - Simulated provider behavior.
- * @returns MSW handlers for the Mercado Pago endpoints used by the gateway.
- */
-export function createMercadoPagoMockHandlers(
-  options: MercadoPagoMockOptions = {}
-): HttpHandler[] {
-  const checkoutStatus =
-    options.checkoutStatus ?? MERCADO_PAGO_SUBSCRIPTION_STATUS.authorized;
-  const plans = new Map<string, MercadoPagoMockPlan>();
-  const preapprovals = new Map<string, MercadoPagoMockPreapproval>();
-  const preapprovalIdsByIdempotencyKey = new Map<string, string>();
-  const invoices = new Map<string, MercadoPagoMockInvoice>();
-  const sellerUserIdsByRefreshToken = new Map<string, number>();
-  let nextSellerUserId: number = MERCADO_PAGO_MOCK_OAUTH.firstSellerUserId;
+/** In-memory state of one mock Mercado Pago account. */
+type MercadoPagoMockState = {
+  checkoutStatus: MercadoPagoMockCheckoutStatus;
+  invoices: Map<string, MercadoPagoMockInvoice>;
+  nextSellerUserId: number;
+  plans: Map<string, MercadoPagoMockPlan>;
+  preapprovalIdsByIdempotencyKey: Map<string, string>;
+  preapprovals: Map<string, MercadoPagoMockPreapproval>;
+  sellerUserIdsByRefreshToken: Map<string, number>;
+};
 
+/**
+ * Builds the OAuth token handler: authorization codes open new seller
+ * accounts and refresh tokens are single use.
+ *
+ * @param state - State of the mock account.
+ * @returns MSW handlers, in matching order.
+ */
+function createOAuthHandlers(state: MercadoPagoMockState): HttpHandler[] {
   /**
    * Issues a fresh token pair for a seller account.
    *
@@ -272,7 +271,7 @@ export function createMercadoPagoMockHandlers(
   const issueTokens = (userId: number) => {
     const refreshToken = MERCADO_PAGO_MOCK_ID_PREFIX.refreshToken + crypto.randomUUID();
 
-    sellerUserIdsByRefreshToken.set(refreshToken, userId);
+    state.sellerUserIdsByRefreshToken.set(refreshToken, userId);
 
     return {
       access_token: MERCADO_PAGO_MOCK_ID_PREFIX.accessToken + crypto.randomUUID(),
@@ -287,9 +286,9 @@ export function createMercadoPagoMockHandlers(
       const body = await readJsonBody(request);
 
       if (body.grant_type === MERCADO_PAGO_MOCK_OAUTH.authorizationCodeGrant) {
-        const userId = nextSellerUserId;
+        const userId = state.nextSellerUserId;
 
-        nextSellerUserId += 1;
+        state.nextSellerUserId += 1;
 
         return HttpResponse.json(issueTokens(userId));
       }
@@ -299,7 +298,7 @@ export function createMercadoPagoMockHandlers(
         typeof body.refresh_token === "string"
           ? body.refresh_token
           : "";
-      const userId = sellerUserIdsByRefreshToken.get(refreshToken);
+      const userId = state.sellerUserIdsByRefreshToken.get(refreshToken);
 
       if (userId === undefined) {
         return buildMercadoPagoMockError(
@@ -308,11 +307,23 @@ export function createMercadoPagoMockHandlers(
         );
       }
 
-      sellerUserIdsByRefreshToken.delete(refreshToken);
+      state.sellerUserIdsByRefreshToken.delete(refreshToken);
 
       return HttpResponse.json(issueTokens(userId));
     }),
+  ];
+}
 
+/**
+ * Builds the preapproval plan handlers.
+ *
+ * @param state - State of the mock account.
+ * @returns MSW handlers, in matching order.
+ */
+function createPlanHandlers(state: MercadoPagoMockState): HttpHandler[] {
+  const { plans } = state;
+
+  return [
     http.get(`${MERCADO_PAGO_URL.preapprovalPlan}/search`, ({ request }) => {
       const externalReference = new URL(request.url).searchParams.get(
         MERCADO_PAGO_MOCK_QUERY_PARAM.externalReference
@@ -369,7 +380,19 @@ export function createMercadoPagoMockHandlers(
 
       return HttpResponse.json(updatedPlan);
     }),
+  ];
+}
 
+/**
+ * Builds the preapproval search handler.
+ *
+ * @param state - State of the mock account.
+ * @returns MSW handlers, in matching order.
+ */
+function createPreapprovalReadHandlers(state: MercadoPagoMockState): HttpHandler[] {
+  const { preapprovals } = state;
+
+  return [
     http.get(`${MERCADO_PAGO_URL.preapproval}/search`, ({ request }) => {
       const searchText = new URL(request.url).searchParams.get(
         MERCADO_PAGO_MOCK_QUERY_PARAM.searchText
@@ -380,7 +403,19 @@ export function createMercadoPagoMockHandlers(
 
       return HttpResponse.json({ paging: { total: results.length }, results });
     }),
+  ];
+}
 
+/**
+ * Builds the preapproval creation handler: idempotent by key, and an authorized checkout gets its first approved invoice.
+ *
+ * @param state - State of the mock account.
+ * @returns MSW handlers, in matching order.
+ */
+function createPreapprovalCreationHandlers(state: MercadoPagoMockState): HttpHandler[] {
+  const { checkoutStatus, invoices, plans, preapprovalIdsByIdempotencyKey, preapprovals } = state;
+
+  return [
     http.post(MERCADO_PAGO_URL.preapproval, async ({ request }) => {
       const idempotencyKey = request.headers.get(MERCADO_PAGO_MOCK_HEADER.idempotencyKey);
       const previousPreapproval = idempotencyKey
@@ -429,7 +464,19 @@ export function createMercadoPagoMockHandlers(
         status: HTTP_STATUS_CREATED,
       });
     }),
+  ];
+}
 
+/**
+ * Builds the preapproval read and update handlers.
+ *
+ * @param state - State of the mock account.
+ * @returns MSW handlers, in matching order.
+ */
+function createPreapprovalUpdateHandlers(state: MercadoPagoMockState): HttpHandler[] {
+  const { preapprovals } = state;
+
+  return [
     http.get(`${MERCADO_PAGO_URL.preapproval}/:preapprovalId`, ({ params }) => {
       const preapproval = preapprovals.get(String(params.preapprovalId));
 
@@ -458,7 +505,19 @@ export function createMercadoPagoMockHandlers(
 
       return HttpResponse.json(toPreapprovalResponse(updatedPreapproval));
     }),
+  ];
+}
 
+/**
+ * Builds the authorized payment and payment handlers.
+ *
+ * @param state - State of the mock account.
+ * @returns MSW handlers, in matching order.
+ */
+function createPaymentHandlers(state: MercadoPagoMockState): HttpHandler[] {
+  const { invoices } = state;
+
+  return [
     http.get(`${MERCADO_PAGO_URL.authorizedPayments}/search`, ({ request }) => {
       const preapprovalId = new URL(request.url).searchParams.get(
         MERCADO_PAGO_MOCK_QUERY_PARAM.preapprovalId
@@ -482,7 +541,7 @@ export function createMercadoPagoMockHandlers(
     ),
 
     http.get(`${MERCADO_PAGO_URL.payments}/:paymentId`, ({ params }) => {
-      const invoice = [...invoices.values()].find(
+      const invoice = invoices.values().find(
         (candidate) => candidate.payment.id === String(params.paymentId)
       );
 
@@ -495,5 +554,37 @@ export function createMercadoPagoMockHandlers(
           })
         : buildMercadoPagoMockError(HTTP_STATUS_NOT_FOUND, "payment not found");
     }),
+  ];
+}
+
+/**
+ * Creates the request handlers of an isolated in-memory Mercado Pago account.
+ *
+ * Each call owns its own state, so restarting the server or a test resets it.
+ *
+ * @param options - Simulated provider behavior.
+ * @returns MSW handlers for the Mercado Pago endpoints used by the gateway.
+ */
+export function createMercadoPagoMockHandlers(
+  options: MercadoPagoMockOptions = {}
+): HttpHandler[] {
+  const state: MercadoPagoMockState = {
+    checkoutStatus:
+      options.checkoutStatus ?? MERCADO_PAGO_SUBSCRIPTION_STATUS.authorized,
+    invoices: new Map<string, MercadoPagoMockInvoice>(),
+    nextSellerUserId: MERCADO_PAGO_MOCK_OAUTH.firstSellerUserId,
+    plans: new Map<string, MercadoPagoMockPlan>(),
+    preapprovalIdsByIdempotencyKey: new Map<string, string>(),
+    preapprovals: new Map<string, MercadoPagoMockPreapproval>(),
+    sellerUserIdsByRefreshToken: new Map<string, number>(),
+  };
+
+  return [
+    ...createOAuthHandlers(state),
+    ...createPlanHandlers(state),
+    ...createPreapprovalReadHandlers(state),
+    ...createPreapprovalCreationHandlers(state),
+    ...createPreapprovalUpdateHandlers(state),
+    ...createPaymentHandlers(state),
   ];
 }

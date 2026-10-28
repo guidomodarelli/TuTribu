@@ -47,7 +47,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
           const { name, engine, width } = candidate, browser = await engine.launch({ headless: true }), context = await browser.newContext({ viewport: { width, height: 900 } });
           try { await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`), domain: "127.0.0.1", path: "/", httpOnly: true, sameSite: "Lax" }]); }
           catch { await browser.close(); throw new Error("Personal management native cookie placement failed"); }
-          const page = await context.newPage(), failures: string[] = [], writes: { id: string; method: string }[] = []; let navigations = 0, reportingReads = 0, codeRequests = 0, lost = false, firstId = "", latestId = "", rawUrl = "";
+          const page = await context.newPage(), failures: string[] = [], writes: { id: string; method: string }[] = []; let navigations = 0, reportingReads = 0, codeRequests = 0, lost = false, firstId = "", latestId = "", rawUrl: string;
           const label = `Grupo ${name} ${width}`, updatedLabel = label + " revisado", identity = phone ? ["+5491112345678", "+5491112345679", "+5491112345680", "+5491112345681"][caseIndex] : `${name}.${width}+management@example.test`;
           const completed = (stage: string) => process.stdout.write(JSON.stringify({ phase: "personal_management_ui", engine: name, width, phone, stage }) + "\n");
           page.setDefaultTimeout(180_000); page.on("pageerror", (error) => failures.push(error.name));

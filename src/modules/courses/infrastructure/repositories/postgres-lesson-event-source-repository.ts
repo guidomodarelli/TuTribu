@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import { LESSON_EVENT_SOURCE_STATUS } from "@/src/modules/courses/constants/courses";
 import type {
@@ -108,6 +108,155 @@ function mapLesson(courseId: string, row: LessonRow): LessonFromEventRecording {
 }
 
 /**
+ * Share-locks the viewer's membership in the tribe until commit.
+ */
+function buildShareViewerMembershipStatement(command: CreateLessonFromEventRecordingRepositoryCommand): SQL {
+  return sql`
+        select tribe_members.id
+        from public.tribe_members
+        inner join public.tribes
+          on tribes.id = tribe_members.tribe_id
+        where tribes.slug = ${command.tribeSlug}
+          and tribe_members.user_id = public.current_app_user_id()
+        for share of tribe_members
+      `;
+}
+
+/**
+ * Reads the tribe, the manage permission, and whether the module belongs to the course.
+ */
+function buildConversionTargetStatement(command: CreateLessonFromEventRecordingRepositoryCommand): SQL {
+  return sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        target_course as (
+          select courses.id
+          from public.courses
+          inner join target_tribe
+            on target_tribe.id = courses.tribe_id
+          where courses.id = ${command.courseId}
+          limit 1
+        )
+        select
+          target_tribe.id as tribe_id,
+          coalesce(public.can_manage_tribe_courses(target_tribe.id), false) as can_manage,
+          exists (
+            select 1
+            from public.course_modules
+            inner join target_course
+              on target_course.id = course_modules.course_id
+            where course_modules.id = ${command.courseModuleId}
+              and course_modules.tribe_id = target_tribe.id
+          ) as module_in_course
+        from target_tribe
+      `;
+}
+
+/**
+ * Serializes conversions of the same occurrence into the same course.
+ */
+function buildConversionLockStatement(command: CreateLessonFromEventRecordingRepositoryCommand): SQL {
+  return sql`
+        select pg_advisory_xact_lock(
+          hashtextextended(
+            ${CONVERSION_LOCK_PREFIX}::text || ${command.courseId}::text || ':'
+              || ${command.sourceEventId}::text || '@'
+              || extract(epoch from ${command.sourceOccurrenceStartsAt}::timestamptz)::text,
+            ${ADVISORY_LOCK_SEED}
+          )
+        )
+      `;
+}
+
+/**
+ * Re-reads the manage permission and share-locks the target module.
+ */
+function buildLockedConversionTargetStatement(command: CreateLessonFromEventRecordingRepositoryCommand, tribeId: string): SQL {
+  return sql`
+        with locked_module as (
+          select course_modules.id
+          from public.course_modules
+          inner join public.courses
+            on courses.id = course_modules.course_id
+          where course_modules.id = ${command.courseModuleId}
+            and course_modules.course_id = ${command.courseId}
+            and course_modules.tribe_id = ${tribeId}::uuid
+            and courses.tribe_id = ${tribeId}::uuid
+          for share of course_modules
+        )
+        select
+          coalesce(public.can_manage_tribe_courses(${tribeId}::uuid), false) as can_manage,
+          (select locked_module.id from locked_module) as module_id
+      `;
+}
+
+/**
+ * Reads the lesson already converted from the same occurrence into the course, if any.
+ */
+function buildExistingConvertedLessonStatement(command: CreateLessonFromEventRecordingRepositoryCommand, tribeId: string): SQL {
+  return sql`
+        select course_lessons.id, course_lessons.title, course_lessons.course_module_id
+        from public.course_lessons
+        inner join public.course_modules
+          on course_modules.id = course_lessons.course_module_id
+        where course_modules.course_id = ${command.courseId}
+          and course_lessons.tribe_id = ${tribeId}::uuid
+          and course_lessons.source_event_id = ${command.sourceEventId}
+          and course_lessons.source_occurrence_starts_at = ${command.sourceOccurrenceStartsAt}::timestamptz
+        order by course_lessons.created_at asc
+        limit 1
+      `;
+}
+
+/**
+ * Inserts the converted lesson at the end of its module.
+ */
+function buildInsertConvertedLessonStatement(command: CreateLessonFromEventRecordingRepositoryCommand, tribeId: string): SQL {
+  return sql`
+        insert into public.course_lessons (
+          course_module_id,
+          tribe_id,
+          title,
+          video_provider,
+          external_video_id,
+          description,
+          sort_order,
+          is_active,
+          source_event_id,
+          source_occurrence_starts_at,
+          created_at,
+          updated_at
+        )
+        select
+          ${command.courseModuleId},
+          ${tribeId},
+          ${command.title},
+          ${command.videoProvider},
+          ${command.externalVideoId},
+          ${command.description},
+          coalesce(
+            (
+              select max(module_lessons.sort_order) + 1
+              from public.course_lessons module_lessons
+              where module_lessons.course_module_id = ${command.courseModuleId}
+            ),
+            0
+          ),
+          true,
+          ${command.sourceEventId},
+          ${command.sourceOccurrenceStartsAt}::timestamptz,
+          timezone('utc', now()),
+          timezone('utc', now())
+        where public.can_manage_tribe_courses(${tribeId}::uuid)
+        returning course_lessons.id, course_lessons.title, course_lessons.course_module_id
+      `;
+}
+
+/**
  * Postgres adapter of the lessons created from event recordings. Every
  * statement repeats `can_manage_tribe_courses` (the runtime role bypasses
  * RLS) and resolves courses and modules through the tribe slug, so a lesson
@@ -129,7 +278,7 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as { can_manage: boolean | null } | null)?.can_manage
+        ((result.rows[0] ?? null) as { can_manage: boolean | null } | null)?.can_manage
       );
     });
   }
@@ -178,7 +327,7 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
           ) as courses
         from target_tribe
       `);
-      const row = (result.rows?.[0] ?? null) as TargetsRow | null;
+      const row = (result.rows[0] ?? null) as TargetsRow | null;
 
       if (!row) {
         return { status: LESSON_EVENT_SOURCE_STATUS.notFound };
@@ -234,45 +383,10 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
       // removal committed while this statement waited is visible to the next
       // statement, and one issued later waits for this conversion. No row
       // (not a member) is fine: the permission read below answers forbidden.
-      await database.execute(sql`
-        select tribe_members.id
-        from public.tribe_members
-        inner join public.tribes
-          on tribes.id = tribe_members.tribe_id
-        where tribes.slug = ${command.tribeSlug}
-          and tribe_members.user_id = public.current_app_user_id()
-        for share of tribe_members
-      `);
+      await database.execute(buildShareViewerMembershipStatement(command));
 
-      const targetResult = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        target_course as (
-          select courses.id
-          from public.courses
-          inner join target_tribe
-            on target_tribe.id = courses.tribe_id
-          where courses.id = ${command.courseId}
-          limit 1
-        )
-        select
-          target_tribe.id as tribe_id,
-          coalesce(public.can_manage_tribe_courses(target_tribe.id), false) as can_manage,
-          exists (
-            select 1
-            from public.course_modules
-            inner join target_course
-              on target_course.id = course_modules.course_id
-            where course_modules.id = ${command.courseModuleId}
-              and course_modules.tribe_id = target_tribe.id
-          ) as module_in_course
-        from target_tribe
-      `);
-      const target = (targetResult.rows?.[0] ?? null) as ConversionTargetRow | null;
+      const targetResult = await database.execute(buildConversionTargetStatement(command));
+      const target = (targetResult.rows[0] ?? null) as ConversionTargetRow | null;
 
       if (!target?.tribe_id) {
         return { status: LESSON_EVENT_SOURCE_STATUS.notFound };
@@ -286,16 +400,7 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
         return { status: LESSON_EVENT_SOURCE_STATUS.notFound };
       }
 
-      await database.execute(sql`
-        select pg_advisory_xact_lock(
-          hashtextextended(
-            ${CONVERSION_LOCK_PREFIX}::text || ${command.courseId}::text || ':'
-              || ${command.sourceEventId}::text || '@'
-              || extract(epoch from ${command.sourceOccurrenceStartsAt}::timestamptz)::text,
-            ${ADVISORY_LOCK_SEED}
-          )
-        )
-      `);
+      await database.execute(buildConversionLockStatement(command));
 
       // The course or module may have been deleted while this request waited
       // on the conversion lock. This read runs in a fresh snapshot: it
@@ -304,23 +409,8 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
       // module so a concurrent delete waits for this insert instead of
       // failing its foreign key. The course row is never locked, so the
       // course's cascading delete cannot deadlock with it.
-      const lockedTargetResult = await database.execute(sql`
-        with locked_module as (
-          select course_modules.id
-          from public.course_modules
-          inner join public.courses
-            on courses.id = course_modules.course_id
-          where course_modules.id = ${command.courseModuleId}
-            and course_modules.course_id = ${command.courseId}
-            and course_modules.tribe_id = ${target.tribe_id}::uuid
-            and courses.tribe_id = ${target.tribe_id}::uuid
-          for share of course_modules
-        )
-        select
-          coalesce(public.can_manage_tribe_courses(${target.tribe_id}::uuid), false) as can_manage,
-          (select locked_module.id from locked_module) as module_id
-      `);
-      const lockedTarget = (lockedTargetResult.rows?.[0] ?? null) as LockedTargetRow | null;
+      const lockedTargetResult = await database.execute(buildLockedConversionTargetStatement(command, target.tribe_id));
+      const lockedTarget = (lockedTargetResult.rows[0] ?? null) as LockedTargetRow | null;
 
       if (!lockedTarget?.can_manage) {
         return { status: LESSON_EVENT_SOURCE_STATUS.forbidden };
@@ -330,19 +420,8 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
         return { status: LESSON_EVENT_SOURCE_STATUS.notFound };
       }
 
-      const existingResult = await database.execute(sql`
-        select course_lessons.id, course_lessons.title, course_lessons.course_module_id
-        from public.course_lessons
-        inner join public.course_modules
-          on course_modules.id = course_lessons.course_module_id
-        where course_modules.course_id = ${command.courseId}
-          and course_lessons.tribe_id = ${target.tribe_id}::uuid
-          and course_lessons.source_event_id = ${command.sourceEventId}
-          and course_lessons.source_occurrence_starts_at = ${command.sourceOccurrenceStartsAt}::timestamptz
-        order by course_lessons.created_at asc
-        limit 1
-      `);
-      const existingLesson = (existingResult.rows?.[0] ?? null) as LessonRow | null;
+      const existingResult = await database.execute(buildExistingConvertedLessonStatement(command, target.tribe_id));
+      const existingLesson = (existingResult.rows[0] ?? null) as LessonRow | null;
 
       if (existingLesson) {
         return {
@@ -371,45 +450,8 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
         return { status: LESSON_EVENT_SOURCE_STATUS.recordingChanged };
       }
 
-      const insertedResult = await database.execute(sql`
-        insert into public.course_lessons (
-          course_module_id,
-          tribe_id,
-          title,
-          video_provider,
-          external_video_id,
-          description,
-          sort_order,
-          is_active,
-          source_event_id,
-          source_occurrence_starts_at,
-          created_at,
-          updated_at
-        )
-        select
-          ${command.courseModuleId},
-          ${target.tribe_id},
-          ${command.title},
-          ${command.videoProvider},
-          ${command.externalVideoId},
-          ${command.description},
-          coalesce(
-            (
-              select max(module_lessons.sort_order) + 1
-              from public.course_lessons module_lessons
-              where module_lessons.course_module_id = ${command.courseModuleId}
-            ),
-            0
-          ),
-          true,
-          ${command.sourceEventId},
-          ${command.sourceOccurrenceStartsAt}::timestamptz,
-          timezone('utc', now()),
-          timezone('utc', now())
-        where public.can_manage_tribe_courses(${target.tribe_id}::uuid)
-        returning course_lessons.id, course_lessons.title, course_lessons.course_module_id
-      `);
-      const insertedLesson = (insertedResult.rows?.[0] ?? null) as LessonRow | null;
+      const insertedResult = await database.execute(buildInsertConvertedLessonStatement(command, target.tribe_id));
+      const insertedLesson = (insertedResult.rows[0] ?? null) as LessonRow | null;
 
       return insertedLesson
         ? {

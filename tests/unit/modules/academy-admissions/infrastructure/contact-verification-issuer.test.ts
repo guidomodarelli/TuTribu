@@ -89,13 +89,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
       let arrived = 0;
       let release!: () => void;
       const bothSharedLocks = new Promise<void>((complete) => { release = complete; });
-      const synchronizeSharedLocks = async (_transaction: RequestDatabase) => { arrived += 1; if (arrived === 2) release(); await bothSharedLocks; };
+      const synchronizeSharedLocks = async () => { arrived += 1; if (arrived === 2) release(); await bothSharedLocks; };
       const competingOperationIds = [randomUUID(), randomUUID()];
       const competitors = await Promise.all(competingOperationIds.map((operationId) => fixture.issue(original.challengeId, operationId, async () => fixture.config, synchronizeSharedLocks)));
       expect(competitors.filter((operation) => operation.state === "completed" && operation.result.outcome === "issued")).toHaveLength(1);
       if (proof.outcome !== "verified" || !proof.proofId) throw new Error("Expected the original available proof");
       const winning = competitors.find((operation) => operation.state === "completed" && operation.result.outcome === "issued");
-      if (!winning || winning.state !== "completed") throw new Error("Expected one committed resend");
+      if (winning?.state !== "completed") throw new Error("Expected one committed resend");
       const proofId = proof.proofId;
       const verificationEpoch = fixture.scope.verificationEpoch;
       if (verificationEpoch === null) throw new Error("Expected the admission verification epoch");

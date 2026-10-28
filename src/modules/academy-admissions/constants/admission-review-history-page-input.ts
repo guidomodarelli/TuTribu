@@ -7,8 +7,8 @@ import { admissionReviewNavigationQuerySchema } from "./admission-review-page-in
 import { admissionReviewDateRangeSchema, admissionReviewQuerySchema } from "./admission-review-input";
 import { admissionTribeParamsSchema } from "./admission-route-input";
 
-/** Zod omits cannot preserve object refinements; reuse the field shape and retain the original date-range refinement once. */
-const { [ADMISSION_NAVIGATION.requestQuery]: _selectedRequest, ...historyNavigationShape } = admissionReviewNavigationQuerySchema.shape;
+/** Zod omits cannot preserve object refinements; reuse the field shape without the selected request and retain the original date-range refinement once. */
+const historyNavigationShape = z.object(admissionReviewNavigationQuerySchema.shape).omit({ [ADMISSION_NAVIGATION.requestQuery]: true }).shape;
 
 /** Reuses the exact review cursor protocol while translating its timestamp into the history port vocabulary. */
 export const admissionReviewHistoryPageInputSchema = z.strictObject({

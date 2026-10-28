@@ -49,6 +49,15 @@ function RequestBadges({ request }: { request: AdmissionReviewDto }) {
   </ul>;
 }
 
+/** Reviewer copy of each recorded contact evidence kind; any other kind reads as no evidence. */
+const EVIDENCE_COPY: Partial<Record<string, string>> = { [ADMISSION_EVIDENCE_KIND.base]: ADMISSION_REVIEW_UI_COPY.base, [ADMISSION_EVIDENCE_KIND.local]: ADMISSION_REVIEW_UI_COPY.local, [ADMISSION_EVIDENCE_KIND.declared]: ADMISSION_REVIEW_UI_COPY.declared };
+
+/** @param kind - Evidence kind of the selected request, if any. @returns How the reviewer reads that evidence. */
+function describeEvidence(kind: string | undefined): string {
+  if (kind === undefined) return ADMISSION_REVIEW_UI_COPY.none;
+  return EVIDENCE_COPY[kind] ?? ADMISSION_REVIEW_UI_COPY.none;
+}
+
 /** @param props - Current allowlisted review data and route-owned state/callbacks. @returns A semantic inbox/detail with explicit confirmation and a live region registered before its feedback changes. */
 export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
   const id = useId();
@@ -58,7 +67,7 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
     return message ? [{ reason, message }] : [];
   }) ?? [];
   const proofReasonVisible = eligibilityMessages.some(({ reason }) => reason === ADMISSION_DENIAL_REASON.proofRequired || reason === ADMISSION_DENIAL_REASON.evidenceRevoked);
-  const evidenceCopy = selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.base ? ADMISSION_REVIEW_UI_COPY.base : selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.local ? ADMISSION_REVIEW_UI_COPY.local : selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.declared ? ADMISSION_REVIEW_UI_COPY.declared : ADMISSION_REVIEW_UI_COPY.none;
+  const evidenceCopy = describeEvidence(selected?.evidence.kind);
   const canApprove = selected?.eligibleActions.includes(ADMISSION_DECISION.approve), canReject = selected?.eligibleActions.includes(ADMISSION_DECISION.reject);
   // A retry keeps its recovery controls mounted so the pressed retry shows progress instead of disappearing.
   const retrying = props.pendingAction === ADMISSION_REVIEW_PENDING_ACTION.retry, recovering = props.uncertain || retrying, reading = props.busy && !props.pendingAction;

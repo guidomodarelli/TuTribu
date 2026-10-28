@@ -92,7 +92,7 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
   /** @param scope - Server-resolved account/session being rechecked before checkout. @param run - Native DB-only work with final owner authorization. @returns The guarded result or a current authentication denial. */
   const execute = async <Result>(scope: { userId: string; sessionId: string }, run: (database: RequestDatabase) => Promise<Result>): Promise<Result> => {
     const account = await dependencies.accounts.getAuthenticatedAccount();
-    if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    if (account?.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     return dependencies.execute(account, run);
   };
   const useCases = {
@@ -124,7 +124,7 @@ export function buildAdmissionNotificationProducerModule(dependencies: { execute
 /** @param dependencies - Explicit current job authority, original guarded executor, local security and registered code-free sender factory. @returns A private prepared sender and its guarded preparation port; no queue claim, endpoint or scheduler is activated. */
 export function buildAdmissionNotificationDeliveryModule(dependencies: { execute: AdmissionNotificationPreparationExecutor; authorize: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>; createSender: (preparation: NotificationDeliveryPreparation) => MessageDeliverySender }) {
   const authority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
-  const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, authority.marked);
+  const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: dependencies.execute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: dependencies.readSecurityConfig, purpose: MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, authorizeDeliveryResource: authority.marked });
   const authorizedSecrets: MessagingSecretMaterialStore = {
     /** @param context - Original private marker, independently checked by the real store. @returns Its transient credential/provider after current job authority; native resource preparation must run again afterward. @throws MessagingSecretAccessError when job authority is lost after the secret transaction commits. */
     async loadAuthorizedSecretMaterial(context) {

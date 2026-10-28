@@ -3,6 +3,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 
+/** @param rawCode - Child-process exit or system code. @returns It when it is a safe integer or an uppercase system code, otherwise a fixed placeholder. */
+function safeProcessCode(rawCode: unknown): number | string {
+  if (typeof rawCode === "number" && Number.isSafeInteger(rawCode)) return rawCode;
+  return typeof rawCode === "string" && /^[A-Z_]+$/u.test(rawCode) ? rawCode : "unavailable";
+}
+
 /**
  * Runs the exact migration command with explicit owned environment and bounded observation.
  * @param environment - URLs supplied by the verified disposable branch; retained in memory only.
@@ -15,7 +21,7 @@ export async function executeAdmissionMigrationCommand(environment: Readonly<Rec
     await promisify(execFile)(process.execPath, [...commandArguments], { cwd: process.cwd(), env: { ...process.env, ...environment }, timeout: 120_000, maxBuffer: 1_000_000, windowsHide: true });
   } catch (error) {
     const rawCode = error && typeof error === "object" && "code" in error ? error.code : undefined;
-    const processCode = typeof rawCode === "number" && Number.isSafeInteger(rawCode) ? rawCode : typeof rawCode === "string" && /^[A-Z_]+$/u.test(rawCode) ? rawCode : "unavailable";
+    const processCode = safeProcessCode(rawCode);
     const safeCause = new Error(`Owned migration process failed: exit=${String(processCode)}`);
     throw new Error(`Owned feature migration command failed: exit=${String(processCode)}`, { cause: safeCause });
   }

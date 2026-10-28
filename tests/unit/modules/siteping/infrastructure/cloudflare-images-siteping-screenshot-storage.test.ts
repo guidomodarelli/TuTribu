@@ -69,7 +69,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("uploads the screenshot pinning the reserved id and returns its delivery URL", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ result: { id: RESERVED_IMAGE_ID }, success: true }); }
+      async (..._args: unknown[]) => { return buildResponse({ result: { id: RESERVED_IMAGE_ID }, success: true }); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -82,12 +82,12 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     const [requestUrl, init] = fetcher.mock.calls[0] ?? [];
     expect(requestUrl).toBe(UPLOAD_ENDPOINT);
     expect(init).toMatchObject({ method: HTTP_METHOD.post });
-    expect((init?.body as FormData).get("id")).toBe(RESERVED_IMAGE_ID);
+    expect((init?.body as FormData | undefined)?.get("id")).toBe(RESERVED_IMAGE_ID);
   });
 
   it("pins a Cloudflare-valid non-UUID custom id with the default generator", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: true }); }
+      async (..._args: unknown[]) => { return buildResponse({ success: true }); }
     );
     // No injected id generator: exercise the production default so a regression
     // back to a raw UUID (which Cloudflare rejects, dropping every screenshot)
@@ -98,7 +98,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     expect(url).not.toBeNull();
     const [, init] = fetcher.mock.calls[0] ?? [];
-    const pinnedId = (init?.body as FormData).get("id");
+    const pinnedId = (init?.body as FormData | undefined)?.get("id");
     expect(typeof pinnedId).toBe("string");
     expect((pinnedId as string).length).toBeLessThanOrEqual(
       CLOUDFLARE_MAX_CUSTOM_ID_LENGTH
@@ -314,7 +314,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("persists the reserved delivery URL when the upload times out and the reclaim delete also times out", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args;
+      async (..._args: unknown[]) => { 
         throw new Error("Request timed out");
       }
     );
@@ -328,7 +328,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("drops the screenshot on a client upload rejection instead of persisting a delivery URL for an image Cloudflare never accepted", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 403); }
+      async (..._args: unknown[]) => { return buildResponse({ success: false }, false, 403); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -397,7 +397,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("deletes the Cloudflare image parsed from the stored delivery URL", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: true }); }
+      async (..._args: unknown[]) => { return buildResponse({ success: true }); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -413,7 +413,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("treats a 404 as already deleted and reports the screenshot cleared", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 404); }
+      async (..._args: unknown[]) => { return buildResponse({ success: false }, false, 404); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -425,7 +425,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("does not trust a delete 404 as cleared when the caller opts out of treating a 404 as cleared", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 404); }
+      async (..._args: unknown[]) => { return buildResponse({ success: false }, false, 404); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -448,7 +448,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("still clears on an ok delete even when the caller opts out of treating a 404 as cleared", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: true }); }
+      async (..._args: unknown[]) => { return buildResponse({ success: true }); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -543,7 +543,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot uncleared when Cloudflare rejects the delete with an auth error", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 403); }
+      async (..._args: unknown[]) => { return buildResponse({ success: false }, false, 403); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -555,7 +555,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot uncleared when Cloudflare returns a server error", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 500); }
+      async (..._args: unknown[]) => { return buildResponse({ success: false }, false, 500); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -567,7 +567,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot uncleared on a network error so the feedback is kept for retry", async () => {
     const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
-      async (...args: unknown[]) => { void args;
+      async (..._args: unknown[]) => { 
         throw new Error("network down");
       }
     );

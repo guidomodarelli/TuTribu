@@ -47,7 +47,7 @@ function database(current: MessagingRestoreNodeInput) {
 /** @returns Only the original lifecycle state, after live outside-SQL control was rechecked. */
 async function readStatus(): Promise<AdmissionNodeStatus> {
   const current = await input();
-  const row = await database(current).withContext(backend, async (transaction) => (await transaction.execute<{ state: AdmissionNodeRunState }>(sql`select state from native_test_support.messaging_restore_phases where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and phase=${current.phase}`)).rows[0]);
+  const row = await database(current).withContext(backend, async (transaction) => (await transaction.execute<{ state: AdmissionNodeRunState }>(sql`select state from native_test_support.messaging_restore_phases where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and phase=${current.phase}`)).rows.at(0));
   if (!row) throw new Error("MessagingRestoreNode.read failed: owned_phase_unregistered");
   return { operationId: configuration.operationId, state: row.state, measurement: null };
 }
@@ -55,22 +55,22 @@ async function readStatus(): Promise<AdmissionNodeStatus> {
 /** @returns A committed original phase result; running, failed or completed phases are never automatically repeated. */
 async function run(): Promise<AdmissionNodeStatus> {
   const current = await input(), sqlCapability = database(current);
-  const acquired = await sqlCapability.withContext(backend, async (transaction) => (await transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.running},work_runs=work_runs+1,started_at=clock_timestamp(),source_commit=${configuration.sourceCommit},bundle_sha256=${configuration.bundleSha256} where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and phase=${current.phase} and state=${ADMISSION_NODE_RUN_STATE.prepared} returning id`)).rows[0]);
+  const acquired = await sqlCapability.withContext(backend, async (transaction) => (await transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.running},work_runs=work_runs+1,started_at=clock_timestamp(),source_commit=${configuration.sourceCommit},bundle_sha256=${configuration.bundleSha256} where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and phase=${current.phase} and state=${ADMISSION_NODE_RUN_STATE.prepared} returning id`)).rows.at(0));
   if (!acquired) return readStatus();
   try {
     const observed = await runMessagingRestoreNodePhase(sqlCapability, current, readMessagingHostingSecurityConfig);
-    const completed = await sqlCapability.withContext(backend, async (transaction) => (await transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.completed},cipher_operations=${observed.cipherOperations},checked_rejections=${observed.checkedRejections},provider_requests=${observed.providerRequests},invitation_round_trip=${observed.invitationRoundTrip},runtime_version=${process.versions.node},completed_at=clock_timestamp() where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.running} returning id`)).rows[0]);
+    const completed = await sqlCapability.withContext(backend, async (transaction) => (await transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.completed},cipher_operations=${observed.cipherOperations},checked_rejections=${observed.checkedRejections},provider_requests=${observed.providerRequests},invitation_round_trip=${observed.invitationRoundTrip},runtime_version=${process.versions.node},completed_at=clock_timestamp() where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.running} returning id`)).rows.at(0));
     if (!completed) throw new Error("MessagingRestoreNode.complete failed: phase_commit_unconfirmed");
-    return readStatus();
   } catch (error) {
     try {
       await sqlCapability.withContext(backend, (transaction) => transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.failed},failure_code=${readMessagingNodePhaseFailureCode(error)},completed_at=clock_timestamp() where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     } catch (recordingError) { throw new AggregateError([error, recordingError], "MessagingRestoreNode.record failed: phase_state_unconfirmed", { cause: error }); }
     throw error;
   }
+  return readStatus();
 }
 
-export default createAdmissionNodeHostHandler(configuration, {
+const handler = createAdmissionNodeHostHandler(configuration, {
   currentBranchName: () => process.env[ADMISSION_NODE_HOST.branchIdentityVariable],
   readStatus, run,
   failureCode: readMessagingNodePhaseFailureCode,
@@ -78,3 +78,4 @@ export default createAdmissionNodeHostHandler(configuration, {
     logger.error({ message: "MessagingRestoreNode.request failed", metadata: { operationId: configuration.operationId, errorName: summarizeMessagingNodeHostFailure(error).name, diagnostic: readMessagingNodePhaseFailureCode(error), ...readPostgresTestDiagnostics(error) } });
   },
 });
+export default handler;

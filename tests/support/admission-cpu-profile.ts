@@ -1,5 +1,6 @@
 /** Projects CPU sampling into owned numerical diagnostics without debugger state or arguments. */
 import type { Profiler } from "node:inspector";
+import type { Session as InspectorSession } from "node:inspector/promises";
 import { z } from "zod";
 import { ADMISSION_PERFORMANCE } from "./constants/admission-performance";
 import { ADMISSION_CPU_PROFILE, ADMISSION_CPU_SOURCES, type AdmissionCpuSource } from "./constants/admission-cpu-profile";
@@ -7,7 +8,7 @@ import { ADMISSION_CPU_PROFILE, ADMISSION_CPU_SOURCES, type AdmissionCpuSource }
 export type AdmissionCpuEntry = { name: string; source: AdmissionCpuSource; lineNumber: number; columnNumber: number; selfMs: number; inclusiveMs: number; samples: number };
 export type AdmissionCpuReport = { status: "available"; scope: string; durationMs: number; sampledMs: number; sampleCount: number; idleMs: number; garbageCollectionMs: number; unattributedMs: number; topSelf: AdmissionCpuEntry[]; topInclusive: AdmissionCpuEntry[] };
 export type AdmissionCpuObservation = AdmissionCpuReport | { status: "unavailable"; reason: string };
-const nonnegative = z.number().finite().nonnegative();
+const nonnegative = z.number().nonnegative();
 const entrySchema = z.object({ name: z.string().max(ADMISSION_CPU_PROFILE.maximumSymbolLength), source: z.enum(ADMISSION_CPU_SOURCES), lineNumber: z.int().min(-1), columnNumber: z.int().min(-1), selfMs: nonnegative, inclusiveMs: nonnegative, samples: z.int().nonnegative() }).strict();
 export const admissionCpuObservationSchema: z.ZodType<AdmissionCpuObservation> = z.union([
   z.object({ status: z.literal("available"), scope: z.literal(ADMISSION_CPU_PROFILE.scope), durationMs: nonnegative, sampledMs: nonnegative, sampleCount: z.int().nonnegative(), idleMs: nonnegative, garbageCollectionMs: nonnegative, unattributedMs: nonnegative, topSelf: z.array(entrySchema).max(ADMISSION_CPU_PROFILE.maximumEntries), topInclusive: z.array(entrySchema).max(ADMISSION_CPU_PROFILE.maximumEntries) }).strict(),
@@ -18,6 +19,12 @@ export const admissionCpuObservationSchema: z.ZodType<AdmissionCpuObservation> =
 function safeName(name: string): string {
   if ([ADMISSION_CPU_PROFILE.root, ADMISSION_CPU_PROFILE.idle, ADMISSION_CPU_PROFILE.garbageCollector, ADMISSION_CPU_PROFILE.program].some((known) => known === name)) return name;
   return name.length <= ADMISSION_CPU_PROFILE.maximumSymbolLength && ADMISSION_CPU_PROFILE.symbolPattern.test(name) ? name : ADMISSION_CPU_PROFILE.anonymous;
+}
+
+/** @param url - Private frame URL, read only to classify its origin. @returns The owned source bucket for the frame. */
+function classifyCpuSource(url: string): AdmissionCpuSource {
+  if (url.startsWith("node:")) return "node_runtime";
+  return url.endsWith("/index.mjs") || url === "index.mjs" ? "application_bundle" : "other";
 }
 
 /**
@@ -33,7 +40,7 @@ export function projectAdmissionCpuProfile(profile: Profiler.Profile): Admission
     for (const node of profile.nodes) {
       if (entries.has(node.id)) throw new Error(ADMISSION_CPU_PROFILE.invalidMessage);
       const frame = node.callFrame;
-      const source: AdmissionCpuSource = frame.url.startsWith("node:") ? "node_runtime" : frame.url.endsWith("/index.mjs") || frame.url === "index.mjs" ? "application_bundle" : "other";
+      const source = classifyCpuSource(frame.url);
       entries.set(node.id, { name: safeName(frame.functionName), source, lineNumber: frame.lineNumber, columnNumber: frame.columnNumber, selfMs: 0, inclusiveMs: 0, samples: 0 });
       for (const child of node.children ?? []) { if (parents.has(child)) throw new Error(ADMISSION_CPU_PROFILE.invalidMessage); parents.set(child, node.id); }
     }
@@ -67,7 +74,7 @@ export function projectAdmissionCpuProfile(profile: Profiler.Profile): Admission
  * @returns A bounded stopper that always disconnects, or an explicit unavailable observation.
  */
 export async function startAdmissionCpuProfile(): Promise<{ stop: () => Promise<AdmissionCpuObservation> }> {
-  let session: import("node:inspector/promises").Session | undefined;
+  let session: InspectorSession | undefined;
   try {
     const inspector = await import("node:inspector/promises");
     session = new inspector.Session(); session.connect();

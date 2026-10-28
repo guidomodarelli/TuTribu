@@ -35,7 +35,7 @@ function readQueryText(query: unknown): string {
 
 describe("PostgresTribeWelcomeSelectionRepository", () => {
   it("checks active membership before recording welcome selections", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: TRIBE_WELCOME_SELECTION_STATUS.forbidden,
@@ -55,7 +55,7 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
   });
 
   it("classifies forbidden access before invalid welcome links", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           status: TRIBE_WELCOME_SELECTION_STATUS.forbidden,
@@ -84,12 +84,12 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
   });
 
   it("propagates missing selection storage instead of treating it as no selections", async () => {
-    const missingStorageError = {
+    const missingStorageError = new Error("Failed query", {
       cause: {
         code: "42P01",
       },
-    };
-    const execute = vi.fn(async (...args: unknown[]) => { void args;
+    });
+    const execute = vi.fn(async (..._args: unknown[]) => { 
       throw missingStorageError;
     });
     const repository = new PostgresTribeWelcomeSelectionRepository(

@@ -13,12 +13,12 @@ function prepareRead() {
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
   const query = { tribeId, operationId: randomUUID(), requestId: randomUUID() };
   const result = { originalDeliveryId: randomUUID(), recoveryDeliveryId: randomUUID(), originalVersion: 2, targetConnectionId: randomUUID(), targetConnectionVersion: 3 };
-  let value: unknown | null = { type: "recover_notification_delivery", state: "completed", operationId: query.operationId, replayed: true, result };
+  let value: unknown = { type: "recover_notification_delivery", state: "completed", operationId: query.operationId, replayed: true, result };
   let afterRead: (() => void) | null = null;
   let reads = 0;
   const management = new ResolveMessagingTribeManagementUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentLeadership: async () => leadership }, () => now);
   const useCase = new ReadNotificationRecoveryOperationUseCase(management, { read: async () => { reads += 1; afterRead?.(); return value; } });
-  return { account, leadership, query, result, useCase, get reads() { return reads; }, setValue(next: unknown | null) { value = next; }, afterRead(callback: () => void) { afterRead = callback; } };
+  return { account, leadership, query, result, useCase, get reads() { return reads; }, setValue(next: unknown) { value = next; }, afterRead(callback: () => void) { afterRead = callback; } };
 }
 
 describe("original notification recovery read", () => {

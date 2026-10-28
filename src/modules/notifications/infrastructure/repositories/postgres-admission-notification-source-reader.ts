@@ -78,7 +78,8 @@ export class PostgresAdmissionNotificationSourceReader implements AdmissionNotif
     const positions = selected.map((source) => ({ createdAtMicroseconds: Number(source.created_at_microseconds), obligationId: source.obligation_id, recipientUserId: source.recipient_user_id, audience: source.audience }));
     // A page filled by retries has not looked at later sources yet, so the sweep continues.
     const hasMore = retryRows.length > ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE || remaining === 0 || sourceRows.length > remaining;
-    const nextFrontier = positions.length > retries.length ? positions.at(-1)! : after;
+    const lastPosition = positions.at(-1);
+    const nextFrontier = positions.length > retries.length && lastPosition ? lastPosition : after;
     return {
       throughMicroseconds,
       retryCount: retries.length,

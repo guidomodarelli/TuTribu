@@ -53,13 +53,13 @@ function createOccurrenceMutationRegistry(): OccurrenceMutationRegistry {
       };
 
       // Settlement only unregisters it; the failure is handled by the caller.
-      mutation.then(forgetMutation, forgetMutation);
+      mutation.then(forgetMutation).catch(forgetMutation);
     },
     async waitFor(target) {
       const pendingMutations = pendingMutationsByOccurrence.get(buildOccurrenceTargetKey(target));
 
       if (pendingMutations) {
-        await Promise.allSettled([...pendingMutations]);
+        await Promise.allSettled(pendingMutations);
       }
     },
   };

@@ -23,7 +23,13 @@ export function visibleAdmissionSections(audience: AdmissionSectionAudience) {
 
 /** Separator between route segments, and the trailing separators a pathname may carry. */
 const ROUTE_SEPARATOR = "/";
-const TRAILING_SEPARATORS = /\/+$/;
+
+/** @param route - Route relative to the tribe. @returns The route without its trailing separators. */
+function withoutTrailingSeparators(route: string): string {
+  let end = route.length;
+  while (end > 0 && route[end - 1] === ROUTE_SEPARATOR) end -= 1;
+  return route.slice(0, end);
+}
 
 /**
  * Finds the admission page a pathname belongs to: the longest page route that is the pathname or one of its parents, so
@@ -35,7 +41,7 @@ const TRAILING_SEPARATORS = /\/+$/;
 export function resolveAdmissionPage(pathname: string, slug: string): AdmissionPage | undefined {
   const tribePath = `${ROUTE_SEPARATOR}${encodeURIComponent(slug)}${ROUTE_SEPARATOR}`;
   if (!pathname.startsWith(tribePath)) return undefined;
-  const route = pathname.slice(tribePath.length).replace(TRAILING_SEPARATORS, "");
+  const route = withoutTrailingSeparators(pathname.slice(tribePath.length));
   let match: { page: AdmissionPage; length: number } | undefined;
   for (const [page, definition] of Object.entries(ADMISSION_PAGES) as [AdmissionPage, (typeof ADMISSION_PAGES)[AdmissionPage]][]) {
     const owns = route === definition.segment || route.startsWith(`${definition.segment}${ROUTE_SEPARATOR}`);

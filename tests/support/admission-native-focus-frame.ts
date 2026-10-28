@@ -24,7 +24,7 @@ export async function withAdmissionNativeFocusFrame<Result>(context: BrowserCont
     await page.route(host.href, (route) => route.fulfill({ contentType: "text/html", body: `<!doctype html><html lang="es"><meta charset="utf-8"><title>Verificación nativa de foco</title><style>html,body{margin:0}button{display:block}iframe{display:block;width:100%;height:${BROWSER.height}px;border:0}</style><button type="button">${VALIDATION.focusOutsideLabel}</button><iframe title="${VALIDATION.focusFrameTitle}" src="${target.href}"></iframe></html>` }));
     await runPrivateBrowserRequest("open_native_focus_fixture", () => page.goto(host.href, { waitUntil: "domcontentloaded" }));
     const element = await page.waitForSelector("iframe");
-    const frame = await element?.contentFrame();
+    const frame = await element.contentFrame();
     if (!frame) throw new Error("AdmissionNativeFocusFrame.open failed: application_frame_unavailable");
     await frame.waitForURL((url) => url.origin === target.origin && url.pathname === target.pathname, { waitUntil: "domcontentloaded" });
     return await run({ page, frame, focusApplication: () => frame.getByRole("heading", { name: ADMISSION_REVIEW_UI_COPY.title, exact: true }).click(), focusOutside: () => page.getByRole("button", { name: VALIDATION.focusOutsideLabel, exact: true }).click() });

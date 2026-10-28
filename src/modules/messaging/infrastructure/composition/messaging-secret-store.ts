@@ -13,7 +13,7 @@ export type MessagingSecurityConfigReader = () => Promise<MessagingSecurityConfi
 /** Builds a per-operation store; its guarded queries still revalidate all current authority. */
 async function createSecretStore(accounts: MessagingAccountProvider, readSecurityConfig: MessagingSecurityConfigReader, purpose: MessagingSecretAccessContext["authorizationPurpose"]) {
   const database = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
-  return new PostgresEncryptedSecretStore((actorUserId, run) => database.withRequestContext({ userId: actorUserId, email: null }, run), accounts, readSecurityConfig, purpose);
+  return new PostgresEncryptedSecretStore({ executeWithDatabase: (actorUserId, run) => database.withRequestContext({ userId: actorUserId, email: null }, run), accounts, readSecurityConfig, purpose });
 }
 
 /**

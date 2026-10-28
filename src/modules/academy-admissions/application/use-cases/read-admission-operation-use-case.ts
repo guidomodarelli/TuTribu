@@ -1,4 +1,5 @@
 /** Recovers only an actually registered own operation without claiming or repeating work. @module read-admission-operation-use-case */
+import type { z } from "zod";
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { AdmissionOperationReader } from "@/src/modules/academy-admissions/domain/repositories/admission-operation-reader";
@@ -24,25 +25,33 @@ export class ReadAdmissionOperationUseCase {
       if (!first || !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const value = await this.reader.read({ userId: first.userId, sessionId: first.session.id, tribeId: query.tribeId, requestId: query.requestId }, query.operationId);
       const current = await this.accounts.getAuthenticatedAccount();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       if (value === null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       const parsed = admissionOperationRecoveryEnvelopeSchema.safeParse(value);
       if (!parsed.success || parsed.data.operation.operationId !== query.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(parsed.data.operationType) && parsed.data.operation.state === OPERATION_STATE.completed) {
-        const original = admissionPolicyMutationResultSchema.parse(parsed.data.operation.result);
-        if (original.policyId !== query.tribeId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-        if (parsed.data.operationType === ADMISSION_POLICY_OPERATION.activate && !original.controlActivated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-        if (parsed.data.operationType === ADMISSION_POLICY_OPERATION.initialize && original.changed && (original.version !== 1 || original.verificationEpoch !== 1 || original.controlActivated)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      }
-      let recovered: unknown = { type: parsed.data.operationType, ...parsed.data.operation };
-      if (parsed.data.operationType === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings && parsed.data.operation.state === OPERATION_STATE.completed) {
-        const original = parsed.data.operation.result;
-        if (original.status !== ADMISSION_EMAIL_SETTINGS_STATUS.rejected) {
-          if (original.settings.tribeId !== query.tribeId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-          recovered = { type: parsed.data.operationType, ...parsed.data.operation, result: { status: original.status, settings: toAdmissionNotificationEmailSettingsView(original.settings) } };
-        }
-      }
-      return { ok: true as const, value: admissionOperationRecoverySchema.parse(recovered), ...(options.includeViewer ? { viewerId: first.userId } : {}) };
+      assertPolicyOriginal(parsed.data, query.tribeId);
+      return { ok: true as const, value: admissionOperationRecoverySchema.parse(recoverOperation(parsed.data, query.tribeId)), ...(options.includeViewer ? { viewerId: first.userId } : {}) };
     } catch (error) { return admissionOperationFailure(error); }
   }
+}
+
+type AdmissionOperationRecoveryEnvelope = z.infer<typeof admissionOperationRecoveryEnvelopeSchema>;
+
+/** @param envelope - Parsed own operation. @param tribeId - Requested tribe. @throws AdmissionOperationError when a completed policy original belongs to another policy or contradicts its operation. */
+function assertPolicyOriginal(envelope: AdmissionOperationRecoveryEnvelope, tribeId: string): void {
+  if (!ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(envelope.operationType) || envelope.operation.state !== OPERATION_STATE.completed) return;
+  const original = admissionPolicyMutationResultSchema.parse(envelope.operation.result);
+  if (original.policyId !== tribeId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (envelope.operationType === ADMISSION_POLICY_OPERATION.activate && !original.controlActivated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (envelope.operationType === ADMISSION_POLICY_OPERATION.initialize && original.changed && (original.version !== 1 || original.verificationEpoch !== 1 || original.controlActivated)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+}
+
+/** @param envelope - Parsed own operation. @param tribeId - Requested tribe. @returns The recovery candidate; completed email settings are projected to their public view. @throws AdmissionOperationError when those settings belong to another tribe. */
+function recoverOperation(envelope: AdmissionOperationRecoveryEnvelope, tribeId: string): unknown {
+  const recovered = { type: envelope.operationType, ...envelope.operation };
+  if (envelope.operationType !== REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings || envelope.operation.state !== OPERATION_STATE.completed) return recovered;
+  const original = envelope.operation.result;
+  if (original.status === ADMISSION_EMAIL_SETTINGS_STATUS.rejected) return recovered;
+  if (original.settings.tribeId !== tribeId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  return { ...recovered, result: { status: original.status, settings: toAdmissionNotificationEmailSettingsView(original.settings) } };
 }

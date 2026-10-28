@@ -1,16 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
 import { useState } from "react";
-import type { EmojiClickData, PickerProps } from "emoji-picker-react";
-import {
+import { type EmojiClickData, type PickerProps,
   EmojiStyle,
   SkinTonePickerLocation,
   SkinTones,
   SuggestionMode,
-  Theme,
-} from "emoji-picker-react";
+  Theme } from "emoji-picker-react";
 import { SmilePlusIcon } from "lucide-react";
 
 import { Button, Popover, PopoverContent, PopoverTrigger, useTheme, PresenceSwap } from "@golfo/ui";
@@ -35,9 +32,9 @@ const CHANNEL_EMOJI_PICKER_CONFIG = {
   secondaryVariant: "secondary",
 } as const;
 
-const EmojiPicker = dynamic(() => import("emoji-picker-react"), {
+const EmojiPicker = dynamic<PickerProps>(() => import("emoji-picker-react"), {
   ssr: false,
-}) as ComponentType<PickerProps>;
+});
 
 type ChannelEmojiPickerProps = {
   disabled?: boolean;

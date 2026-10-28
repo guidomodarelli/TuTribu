@@ -242,7 +242,7 @@ describe("ThemeModeDropdown", () => {
 
     localStorage.setItem("tutribu-theme", "dark");
     container.innerHTML = renderToString(tree);
-    document.body.appendChild(container);
+    document.body.append(container);
 
     expect(container.querySelector("button")).toHaveAttribute("aria-label", "Cambiar tema");
 

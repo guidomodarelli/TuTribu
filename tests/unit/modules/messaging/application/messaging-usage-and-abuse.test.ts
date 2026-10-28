@@ -36,7 +36,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native usage quota
       };
       const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: async (request) => {
         expect(transactions).toBe(0);
-        const payload = await request.json() as { to: string; channel: string; fallbackEnabled: boolean; text?: string; content?: { templateVariables?: Record<string, string> } };
+        const payload = await request.json() as { to: string; channel: string; fallbackEnabled: unknown; text?: string; content?: { templateVariables?: Record<string, string> } };
         expect(payload.to === fixture.input.contact.value && payload.channel === channel && payload.fallbackEnabled === false).toBe(true);
         // Keep the actual delivered code only in this private callback, never in a receipt or assertion output.
         receivedCode = channel === "whatsapp" ? payload.content?.templateVariables?.["1"] ?? "" : payload.text?.match(/\b\d{6}\b/u)?.[0] ?? "";

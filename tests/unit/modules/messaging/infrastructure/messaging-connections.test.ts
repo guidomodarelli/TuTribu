@@ -7,8 +7,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareMessagingConnectionCreation } from "@/tests/support/messaging-connection-fixture";
 import { PostgresMessagingConnectionRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository";
 import type { MessagingConnectionCreationContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-management";
-import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
-import type { MessagingSecretEnvelope } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
+import { createMessagingSecretCipher, type MessagingSecretEnvelope  } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { makeSignature } from "better-auth/crypto";

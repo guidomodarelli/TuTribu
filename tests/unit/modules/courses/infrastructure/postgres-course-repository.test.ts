@@ -2,9 +2,27 @@ import { vi, describe, it, expect } from "vitest";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import { PostgresCourseRepository } from "@/src/modules/courses/infrastructure/repositories/postgres-course-repository";
 
+/**
+ * Wraps the fake `execute` in a transaction executor that records whether the
+ * repository callback threw, so a test can prove the error left the executor.
+ */
+function createErrorTrackingExecutor(execute: unknown) {
+  const tracking = { callbackThrewError: false };
+  const executor = async <Result,>(callback: (db: never) => Promise<Result>) => {
+    try {
+      return await callback({ execute } as never);
+    } catch (error) {
+      tracking.callbackThrewError = true;
+      throw error;
+    }
+  };
+
+  return { executor, tracking };
+}
+
 describe("PostgresCourseRepository", () => {
   it("builds a course tree grouping lessons by module across providers", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           can_manage_courses: true,
@@ -167,7 +185,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns an empty tree when the tribe has no courses", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           can_manage_courses: false,
@@ -213,7 +231,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns a created status with the new course", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           cover_image_url: "https://example.com/portada.jpg",
@@ -255,7 +273,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("marks a lesson as completed guarding membership and drip unlock", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ mutated: true, status: "completed" as const }],
     }); });
     const repository = new PostgresCourseRepository(async (callback) =>
@@ -272,7 +290,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("removes a completion when toggling off", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ mutated: true, status: "uncompleted" as const }],
     }); });
     const repository = new PostgresCourseRepository(async (callback) =>
@@ -289,7 +307,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("upserts the last viewed lesson with authorization guards", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "recorded" as const }],
     }); });
     const repository = new PostgresCourseRepository(async (callback) =>
@@ -306,7 +324,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns a created status with the new course module", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           course_id: "c1",
@@ -345,7 +363,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns forbidden when leader permissions are missing on module creation", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           id: null,
@@ -372,7 +390,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns not_found when the tribe slug does not exist on module creation", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           id: null,
@@ -399,7 +417,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns the lesson result when creation succeeds with provider + id", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           course_module_id: "m1",
@@ -541,7 +559,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns deleted status when a course module is deleted", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "deleted" as const }],
     }); });
     const repository = new PostgresCourseRepository(async (callback) =>
@@ -557,7 +575,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns deleted status when a lesson is deleted", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ status: "deleted" as const }],
     }); });
     const repository = new PostgresCourseRepository(async (callback) =>
@@ -597,15 +615,7 @@ describe("PostgresCourseRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
 
-    let callbackThrewError = false;
-    const executor = async <Result,>(callback: (db: never) => Promise<Result>) => {
-      try {
-        return await callback({ execute } as never);
-      } catch (error) {
-        callbackThrewError = true;
-        throw error;
-      }
-    };
+    const { executor, tracking } = createErrorTrackingExecutor(execute);
     const repository = new PostgresCourseRepository(executor);
 
     const result = await repository.createLesson({
@@ -620,7 +630,7 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "invalid_file" as const });
-    expect(callbackThrewError).toBe(true);
+    expect(tracking.callbackThrewError).toBe(true);
   });
 
   it("returns invalid_file and propagates error out of executor callback when updateLesson file attachment fails", async () => {
@@ -648,15 +658,7 @@ describe("PostgresCourseRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
 
-    let callbackThrewError = false;
-    const executor = async <Result,>(callback: (db: never) => Promise<Result>) => {
-      try {
-        return await callback({ execute } as never);
-      } catch (error) {
-        callbackThrewError = true;
-        throw error;
-      }
-    };
+    const { executor, tracking } = createErrorTrackingExecutor(execute);
     const repository = new PostgresCourseRepository(executor);
 
     const result = await repository.updateLesson({
@@ -673,6 +675,6 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "invalid_file" as const });
-    expect(callbackThrewError).toBe(true);
+    expect(tracking.callbackThrewError).toBe(true);
   });
 });

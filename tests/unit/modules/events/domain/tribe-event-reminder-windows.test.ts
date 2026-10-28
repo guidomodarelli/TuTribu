@@ -73,7 +73,7 @@ describe("selectDueTribeEventReminders", () => {
   it("selects only the 15-minute reminder once the start is 15 minutes away or less", () => {
     expect(dueTypesFor(iso(NOW + 15 * MINUTE))).toEqual(["event_reminder_15m"]);
     expect(dueTypesFor(iso(NOW + 12 * MINUTE))).toEqual(["event_reminder_15m"]);
-    expect(dueTypesFor(iso(NOW + 1 * MINUTE))).toEqual(["event_reminder_15m"]);
+    expect(dueTypesFor(iso(NOW + MINUTE))).toEqual(["event_reminder_15m"]);
   });
 
   it("never reminds an occurrence that already started", () => {

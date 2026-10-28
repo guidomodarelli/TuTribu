@@ -17,7 +17,7 @@ describe("role-scoped configuration HTTP",()=>{
     const outcome:Awaited<ReturnType<ReadMessagingConfigurationUseCase["execute"]>>={ok:true,value:{audience:"guardian",operationalAlert:"attention_required"}};
     const handler=createMessagingConfigurationHandler(async()=>({configuration:{execute:async()=>outcome},resolveTribe:{execute:async()=>({ok:true as const,value:{tribeId:randomUUID()}})}})),request=new Request("https://tutribu.example.test/api/tribes/synthetic/messaging/configuration"),context={params:Promise.resolve({slug:"synthetic"})};
     expect(await(await handler(request,context)).json()).toEqual({audience:"guardian",operationalAlert:"attention_required"});
-    if(!outcome.ok)throw new Error("Expected own result");Object.assign(outcome.value,{candidate:{apiKey:"private fixture field"}});
+    Object.assign(outcome.value,{candidate:{apiKey:"private fixture field"}});
     expect((await handler(request,context)).status).toBe(500);
   });
 });

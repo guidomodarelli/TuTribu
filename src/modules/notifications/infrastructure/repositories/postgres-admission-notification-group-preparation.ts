@@ -18,7 +18,7 @@ import { ADMISSION_NOTIFICATION_GROUP_STATE, ADMISSION_NOTIFICATION_GROUP_MEMBER
 import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_GROUP_STATUS } from "../../constants/admission-notification-groups";
 import { ADMISSION_NOTIFICATION_PREPARATION_STATUS } from "../../constants/admission-notification-email-intent";
 import type { AdmissionNotificationStoredGroup } from "../../domain/entities/admission-notification-group";
-import type { AdmissionNotificationEmailCandidate, AdmissionNotificationSuppressionReason } from "../../domain/entities/admission-notification";
+import type { AdmissionNotificationEmailCandidate, AdmissionNotificationGroupManifest, AdmissionNotificationSuppressionReason } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
 import type { AdmissionNotificationGroupPreparation, AdmissionNotificationGroupPreparationCommand, AdmissionNotificationGroupPreparationResult } from "../../domain/repositories/admission-notification-group-preparation";
 import { freezeAdmissionNotificationGroup } from "../../domain/policies/admission-notification-groups";
@@ -26,7 +26,25 @@ import { createAdmissionNotificationEmailContent } from "../../domain/policies/a
 import { createAdmissionNotificationEmailIntentMac } from "../encryption/admission-notification-email-intent-mac";
 import { admissionNotificationTimestamp } from "../database/admission-notification-timestamp";
 import type { AdmissionNotificationCollectionExecutor, AdmissionNotificationCollectionAuthorizer } from "./postgres-admission-notification-collection-progress";
-import { admissionNotificationNow, readAdmissionNotificationGroup, PostgresAdmissionNotificationGroupReader } from "./admission-notification-group-reader";
+import { admissionNotificationNow, readAdmissionNotificationGroup, PostgresAdmissionNotificationGroupReader, type AdmissionNotificationCurrentGroupMember } from "./admission-notification-group-reader";
+
+/** @param state - Stored group state. @returns Queued for a frozen group, expired, or suppressed. */
+function replayedPreparationStatus(state: AdmissionNotificationStoredGroup["state"]) {
+  if (state === ADMISSION_NOTIFICATION_GROUP_STATE.frozen) return ADMISSION_NOTIFICATION_PREPARATION_STATUS.queued;
+  return state === ADMISSION_NOTIFICATION_GROUP_STATE.expired ? ADMISSION_NOTIFICATION_PREPARATION_STATUS.expired : ADMISSION_NOTIFICATION_PREPARATION_STATUS.suppressed;
+}
+
+/** @param group - Original group. @param tribeSlug - Current tribe slug. @param manifest - Frozen manifest. @returns The reviewer queue path or the applicant's request path. */
+function notificationPath(group: AdmissionNotificationStoredGroup, tribeSlug: string, manifest: AdmissionNotificationGroupManifest): string {
+  if (group.identity.audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer) return `/${encodeURIComponent(tribeSlug)}/${ADMISSION_NAVIGATION.reviewSegment}`;
+  return `${ADMISSION_REQUEST_HREF_PREFIX}${encodeURIComponent(manifest.items[0].admissionRequestId)}`;
+}
+
+/** @param finalConfig - Security config read after writing. @param config - Original security config. @param payloadKeyId - Key that sealed the content. @param credentialKeyId - Connection credential key. @returns Whether the original scope and both keys are still current. */
+function isFinalConfigCurrent(finalConfig: MessagingSecurityConfig, config: MessagingSecurityConfig, payloadKeyId: string, credentialKeyId: string): boolean {
+  if (finalConfig.recoveryLocked || finalConfig.environment !== config.environment || finalConfig.securityEpoch !== config.securityEpoch) return false;
+  return finalConfig.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].keys.has(payloadKeyId) && finalConfig.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(credentialKeyId);
+}
 
 /** Owns preparation only; the later dispatcher must independently revalidate every current member and exact attempt. */
 export class PostgresAdmissionNotificationGroupPreparation implements AdmissionNotificationGroupPreparation {
@@ -48,7 +66,7 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
     const delivery = (await database.execute<{ id: string }>(sql`select id from public.message_deliveries where tribe_id=${group.identity.tribeId} and notification_group_id=${group.id} and notification_group_audience=${group.identity.audience} and recipient_ref=${group.identity.recipientUserId} and recovery_of_delivery_id is null`)).rows[0];
     if (group.state === ADMISSION_NOTIFICATION_GROUP_STATE.frozen && !delivery) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     await this.guard(database, group.identity.tribeId);
-    return { groupId: group.id, groupVersion: group.version, status: group.state === ADMISSION_NOTIFICATION_GROUP_STATE.frozen ? ADMISSION_NOTIFICATION_PREPARATION_STATUS.queued : group.state === ADMISSION_NOTIFICATION_GROUP_STATE.expired ? ADMISSION_NOTIFICATION_PREPARATION_STATUS.expired : ADMISSION_NOTIFICATION_PREPARATION_STATUS.suppressed, deliveryId: delivery?.id ?? null, reason: group.suppressionReason, replayed: true };
+    return { groupId: group.id, groupVersion: group.version, status: replayedPreparationStatus(group.state), deliveryId: delivery?.id ?? null, reason: group.suppressionReason, replayed: true };
   }
 
   /** @param database - Original transaction. @param group - Original open bucket. @param reason - Closed optional-email reason. @param nowMicroseconds - Fresh post-wait native time. @returns Its committed-in-transaction terminal disposition; admission and internal notices remain unchanged. */
@@ -58,6 +76,20 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
     const changed = (await database.execute<{ version: number }>(sql`update public.admission_notification_groups set state=${state},version=version+1,suppression_reason=${expired ? ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired : reason} where id=${group.id} and tribe_id=${group.identity.tribeId} and state=${ADMISSION_NOTIFICATION_GROUP_STATE.open} and version=${group.version} returning version`)).rows[0];
     if (!changed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
     return { groupId: group.id, groupVersion: changed.version, status: expired ? ADMISSION_NOTIFICATION_PREPARATION_STATUS.expired : ADMISSION_NOTIFICATION_PREPARATION_STATUS.suppressed, deliveryId: null, reason: expired ? ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired : reason, replayed: false };
+  }
+
+  /** @param database - Original transaction. @param group - Original open bucket. @param facts - Current member plans. @returns Current candidates and the last live suppression reason, after marking every other member expired or suppressed. */
+  private async settleMembers(database: RequestDatabase, group: AdmissionNotificationStoredGroup, facts: { readonly members: readonly AdmissionNotificationCurrentGroupMember[]; readonly nowMicroseconds: number }): Promise<{ candidates: AdmissionNotificationEmailCandidate[]; closingReason: AdmissionNotificationSuppressionReason }> {
+    const candidates: AdmissionNotificationEmailCandidate[] = [];
+    let closingReason: AdmissionNotificationSuppressionReason = ADMISSION_NOTIFICATION_GROUP_REASON.scopeMismatch;
+    for (const member of facts.members) {
+      if (member.plan.status === ADMISSION_NOTIFICATION_GROUP_STATUS.candidate) { candidates.push(member.plan.candidate); continue; }
+      const expired = member.deadlineAtMicroseconds <= facts.nowMicroseconds;
+      const reason = expired ? ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired : member.plan.reason;
+      if (!expired) closingReason = reason;
+      await database.execute(sql`update public.admission_notification_group_members set state=${expired ? ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.expired : ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.suppressed},suppression_reason=${reason} where group_id=${group.id} and obligation_id=${member.obligationId} and state=${ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.pending}`);
+    }
+    return { candidates, closingReason };
   }
 
   /** @param command - Existing group and its original observed CAS; no browser contact, identity, capability or content is accepted. @returns Exact original outbox or a current deferred/closed disposition, after commit. @throws AdmissionOperationError when scope, final guards or commit confirmation fail; no automatic retry occurs. */
@@ -77,17 +109,9 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
         const facts = await new PostgresAdmissionNotificationGroupReader(database, this.authorize, this.readSecurityConfig).read(group);
         await this.guard(database, command.tribeId, config);
         if (facts.nowMicroseconds < group.identity.window.closesAtMicroseconds) return { groupId: group.id, groupVersion: group.version, status: ADMISSION_NOTIFICATION_PREPARATION_STATUS.notDue, deliveryId: null, reason: null, replayed: false };
-        const unavailable = facts.members.find((member) => member.plan.status === ADMISSION_NOTIFICATION_GROUP_STATUS.suppressed && member.plan.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable && member.deadlineAtMicroseconds > facts.nowMicroseconds);
+        const unavailable = facts.members.some((member) => member.plan.status === ADMISSION_NOTIFICATION_GROUP_STATUS.suppressed && member.plan.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable && member.deadlineAtMicroseconds > facts.nowMicroseconds);
         if (unavailable) return { groupId: group.id, groupVersion: group.version, status: ADMISSION_NOTIFICATION_PREPARATION_STATUS.unavailable, deliveryId: null, reason: ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable, replayed: false };
-        const candidates: AdmissionNotificationEmailCandidate[] = [];
-        let closingReason: AdmissionNotificationSuppressionReason = ADMISSION_NOTIFICATION_GROUP_REASON.scopeMismatch;
-        for (const member of facts.members) {
-          if (member.plan.status === ADMISSION_NOTIFICATION_GROUP_STATUS.candidate) { candidates.push(member.plan.candidate); continue; }
-          const expired = member.deadlineAtMicroseconds <= facts.nowMicroseconds;
-          const reason = expired ? ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired : member.plan.reason;
-          if (!expired) closingReason = reason;
-          await database.execute(sql`update public.admission_notification_group_members set state=${expired ? ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.expired : ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.suppressed},suppression_reason=${reason} where group_id=${group.id} and obligation_id=${member.obligationId} and state=${ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.pending}`);
-        }
+        const { candidates, closingReason } = await this.settleMembers(database, group, facts);
         if (!candidates.length) {
           const result = await this.close(database, group, closingReason, await admissionNotificationNow(database));
           await this.guard(database, command.tribeId, config);
@@ -99,8 +123,7 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
         const destinations = new Set(facts.members.filter((member) => member.plan.status === ADMISSION_NOTIFICATION_GROUP_STATUS.candidate).map((member) => member.normalizedEmail));
         const normalizedEmail = destinations.size === 1 ? [...destinations][0] : null;
         if (!resource || !normalizedEmail) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-        const path = group.identity.audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer ? `/${encodeURIComponent(tribe.slug)}/${ADMISSION_NAVIGATION.reviewSegment}` : `${ADMISSION_REQUEST_HREF_PREFIX}${encodeURIComponent(plan.manifest.items[0].admissionRequestId)}`;
-        const href = new URL(path, this.publicAppBaseUrl).toString();
+        const href = new URL(notificationPath(group, tribe.slug, plan.manifest), this.publicAppBaseUrl).toString();
         const content = createAdmissionNotificationEmailContent({ groupId: group.id, groupVersion: group.version + 1, manifest: plan.manifest, senderId: resource.senderId, href });
         const deliveryId = randomUUID();
         const sealingContext = { tribeId: command.tribeId, deliveryId, originalDeliveryId: null, connectionId: resource.connectionId, connectionVersion: resource.connectionVersion, contributingLeaderUserId: resource.contributingLeaderUserId, recipientUserId: group.identity.recipientUserId, normalizedRecipientEmail: normalizedEmail, idempotencyKey: deliveryId, queuedUsagePolicyVersion: resource.queuedUsagePolicyVersion, createdAtMicroseconds: now, deadlineAtMicroseconds: plan.deadlineAtMicroseconds, content };
@@ -114,7 +137,7 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
           values (${deliveryId},${command.tribeId},${resource.connectionId},${resource.connectionVersion},${config.environment},${config.securityEpoch},${NOTIFICATION_DELIVERY_RECOVERY_PURPOSE},${group.id},${group.id},${group.identity.audience},${resource.contributingLeaderUserId},${group.identity.recipientUserId},${MESSAGING_PUBLIC_CHANNEL.email},${deliveryId},${Buffer.from(payload.mac)},${payload.keyId},${JSON.stringify(intent)}::jsonb,${resource.queuedUsagePolicyVersion},${admissionNotificationTimestamp(now)},${admissionNotificationTimestamp(now)},${admissionNotificationTimestamp(plan.deadlineAtMicroseconds)})`);
         await this.guard(database, command.tribeId, config, payload.keyId);
         const finalNow = await admissionNotificationNow(database), finalConfig = await this.readSecurityConfig();
-        if (finalConfig.recoveryLocked || finalConfig.environment !== config.environment || finalConfig.securityEpoch !== config.securityEpoch || !finalConfig.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].keys.has(payload.keyId) || !finalConfig.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(resource.credentialKeyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+        if (!isFinalConfigCurrent(finalConfig, config, payload.keyId, resource.credentialKeyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
         if (!await createAdmissionNotificationEmailIntentMac(finalConfig).verify(payloadContext, payload)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
         if (finalNow >= plan.deadlineAtMicroseconds) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
         return { groupId: group.id, groupVersion: group.version + 1, status: ADMISSION_NOTIFICATION_PREPARATION_STATUS.queued, deliveryId, reason: null, replayed: false };

@@ -67,7 +67,7 @@ export async function prepareProviderSubstitution(database: AcademyAdmissionTest
     const body = await request.json() as { to: string; channel: string; fallbackEnabled: boolean; text: string };
     expect(body.to === fixture.own.email).toBe(true);
     expect(body).toMatchObject({ channel: "email", fallbackEnabled: false });
-    const code = body.text.match(/\b\d{6}\b/)?.[0];
+    const code = /\b\d{6}\b/.exec(body.text)?.[0];
     if (!code) throw new Error("Provider substitution fixture failed: verification_code_not_sent");
     codes.push(code);
     return Response.json({ message: { id: randomUUID(), direction: "outbound", channel: "email", status: "sent" } });

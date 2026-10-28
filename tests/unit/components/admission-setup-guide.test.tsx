@@ -132,8 +132,8 @@ describe("AdmissionSetupGuide drafts", () => {
     });
     render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
     const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
-    const usage = items.find((item) => item.textContent?.includes("Elegí países y cupos"));
-    const notifications = items.find((item) => item.textContent?.includes("Elegí cómo recibir los avisos"));
+    const usage = items.find((item) => item.textContent.includes("Elegí países y cupos"));
+    const notifications = items.find((item) => item.textContent.includes("Elegí cómo recibir los avisos"));
     expect(usage).toHaveTextContent("Listo, pero con un cupo muy bajo");
     expect(usage).toHaveTextContent("el cupo de avisos por día es menor a 20");
     expect(notifications).toHaveTextContent("No recibís correos");

@@ -10,6 +10,7 @@ import { ALLOWLIST_IMPORT_BROWSER_PATH as PATH, ALLOWLIST_IMPORT_FILE_NAME } fro
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
+import { omitKeys } from "@/lib/object-omit";
 import { createAllowlistApiClient } from "./allowlist-api-client";
 import { createAllowlistBrowserTransport, allowlistBrowserFailure as failure } from "./allowlist-browser-transport";
 /** @param options - Own native viewer and transport boundaries. @returns Bound import requests and private files, without writes on initialization or GET. */
@@ -23,17 +24,14 @@ export function createAllowlistImportApiClient(options: { fetch?: typeof fetch; 
     write: async (slug, intent, draft, signal) => {
       if (intent.type === REAUTHENTICATION_OPERATION.previewAllowlistImport) {
         if (!draft) return failure(ADMISSION_ERROR_CODE.invalidInput);
-        const { type, ...proposal } = intent;
-        void type;
-        const body = { ...proposal, confirmed: true, csvText: draft.csvText };
-        const result = await json(`${base(slug)}/${PATH.imports}`, createAdmissionOperationStateSchema(allowlistImportReferenceSchema), signal, body);
+        const body = { ...omitKeys(intent, ["type"]), confirmed: true, csvText: draft.csvText };
+        const result = await json(`${base(slug)}/${PATH.imports}`, createAdmissionOperationStateSchema(allowlistImportReferenceSchema), signal, { body });
         if (result.status === "ready" && (result.value.operationId !== intent.operationId || result.value.state === OPERATION_STATE.completed && result.value.result.sourceVersion !== 1)) return failure(ADMISSION_ERROR_CODE.publicContractUnusable, true);
         return result;
       }
-      const { type, importId, ...proposal } = intent;
-      void type;
-      const body = { ...proposal, confirmed: true };
-      const result = await json(`${base(slug)}/${PATH.imports}/${encodeURIComponent(importId)}/${PATH.confirm}`, createAdmissionOperationStateSchema(allowlistImportConfirmationResultSchema), signal, body);
+      const { importId } = intent;
+      const body = { ...omitKeys(intent, ["type", "importId"]), confirmed: true };
+      const result = await json(`${base(slug)}/${PATH.imports}/${encodeURIComponent(importId)}/${PATH.confirm}`, createAdmissionOperationStateSchema(allowlistImportConfirmationResultSchema), signal, { body });
       if (result.status === "ready" && (result.value.operationId !== intent.operationId || result.value.state === OPERATION_STATE.completed && (result.value.result.importId !== importId || result.value.result.sourceVersion < intent.expectedVersion))) return failure(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return result;
     },
@@ -41,7 +39,7 @@ export function createAllowlistImportApiClient(options: { fetch?: typeof fetch; 
       if (kind === "report" && !importId) return failure(ADMISSION_ERROR_CODE.invalidInput);
       if (signal.aborted) return { status: "aborted" };
       try {
-        const path = kind === "template" ? PATH.template : `${encodeURIComponent(importId!)}/${PATH.report}`;
+        const path = kind === "report" && importId ? `${encodeURIComponent(importId)}/${PATH.report}` : PATH.template;
         const response = await transport(`${base(slug)}/${PATH.imports}/${path}`, { credentials: "same-origin", cache: "no-store", signal });
         if (!response.ok) return await rejected(response);
         if (signal.aborted) return { status: "aborted" };

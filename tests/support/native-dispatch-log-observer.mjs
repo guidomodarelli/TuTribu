@@ -32,6 +32,11 @@ globalThis.fetch = async (input, init) => {
   return originalFetch(input, init);
 };
 const originalError = console.error;
+/** @param left - One field name. @param right - Another field name. @returns Their UTF-16 code unit order, the same order as the default `sort()`. */
+const compareCodeUnits = (left, right) => {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+};
 /** @param value - One final metadata field. @returns A private-canary-free scalar, never the original value when it is unsafe. */
 const safeField = (value) => typeof value === "string" && ![...privateValues].some((privateValue) => value.includes(privateValue)) ? value : "[redacted]";
 /** @param argumentsList - Actual final console output emitted by the root's unmodified createServerLogger. @returns Nothing after safe observation and forwarding the original output to the hidden child stderr. */
@@ -41,7 +46,7 @@ console.error = (...argumentsList) => {
     try { entry = JSON.parse(argumentsList[0]); } catch { entry = null; }
     if (entry?.feature === "academy-admissions" && entry.operation === "admission-contact-dispatch") {
       const privateMaterialDetected = [...privateValues].some((value) => argumentsList[0].includes(value));
-      const safe = { feature: safeField(entry.feature), operation: safeField(entry.operation), requestId: safeField(entry.requestId), traceId: safeField(entry.traceId), message: safeField(entry.message), metadata: { stage: safeField(entry.metadata?.stage), code: safeField(entry.metadata?.code), deliveryId: safeField(entry.metadata?.deliveryId), attemptId: safeField(entry.metadata?.attemptId) }, hasError: Object.hasOwn(entry, "error"), privateMaterialDetected, topLevelFields: Object.keys(entry).map(safeField).sort(), metadataFields: Object.keys(entry.metadata ?? {}).map(safeField).sort() };
+      const safe = { feature: safeField(entry.feature), operation: safeField(entry.operation), requestId: safeField(entry.requestId), traceId: safeField(entry.traceId), message: safeField(entry.message), metadata: { stage: safeField(entry.metadata?.stage), code: safeField(entry.metadata?.code), deliveryId: safeField(entry.metadata?.deliveryId), attemptId: safeField(entry.metadata?.attemptId) }, hasError: Object.hasOwn(entry, "error"), privateMaterialDetected, topLevelFields: Object.keys(entry).map(safeField).sort(compareCodeUnits), metadataFields: Object.keys(entry.metadata ?? {}).map(safeField).sort(compareCodeUnits) };
       appendFileSync(outputPath, JSON.stringify(safe) + "\n", "utf8");
       if (privateMaterialDetected) return;
     }

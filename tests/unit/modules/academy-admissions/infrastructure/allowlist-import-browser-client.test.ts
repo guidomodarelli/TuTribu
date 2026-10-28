@@ -27,10 +27,10 @@ describe("import browser contracts", () => {
     const files = createAllowlistImportDraftStoreFixture(), draft = await files.save(viewerId, "synthetic", { fileName: "synthetic.csv", csvText: "identity,display_name\nsynthetic@example.test,Nombre" }, new AbortController().signal);
     const proposal: StoredAllowlistImport = { viewerId, slug: "synthetic", draft, importId, selection: [2], pending: { type: "confirm_allowlist_import", operationId: randomUUID(), importId, expectedVersion: 3, selectedRows: [2] }, unresolved: [] };
     writeAllowlistImport(proposal, port);
-    expect(await readAllowlistImport(viewerId, "synthetic", port, files)).toEqual(proposal);
-    expect(await readAllowlistImport(randomUUID(), "synthetic", port, files)).toBeNull();
+    expect(await readAllowlistImport(viewerId, "synthetic", { storage: port, files })).toEqual(proposal);
+    expect(await readAllowlistImport(randomUUID(), "synthetic", { storage: port, files })).toBeNull();
     expect([...storage.values()][0]).not.toContain("synthetic@example.test");
-    expect(() => writeAllowlistImport({ ...proposal, confirmed: true } as StoredAllowlistImport, port)).toThrow();
-    expect(() => writeAllowlistImport({ ...proposal, pending: { ...proposal.pending!, importId: randomUUID() } } as StoredAllowlistImport, port)).toThrow();
+    expect(() => writeAllowlistImport({ ...proposal, confirmed: true } as StoredAllowlistImport, port)).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "unrecognized_keys", keys: ["confirmed"] })] }));
+    expect(() => writeAllowlistImport({ ...proposal, pending: { ...proposal.pending!, importId: randomUUID() } } as StoredAllowlistImport, port)).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "custom", path: [] })] }));
   });
 });

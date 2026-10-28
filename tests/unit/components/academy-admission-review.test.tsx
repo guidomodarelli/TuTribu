@@ -51,6 +51,13 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("visible reviewer inbox refresh", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // JSDOM has no foreground tab; real events, React and cancellation remain in use.
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+  });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
   it("should show the account name and declared group number without claiming group verification or changing evidence", async () => {
     const data = fixture();
     data.request.whatsappNumber = "+14155552671"; data.request.requiresWhatsappNumber = true;
@@ -62,13 +69,6 @@ describe("visible reviewer inbox refresh", () => {
     expect(screen.getByText(ADMISSION_WHATSAPP_COPY.declared)).toBeVisible();
     expect(data.request.evidence.kind).toBe("declared"); expect(data.client.decide).not.toHaveBeenCalled();
   });
-  beforeEach(() => {
-    vi.useFakeTimers();
-    // JSDOM has no foreground tab; real events, React and cancellation remain in use.
-    vi.spyOn(document, "hasFocus").mockReturnValue(true);
-    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
-  });
-  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it.each([false, true])("should reconcile the server age highlight in the visible inbox or detail %s without another timer or route refresh", async (selected) => {
     const data = fixture(selected);
@@ -455,7 +455,10 @@ describe("native reviewer container", () => {
     let decided = false;
     data.client.decide.mockImplementation(async () => { decided = true; return { status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } }; });
     data.client.reviewList.mockImplementation(async () => ({ status: "ready", value: { items: [decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request, second], nextCursor: null } }));
-    data.client.reviewDetail.mockImplementation(async (_slug, id) => ({ status: "ready", value: id === secondId ? second : decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request }));
+    data.client.reviewDetail.mockImplementation(async (_slug, id) => {
+      if (id === secondId) return { status: "ready", value: second };
+      return { status: "ready", value: decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request };
+    });
     render(data.node, { wrapper: Providers });
     await confirmDecision();
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve }));

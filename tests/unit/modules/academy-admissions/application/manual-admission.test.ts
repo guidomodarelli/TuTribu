@@ -143,7 +143,7 @@ describe("manual admission lifecycle", () => {
     expect(getAdmissionRetryAllowedAt(request)).toEqual(new Date(request.submittedAt.getTime() + ADMISSION_LIMIT.submissionCadenceMs));
     const rejectedAt = new Date(request.submittedAt.getTime() + ADMISSION_LIMIT.submissionCadenceMs);
     expect(getAdmissionRetryAllowedAt({ ...request, status: "rejected", resolvedAt: rejectedAt })).toEqual(new Date(rejectedAt.getTime() + ADMISSION_LIMIT.rejectionRetryWaitMs));
-    expect(() => getAdmissionRetryAllowedAt({ ...request, status: "rejected", resolvedAt: null })).toThrowError(expect.objectContaining({ code: "resource_unavailable" }));
+    expect(() => getAdmissionRetryAllowedAt({ ...request, status: "rejected", resolvedAt: null })).toThrow(expect.objectContaining({ code: "resource_unavailable" }));
   });
 });
 

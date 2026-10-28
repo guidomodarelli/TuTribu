@@ -1,8 +1,7 @@
 /** Resolves actual private leader scope before delegating original personal invitation commands. @module manage-personal-invitations-use-cases */
 import type { ResolveAdmissionContextUseCase } from "./resolve-admission-context-use-case";
 import type { PersonalInvitationReader, PersonalInvitationCommandWriter, PersonalInvitationQuery, PersonalInvitationReplacement } from "../../domain/repositories/personal-invitation-management";
-import type { AdmissionContactType } from "../../domain/value-objects/admission-contact";
-import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
+import { type AdmissionContactType, normalizeAdmissionContact  } from "../../domain/value-objects/admission-contact";
 import { normalizePersonalInvitationName } from "../../domain/value-objects/personal-invitation-name";
 import { ADMISSION_LIMIT } from "../../constants/admission-limits";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
@@ -53,7 +52,7 @@ export class ManagePersonalInvitationsUseCases {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations, sensitiveOperation: REAUTHENTICATION_OPERATION.createPersonalInvitation });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       const contact = normalizeAdmissionContact({ type: input.contactType, value: input.identity, country: input.country });
-      if (!input.confirmed || contact.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
+      if (contact.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       const internalName = normalizePersonalInvitationName(input.internalName);
       if (!input.requiresAllowlist && !input.allowlistExemptionAcknowledged || input.expiresAt && !Number.isFinite(input.expiresAt.getTime()) || input.replacement && (!Number.isInteger(input.replacement.expectedVersion) || input.replacement.expectedVersion <= 0)) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       const result = await this.writer.create({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, contact: contact.contact, internalName, requiresAllowlist: input.requiresAllowlist, allowlistExemptionAcknowledged: input.allowlistExemptionAcknowledged, ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}), ...(input.replacement ? { replacement: input.replacement } : {}) });
@@ -67,7 +66,7 @@ export class ManagePersonalInvitationsUseCases {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations, resource: { kind: ADMISSION_RESOURCE_KIND.personalInvitation, id: input.invitationId }, sensitiveOperation: REAUTHENTICATION_OPERATION.renamePersonalInvitation });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
-      if (!input.confirmed || !Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
+      if (!Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       const result = personalInvitationMutationOperationSchema.parse(await this.writer.rename({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, invitationId: input.invitationId, expectedVersion: input.expectedVersion, internalName: normalizePersonalInvitationName(input.internalName) }));
       if (result.operationId.toLowerCase() !== input.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       if (result.state === OPERATION_STATE.completed) {
@@ -82,7 +81,7 @@ export class ManagePersonalInvitationsUseCases {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations, resource: { kind: ADMISSION_RESOURCE_KIND.personalInvitation, id: input.invitationId }, sensitiveOperation: REAUTHENTICATION_OPERATION.revokePersonalInvitation });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
-      if (!input.confirmed || !Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || !input.internalReason.trim() || input.internalReason.trim().length > ADMISSION_LIMIT.internalMessageCharacters) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
+      if (!Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || !input.internalReason.trim() || input.internalReason.trim().length > ADMISSION_LIMIT.internalMessageCharacters) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
       const result = personalInvitationMutationOperationSchema.parse(await this.writer.revoke({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, invitationId: input.invitationId, expectedVersion: input.expectedVersion, revokeRedeemedAuthorization: input.revokeRedeemedAuthorization, internalReason: input.internalReason.trim() }));
       if (result.operationId.toLowerCase() !== input.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       if (result.state === OPERATION_STATE.completed) {

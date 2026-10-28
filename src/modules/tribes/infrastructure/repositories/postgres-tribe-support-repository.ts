@@ -86,7 +86,7 @@ export class PostgresTribeSupportRepository implements TribeSupportRepository {
         limit 1
       `);
 
-      const row = (result.rows?.[0] ?? null) as SupportSettingsRow | null;
+      const row = (result.rows[0] ?? null) as SupportSettingsRow | null;
 
       return row ? mapSettings(row) : null;
     }).catch((error: unknown) => {
@@ -151,7 +151,7 @@ export class PostgresTribeSupportRepository implements TribeSupportRepository {
           (select message from upserted_settings) as message
       `);
 
-      const row = (result.rows?.[0] ?? null) as SupportSaveRow | null;
+      const row = (result.rows[0] ?? null) as SupportSaveRow | null;
 
       if (row?.status === TRIBE_SUPPORT_SAVE_STATUS.updated) {
         if (!row.channel || !row.phone_number) {

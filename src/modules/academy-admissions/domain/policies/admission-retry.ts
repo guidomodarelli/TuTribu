@@ -1,8 +1,6 @@
 /** Proposes explicit retry eligibility without reopening a terminal request or changing membership. @module admission-retry */
-import type { AdmissionRequest } from "../entities/admission-request";
-import { getAdmissionRetryAllowedAt } from "../entities/admission-request";
-import type { AdmissionActorFacts } from "./admission-eligibility";
-import { canPerformAdmissionAction } from "./admission-eligibility";
+import { getAdmissionRetryAllowedAt, type AdmissionRequest } from "../entities/admission-request";
+import { type AdmissionActorFacts, canPerformAdmissionAction  } from "./admission-eligibility";
 import { AdmissionOperationError } from "../errors/admission-operation-error";
 import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";

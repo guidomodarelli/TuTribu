@@ -21,7 +21,7 @@ function fixture() {
     viewer: vi.fn<AdmissionActivityBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: state.viewerId } })),
     read: vi.fn<AdmissionActivityBrowserClient["read"]>(async (_slug, selection) => ({ status: "ready", value: { ...state, selection } })),
   };
-  const node = <AdmissionWorkspaceRoute pathname={`/${state.kind === "ready" ? state.slug : "tribu"}/academia/admissions/activity`} slug={state.kind === "ready" ? state.slug : "tribu"}><AdmissionSettingsPage page="activity"><AdmissionActivityContainer initialState={state} client={client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute>;
+  const node = <AdmissionWorkspaceRoute pathname={`/${state.slug}/academia/admissions/activity`} slug={state.slug}><AdmissionSettingsPage page="activity"><AdmissionActivityContainer initialState={state} client={client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute>;
   return { state, client, node };
 }
 /** @returns The enabled explicit read control after the initial native identity check. */

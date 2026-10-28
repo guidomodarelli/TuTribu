@@ -30,7 +30,7 @@ export class GetPersonalInvitationManagementPageUseCase {
       /** Checks account/session/email at every read boundary; a changed identity discards all partial private facts. */
       const assertViewer = async () => {
         const current = await this.accounts.getAuthenticatedAccount();
-        if (!current || current.userId !== viewer.userId || current.session.id !== viewer.sessionId || current.normalizedEmail !== viewer.normalizedEmail || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+        if (current?.userId !== viewer.userId || current.session.id !== viewer.sessionId || current.normalizedEmail !== viewer.normalizedEmail || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       };
       const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
       if (!tribe.ok) return tribe;

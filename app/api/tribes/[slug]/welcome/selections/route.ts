@@ -83,7 +83,7 @@ export async function POST(
     }
 
     viewerId = authenticatedMember.id;
-    const parsedBody = await request.json().catch(() => null);
+    const parsedBody: unknown = await request.json().catch(() => null);
 
     if (!isPayloadObject(parsedBody)) {
       return createJsonResponse(

@@ -17,7 +17,7 @@ export function useMessagingLifecycleController(dependencies:{configuration:Mess
     for(const[connection,selected]of[[dependencies.configuration.selected,true],[dependencies.configuration.candidate,false]]as const){if(!connection)continue;const previous=current.get(connection.id);current.set(connection.id,{id:connection.id,name:connection.name,version:connection.version,state:connection.state,selected:selected||previous?.selected===true,candidate:!selected||previous?.candidate===true});}
     return[...current.values()];
   },[dependencies.configuration]);
-  const target=connections.find((connection)=>connection.id===selectedId)??connections[0],scope=target?JSON.stringify([target.id,target.version,retiring,retiring?null:reason]):"",confirmed=Boolean(scope&&consentedScope===scope),canAct=Boolean(!dependencies.blocked&&target&&target.state!==MESSAGING_CONNECTION_STATE.disconnected);
+  const target=connections.find((connection)=>connection.id===selectedId)??connections.at(0),scope=target?JSON.stringify([target.id,target.version,retiring,retiring?null:reason]):"",confirmed=Boolean(scope&&consentedScope===scope),canAct=Boolean(!dependencies.blocked&&target&&target.state!==MESSAGING_CONNECTION_STATE.disconnected);
   return{connections,targetId:target?.id??"",target,retiring,reason,confirmed,canAct,
     /** @returns Nothing after retiring all current local consent. */
     reset:()=>setConsentedScope(""),

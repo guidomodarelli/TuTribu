@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type RefObject, type SubmitEvent } from "react";
 import { Button, Dialog, DialogClose, DialogContent, Input } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
@@ -151,30 +151,100 @@ export function AcademyVerification({
   );
 }
 
-function ProviderRequest({
-  onVerificationChange,
-  provider,
-  tribeSlug,
-  verification,
-}: {
-  onVerificationChange: (verification: MemberVerificationDto) => void;
-  provider: VerificationProviderDto;
-  tribeSlug: string;
-  verification: MemberVerificationDto | undefined;
-}) {
-  const emailInputId = useId();
-  const [declaredEmail, setDeclaredEmail] = useState(verification?.declaredEmail ?? "");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{ isError: boolean; message: string } | null>(null);
-  const [isEmailChangeConfirmationOpen, setIsEmailChangeConfirmationOpen] = useState(false);
-  const isSubmittingRef = useRef(false);
-  const buttonLabel = !verification
-    ? VERIFICATION_COPY.requestButton
-    : verification.status === "pending" || verification.status === "verified"
-      ? VERIFICATION_COPY.updateDataButton
-      : VERIFICATION_COPY.requestAgainButton;
+/** Label of the request button for the current verification state. */
+function resolveRequestButtonLabel(verification: MemberVerificationDto | undefined): string {
+  if (!verification) {
+    return VERIFICATION_COPY.requestButton;
+  }
 
-  const sendRequest = async () => {
+  return verification.status === "pending" || verification.status === "verified"
+    ? VERIFICATION_COPY.updateDataButton
+    : VERIFICATION_COPY.requestAgainButton;
+}
+
+type RequestFeedbackState = { isError: boolean; message: string };
+
+/** Outcome of the last request: an alert on failure, a status otherwise. */
+function RequestFeedback({ feedback }: { feedback: RequestFeedbackState | null }) {
+  if (!feedback) {
+    return null;
+  }
+
+  return (
+    <p
+      className={
+        feedback.isError
+          ? styles.AcademyVerification__error
+          : styles.AcademyVerification__help
+      }
+      role={feedback.isError ? "alert" : "status"}
+    >
+      {feedback.message}
+    </p>
+  );
+}
+
+type EmailChangeConfirmationDialogProps = {
+  isOpen: boolean;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  providerName: string;
+};
+
+/** Asks before replacing the email of an approved verification, which sends it back to review. */
+function EmailChangeConfirmationDialog({
+  isOpen,
+  onConfirm,
+  onOpenChange,
+  providerName,
+}: EmailChangeConfirmationDialogProps) {
+  return (
+    <Dialog alert onOpenChange={onOpenChange} open={isOpen}>
+      <DialogContent
+        title={VERIFICATION_COPY.emailChangeTitle}
+        description={
+          VERIFICATION_COPY.emailChangeDescriptionPrefix +
+          providerName +
+          VERIFICATION_COPY.emailChangeDescriptionSuffix
+        }
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                {VERIFICATION_COPY.cancelEmailChange}
+              </Button>
+            </DialogClose>
+            <Button onClick={onConfirm} type="button" variant="danger">
+              {VERIFICATION_COPY.confirmEmailChange}
+            </Button>
+          </>
+        }
+      />
+    </Dialog>
+  );
+}
+
+type VerificationRequestInput = {
+  declaredEmail: string;
+  /** Guards a second submit landing before the disabled state renders. */
+  isSubmittingRef: RefObject<boolean>;
+  onVerificationChange: (verification: MemberVerificationDto) => void;
+  providerId: string;
+  setFeedback: (feedback: RequestFeedbackState | null) => void;
+  setIsSubmitting: (isSubmitting: boolean) => void;
+  tribeSlug: string;
+};
+
+/** Sends the verification request once and reports its outcome. */
+async function runVerificationRequest({
+  declaredEmail,
+  isSubmittingRef,
+  onVerificationChange,
+  providerId,
+  setFeedback,
+  setIsSubmitting,
+  tribeSlug,
+}: VerificationRequestInput) {
     if (isSubmittingRef.current) {
       return;
     }
@@ -186,7 +256,7 @@ function ProviderRequest({
     try {
       const result = await requestMemberVerification(tribeSlug, {
         declaredEmail,
-        providerId: provider.id,
+        providerId,
       });
 
       if (!result.isSuccess) {
@@ -201,9 +271,67 @@ function ProviderRequest({
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  };
+}
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+type ProviderRequestSummaryProps = {
+  provider: VerificationProviderDto;
+  verification: MemberVerificationDto | undefined;
+};
+
+/** Provider instructions, its link and the current verification status. */
+function ProviderRequestSummary({ provider, verification }: ProviderRequestSummaryProps) {
+  return (
+    <>
+      {provider.instructions ? (
+        <p className={styles.AcademyVerification__instructions}>{provider.instructions}</p>
+      ) : null}
+      {provider.linkUrl ? (
+        <a
+          className={styles.AcademyVerification__link}
+          href={provider.linkUrl}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {VERIFICATION_COPY.openProviderLink}
+        </a>
+      ) : null}
+      <p className={styles.AcademyVerification__status}>
+        <span className={styles.AcademyVerification__statusLabel}>{VERIFICATION_COPY.statusLabel}: </span>
+        {describeStatus(verification)}
+      </p>
+    </>
+  );
+}
+
+type ProviderRequestProps = {
+  onVerificationChange: (verification: MemberVerificationDto) => void;
+  provider: VerificationProviderDto;
+  tribeSlug: string;
+  verification: MemberVerificationDto | undefined;
+};
+
+/** Verification request of one provider: status, declared email and confirmation. */
+function ProviderRequest({ onVerificationChange, provider, tribeSlug, verification }: ProviderRequestProps) {
+  const emailInputId = useId();
+  const [declaredEmail, setDeclaredEmail] = useState(verification?.declaredEmail ?? "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<RequestFeedbackState | null>(null);
+  const [isEmailChangeConfirmationOpen, setIsEmailChangeConfirmationOpen] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const buttonLabel = resolveRequestButtonLabel(verification);
+
+  const sendRequest = () =>
+    runVerificationRequest({
+      declaredEmail,
+      isSubmittingRef,
+      onVerificationChange,
+      providerId: provider.id,
+      setFeedback,
+      setIsSubmitting,
+      tribeSlug,
+    });
+
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (isSubmittingRef.current) {
@@ -228,23 +356,7 @@ function ProviderRequest({
   return (
     <li className={styles.AcademyVerification__provider}>
       <h2 className={styles.AcademyVerification__providerName}>{provider.displayName}</h2>
-      {provider.instructions ? (
-        <p className={styles.AcademyVerification__instructions}>{provider.instructions}</p>
-      ) : null}
-      {provider.linkUrl ? (
-        <a
-          className={styles.AcademyVerification__link}
-          href={provider.linkUrl}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          {VERIFICATION_COPY.openProviderLink}
-        </a>
-      ) : null}
-      <p className={styles.AcademyVerification__status}>
-        <span className={styles.AcademyVerification__statusLabel}>{VERIFICATION_COPY.statusLabel}: </span>
-        {describeStatus(verification)}
-      </p>
+      <ProviderRequestSummary provider={provider} verification={verification} />
       <form className={styles.AcademyVerification__form} noValidate onSubmit={handleSubmit}>
         <div className={styles.AcademyVerification__field}>
           <Input
@@ -260,41 +372,14 @@ function ProviderRequest({
         <Button aria-busy={isSubmitting || undefined} disabled={isSubmitting} type="submit">
           {isSubmitting ? VERIFICATION_COPY.requestPending : buttonLabel}
         </Button>
-        {feedback ? (
-          <p
-            className={
-              feedback.isError
-                ? styles.AcademyVerification__error
-                : styles.AcademyVerification__help
-            }
-            role={feedback.isError ? "alert" : "status"}
-          >
-            {feedback.message}
-          </p>
-        ) : null}
+        <RequestFeedback feedback={feedback} />
       </form>
-      <Dialog alert onOpenChange={setIsEmailChangeConfirmationOpen} open={isEmailChangeConfirmationOpen}>
-        <DialogContent
-          title={VERIFICATION_COPY.emailChangeTitle}
-          description={
-            VERIFICATION_COPY.emailChangeDescriptionPrefix +
-            provider.displayName +
-            VERIFICATION_COPY.emailChangeDescriptionSuffix
-          }
-          footer={
-            <>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  {VERIFICATION_COPY.cancelEmailChange}
-                </Button>
-              </DialogClose>
-              <Button onClick={confirmEmailChange} type="button" variant="danger">
-                {VERIFICATION_COPY.confirmEmailChange}
-              </Button>
-            </>
-          }
-        />
-      </Dialog>
+      <EmailChangeConfirmationDialog
+        isOpen={isEmailChangeConfirmationOpen}
+        providerName={provider.displayName}
+        onConfirm={confirmEmailChange}
+        onOpenChange={setIsEmailChangeConfirmationOpen}
+      />
     </li>
   );
 }

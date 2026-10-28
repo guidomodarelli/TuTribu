@@ -66,6 +66,10 @@ export function CreateTribeFormContainer(props: CreateTribeFormContainerProps) {
           status: CREATE_TRIBE_FORM_SUBMIT_STATUS.failed,
           suggestedSlug: response.suggestedSlug,
         };
+      case CREATE_TRIBE_STATUS.invalidName:
+      case CREATE_TRIBE_STATUS.invalidSlug:
+      case CREATE_TRIBE_STATUS.notAllowed:
+      case CREATE_TRIBE_ERROR_CODE.unexpected:
       default:
         return {
           field: resolveCreateTribeErrorField(response.status),

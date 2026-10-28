@@ -46,14 +46,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       expect(firstChoices.map((choice) => choice.status).sort()).toEqual(["changed", "rejected"]);
       expect(firstChoices.find((choice) => choice.status === "rejected")).toEqual({ status: "rejected", reason: "notification_preference_version_conflict" });
       const first = firstChoices.find((choice) => choice.status === "changed");
-      if (!first || first.status !== "changed") throw new Error("Native preference fixture did not commit its first choice");
+      if (first?.status !== "changed") throw new Error("Native preference fixture did not commit its first choice");
       const noOp = await repository.changeOwn(fixture.leader, { mode: first.preference.mode, expectedVersion: 1 });
       expect(noOp).toEqual({ status: "unchanged", preference: first.preference });
       expect(await repository.changeOwn(fixture.leader, { mode: first.preference.mode, expectedVersion: 0 })).toEqual({ status: "rejected", reason: "notification_preference_version_conflict" });
       const updates = await Promise.all((["individual", "omitted"] as const).map((mode) => repository.changeOwn(fixture.leader, { mode, expectedVersion: 1 })));
       expect(updates.map((choice) => choice.status).sort()).toEqual(["changed", "rejected"]);
       const second = updates.find((choice) => choice.status === "changed");
-      if (!second || second.status !== "changed") throw new Error("Native preference fixture did not commit its changed choice");
+      if (second?.status !== "changed") throw new Error("Native preference fixture did not commit its changed choice");
       // Assert: database text is returned exactly; no Date conversion can truncate its epoch.
       const persisted = await database.withContext({ userId: fixture.leader.userId, email: null }, async (transaction) => (await transaction.execute<{ mode: string; version: number; effective_from: string; later: boolean }>(sql`select mode,version,effective_from::text,effective_from>${first.preference.effectiveFrom}::timestamptz as later from public.admission_notification_preferences where tribe_id=${fixture.tribeId} and recipient_user_id=${fixture.leader.userId}`)).rows[0]);
       expect(second.preference).toMatchObject({ mode: persisted.mode, version: 2, effectiveFrom: persisted.effective_from });

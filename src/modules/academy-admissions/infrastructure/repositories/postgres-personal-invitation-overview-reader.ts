@@ -6,8 +6,7 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
 import type { PersonalInvitationOverviewReader, PersonalInvitationOverviewFacts } from "../../domain/repositories/personal-invitation-overview-reader";
-import type { AdmissionSubmissionFacts, AdmissionMembershipFacts } from "../../domain/policies/admission-eligibility";
-import { evaluateAdmissionPreview } from "../../domain/policies/admission-eligibility";
+import { type AdmissionSubmissionFacts, type AdmissionMembershipFacts, evaluateAdmissionPreview  } from "../../domain/policies/admission-eligibility";
 import { readAdmissionPolicy } from "./postgres-admission-policy-storage";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
@@ -41,22 +40,29 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
     return account;
   }
 
+  /** @param database - Same read transaction. @param codec - Current token codec. @param token - Opaque presented token. @returns The invitation whose context digest verifies the token, with its reference, or `null`. */
+  private async readTokenInvitation(database: RequestDatabase, codec: ReturnType<typeof createPersonalInvitationTokenCodec>, token: string) {
+    const lookups = await codec.lookup(token);
+    if (!lookups.length) return null;
+    const filters = lookups.map((lookup) => sql`(token_key_id=${lookup.keyId} and token_hash=${Buffer.from(lookup.lookupDigest)})`);
+    const row = (await database.execute<PreviewInvitationRow>(sql`select * from public.academy_personal_invitations where ${sql.join(filters, sql` or `)}`)).rows[0];
+    if (!row?.token_context_digest) return null;
+    const reference = { tribeId: row.tribe_id, invitationId: row.id, keyId: row.token_key_id, lookupDigest: row.token_hash, digest: row.token_context_digest };
+    return await codec.verify(token, reference) ? { row, reference } : null;
+  }
+
   /** @param query - Opaque token/correlation and optional own available proof. @param scope - Actual account/session. @returns Current private preview facts or generic absence, never a persisted operation or contact disclosure. */
   async readOverview(query: { token: string; requestId: string; proofId?: string }, scope: PreviewScope): Promise<PersonalInvitationOverviewFacts | null> {
     return this.execute(scope, async (database) => {
       await this.authorize(database, scope);
       const security = await this.readSecurityConfig(), codec = createPersonalInvitationTokenCodec(security);
-      const lookups = await codec.lookup(query.token);
-      if (!lookups.length) { await this.authorize(database, scope); return null; }
-      const filters = lookups.map((lookup) => sql`(token_key_id=${lookup.keyId} and token_hash=${Buffer.from(lookup.lookupDigest)})`);
-      const row = (await database.execute<PreviewInvitationRow>(sql`select * from public.academy_personal_invitations where ${sql.join(filters, sql` or `)}`)).rows[0];
-      if (!row?.token_context_digest) { await this.authorize(database, scope); return null; }
-      const reference = { tribeId: row.tribe_id, invitationId: row.id, keyId: row.token_key_id, lookupDigest: row.token_hash, digest: row.token_context_digest };
-      if (!await codec.verify(query.token, reference)) { await this.authorize(database, scope); return null; }
+      const verified = await this.readTokenInvitation(database, codec, query.token);
+      if (!verified) { await this.authorize(database, scope); return null; }
+      const { row, reference } = verified;
       // Read mutable facts after the shared tribe lock so revocation and policy
       // mutations cannot cross the final projection inside this transaction.
       const tribe = (await database.execute<{ slug: string; access_model: string }>(sql`select tribe.slug,settings.access_model from public.tribes tribe join public.tribe_academy_settings settings on settings.tribe_id=tribe.id where tribe.id=${row.tribe_id} for share of tribe,settings`)).rows[0];
-      if (!tribe || tribe.access_model !== TRIBE_ACCESS_MODEL.academy) return null;
+      if (tribe?.access_model !== TRIBE_ACCESS_MODEL.academy) return null;
       const current = (await database.execute<PreviewInvitationRow>(sql`select * from public.academy_personal_invitations where id=${row.id} and tribe_id=${row.tribe_id} for share`)).rows[0];
       if (!current?.token_context_digest) return null;
       const invitation = mapPersonalInvitationRow(current), context = { ...scope, tribeId: invitation.tribeId, requestId: query.requestId };
@@ -70,17 +76,32 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
       const own = await readAllowlistAdmissionFacts(database, context, invitation.contact);
       const membership = (await database.execute<AdmissionMembershipFacts>(sql`select tribe_id as "tribeId",user_id as "userId",role,status,status_reason as "statusReason",commercial_recovery_status as "commercialRecoveryStatus" from public.tribe_members where tribe_id=${invitation.tribeId} and user_id=${scope.userId} for share`)).rows[0] ?? null;
       const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-      const eligibility: AdmissionSubmissionFacts = { now, tribe: { id: invitation.tribeId, isAcademy: true, controlActivated: overview.tribe.controlActivated, evaluatorEnabled: overview.tribe.evaluatorEnabled, recoveryLocked: overview.recoveryLocked }, policy: policy ? { ...policy, activatedAt: policy.activatedAt ? new Date(policy.activatedAt) : null } : null, account: own.account, source: { kind: ADMISSION_SOURCE_KIND.personal, invitation: { tribeId: invitation.tribeId, contact: invitation.contact, requiresAllowlist: invitation.requiresAllowlist, status: invitation.status, authorizationRevoked: invitation.authorizationRevokedAt !== null, expiresAt: invitation.expiresAt } }, contact: invitation.contact, baseEvidence: own.baseEvidence, allowlistEntry: own.allowlistEntry, contactBinding: own.contactBinding, membership, localProof: null, currentConnection: null };
+      const eligibility: AdmissionSubmissionFacts = { now, tribe: { id: invitation.tribeId, isAcademy: true, controlActivated: overview.tribe.controlActivated, evaluatorEnabled: overview.tribe.evaluatorEnabled, recoveryLocked: overview.recoveryLocked }, policy: policyFacts(policy), account: own.account, source: { kind: ADMISSION_SOURCE_KIND.personal, invitation: { tribeId: invitation.tribeId, contact: invitation.contact, requiresAllowlist: invitation.requiresAllowlist, status: invitation.status, authorizationRevoked: invitation.authorizationRevokedAt !== null, expiresAt: invitation.expiresAt } }, contact: invitation.contact, baseEvidence: own.baseEvidence, allowlistEntry: own.allowlistEntry, contactBinding: own.contactBinding, membership, localProof: null, currentConnection: null };
       const local = query.proofId ? await new PostgresAdmissionSubmissionProofReader(database, this.readSecurityConfig).read(context, query.proofId, eligibility) : null;
       if (local) { eligibility.localProof = local.proof; eligibility.currentConnection = local.currentConnection; eligibility.contactBinding = local.contactBinding; }
-      const bindingMatches = own.contactBinding?.ownerUserId === scope.userId;
       const evaluated = local ? evaluateAdmissionPreview({ ...eligibility, now: new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now) }) : null;
       const usableLocalProof = evaluated?.outcome === ADMISSION_OUTCOME.admitted || evaluated?.outcome === ADMISSION_OUTCOME.pending;
-      const foreignBinding = own.contactBinding !== null && own.contactBinding.ownerUserId !== scope.userId;
-      const recipientMatchesAccount = !foreignBinding && (invitation.contact.type === ADMISSION_CONTACT_TYPE.email ? invitation.contact.value === refreshed.normalizedEmail : bindingMatches || !own.contactBinding && policy?.requiresAdditionalVerification === true || usableLocalProof);
+      const recipientMatchesAccount = invitationRecipientMatches({ invitation, accountEmail: refreshed.normalizedEmail, binding: own.contactBinding, userId: scope.userId, requiresAdditionalVerification: policy?.requiresAdditionalVerification === true, usableLocalProof });
       await assertPersonalInvitationTokenCurrent({ invitation, reference, environment: security.environment, securityEpoch: security.securityEpoch }, query.token, await this.readSecurityConfig());
       await this.authorize(database, scope);
-      return { overview, eligibility, tokenAvailable: invitation.status === ADMISSION_INVITATION_STATUS.active && invitation.authorizationRevokedAt === null && (!invitation.expiresAt || now < invitation.expiresAt), recipientMatchesAccount: Boolean(recipientMatchesAccount), redeemedByUserId: invitation.redeemedByUserId, redeemedRequestId: invitation.redeemedRequestId };
+      return { overview, eligibility, tokenAvailable: isInvitationTokenAvailable(invitation, now), recipientMatchesAccount, redeemedByUserId: invitation.redeemedByUserId, redeemedRequestId: invitation.redeemedRequestId };
     });
   }
+}
+
+/** @param invitation - Current invitation. @param now - Database clock. @returns Whether its token can still be used: active, authorized and unexpired. */
+function isInvitationTokenAvailable(invitation: ReturnType<typeof mapPersonalInvitationRow>, now: Date): boolean {
+  return invitation.status === ADMISSION_INVITATION_STATUS.active && invitation.authorizationRevokedAt === null && (!invitation.expiresAt || now < invitation.expiresAt);
+}
+
+/** @param match - Invitation, current account email, current contact binding, actual applicant, whether the policy verifies contacts and whether a local proof is usable. @returns Whether the invitation recipient is this account; a foreign binding never matches. */
+function invitationRecipientMatches({ invitation, accountEmail, binding, userId, requiresAdditionalVerification, usableLocalProof }: { invitation: ReturnType<typeof mapPersonalInvitationRow>; accountEmail: string | null; binding: { ownerUserId: string } | null; userId: string; requiresAdditionalVerification: boolean; usableLocalProof: boolean }): boolean {
+  if (binding !== null && binding.ownerUserId !== userId) return false;
+  if (invitation.contact.type === ADMISSION_CONTACT_TYPE.email) return invitation.contact.value === accountEmail;
+  return binding?.ownerUserId === userId || !binding && requiresAdditionalVerification || usableLocalProof;
+}
+
+/** @param policy - Current stored policy, if any. @returns The policy facts with its activation instant as a date. */
+function policyFacts(policy: Awaited<ReturnType<typeof readAdmissionPolicy>>): AdmissionSubmissionFacts["policy"] {
+  return policy ? { ...policy, activatedAt: policy.activatedAt ? new Date(policy.activatedAt) : null } : null;
 }

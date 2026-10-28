@@ -17,8 +17,8 @@ export function createUnavailableAdmissionMaintenanceHealth(): AdmissionMessagin
   return { available: false, observedAtMilliseconds: null, lastSuccessfulRunAtMilliseconds: null, oldestQueuedAtMilliseconds: null, queueAgeMilliseconds: null };
 }
 
-/** @param phase - Actual fixed original phase. @param output - Own minimal work evidence; unexpected extra fields are not copied. @param startedAtMilliseconds - Original host start. @param finishedAtMilliseconds - Actual observation time. @param late - Whether the original effect settled after the bounded response. @returns An independent snapshot without private adapter/provider fields. */
-export function projectAdmissionMaintenancePhase(phase: AdmissionMessagingMaintenancePhase, output: AdmissionMessagingMaintenancePhaseOutput, startedAtMilliseconds: number, finishedAtMilliseconds: number, late = false): AdmissionMessagingMaintenancePhaseSnapshot {
+/** @param phase - Actual fixed original phase. @param output - Own minimal work evidence; unexpected extra fields are not copied. @param timing - Original host start, actual observation time and whether the original effect settled after the bounded response. @returns An independent snapshot without private adapter/provider fields. */
+export function projectAdmissionMaintenancePhase(phase: AdmissionMessagingMaintenancePhase, output: AdmissionMessagingMaintenancePhaseOutput, { startedAtMilliseconds, finishedAtMilliseconds, late = false }: { startedAtMilliseconds: number; finishedAtMilliseconds: number; late?: boolean }): AdmissionMessagingMaintenancePhaseSnapshot {
   return { phase, status: output.status, reason: output.reason, metrics: output.metrics.map((metric) => ({ key: metric.key, value: metric.value })), hasRemainingWork: output.hasRemainingWork, startedAtMilliseconds, durationMilliseconds: Math.max(0, Math.ceil(finishedAtMilliseconds - startedAtMilliseconds)), observation: ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.pending, late };
 }
 
@@ -34,7 +34,7 @@ export function admissionMaintenancePhaseDeadline(startedAtMilliseconds: number,
 }
 
 /** Phase states that only mean "this run ran out of its own budget", never a failure, missing configuration or uncertainty. */
-const BUDGET_ONLY_STATUSES: readonly string[] = [ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.completed, ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.deferred, ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notRun];
+const BUDGET_ONLY_STATUSES: ReadonlySet<string> = new Set([ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.completed, ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.deferred, ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notRun]);
 
 /**
  * @param result - Published bounded run.
@@ -44,7 +44,7 @@ const BUDGET_ONLY_STATUSES: readonly string[] = [ADMISSION_MESSAGING_MAINTENANCE
 export function admissionMaintenanceMadeProgress(result: AdmissionMessagingMaintenanceResult): boolean {
   return result.status === ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS.incomplete && result.newRunStarted && result.observation === ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.recorded
     && result.phases.some((phase) => phase.status === ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.completed && phase.observation === ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.recorded)
-    && result.phases.every((phase) => BUDGET_ONLY_STATUSES.includes(phase.status) && (phase.reason === null || phase.reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached) && phase.observation !== ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.unavailable);
+    && result.phases.every((phase) => BUDGET_ONLY_STATUSES.has(phase.status) && (phase.reason === null || phase.reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached) && phase.observation !== ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION.unavailable);
 }
 
 /** @param phases - Every original bounded phase and its observation. @param deadlineReached - Sticky host deadline evidence. @returns True only for a confirmed complete bounded invocation; remaining work is still reported separately. */

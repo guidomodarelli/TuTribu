@@ -43,7 +43,7 @@ const PORTLESS_DEV = {
 };
 
 /** Addresses the dev host may resolve to: IPv4 and IPv6 loopback. */
-const LOOPBACK_ADDRESSES = ["127.0.0.1", "::1"];
+const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1"]);
 
 /** Result of resolving the dev host before starting the server. */
 const DEV_HOST_RESOLUTION = {
@@ -97,7 +97,7 @@ const PORTLESS_MIN_VERSION = "0.15.5";
 const PORTLESS_HTTPS_PORT = "443";
 
 /** First `X.Y.Z` triple in the `portless --version` output. */
-const SEMANTIC_VERSION_PATTERN = /(\d+)\.(\d+)\.(\d+)/;
+const SEMANTIC_VERSION_PATTERN = /(?<!\d)(\d+)\.(\d+)\.(\d+)/;
 
 const PORTLESS_BINARY = "portless";
 const DEV_SERVER_COMMAND = ["next", "dev"];
@@ -263,7 +263,7 @@ export function classifyDevHostResolution(addresses) {
     return DEV_HOST_RESOLUTION.missing;
   }
 
-  return addresses.every((address) => LOOPBACK_ADDRESSES.includes(address))
+  return addresses.every((address) => LOOPBACK_ADDRESSES.has(address))
     ? DEV_HOST_RESOLUTION.loopback
     : DEV_HOST_RESOLUTION.elsewhere;
 }

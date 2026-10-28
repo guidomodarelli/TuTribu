@@ -9,10 +9,10 @@ export function createNotificationGroupOriginSchema(tribeId: AnyPgColumn) {
   return pgTable(NOTIFICATION_GROUP_ORIGIN_STORAGE.table, {
     groupId: uuid("group_id").notNull(), tribeId: uuid("tribe_id").notNull(),
     recipientRef: text("recipient_ref").notNull(), audience: text("audience").notNull(),
-  }, (table) => ({
-    primaryKey: primaryKey({ name: NOTIFICATION_GROUP_ORIGIN_STORAGE.primaryKey, columns: [table.groupId] }),
-    scopeKey: unique(NOTIFICATION_GROUP_ORIGIN_STORAGE.scopeKey).on(table.groupId, table.tribeId, table.recipientRef, table.audience),
-    namespaceForeignKey: foreignKey({ name: NOTIFICATION_GROUP_ORIGIN_STORAGE.namespaceForeignKey, columns: [table.tribeId], foreignColumns: [tribeId] }),
-    audienceCheck: check(NOTIFICATION_GROUP_ORIGIN_STORAGE.audienceCheck, sql`${table.audience} in (${ADMISSION_NOTIFICATION_AUDIENCE.applicant},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})`),
-  })).enableRLS();
+  }, (table) => [
+    primaryKey({ name: NOTIFICATION_GROUP_ORIGIN_STORAGE.primaryKey, columns: [table.groupId] }),
+    unique(NOTIFICATION_GROUP_ORIGIN_STORAGE.scopeKey).on(table.groupId, table.tribeId, table.recipientRef, table.audience),
+    foreignKey({ name: NOTIFICATION_GROUP_ORIGIN_STORAGE.namespaceForeignKey, columns: [table.tribeId], foreignColumns: [tribeId] }),
+    check(NOTIFICATION_GROUP_ORIGIN_STORAGE.audienceCheck, sql`${table.audience} in (${ADMISSION_NOTIFICATION_AUDIENCE.applicant},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})`),
+  ]).enableRLS();
 }

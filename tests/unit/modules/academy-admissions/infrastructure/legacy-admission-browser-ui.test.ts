@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native histori
             // Opening the historical link is a read: no request, code, payment or membership yet.
             expect(await readRequests(applicant.userId)).toEqual([]);
             await page.getByRole("textbox", { name: ADMISSION_UI_COPY.message }).fill("Llegué por un enlace anterior de la academia.");
-            await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Continuar" && !button.disabled));
+            await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent.trim() === "Continuar" && !button.disabled));
             await page.getByRole("button", { name: "Continuar", exact: true }).click();
             await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).check();
             await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();

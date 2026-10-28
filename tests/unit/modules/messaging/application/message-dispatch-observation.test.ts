@@ -21,7 +21,7 @@ function fixture(count = 2) {
   const sender: MessageDeliverySender = { async prepare() { return { async send() { sends += 1; return { outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" }; } }; } };
   const settings = { requestTimeoutMs: 20, runBudgetMs: 150, leaseSeconds: 1, concurrency: 2, batchLimit: 2 };
   const runtime = { now: Date.now, createId: randomUUID, report: (report: MessagingDispatchDiagnostic) => { reports.push(report); }, defer: (work: Promise<void>) => { deferred.push(work); } };
-  return { repository, recorder, sender, settings, runtime, queue, tribes, runs, phases, reports, deferred, get sends() { return sends; }, get finishes() { return finishes; }, execute: (focalTribeId?: string) => new ObserveMessageDispatchRunUseCase(repository, sender, settings, runtime, recorder, focalTribeId).execute() };
+  return { repository, recorder, sender, settings, runtime, queue, tribes, runs, phases, reports, deferred, get sends() { return sends; }, get finishes() { return finishes; }, execute: (focalTribeId?: string) => new ObserveMessageDispatchRunUseCase({ deliveries: repository, sender, settings, runtime, recorder, focalTribeId }).execute() };
 }
 
 describe("persistent portable dispatch observations", () => {

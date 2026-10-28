@@ -32,7 +32,7 @@ export class GetAdmissionNotificationSettingsPageUseCase {
       if (email && !email.ok) return email;
       if (email?.ok && email.value.tribeId !== selection.tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const current = await this.accounts.getAuthenticatedAccount();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       return { ok: true as const, value: admissionNotificationSettingsPageStateSchema.parse({ kind: ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.ready, slug: query.slug, tribeId: selection.tribeId, viewerId: current.userId, preference: toAdmissionNotificationPreferenceView(preference.value.preference), canConfigureEmail: preference.value.canConfigureEmail, email: email?.ok ? toAdmissionNotificationEmailSettingsView(email.value) : null }) };
     } catch (error) { return admissionOperationFailure(error); }
   }

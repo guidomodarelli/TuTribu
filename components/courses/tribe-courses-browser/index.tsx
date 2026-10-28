@@ -106,40 +106,21 @@ function readSelectionFromLocation(): CourseSelectionQuery {
 }
 
 /**
- * Client container of the tribe courses section. The server renders the first
- * view (catalog or course, so deep links keep working); afterwards opening a
- * course and returning to the catalog swap views locally from the course tree
- * already loaded, mirror the selection in the shareable URL through the
- * History API and follow Back/Forward, without re-rendering the page on the
- * server. It also owns the viewer progress shared by both views, so a lesson
- * completed or opened inside a course shows up in the catalog and when the
- * course is reopened.
+ * Keeps the selected course and lesson in sync with the shareable URL: pushes
+ * in-page navigations to the History API and follows Back/Forward.
  *
- * @param props - Course tree, initial selection, tribe slug and permissions.
- * @returns Catalog or course view.
+ * @param tribeSlug - Tribe slug of the courses route.
+ * @param initialSelection - Selection of the server-rendered first view.
+ * @returns The selection, whether the view changed in page and the navigators.
  */
-export function TribeCoursesBrowser({
-  courses,
-  initialCourseId,
-  initialLessonId,
-  tribeSlug,
-  viewerPermissions,
-}: TribeCoursesBrowserProps) {
-  const [coursesSource, setCoursesSource] = useState(courses);
-  const [viewerCourses, setViewerCourses] = useState(courses);
-  const [selection, setSelection] = useState<CourseSelectionQuery>({
-    courseId: initialCourseId,
-    lessonId: initialLessonId,
-  });
+function useCourseSelectionHistory(
+  tribeSlug: string,
+  initialSelection: CourseSelectionQuery
+) {
+  const [selection, setSelection] = useState<CourseSelectionQuery>(initialSelection);
   // Views mounted by an in-page navigation take focus; the server-rendered
   // first view keeps the browser's default focus and scroll.
   const [hasNavigatedInPage, setHasNavigatedInPage] = useState(false);
-
-  // A server refresh brings a new course tree: it replaces the local progress.
-  if (coursesSource !== courses) {
-    setCoursesSource(courses);
-    setViewerCourses(courses);
-  }
 
   useEffect(() => {
     const handlePopState = () => {
@@ -184,6 +165,26 @@ export function TribeCoursesBrowser({
     [navigateToSelection]
   );
 
+  return { hasNavigatedInPage, openCatalog, openCourse, selection };
+}
+
+/**
+ * Keeps the viewer progress shared by the catalog and the course views; a new
+ * course tree from the server replaces it.
+ *
+ * @param courses - Course tree rendered by the server.
+ * @returns The courses with the local progress and the progress updaters.
+ */
+function useViewerCourses(courses: TribeCoursesBrowserProps["courses"]) {
+  const [coursesSource, setCoursesSource] = useState(courses);
+  const [viewerCourses, setViewerCourses] = useState(courses);
+
+  // A server refresh brings a new course tree: it replaces the local progress.
+  if (coursesSource !== courses) {
+    setCoursesSource(courses);
+    setViewerCourses(courses);
+  }
+
   const handleLessonCompletionChange = useCallback(
     (courseId: string, lessonId: string, completed: boolean) => {
       setViewerCourses((current) =>
@@ -203,6 +204,37 @@ export function TribeCoursesBrowser({
     },
     []
   );
+
+  return { handleLessonCompletionChange, handleLessonViewed, viewerCourses };
+}
+
+/**
+ * Client container of the tribe courses section. The server renders the first
+ * view (catalog or course, so deep links keep working); afterwards opening a
+ * course and returning to the catalog swap views locally from the course tree
+ * already loaded, mirror the selection in the shareable URL through the
+ * History API and follow Back/Forward, without re-rendering the page on the
+ * server. It also owns the viewer progress shared by both views, so a lesson
+ * completed or opened inside a course shows up in the catalog and when the
+ * course is reopened.
+ *
+ * @param props - Course tree, initial selection, tribe slug and permissions.
+ * @returns Catalog or course view.
+ */
+export function TribeCoursesBrowser({
+  courses,
+  initialCourseId,
+  initialLessonId,
+  tribeSlug,
+  viewerPermissions,
+}: TribeCoursesBrowserProps) {
+  const { handleLessonCompletionChange, handleLessonViewed, viewerCourses } =
+    useViewerCourses(courses);
+  const { hasNavigatedInPage, openCatalog, openCourse, selection } =
+    useCourseSelectionHistory(tribeSlug, {
+      courseId: initialCourseId,
+      lessonId: initialLessonId,
+    });
 
   const selectedCourse = resolveSelectedCourse(viewerCourses, selection);
 

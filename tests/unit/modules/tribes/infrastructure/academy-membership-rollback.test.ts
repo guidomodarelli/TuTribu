@@ -64,9 +64,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native atomic memb
       async function waitForLease(actorUserId: string, operationId: string) {
         const deadline = Date.now() + ADMISSION_OPERATION_LEASE_MS;
         for (;;) {
-          const original = await database.withContext(leaderContext, async (transaction) => (await transaction.execute<{expired: boolean;state: string}>(sql`select lease_until<=clock_timestamp() as expired,state from public.academy_admission_operations where tribe_id=${fixture.tribeId} and actor_user_id=${actorUserId} and operation_type=${TRIBE_MEMBERSHIP_LIFECYCLE_OPERATION} and idempotency_key=${operationId}`)).rows[0]);
+          const original = await database.withContext(leaderContext, async (transaction) => (await transaction.execute<{expired: boolean;state: string}>(sql`select lease_until<=clock_timestamp() as expired,state from public.academy_admission_operations where tribe_id=${fixture.tribeId} and actor_user_id=${actorUserId} and operation_type=${TRIBE_MEMBERSHIP_LIFECYCLE_OPERATION} and idempotency_key=${operationId}`)).rows.at(0));
           expect(original?.state).toBe("started");
-          if (original.expired) return;
+          if (original?.expired) return;
           if (Date.now() >= deadline) throw new Error("Membership rollback validation failed: original lease did not expire within its configured bound");
           await delay(MEMBERSHIP_LIFECYCLE_OBSERVATION_INTERVAL_MS);
         }
@@ -87,7 +87,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native atomic memb
       const blockFinal = await snapshot();
       expect(blockFinal.requests).toMatchObject([{ id: fixture.requestId, status: "cancelled", cancel_reason: "nonrecoverable_membership" }]);
       expect(blockFinal.decisions).toHaveLength(1); expect(blockFinal.obligations).toHaveLength(1); expect(blockFinal.audits).toHaveLength(1);
-      expect(blockFinal.notificationAudits.map((audit) => audit.event_type).sort()).toEqual(["notification_materialized", "notification_obligation_created"]);
+      expect(blockFinal.notificationAudits.map((audit) => String(audit.event_type)).toSorted()).toEqual(["notification_materialized", "notification_obligation_created"]);
       const requestId = randomUUID(), decisionId = randomUUID(), effectId = randomUUID();
       await database.withContext(leaderContext, async (transaction) => {
         await transaction.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);

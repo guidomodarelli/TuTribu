@@ -41,7 +41,7 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
   page.setDefaultTimeout(VALIDATION.responseTimeoutMs);
   const rootPath = `/api/tribes/${input.slug}/admissions`, batchPath = `${rootPath}/request-decisions`;
   const documents: string[] = [], operationReads: string[] = [], batchWrites: string[] = [];
-  let serverComponentReads = 0, initialServerComponentReads = 0, accessibleResultSummaries = 0;
+  let serverComponentReads = 0, initialServerComponentReads: number, accessibleResultSummaries = 0;
   const viewerRequestsAfterSecondPost = new WeakSet<Request>();
   input.observations.browserBatchFailures = 0; input.observations.browserBatchFinishes = 0;
   input.observations.viewerStartsAfterSecondPost = 0; input.observations.viewerFinishesAfterSecondPost = 0;

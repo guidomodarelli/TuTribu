@@ -1,7 +1,7 @@
 "use client";
 /** Shares guarded same-origin HTTP observations without retrying mutations or preserving private input. @module messaging-browser-api-client */
 import {OPERATION_STATE} from "@/src/constants/operation-state";
-import {z} from "zod";
+import type {z} from "zod";
 import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type {MessagingErrorCode} from "@/src/modules/messaging/application/results/messaging-errors";
 import {messagingPublicErrorSchema} from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
@@ -18,11 +18,12 @@ export function createMessagingBrowserRequest(transport:typeof fetch=globalThis.
   return async function request<Value>(url:string,schema:z.ZodType<Value>,callerSignal:AbortSignal,write?:{method:"POST"|"PUT";input:object}):Promise<MessagingUsageBrowserResult<Value>>{
     const writing=write!==undefined;if(callerSignal.aborted)return{status:"aborted"};
     // A hung response ends at the deadline as a timeout that keeps a write uncertain; the caller's own cancellation stays an abort.
-    return boundBrowserRequest<MessagingUsageBrowserResult<Value>>(callerSignal,(signal)=>send(url,schema,signal,writing,write),()=>messagingBrowserFailure(MESSAGING_ERROR_CODE.transportTimeout,writing));
+    return boundBrowserRequest<MessagingUsageBrowserResult<Value>>(callerSignal,(signal)=>send(url,schema,signal,write),()=>messagingBrowserFailure(MESSAGING_ERROR_CODE.transportTimeout,writing));
   };
 
   /** Sends one own request under a signal that already follows the caller and the deadline. */
-  async function send<Value>(url:string,schema:z.ZodType<Value>,signal:AbortSignal,writing:boolean,write?:{method:"POST"|"PUT";input:object}):Promise<MessagingUsageBrowserResult<Value>>{
+  async function send<Value>(url:string,schema:z.ZodType<Value>,signal:AbortSignal,write?:{method:"POST"|"PUT";input:object}):Promise<MessagingUsageBrowserResult<Value>>{
+    const writing=write!==undefined;
     try{
       const response=await transport(url,{method:write?.method??"GET",credentials:"same-origin",cache:"no-store",signal,...(write?{headers:{"content-type":"application/json"},body:JSON.stringify(write.input)}:{})});
       let body:unknown;try{body=await response.json();}catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);}

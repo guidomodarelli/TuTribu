@@ -182,6 +182,60 @@ function readTitleFromBody(body: unknown): string {
  * @returns Whether the payload omits media, contains an invalid item, exceeds
  *   the combined limit, or contains a normalized media draft list.
  */
+type MediaItemRead =
+  | { draft: MessageMediaDraftCommand }
+  | { failure: CreateMessageRouteMediaReadResult };
+
+function readVideoMediaItem(url: unknown): MediaItemRead {
+  const invalidVideoUrl = {
+    failure: { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl },
+  };
+
+  if (typeof url !== "string") {
+    return invalidVideoUrl;
+  }
+
+  const trimmed = url.trim();
+
+  if (trimmed.length === 0 || trimmed.length > VIDEO_URL_MAX_LENGTH) {
+    return invalidVideoUrl;
+  }
+
+  return { draft: { kind: MESSAGE_MEDIA_KIND.video, url: trimmed } };
+}
+
+function readMediaItem(item: unknown): MediaItemRead {
+  if (!item || typeof item !== "object") {
+    return { failure: { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia } };
+  }
+
+  const itemRecord = item as Record<string, unknown>;
+  const kind = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.kind];
+
+  if (kind === MESSAGE_MEDIA_KIND.image) {
+    const assetId = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.assetId];
+    const altText = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.altText];
+
+    if (typeof assetId !== "string") {
+      return { failure: { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage } };
+    }
+
+    return {
+      draft: {
+        assetId,
+        kind: MESSAGE_MEDIA_KIND.image,
+        ...(typeof altText === "string" ? { altText } : {}),
+      },
+    };
+  }
+
+  if (kind === MESSAGE_MEDIA_KIND.video) {
+    return readVideoMediaItem(itemRecord[CREATE_MESSAGE_ROUTE_FIELD.url]);
+  }
+
+  return { failure: { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia } };
+}
+
 function readMediaFromBody(body: unknown): CreateMessageRouteMediaReadResult {
   if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.media in body)) {
     return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.absent };
@@ -196,46 +250,13 @@ function readMediaFromBody(body: unknown): CreateMessageRouteMediaReadResult {
   const drafts: MessageMediaDraftCommand[] = [];
 
   for (const item of media) {
-    if (!item || typeof item !== "object") {
-      return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia };
+    const read = readMediaItem(item);
+
+    if ("failure" in read) {
+      return read.failure;
     }
 
-    const itemRecord = item as Record<string, unknown>;
-    const kind = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.kind];
-
-    if (kind === MESSAGE_MEDIA_KIND.image) {
-      const assetId = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.assetId];
-      const altText = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.altText];
-
-      if (typeof assetId !== "string") {
-        return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage };
-      }
-
-      drafts.push({
-        assetId,
-        kind: MESSAGE_MEDIA_KIND.image,
-        ...(typeof altText === "string" ? { altText } : {}),
-      });
-      continue;
-    }
-
-    if (kind === MESSAGE_MEDIA_KIND.video) {
-      const url = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.url];
-
-      if (typeof url !== "string") {
-        return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl };
-      }
-
-      const trimmed = url.trim();
-      if (trimmed.length === 0 || trimmed.length > VIDEO_URL_MAX_LENGTH) {
-        return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl };
-      }
-
-      drafts.push({ kind: MESSAGE_MEDIA_KIND.video, url: trimmed });
-      continue;
-    }
-
-    return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia };
+    drafts.push(read.draft);
   }
 
   return {
@@ -359,6 +380,125 @@ function getInvalidPollMessage(poll: ReturnType<typeof readPollFromBody>): strin
   return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage;
 }
 
+type MessageDraftReads = {
+  clientRequestId: ReturnType<typeof readClientRequestIdFromBody>;
+  filesResult: ReturnType<typeof readFilesFromBody>;
+  mediaResult: CreateMessageRouteMediaReadResult;
+};
+
+/**
+ * First reason to reject the message draft before creating it, in the order
+ * the route reports them.
+ *
+ * @returns The rejection message, or `null` when the draft is usable.
+ */
+function findDraftRejectionMessage({
+  clientRequestId,
+  filesResult,
+  mediaResult,
+}: MessageDraftReads): string | null {
+  if (clientRequestId === null) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidRequestIdMessage;
+  }
+
+  if (filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage;
+  }
+
+  if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage;
+  }
+
+  if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage;
+  }
+
+  if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage;
+  }
+
+  return null;
+}
+
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type CreateTribeMessageResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["createTribeMessage"]>
+>;
+
+function createPostResultResponse(result: CreateTribeMessageResult, slug: string, poll: ReturnType<typeof readPollFromBody>): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.replayed:
+      // The stored publication may come from an attempt whose response was lost: refresh the round like a creation.
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          message: CREATE_MESSAGE_ROUTE_RESPONSE.replayedMessage,
+          replayed: true,
+          ...(result.messageId ? { messageId: result.messageId } : {}),
+        },
+        HTTP_STATUS.ok
+      );
+    case MESSAGE_MUTATION_STATUS.created:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          message: CREATE_MESSAGE_ROUTE_RESPONSE.successMessage,
+          tribeMessage: result.message,
+        },
+        HTTP_STATUS.created
+      );
+    case MESSAGE_MUTATION_STATUS.invalidContent:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidContentMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidChannel:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidChannelMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidImage:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidMedia:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidPoll:
+      return createJsonResponse(
+        { message: getInvalidPollMessage(poll) },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidFile:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -385,47 +525,16 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const poll = readPollFromBody(body);
     const mediaResult = readMediaFromBody(body);
     const filesResult = readFilesFromBody(body);
     const clientRequestId = readClientRequestIdFromBody(body);
 
-    if (clientRequestId === null) {
-      return createJsonResponse(
-        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidRequestIdMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
+    const rejectionMessage = findDraftRejectionMessage({ clientRequestId, filesResult, mediaResult });
 
-    if (
-      filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile
-    ) {
-      return createJsonResponse(
-        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage) {
-      return createJsonResponse(
-        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl) {
-      return createJsonResponse(
-        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia) {
-      return createJsonResponse(
-        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
-        HTTP_STATUS.badRequest
-      );
+    if (rejectionMessage !== null) {
+      return createJsonResponse({ message: rejectionMessage }, HTTP_STATUS.badRequest);
     }
 
     const media =
@@ -448,76 +557,7 @@ export async function POST(
       title: readTitleFromBody(body),
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.replayed:
-        // The stored publication may come from an attempt whose response was lost: refresh the round like a creation.
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            message: CREATE_MESSAGE_ROUTE_RESPONSE.replayedMessage,
-            replayed: true,
-            ...(result.messageId ? { messageId: result.messageId } : {}),
-          },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.created:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            message: CREATE_MESSAGE_ROUTE_RESPONSE.successMessage,
-            tribeMessage: result.message,
-          },
-          HTTP_STATUS.created
-        );
-      case MESSAGE_MUTATION_STATUS.invalidContent:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidContentMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidChannel:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidChannelMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidImage:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidMedia:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidPoll:
-        return createJsonResponse(
-          { message: getInvalidPollMessage(poll) },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidFile:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result, slug, poll);
   } catch (error) {
     logger.error({
       message: CREATE_MESSAGE_ROUTE_LOG.createFailureMessage,
@@ -533,6 +573,27 @@ export async function POST(
       HTTP_STATUS.serverError
     );
   }
+}
+
+type UnexpectedRoundFailure = {
+  error: unknown;
+  logger: ReturnType<typeof createServerLogger>;
+  message: string;
+  metadata: Record<string, unknown>;
+};
+
+function createUnexpectedRoundResponse({
+  error,
+  logger,
+  message,
+  metadata,
+}: UnexpectedRoundFailure): Response {
+  logger.error({ message, error, metadata });
+
+  return createTribeRoundJsonResponse(
+    { message: TRIBE_ROUND_ROUTE_RESPONSE.unexpectedRoundMessage },
+    TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError
+  );
 }
 
 /**
@@ -594,12 +655,7 @@ export async function GET(
       slug: input.params.slug,
     });
   } catch (error) {
-    logger.error({ message: LIST_ROUND_ROUTE_LOG.accessFailureMessage, error, metadata });
-
-    return createTribeRoundJsonResponse(
-      { message: TRIBE_ROUND_ROUTE_RESPONSE.unexpectedRoundMessage },
-      TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError
-    );
+    return createUnexpectedRoundResponse({ error, logger, message: LIST_ROUND_ROUTE_LOG.accessFailureMessage, metadata });
   }
 
   if (access.status !== TRIBE_PAGE_ACCESS_STATUS.visible) {
@@ -631,11 +687,6 @@ export async function GET(
       schema: tribeRoundPageResponseSchema,
     });
   } catch (error) {
-    logger.error({ message: LIST_ROUND_ROUTE_LOG.listFailureMessage, error, metadata });
-
-    return createTribeRoundJsonResponse(
-      { message: TRIBE_ROUND_ROUTE_RESPONSE.unexpectedRoundMessage },
-      TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError
-    );
+    return createUnexpectedRoundResponse({ error, logger, message: LIST_ROUND_ROUTE_LOG.listFailureMessage, metadata });
   }
 }

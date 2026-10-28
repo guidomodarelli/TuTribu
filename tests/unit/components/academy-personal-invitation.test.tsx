@@ -84,7 +84,7 @@ describe("personal invitation page workflow", () => {
   });
   it("should validate declared WhatsApp before personal confirmation without asking for the account name", async () => {
     const data = fixture();
-    if (data.state.kind !== "ready" || data.state.preview.state !== "available" || !data.state.preview.overview.policy) throw new Error("Expected a personal policy");
+    if (data.state.preview.state !== "available" || !data.state.preview.overview.policy) throw new Error("Expected a personal policy");
     data.state.preview.overview.policy.requiresWhatsappNumber = true;
     render(data.element());
     const input = await screen.findByRole("textbox", { name: "Teléfono" });
@@ -163,7 +163,7 @@ describe("personal invitation page workflow", () => {
 
   it("should keep an anonymous link generic and preserve the exact internal return for sign-in without effects", async () => {
     const data = fixture();
-    data.state = { kind: "ready", viewerId: null, renderedAt: data.state.kind === "ready" ? data.state.renderedAt : "", preview: { state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." } };
+    data.state = { kind: "ready", viewerId: null, renderedAt: data.state.renderedAt, preview: { state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." } };
     const anonymousViewer = Promise.withResolvers<Awaited<ReturnType<PersonalInvitationBrowserClient["viewer"]>>>();
     vi.mocked(data.client.viewer).mockReturnValue(anonymousViewer.promise);
     render(<Providers token={data.token}><PersonalInvitationContainer initialState={data.state} client={data.client} contactClient={data.contactClient} /></Providers>);
@@ -206,7 +206,7 @@ describe("personal invitation page workflow", () => {
     const data = fixture(); vi.mocked(data.client.submit).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "La respuesta no llegó.", uncertain: true }); render(data.element());
     const confirmation = screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/i }); await waitFor(() => expect(confirmation).toBeEnabled()); fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: "Confirmar invitación" }));
     const read = await screen.findByRole("button", { name: "Consultar operación original" });
-    const operationId = vi.mocked(data.client.submit).mock.calls[0]![1].operationId;
+    const operationId = vi.mocked(data.client.submit).mock.calls[0][1].operationId;
     vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "completed", operationId, replayed: true, result: { operationId, outcome: "pending", admissionRequestId: data.request.id, committedRequestVersion: 1, membership: null, requestSnapshot: data.request, created: true } } });
     fireEvent.click(read); await screen.findByRole("link", { name: "Ver mi solicitud" });
     expect(data.client.operation).toHaveBeenCalledExactlyOnceWith("synthetic-personal", operationId, expect.any(AbortSignal));

@@ -1,5 +1,5 @@
 /** Represents a closed private secret-access failure independently of HTTP or crypto implementations. */
-import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
+import type { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 
 export type MessagingSecretAccessErrorCode = typeof MESSAGING_ERROR_CODE.authenticationRequired | typeof MESSAGING_ERROR_CODE.permissionDenied | typeof MESSAGING_ERROR_CODE.resourceUnavailable | typeof MESSAGING_ERROR_CODE.reauthenticationRequired | typeof MESSAGING_ERROR_CODE.connectionIncomplete | typeof MESSAGING_ERROR_CODE.unexpectedFailure;
 

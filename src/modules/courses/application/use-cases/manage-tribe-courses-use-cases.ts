@@ -373,8 +373,7 @@ export function createLesson({
       });
 
       if (
-        !preparedFiles ||
-        preparedFiles.status !== LESSON_FILE_PREPARATION_STATUS.ready
+        preparedFiles?.status !== LESSON_FILE_PREPARATION_STATUS.ready
       ) {
         await cleanupPreparedLessonFiles({
           files,
@@ -475,8 +474,7 @@ export function updateLesson({
       });
 
       if (
-        !preparedFiles ||
-        preparedFiles.status !== LESSON_FILE_PREPARATION_STATUS.ready
+        preparedFiles?.status !== LESSON_FILE_PREPARATION_STATUS.ready
       ) {
         return { status: COURSE_MUTATION_STATUS.invalidFile };
       }

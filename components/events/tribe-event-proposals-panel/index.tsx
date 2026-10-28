@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AnimatePresence } from "motion/react";
 
 import { Badge, Button, Dialog, DialogContent, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "@golfo/ui";
@@ -96,9 +96,256 @@ function formatProposalSchedule(proposal: TribeEventProposalResult): string {
     COPY.scheduleSeparator +
     formatBuenosAiresTime(proposal.startsAt) +
     COPY.scheduleSeparator +
-    proposal.durationMinutes +
+    String(proposal.durationMinutes) +
     COPY.durationSuffix
   );
+}
+
+/** Body state of the panel; changing it cross-fades the body. */
+function resolveBodyPresenceKey(loadState: TribeEventProposalsLoadState) {
+  if (loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error) {
+    return BODY_PRESENCE_KEY.error;
+  }
+
+  if (loadState.status !== TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loaded) {
+    return BODY_PRESENCE_KEY.loading;
+  }
+
+  return loadState.proposals.length === 0 ? BODY_PRESENCE_KEY.empty : BODY_PRESENCE_KEY.list;
+}
+
+type ProposalViewProps = {
+  canReviewProposals: boolean;
+  proposal: TribeEventProposalResult;
+};
+
+/** Title, status, schedule, proposer, description and review note of a proposal. */
+function ProposalSummary({ canReviewProposals, proposal }: ProposalViewProps) {
+  return (
+    <>
+      <div className={styles.TribeEventProposalsPanel__heading}>
+        <p className={styles.TribeEventProposalsPanel__title}>{proposal.title}</p>
+        {canReviewProposals ? null : (
+          <Badge>
+            {TRIBE_EVENT_PROPOSAL_STATUS_LABEL[proposal.status]}
+          </Badge>
+        )}
+      </div>
+      <div className={styles.TribeEventProposalsPanel__meta}>
+        <TribeEventTypeBadge eventType={proposal.eventType} />
+        <span>{formatProposalSchedule(proposal)}</span>
+      </div>
+      {canReviewProposals && proposal.proposerName ? (
+        <p className={styles.TribeEventProposalsPanel__muted}>
+          {COPY.proposedBy}
+          {proposal.proposerName}
+        </p>
+      ) : null}
+      {proposal.description ? (
+        <p className={styles.TribeEventProposalsPanel__description}>{proposal.description}</p>
+      ) : null}
+      {!canReviewProposals && proposal.reviewNote ? (
+        <p className={styles.TribeEventProposalsPanel__muted}>
+          {COPY.reviewNotePrefix}
+          {proposal.reviewNote}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+type ProposalRejectFormProps = {
+  isOpen: boolean;
+  isSubmitting: boolean;
+  noteFieldId: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onReviewNoteChange: (reviewNote: string) => void;
+  reviewNote: string;
+};
+
+/** Optional note and confirmation of a rejection, unfolded under its proposal. */
+function ProposalRejectForm({
+  isOpen,
+  isSubmitting,
+  noteFieldId,
+  onCancel,
+  onConfirm,
+  onReviewNoteChange,
+  reviewNote,
+}: ProposalRejectFormProps) {
+  return (
+    <AnimatedCollapse isOpen={isOpen}>
+      <div className={styles.TribeEventProposalsPanel__rejectForm}>
+        <Textarea
+          id={noteFieldId}
+          label={COPY.reviewNoteLabel}
+          maxLength={TRIBE_EVENT_PROPOSAL_LIMIT.reviewNoteMaxLength}
+          value={reviewNote}
+          onChange={(event) => onReviewNoteChange(event.currentTarget.value)}
+        />
+        <div className={styles.TribeEventProposalsPanel__actions}>
+          <Button
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantGhost}
+            onClick={onCancel}
+          >
+            {COPY.cancelReject}
+          </Button>
+          <Button
+            disabled={isSubmitting}
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantDanger}
+            onClick={onConfirm}
+          >
+            {COPY.confirmReject}
+          </Button>
+        </div>
+      </div>
+    </AnimatedCollapse>
+  );
+}
+
+type ProposalActionsProps = ProposalViewProps & {
+  isRejecting: boolean;
+  isSubmitting: boolean;
+  onReview: () => void;
+  onStartRejecting: () => void;
+  onWithdraw: () => void;
+};
+
+/** "Revisar y aprobar" and "Rechazar" for managers; "Retirar" for a pending own proposal. */
+function ProposalActions({
+  canReviewProposals,
+  isRejecting,
+  isSubmitting,
+  onReview,
+  onStartRejecting,
+  onWithdraw,
+  proposal,
+}: ProposalActionsProps) {
+  if (canReviewProposals) {
+    return isRejecting ? null : (
+      <div className={styles.TribeEventProposalsPanel__actions}>
+        <Button
+          disabled={isSubmitting}
+          size={BUTTON_ATTRIBUTE.sizeSmall}
+          type={BUTTON_ATTRIBUTE.typeButton}
+          onClick={onReview}
+        >
+          {COPY.reviewButton}
+        </Button>
+        <Button
+          disabled={isSubmitting}
+          id={REJECT_BUTTON_ID_PREFIX + proposal.id}
+          size={BUTTON_ATTRIBUTE.sizeSmall}
+          type={BUTTON_ATTRIBUTE.typeButton}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
+          onClick={onStartRejecting}
+        >
+          {COPY.rejectButton}
+        </Button>
+      </div>
+    );
+  }
+
+  return proposal.status === TRIBE_EVENT_PROPOSAL_STATUS.pending ? (
+    <div className={styles.TribeEventProposalsPanel__actions}>
+      <Button
+        disabled={isSubmitting}
+        size={BUTTON_ATTRIBUTE.sizeSmall}
+        type={BUTTON_ATTRIBUTE.typeButton}
+        variant={BUTTON_ATTRIBUTE.variantSecondary}
+        onClick={onWithdraw}
+      >
+        {COPY.withdrawButton}
+      </Button>
+    </div>
+  ) : null;
+}
+
+/** Failed load of the proposals, with a retry. */
+function ProposalsLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className={styles.TribeEventProposalsPanel__status} role="alert">
+      <p>{message || COPY.loadError}</p>
+      <Button
+        size={BUTTON_ATTRIBUTE.sizeSmall}
+        type={BUTTON_ATTRIBUTE.typeButton}
+        variant={BUTTON_ATTRIBUTE.variantSecondary}
+        onClick={onRetry}
+      >
+        {COPY.retry}
+      </Button>
+    </div>
+  );
+}
+
+type ProposalsBodyProps = Pick<TribeEventProposalsPanelProps, "loadState" | "onRetry"> & {
+  canReviewProposals: boolean;
+  renderProposal: (proposal: TribeEventProposalResult) => ReactNode;
+};
+
+/** Error, loading, empty or the list of proposals. */
+function ProposalsBody({ canReviewProposals, loadState, onRetry, renderProposal }: ProposalsBodyProps) {
+  if (loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error) {
+    return <ProposalsLoadError message={loadState.message} onRetry={onRetry} />;
+  }
+
+  if (loadState.status !== TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loaded) {
+    return (
+      <p aria-live="polite" className={styles.TribeEventProposalsPanel__status}>
+        {COPY.loading}
+      </p>
+    );
+  }
+
+  if (loadState.proposals.length === 0) {
+    return (
+      <p className={styles.TribeEventProposalsPanel__status}>
+        {canReviewProposals ? COPY.managerEmpty : COPY.authorEmpty}
+      </p>
+    );
+  }
+
+  return (
+    <ul className={styles.TribeEventProposalsPanel__list}>
+      <AnimatePresence initial={false}>{loadState.proposals.map(renderProposal)}</AnimatePresence>
+    </ul>
+  );
+}
+
+/**
+ * Rejection in progress: the proposal whose note is open and the note.
+ * Opening it moves the focus into the note; "Volver" returns it to "Rechazar".
+ *
+ * @param onReject - Sends the rejection; resolves true when it was saved.
+ * @returns Rejection state and its actions.
+ */
+function useProposalRejection(onReject: TribeEventProposalsPanelProps["onReject"]) {
+  const [rejectingProposalId, setRejectingProposalId] = useState<string | null>(null);
+  const [reviewNote, setReviewNote] = useState(EMPTY_VALUE);
+
+  const startRejecting = (proposal: TribeEventProposalResult) => {
+    setRejectingProposalId(proposal.id);
+    setReviewNote(EMPTY_VALUE);
+    focusElementAfterCommit(REVIEW_NOTE_FIELD_ID_PREFIX + proposal.id);
+  };
+
+  const cancelRejecting = (proposal: TribeEventProposalResult) => {
+    setRejectingProposalId(null);
+    focusElementAfterCommit(REJECT_BUTTON_ID_PREFIX + proposal.id);
+  };
+
+  const confirmReject = async (proposal: TribeEventProposalResult) => {
+    if (await onReject(proposal, reviewNote)) {
+      setRejectingProposalId(null);
+    }
+  };
+
+  return { cancelRejecting, confirmReject, rejectingProposalId, reviewNote, setReviewNote, startRejecting };
 }
 
 /**
@@ -120,179 +367,38 @@ export function TribeEventProposalsPanel({
   onReview,
   onWithdraw,
 }: TribeEventProposalsPanelProps) {
-  const [rejectingProposalId, setRejectingProposalId] = useState<string | null>(null);
-  const [reviewNote, setReviewNote] = useState(EMPTY_VALUE);
+  const { cancelRejecting, confirmReject, rejectingProposalId, reviewNote, setReviewNote, startRejecting } =
+    useProposalRejection(onReject);
   const isLoaded = loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loaded;
   const canReviewProposals = isLoaded ? loadState.canReviewProposals : canManageEvents;
 
-  const startRejecting = (proposal: TribeEventProposalResult) => {
-    setRejectingProposalId(proposal.id);
-    setReviewNote(EMPTY_VALUE);
-    focusElementAfterCommit(REVIEW_NOTE_FIELD_ID_PREFIX + proposal.id);
-  };
-
-  const cancelRejecting = (proposal: TribeEventProposalResult) => {
-    setRejectingProposalId(null);
-    focusElementAfterCommit(REJECT_BUTTON_ID_PREFIX + proposal.id);
-  };
-
-  const confirmReject = async (proposal: TribeEventProposalResult) => {
-    if (await onReject(proposal, reviewNote)) {
-      setRejectingProposalId(null);
-    }
-  };
-
   const renderProposal = (proposal: TribeEventProposalResult) => {
-    const isPending = proposal.status === TRIBE_EVENT_PROPOSAL_STATUS.pending;
     const isRejecting = rejectingProposalId === proposal.id;
-    const noteFieldId = REVIEW_NOTE_FIELD_ID_PREFIX + proposal.id;
 
     return (
       <AnimatedListItem className={styles.TribeEventProposalsPanel__item} key={proposal.id}>
-        <div className={styles.TribeEventProposalsPanel__heading}>
-          <p className={styles.TribeEventProposalsPanel__title}>{proposal.title}</p>
-          {canReviewProposals ? null : (
-            <Badge>
-              {TRIBE_EVENT_PROPOSAL_STATUS_LABEL[proposal.status]}
-            </Badge>
-          )}
-        </div>
-        <div className={styles.TribeEventProposalsPanel__meta}>
-          <TribeEventTypeBadge eventType={proposal.eventType} />
-          <span>{formatProposalSchedule(proposal)}</span>
-        </div>
-        {canReviewProposals && proposal.proposerName ? (
-          <p className={styles.TribeEventProposalsPanel__muted}>
-            {COPY.proposedBy}
-            {proposal.proposerName}
-          </p>
-        ) : null}
-        {proposal.description ? (
-          <p className={styles.TribeEventProposalsPanel__description}>{proposal.description}</p>
-        ) : null}
-        {!canReviewProposals && proposal.reviewNote ? (
-          <p className={styles.TribeEventProposalsPanel__muted}>
-            {COPY.reviewNotePrefix}
-            {proposal.reviewNote}
-          </p>
-        ) : null}
-        <AnimatedCollapse isOpen={canReviewProposals && isRejecting}>
-          <div className={styles.TribeEventProposalsPanel__rejectForm}>
-            <Textarea
-              id={noteFieldId}
-              label={COPY.reviewNoteLabel}
-              maxLength={TRIBE_EVENT_PROPOSAL_LIMIT.reviewNoteMaxLength}
-              value={reviewNote}
-              onChange={(event) => setReviewNote(event.currentTarget.value)}
-            />
-            <div className={styles.TribeEventProposalsPanel__actions}>
-              <Button
-                size={BUTTON_ATTRIBUTE.sizeSmall}
-                type={BUTTON_ATTRIBUTE.typeButton}
-                variant={BUTTON_ATTRIBUTE.variantGhost}
-                onClick={() => cancelRejecting(proposal)}
-              >
-                {COPY.cancelReject}
-              </Button>
-              <Button
-                disabled={isSubmitting}
-                size={BUTTON_ATTRIBUTE.sizeSmall}
-                type={BUTTON_ATTRIBUTE.typeButton}
-                variant={BUTTON_ATTRIBUTE.variantDanger}
-                onClick={() => {
-                  void confirmReject(proposal);
-                }}
-              >
-                {COPY.confirmReject}
-              </Button>
-            </div>
-          </div>
-        </AnimatedCollapse>
-        {canReviewProposals && !isRejecting ? (
-          <div className={styles.TribeEventProposalsPanel__actions}>
-            <Button
-              disabled={isSubmitting}
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              onClick={() => onReview(proposal)}
-            >
-              {COPY.reviewButton}
-            </Button>
-            <Button
-              disabled={isSubmitting}
-              id={REJECT_BUTTON_ID_PREFIX + proposal.id}
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={() => startRejecting(proposal)}
-            >
-              {COPY.rejectButton}
-            </Button>
-          </div>
-        ) : null}
-        {!canReviewProposals && isPending ? (
-          <div className={styles.TribeEventProposalsPanel__actions}>
-            <Button
-              disabled={isSubmitting}
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantSecondary}
-              onClick={() => onWithdraw(proposal)}
-            >
-              {COPY.withdrawButton}
-            </Button>
-          </div>
-        ) : null}
+        <ProposalSummary canReviewProposals={canReviewProposals} proposal={proposal} />
+        <ProposalRejectForm
+          isOpen={canReviewProposals && isRejecting}
+          isSubmitting={isSubmitting}
+          noteFieldId={REVIEW_NOTE_FIELD_ID_PREFIX + proposal.id}
+          reviewNote={reviewNote}
+          onCancel={() => cancelRejecting(proposal)}
+          onConfirm={() => {
+            void confirmReject(proposal);
+          }}
+          onReviewNoteChange={setReviewNote}
+        />
+        <ProposalActions
+          canReviewProposals={canReviewProposals}
+          isRejecting={isRejecting}
+          isSubmitting={isSubmitting}
+          proposal={proposal}
+          onReview={() => onReview(proposal)}
+          onStartRejecting={() => startRejecting(proposal)}
+          onWithdraw={() => onWithdraw(proposal)}
+        />
       </AnimatedListItem>
-    );
-  };
-
-  const bodyPresenceKey =
-    loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error
-      ? BODY_PRESENCE_KEY.error
-      : !isLoaded
-        ? BODY_PRESENCE_KEY.loading
-        : loadState.proposals.length === 0
-          ? BODY_PRESENCE_KEY.empty
-          : BODY_PRESENCE_KEY.list;
-
-  const renderBody = () => {
-    if (loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error) {
-      return (
-        <div className={styles.TribeEventProposalsPanel__status} role="alert">
-          <p>{loadState.message || COPY.loadError}</p>
-          <Button
-            size={BUTTON_ATTRIBUTE.sizeSmall}
-            type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantSecondary}
-            onClick={onRetry}
-          >
-            {COPY.retry}
-          </Button>
-        </div>
-      );
-    }
-
-    if (!isLoaded) {
-      return (
-        <p aria-live="polite" className={styles.TribeEventProposalsPanel__status}>
-          {COPY.loading}
-        </p>
-      );
-    }
-
-    if (loadState.proposals.length === 0) {
-      return (
-        <p className={styles.TribeEventProposalsPanel__status}>
-          {canReviewProposals ? COPY.managerEmpty : COPY.authorEmpty}
-        </p>
-      );
-    }
-
-    return (
-      <ul className={styles.TribeEventProposalsPanel__list}>
-        <AnimatePresence initial={false}>{loadState.proposals.map(renderProposal)}</AnimatePresence>
-      </ul>
     );
   };
 
@@ -310,7 +416,14 @@ export function TribeEventProposalsPanel({
         title={canReviewProposals ? COPY.managerTitle : COPY.authorTitle}
         description={canReviewProposals ? COPY.managerDescription : COPY.authorDescription}
       >
-        <PresenceSwap presenceKey={bodyPresenceKey}>{renderBody()}</PresenceSwap>
+        <PresenceSwap presenceKey={resolveBodyPresenceKey(loadState)}>
+          <ProposalsBody
+            canReviewProposals={canReviewProposals}
+            loadState={loadState}
+            renderProposal={renderProposal}
+            onRetry={onRetry}
+          />
+        </PresenceSwap>
       </DialogContent>
     </Dialog>
   );

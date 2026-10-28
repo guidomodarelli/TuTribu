@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "@golfo/ui";
 
 import type { TribeEventSeriesMutationSettler } from "@/hooks/use-tribe-event-mutations";
@@ -139,76 +139,81 @@ function isSamePendingCountSource(
   return source.count === otherSource.count && source.version === otherSource.version;
 }
 
+/** Proposals read reported back to the list. */
+type ProposalsReadHandlers = {
+  isBackgroundRefresh: boolean;
+  onLoaded: (result: Extract<Awaited<ReturnType<typeof fetchTribeEventProposalsRequest>>, { isSuccess: true }>) => void;
+  retry: () => void;
+  setLoadState: Dispatch<SetStateAction<TribeEventProposalsLoadState>>;
+  tribeSlug: string;
+};
+
 /**
- * Client state of member proposals: the panel list (loaded on demand with an
- * AbortController so a stale load never overwrites a newer one), the
- * manager pending counter, and the create/approve/reject/withdraw mutations
- * with a ref guard against double submits. Mutations patch local state from
- * the route response instead of refreshing the route; when a review is
- * rejected (for example another manager resolved the proposal first) the list
- * is reloaded so it never shows a stale pending proposal.
+ * Reads the proposals for one load. A failed background refill keeps the
+ * loaded queue, whose proposals are still actionable, and warns with a retry
+ * instead of hiding them behind the error state; a foreground load has
+ * nothing to keep and shows it.
  *
- * A mutation whose outcome is ambiguous (network failure, timeout, 5xx, or an
- * unusable body) may have committed without its response landing, so the
- * list (and, for managers, the pending counter) is always reloaded; retrying
- * a committed creation from a stale list could duplicate the proposal. Every
- * approval creates an event, so it settles in the calendar freshness state
- * machines too: the streak is read again once it settles, and an ambiguous
- * approval also reads the visible month again.
- *
- * The pending counter is keyed by the server render (render token plus
- * count): a new render replaces the local count even when it repeats the
- * previous render's value.
- *
- * The manager queue is capped by the server, so a successful review of a
- * truncated queue (the last load counted more pending proposals than it
- * returned) reloads it in the background, keeping the visible list, so the
- * next oldest pending proposal replaces the reviewed one and the panel never
- * runs empty while the counter still reports pending proposals. If that
- * background read fails, the loaded queue stays visible and actionable and a
- * warning toast offers a retry, since the queue may be incomplete.
- *
- * @param input - Tribe, visible month, server pending count and its render
- * token, the calendar patch callback, and the series mutation registration.
- * @returns List state, pending count, and mutation callbacks resolving to
- * `true` when the change was stored.
+ * @param controller - The load's own controller; an aborted load is ignored.
+ * @param handlers - Whether it refreshes in the background, the success and
+ * retry callbacks, the list setter and the tribe.
  */
-export function useTribeEventProposals({
-  beginSeriesMutation,
-  initialPendingCount,
-  month,
-  onEventCreated,
-  pendingCountSourceVersion,
-  tribeSlug,
-}: UseTribeEventProposalsInput): TribeEventProposals {
+function readProposals(controller: AbortController, handlers: ProposalsReadHandlers): void {
+  const { isBackgroundRefresh, onLoaded, retry, setLoadState, tribeSlug } = handlers;
+  const handleLoadFailure = (message: string) => {
+    if (isBackgroundRefresh) {
+      toast.warning(COPY.refillFailure, {
+        action: { label: COPY.retry, onClick: retry },
+      });
+      return;
+    }
+
+    setLoadState({ message, status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error });
+  };
+
+  fetchTribeEventProposalsRequest({ signal: controller.signal, tribeSlug })
+    .then((result) => {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      if (!result.isSuccess) {
+        handleLoadFailure(result.message ?? COPY.loadFailure);
+        return;
+      }
+
+      onLoaded(result);
+    })
+    .catch((error: unknown) => {
+      // An aborted load was replaced by a newer one (or the panel closed).
+      if (isAbortError(error) || controller.signal.aborted) {
+        return;
+      }
+
+      handleLoadFailure(COPY.loadFailure);
+    });
+}
+
+/**
+ * Manager pending counter, keyed by the server render that counted it.
+ *
+ * @param input - Hook input.
+ * @returns The visible count and its local patch.
+ */
+function usePendingProposalsCount({ initialPendingCount, pendingCountSourceVersion }: UseTribeEventProposalsInput) {
   const pendingCountSource: PendingCountSource = {
     count: initialPendingCount,
     version: pendingCountSourceVersion,
   };
-  const [loadState, setLoadState] = useState<TribeEventProposalsLoadState>({
-    status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.idle,
-  });
   const [pendingCountState, setPendingCountState] = useState<PendingCountState>({
     count: initialPendingCount,
     source: pendingCountSource,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isSubmittingRef = useRef(false);
-  const loadControllerRef = useRef<AbortController | null>(null);
-  // Whether the last load left pending proposals out of the capped queue.
-  const hasUnloadedPendingProposalsRef = useRef(false);
-  const visibleMonthRef = useRef(month);
   // A new server render (month navigation) replaces the local count, even
   // when it counts the same number as the previous render.
   const pendingCount = isSamePendingCountSource(pendingCountState.source, pendingCountSource)
     ? pendingCountState.count
     : initialPendingCount;
-
-  useEffect(() => {
-    visibleMonthRef.current = month;
-  }, [month]);
-
-  useEffect(() => () => loadControllerRef.current?.abort(), []);
 
   const updatePendingCount = (updater: (count: number) => number) => {
     setPendingCountState((currentState) => ({
@@ -220,6 +225,36 @@ export function useTribeEventProposals({
       source: pendingCountSource,
     }));
   };
+
+  return { pendingCount, updatePendingCount };
+}
+
+/**
+ * Panel list: loads on demand, aborting older reads, and
+ * patches them from mutation responses.
+ *
+ * @param input - Hook input.
+ * @param updatePendingCount - Patches the pending counter.
+ * @returns List state and its local patches.
+ */
+function useTribeEventProposalsList(
+  { month, tribeSlug }: UseTribeEventProposalsInput,
+  updatePendingCount: (updater: (count: number) => number) => void
+) {
+  const [loadState, setLoadState] = useState<TribeEventProposalsLoadState>({
+    status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.idle,
+  });
+  const loadControllerRef = useRef<AbortController | null>(null);
+  // Whether the last load left pending proposals out of the capped queue.
+  const hasUnloadedPendingProposalsRef = useRef(false);
+  const visibleMonthRef = useRef(month);
+
+  useEffect(() => {
+    visibleMonthRef.current = month;
+  }, [month]);
+
+  useEffect(() => () => loadControllerRef.current?.abort(), []);
+
 
   /**
    * Reads the proposals, aborting any older read so a stale response never
@@ -237,33 +272,9 @@ export function useTribeEventProposals({
       setLoadState({ status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loading });
     }
 
-    /**
-     * A failed background refill keeps the loaded queue, whose proposals are
-     * still actionable, and warns with a retry instead of hiding them behind
-     * the error state; a foreground load has nothing to keep and shows it.
-     */
-    const handleLoadFailure = (message: string) => {
-      if (isBackgroundRefresh) {
-        toast.warning(COPY.refillFailure, {
-          action: { label: COPY.retry, onClick: () => requestProposals(true) },
-        });
-        return;
-      }
-
-      setLoadState({ message, status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error });
-    };
-
-    fetchTribeEventProposalsRequest({ signal: controller.signal, tribeSlug })
-      .then((result) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        if (!result.isSuccess) {
-          handleLoadFailure(result.message ?? COPY.loadFailure);
-          return;
-        }
-
+    readProposals(controller, {
+      isBackgroundRefresh,
+      onLoaded: (result) => {
         hasUnloadedPendingProposalsRef.current =
           result.canReviewProposals && result.pendingCount > result.proposals.length;
         setLoadState({
@@ -276,15 +287,11 @@ export function useTribeEventProposals({
           // The queue is capped; the badge follows the uncapped server total.
           updatePendingCount(() => result.pendingCount);
         }
-      })
-      .catch((error: unknown) => {
-        // An aborted load was replaced by a newer one (or the panel closed).
-        if (isAbortError(error) || controller.signal.aborted) {
-          return;
-        }
-
-        handleLoadFailure(COPY.loadFailure);
-      });
+      },
+      retry: () => requestProposals(true),
+      setLoadState,
+      tribeSlug,
+    });
   };
 
   const loadProposals = () => {
@@ -316,6 +323,20 @@ export function useTribeEventProposals({
       requestProposals(true);
     }
   };
+
+  return { loadState, visibleMonthRef, loadProposals, updateLoadedProposals, removeReviewedProposal };
+}
+type TribeEventProposalsList = ReturnType<typeof useTribeEventProposalsList>;
+
+/**
+ * Duplicate-submit guard and shared settling of proposal mutations.
+ *
+ * @param loadProposals - Reloads the list after an ambiguous or rejected mutation.
+ * @returns The submitting flag, the guard and the mutation runner.
+ */
+function useProposalMutationRunner(loadProposals: () => void) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   /**
    * Shared guard, toasts, and failure recovery of every proposal mutation.
@@ -383,6 +404,27 @@ export function useTribeEventProposals({
     return true;
   };
 
+  return { isSubmitting, runMutation, acquireSubmitGuard };
+}
+
+type ProposalMutationRunner = Pick<ReturnType<typeof useProposalMutationRunner>, "runMutation" | "acquireSubmitGuard">;
+
+/**
+ * Member mutations: create and withdraw a proposal.
+ *
+ * @param input - Hook input.
+ * @param list - Panel list patches.
+ * @param runner - Guard and mutation runner.
+ * @returns The create and withdraw mutations.
+ */
+function useProposalAuthorActions(
+  { tribeSlug }: UseTribeEventProposalsInput,
+  list: TribeEventProposalsList,
+  runner: ProposalMutationRunner
+) {
+  const { updateLoadedProposals } = list;
+  const { runMutation, acquireSubmitGuard } = runner;
+
   const createProposal: TribeEventProposals["createProposal"] = async (submission) => {
     if (!acquireSubmitGuard()) {
       return false;
@@ -401,6 +443,49 @@ export function useTribeEventProposals({
       { shouldReloadOnRejection: false }
     );
   };
+
+  const withdrawProposal: TribeEventProposals["withdrawProposal"] = async (proposal) => {
+    if (!acquireSubmitGuard()) {
+      return false;
+    }
+
+    return runMutation(
+      () =>
+        decideTribeEventProposalRequest({
+          body: { decision: PROPOSAL_DECISION.withdrawn },
+          proposalId: proposal.id,
+          tribeSlug,
+        }),
+      COPY.decisionFailure,
+      (result) => {
+        updateLoadedProposals((proposals) =>
+          proposals.map((currentProposal) =>
+            currentProposal.id === proposal.id ? result.proposal : currentProposal
+          )
+        );
+      },
+      { shouldReloadOnRejection: true }
+    );
+  };
+
+  return { createProposal, withdrawProposal };
+}
+
+/**
+ * Manager reviews: approve and reject a proposal.
+ *
+ * @param input - Hook input.
+ * @param list - Panel list patches.
+ * @param runner - Guard and mutation runner.
+ * @returns The approve and reject mutations.
+ */
+function useProposalReviewActions(
+  { beginSeriesMutation, month, onEventCreated, tribeSlug }: UseTribeEventProposalsInput,
+  list: TribeEventProposalsList,
+  runner: ProposalMutationRunner
+) {
+  const { visibleMonthRef, removeReviewedProposal } = list;
+  const { runMutation, acquireSubmitGuard } = runner;
 
   const approveProposal: TribeEventProposals["approveProposal"] = async (proposal, payload) => {
     if (!acquireSubmitGuard()) {
@@ -452,36 +537,56 @@ export function useTribeEventProposals({
     );
   };
 
-  const withdrawProposal: TribeEventProposals["withdrawProposal"] = async (proposal) => {
-    if (!acquireSubmitGuard()) {
-      return false;
-    }
+  return { approveProposal, rejectProposal };
+}
 
-    return runMutation(
-      () =>
-        decideTribeEventProposalRequest({
-          body: { decision: PROPOSAL_DECISION.withdrawn },
-          proposalId: proposal.id,
-          tribeSlug,
-        }),
-      COPY.decisionFailure,
-      (result) => {
-        updateLoadedProposals((proposals) =>
-          proposals.map((currentProposal) =>
-            currentProposal.id === proposal.id ? result.proposal : currentProposal
-          )
-        );
-      },
-      { shouldReloadOnRejection: true }
-    );
-  };
+/**
+ * Client state of member proposals: the panel list (loaded on demand with an
+ * AbortController so a stale load never overwrites a newer one), the
+ * manager pending counter, and the create/approve/reject/withdraw mutations
+ * with a ref guard against double submits. Mutations patch local state from
+ * the route response instead of refreshing the route; when a review is
+ * rejected (for example another manager resolved the proposal first) the list
+ * is reloaded so it never shows a stale pending proposal.
+ *
+ * A mutation whose outcome is ambiguous (network failure, timeout, 5xx, or an
+ * unusable body) may have committed without its response landing, so the
+ * list (and, for managers, the pending counter) is always reloaded; retrying
+ * a committed creation from a stale list could duplicate the proposal. Every
+ * approval creates an event, so it settles in the calendar freshness state
+ * machines too: the streak is read again once it settles, and an ambiguous
+ * approval also reads the visible month again.
+ *
+ * The pending counter is keyed by the server render (render token plus
+ * count): a new render replaces the local count even when it repeats the
+ * previous render's value.
+ *
+ * The manager queue is capped by the server, so a successful review of a
+ * truncated queue (the last load counted more pending proposals than it
+ * returned) reloads it in the background, keeping the visible list, so the
+ * next oldest pending proposal replaces the reviewed one and the panel never
+ * runs empty while the counter still reports pending proposals. If that
+ * background read fails, the loaded queue stays visible and actionable and a
+ * warning toast offers a retry, since the queue may be incomplete.
+ *
+ * @param input - Tribe, visible month, server pending count and its render
+ * token, the calendar patch callback, and the series mutation registration.
+ * @returns List state, pending count, and mutation callbacks resolving to
+ * `true` when the change was stored.
+ */
+export function useTribeEventProposals(input: UseTribeEventProposalsInput): TribeEventProposals {
+  const { pendingCount, updatePendingCount } = usePendingProposalsCount(input);
+  const list = useTribeEventProposalsList(input, updatePendingCount);
+  const runner = useProposalMutationRunner(list.loadProposals);
+  const { createProposal, withdrawProposal } = useProposalAuthorActions(input, list, runner);
+  const { approveProposal, rejectProposal } = useProposalReviewActions(input, list, runner);
 
   return {
     approveProposal,
     createProposal,
-    isSubmitting,
-    loadProposals,
-    loadState,
+    isSubmitting: runner.isSubmitting,
+    loadProposals: list.loadProposals,
+    loadState: list.loadState,
     pendingCount,
     rejectProposal,
     withdrawProposal,

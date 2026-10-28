@@ -2,8 +2,7 @@
 import type { AdmissionNotificationPreferenceMode } from "@/src/modules/notifications/domain/entities/admission-notification-preference";
 import type { AdmissionNotificationPreferenceView, AdmissionNotificationEmailSettingsView } from "@/src/modules/notifications/application/results/admission-notification-settings-result";
 import type { AdmissionNotificationEmailSettingsDraft } from "@/src/modules/notifications/application/commands/admission-notification-email-settings-draft";
-import type { AdmissionNotificationSettingsEmailPlan } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
-import { ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
+import { type AdmissionNotificationSettingsEmailPlan, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN  } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 import { ADMISSION_NOTIFICATION_PREFERENCE_SOURCE as SOURCE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_NOTIFICATION_RECOMMENDED_MODE } from "@/src/modules/notifications/constants/admission-notification-settings-options";
 import { ADMISSION_EMAIL_SETTINGS_IMPLICIT_VERSION } from "@/src/modules/notifications/constants/admission-notification-email-settings";
@@ -56,5 +55,5 @@ export function isUnconfiguredEmail(email: AdmissionNotificationEmailSettingsVie
 export function usableTimeZone(timeZone: string | null): string | null {
   if (!timeZone || timeZone.length > ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH) return null;
   // An unknown IANA zone throws RangeError: the field then keeps the tribe's saved zone.
-  try { return Intl.DateTimeFormat(undefined, { timeZone }).resolvedOptions().timeZone ? timeZone : null; } catch { return null; }
+  try { return new Intl.DateTimeFormat(undefined, { timeZone }).resolvedOptions().timeZone ? timeZone : null; } catch { return null; }
 }

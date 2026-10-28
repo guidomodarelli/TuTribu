@@ -25,9 +25,15 @@ function longestSequentialChain(intervals) {
   return chain.reduce((maximum, length) => Math.max(maximum, length), 0);
 }
 
+/** @param config - Native pg query argument. @returns Its SQL text when present, kept in memory only for classification. */
+function statementText(config) {
+  if (typeof config === "string") return config;
+  return typeof config?.text === "string" ? config.text : "";
+}
+
 /** @param config - Native pg query argument. @returns Only the statement class, never its text. */
 function classify(config) {
-  const text = typeof config === "string" ? config : typeof config?.text === "string" ? config.text : "";
+  const text = statementText(config);
   if (TRANSACTION_STATEMENT.begin.test(text)) return "begin";
   if (TRANSACTION_STATEMENT.commit.test(text)) return "commit";
   if (TRANSACTION_STATEMENT.rollback.test(text)) return "rollback";
@@ -49,8 +55,8 @@ pg.Client.prototype.query = function countedQuery(config, values, callback) {
     args[callbackIndex] = function settledCallback(...result) { finish(); return original.apply(this, result); };
     return originalQuery.apply(this, args.slice(0, Math.max(callbackIndex + 1, arguments.length)));
   }
-  const result = originalQuery.apply(this, arguments);
-  if (result && typeof result.then === "function") result.then(finish, finish);
+  const result = Reflect.apply(originalQuery, this, arguments);
+  if (result && typeof result.then === "function") result.then(finish).catch(finish);
   else finish();
   return result;
 };
@@ -66,7 +72,7 @@ pg.Pool.prototype.connect = function countedConnect(...args) {
 const originalEmit = Server.prototype.emit;
 /** Opens one scope per incoming request and reports its aggregate once the response and late work settled. */
 Server.prototype.emit = function scopedEmit(event, request, response) {
-  if (event !== "request" || !request?.url || !response) return originalEmit.apply(this, arguments);
+  if (event !== "request" || !request?.url || !response) return Reflect.apply(originalEmit, this, arguments);
   const scope = { method: request.method, path: new URL(request.url, "http://counter.invalid").pathname, startedAt: performance.now(), counts: { checkouts: 0, begin: 0, commit: 0, rollback: 0, statement: 0 }, intervals: [], shapes: [] };
   response.once("close", () => {
     const durationMs = Math.round(performance.now() - scope.startedAt), status = response.statusCode;

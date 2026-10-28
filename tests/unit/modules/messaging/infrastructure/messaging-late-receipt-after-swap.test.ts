@@ -44,10 +44,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("late receipt after
       const original = issued.result;
       /** @param actorUserId - Exact contributing actor or maintenance scope. @param run - Database-only callback. @returns Its committed result. */
       const execute = <Result>(actorUserId: string | null, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext({ userId: actorUserId, email: null }, run);
-      const repository = new PostgresMessageDeliveryRepository(execute, async () => true, async () => config);
+      const repository = new PostgresMessageDeliveryRepository({ execute, authorizeMaintenance: async () => true, readSecurityConfig: async () => config });
       const claim = (await repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 300 }))[0], authorized = await repository.authorize(claim, randomUUID());
       if (authorized.outcome !== "authorized" || authorized.context.deliveryId !== original.deliveryId) throw new Error("Expected the original committed worker marker");
-      const secrets = new PostgresEncryptedSecretStore(execute, { getAuthenticatedAccount: async () => null }, async () => config, "authorized_delivery"), preparation = new PostgresVerificationDeliveryPreparation(execute, secrets, async () => config);
+      const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: execute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig: async () => config, purpose: "authorized_delivery" }), preparation = new PostgresVerificationDeliveryPreparation(execute, secrets, async () => config);
       const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>(), providerId = randomUUID(), controller = new AbortController();
       const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: async (request) => {
         expect(request.headers.get("Authorization") === `Bearer ${previous.credential}`).toBe(true);

@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
@@ -77,6 +77,73 @@ function mapFailureStatus(
     : TRIBE_EVENT_MUTATION_STATUS.forbidden;
 }
 
+/**
+ * Inserts a comment on an occurrence the viewer can comment on, idempotent by client request id.
+ */
+function buildCreateOccurrenceCommentStatement(command: CreateTribeEventOccurrenceCommentCommand): SQL {
+  return sql`
+        with target_event as (
+          select events.id, events.tribe_id
+          from public.events
+          inner join public.tribes
+            on tribes.id = events.tribe_id
+          where tribes.slug = ${command.tribeSlug}
+            and events.id = ${command.eventId}
+            and public.can_read_tribe_content(tribes.id)
+          limit 1
+        ),
+        inserted_comment as (
+          insert into public.event_occurrence_comments (
+            event_id,
+            tribe_id,
+            original_starts_at,
+            author_id,
+            content,
+            client_request_id
+          )
+          select
+            target_event.id,
+            target_event.tribe_id,
+            ${command.originalStartsAt}::timestamptz,
+            public.current_app_user_id(),
+            ${command.content},
+            ${command.clientRequestId}::uuid
+          from target_event
+          where public.is_active_tribe_member(target_event.tribe_id)
+          on conflict (event_id, original_starts_at, author_id, client_request_id)
+            where client_request_id is not null
+            do nothing
+          returning
+            event_occurrence_comments.id,
+            event_occurrence_comments.content,
+            event_occurrence_comments.created_at,
+            event_occurrence_comments.author_id
+        )
+        select
+          case
+            when exists (select 1 from inserted_comment) then ${TRIBE_EVENT_MUTATION_STATUS.commentCreated}
+            when not exists (select 1 from target_event) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
+            when exists (
+              select 1
+              from target_event
+              where public.is_active_tribe_member(target_event.tribe_id)
+            ) then ${COMMENT_REPLAYED_STATUS}
+            else ${TRIBE_EVENT_MUTATION_STATUS.forbidden}
+          end as status,
+          inserted_comment.id,
+          inserted_comment.content,
+          inserted_comment.created_at,
+          comment_author.name as author_name,
+          comment_author.image as author_image_url,
+          true as can_delete
+        from (select 1) result
+        left join inserted_comment
+          on true
+        left join public."user" comment_author
+          on comment_author.id = inserted_comment.author_id
+      `;
+}
+
 export class PostgresTribeEventOccurrenceCommentRepository
   implements TribeEventOccurrenceCommentRepository
 {
@@ -141,7 +208,7 @@ export class PostgresTribeEventOccurrenceCommentRepository
           ) as comments
         from target_event
       `);
-      const row = (result.rows?.[0] ?? null) as CommentListRow | null;
+      const row = (result.rows[0] ?? null) as CommentListRow | null;
 
       if (!row) {
         return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
@@ -181,68 +248,8 @@ export class PostgresTribeEventOccurrenceCommentRepository
         return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
       }
 
-      const result = await database.execute(sql`
-        with target_event as (
-          select events.id, events.tribe_id
-          from public.events
-          inner join public.tribes
-            on tribes.id = events.tribe_id
-          where tribes.slug = ${command.tribeSlug}
-            and events.id = ${command.eventId}
-            and public.can_read_tribe_content(tribes.id)
-          limit 1
-        ),
-        inserted_comment as (
-          insert into public.event_occurrence_comments (
-            event_id,
-            tribe_id,
-            original_starts_at,
-            author_id,
-            content,
-            client_request_id
-          )
-          select
-            target_event.id,
-            target_event.tribe_id,
-            ${command.originalStartsAt}::timestamptz,
-            public.current_app_user_id(),
-            ${command.content},
-            ${command.clientRequestId}::uuid
-          from target_event
-          where public.is_active_tribe_member(target_event.tribe_id)
-          on conflict (event_id, original_starts_at, author_id, client_request_id)
-            where client_request_id is not null
-            do nothing
-          returning
-            event_occurrence_comments.id,
-            event_occurrence_comments.content,
-            event_occurrence_comments.created_at,
-            event_occurrence_comments.author_id
-        )
-        select
-          case
-            when exists (select 1 from inserted_comment) then ${TRIBE_EVENT_MUTATION_STATUS.commentCreated}
-            when not exists (select 1 from target_event) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
-            when exists (
-              select 1
-              from target_event
-              where public.is_active_tribe_member(target_event.tribe_id)
-            ) then ${COMMENT_REPLAYED_STATUS}
-            else ${TRIBE_EVENT_MUTATION_STATUS.forbidden}
-          end as status,
-          inserted_comment.id,
-          inserted_comment.content,
-          inserted_comment.created_at,
-          comment_author.name as author_name,
-          comment_author.image as author_image_url,
-          true as can_delete
-        from (select 1) result
-        left join inserted_comment
-          on true
-        left join public."user" comment_author
-          on comment_author.id = inserted_comment.author_id
-      `);
-      const row = (result.rows?.[0] ?? null) as CommentMutationRow | null;
+      const result = await database.execute(buildCreateOccurrenceCommentStatement(command));
+      const row = (result.rows[0] ?? null) as CommentMutationRow | null;
 
       if (row?.status === COMMENT_REPLAYED_STATUS) {
         return this.readReplayedComment(database, command);
@@ -284,7 +291,7 @@ export class PostgresTribeEventOccurrenceCommentRepository
         and event_occurrence_comments.client_request_id = ${command.clientRequestId}::uuid
       limit 1
     `);
-    const row = (result.rows?.[0] ?? null) as CommentRow | null;
+    const row = (result.rows[0] ?? null) as CommentRow | null;
 
     return row
       ? { comment: mapComment(row), status: TRIBE_EVENT_MUTATION_STATUS.commentCreated }
@@ -349,7 +356,7 @@ export class PostgresTribeEventOccurrenceCommentRepository
             else ${TRIBE_EVENT_MUTATION_STATUS.forbidden}
           end as status
       `);
-      const status = ((result.rows?.[0] ?? null) as { status: string | null } | null)?.status;
+      const status = ((result.rows[0] ?? null) as { status: string | null } | null)?.status;
 
       return status === TRIBE_EVENT_MUTATION_STATUS.commentDeleted
         ? { status }

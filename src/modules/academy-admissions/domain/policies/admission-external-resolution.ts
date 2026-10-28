@@ -34,22 +34,14 @@ export function proposeAdmissionExternalResolution(input: {
 }): AdmissionExternalResolutionProposal {
   const { request, facts, now } = input;
   if (request.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== input.expectedVersion) return { allowed: false, code: ADMISSION_ERROR_CODE.requestConflict };
-  if (facts.tribeId !== request.tribeId || facts.userId !== request.userId
-    || facts.policy && facts.policy.tribeId !== request.tribeId
-    || facts.membership && (facts.membership.tribeId !== request.tribeId || facts.membership.userId !== request.userId)) return { allowed: false, code: ADMISSION_ERROR_CODE.resourceUnavailable };
+  if (!factsMatchRequest(facts, request)) return { allowed: false, code: ADMISSION_ERROR_CODE.resourceUnavailable };
   if (!Number.isFinite(now.getTime()) || now < request.submittedAt) return { allowed: false, code: ADMISSION_ERROR_CODE.invalidInput };
   if (facts.membershipDeleted && facts.membership) return { allowed: false, code: ADMISSION_ERROR_CODE.invalidInput };
   const expired = now >= request.expiresAt;
   const membership = facts.membership;
   const legible = membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted;
-  const nonrecoverable = membership?.status === TRIBE_MEMBERSHIP_STATUS.blocked && membership.statusReason !== TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked
-    || membership?.status === TRIBE_MEMBERSHIP_STATUS.removed && membership.statusReason !== TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive;
-  const rule = expired ? ADMISSION_DECISION_RULE.expired
-    : !facts.accountAvailable ? ADMISSION_DECISION_RULE.accountDeleted
-      : !facts.academyAvailable ? ADMISSION_DECISION_RULE.academyUnavailable
-        : facts.membershipDeleted ? ADMISSION_DECISION_RULE.membershipDeleted
-          : nonrecoverable ? ADMISSION_DECISION_RULE.nonrecoverableMembership
-            : legible ? ADMISSION_DECISION_RULE.externalResolution : null;
+  const nonrecoverable = isNonrecoverableMembership(membership);
+  const rule = externalResolutionRule({ expired, facts, nonrecoverable, legible });
   if (!rule) return { allowed: true, changed: false, request, decision: null };
   const status = expired ? ADMISSION_REQUEST_STATUS.expired : ADMISSION_REQUEST_STATUS.cancelled;
   const decision: AdmissionDecision = {
@@ -60,4 +52,27 @@ export function proposeAdmissionExternalResolution(input: {
     internalReason: null, externalMessage: null, decidedAt: new Date(now), membershipEffectId: null, evidenceSnapshot: snapshotAdmissionDecisionEvidence(request.evidence),
   };
   return { allowed: true, changed: true, request: { ...request, status, version: request.version + 1, decisionId: decision.id, cancelReason: expired ? null : rule, resolvedAt: new Date(now) }, decision };
+}
+
+/** @returns Whether tribe, account, policy and membership facts all belong to the request. */
+function factsMatchRequest(facts: AdmissionExternalResolutionFacts, request: AdmissionRequest): boolean {
+  if (facts.tribeId !== request.tribeId || facts.userId !== request.userId) return false;
+  if (facts.policy && facts.policy.tribeId !== request.tribeId) return false;
+  return !facts.membership || facts.membership.tribeId === request.tribeId && facts.membership.userId === request.userId;
+}
+
+/** @returns Whether the membership is blocked or removed for a reason other than its commercial one. */
+function isNonrecoverableMembership(membership: AdmissionMembershipFacts | null): boolean {
+  if (membership?.status === TRIBE_MEMBERSHIP_STATUS.blocked) return membership.statusReason !== TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked;
+  return membership?.status === TRIBE_MEMBERSHIP_STATUS.removed && membership.statusReason !== TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive;
+}
+
+/** @returns The first applicable system rule: expiry, deleted account, unavailable academy, deleted membership, nonrecoverable or legible membership; `null` when none applies. */
+function externalResolutionRule({ expired, facts, nonrecoverable, legible }: { expired: boolean; facts: AdmissionExternalResolutionFacts; nonrecoverable: boolean; legible: boolean }) {
+  if (expired) return ADMISSION_DECISION_RULE.expired;
+  if (!facts.accountAvailable) return ADMISSION_DECISION_RULE.accountDeleted;
+  if (!facts.academyAvailable) return ADMISSION_DECISION_RULE.academyUnavailable;
+  if (facts.membershipDeleted) return ADMISSION_DECISION_RULE.membershipDeleted;
+  if (nonrecoverable) return ADMISSION_DECISION_RULE.nonrecoverableMembership;
+  return legible ? ADMISSION_DECISION_RULE.externalResolution : null;
 }

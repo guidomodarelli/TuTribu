@@ -5,10 +5,11 @@ import { toast } from "@golfo/ui";
 
 import { TribeSupportConfigDialog } from "@/components/tribes/tribe-support-config-dialog";
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -20,7 +21,7 @@ const fetchMock = vi.fn();
 describe("TribeSupportConfigDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
   });
 
   it("submits the form and reports the saved settings on success", async () => {

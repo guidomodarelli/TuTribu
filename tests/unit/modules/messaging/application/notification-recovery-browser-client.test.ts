@@ -41,11 +41,16 @@ describe("notification recovery browser transport", () => {
 
   it.each(["operation", "original", "replacement", "version", "same_delivery", "private_field"] as const)("should retain uncertainty for a crossed %s result and never retry the write", async (scenario) => {
     const { scope, input, result } = originalRecovery();
-    const crossed = scenario === "original" ? { ...result, originalDeliveryId: randomUUID() }
-      : scenario === "replacement" ? { ...result, targetConnectionId: randomUUID() }
-      : scenario === "version" ? { ...result, originalVersion: 5 }
-      : scenario === "same_delivery" ? { ...result, recoveryDeliveryId: result.originalDeliveryId }
-      : scenario === "private_field" ? { ...result, secretRef: randomUUID() } : result;
+    /** @returns The original result crossed only in this scenario's field. */
+    const crossResult = () => {
+      if (scenario === "original") return { ...result, originalDeliveryId: randomUUID() };
+      if (scenario === "replacement") return { ...result, targetConnectionId: randomUUID() };
+      if (scenario === "version") return { ...result, originalVersion: 5 };
+      if (scenario === "same_delivery") return { ...result, recoveryDeliveryId: result.originalDeliveryId };
+      if (scenario === "private_field") return { ...result, secretRef: randomUUID() };
+      return result;
+    };
+    const crossed = crossResult();
     const transport = vi.fn<typeof fetch>(async () => Response.json({ state: "completed", operationId: scenario === "operation" ? randomUUID() : input.operationId, replayed: false, result: crossed }));
     expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: true });
     expect(transport).toHaveBeenCalledTimes(1);

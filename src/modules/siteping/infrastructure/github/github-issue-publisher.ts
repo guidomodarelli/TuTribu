@@ -128,7 +128,7 @@ const SCREENSHOT_PUBLIC_URL_PREFIX = "https://";
 function buildScreenshotSection(feedback: SitepingFeedback): string | null {
   const screenshotUrl = feedback.screenshotUrl;
 
-  if (!screenshotUrl || !screenshotUrl.startsWith(SCREENSHOT_PUBLIC_URL_PREFIX)) {
+  if (!screenshotUrl?.startsWith(SCREENSHOT_PUBLIC_URL_PREFIX)) {
     return null;
   }
 

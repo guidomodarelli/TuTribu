@@ -15,7 +15,7 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { MICROSECONDS_PER_SECOND } from "@/src/constants/time";
 import { ADMISSION_NOTIFICATION_COLLECTED } from "@/src/modules/notifications/constants/admission-notification-collection";
-import { ADMISSION_NOTIFICATION_PREPARATION_QUEUED } from "@/src/modules/notifications/constants/admission-notification-email-intent";
+import { ADMISSION_NOTIFICATION_PREPARATION_QUEUED, AdmissionNotificationEmailIntentFormat } from "@/src/modules/notifications/constants/admission-notification-email-intent";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingConnectionCreationContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-management";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
@@ -123,7 +123,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete no
         expect(after).toMatchObject({ actor_user_id: null, contributed_by_user_id: null, created_by: creatorUserId, recipient_alive: true, group_alive: true, frozen_intent: before.frozen_intent, deadline_microseconds: before.deadline_microseconds });
         expect(validWithOriginalPayerKnownOnlyToFixture).toBe(true); expect(validWithCurrentErasedPayer).toBe(false);
         phase = "authenticate_minimized_original";
-        if(after.frozen_intent.format!==2)throw new Error("Expected explicit bound original format");
+        if(after.frozen_intent.format!==AdmissionNotificationEmailIntentFormat.bound)throw new Error("Expected explicit bound original format");
         const {contributingLeaderUserId:_payer,normalizedRecipientEmail:_email,...historicalScope}=context;
         expect(await mac.verifyOriginal({...historicalScope,intent:after.frozen_intent},signed)).toBe(true);
         // Restore only the creator's own pre-existing prepared target metadata; no retired payer credential is adopted.

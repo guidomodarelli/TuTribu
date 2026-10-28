@@ -47,6 +47,26 @@ function evidenceFromStorage(row: AdmissionReviewStorageRecord["request"]): Admi
   throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
 }
 
+/** @param invitation - Stored personal invitation, if any. @returns Personal source facts when its contact is usable, else the common source. */
+function sourceFromStorage(invitation: AdmissionReviewStorageRecord["invitation"]): AdmissionSourceFacts {
+  const contact = invitation ? contactFromStorage(invitation.contactType, invitation.contactValue) : null;
+  if (!invitation || !contact) return { kind: ADMISSION_SOURCE_KIND.common };
+  return { kind: ADMISSION_SOURCE_KIND.personal, invitation: { ...invitation, contact, expiresAt: invitation.expiresAt ? new Date(invitation.expiresAt) : null } };
+}
+
+/** @param proof - Stored attached proof, if any. @returns Local proof facts when its contact is usable, else `null`. */
+function proofFromStorage(proof: AdmissionReviewStorageRecord["proof"]): AdmissionLocalProofFacts | null {
+  const contact = proof ? contactFromStorage(proof.contactType, proof.contactValue) : null;
+  if (!proof || !contact) return null;
+  return { ...proof, contact, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, verifiedAt: new Date(proof.verifiedAt), applyBefore: new Date(proof.applyBefore) };
+}
+
+/** @returns Whether the implemented manual writer can approve: a common request, or a bound personal one, under a manual or list policy. */
+function isApprovalSupported(stored: AdmissionReviewStorageRecord["request"], source: AdmissionSourceFacts, policy: { mode: AdmissionPolicy["mode"] } | null): boolean {
+  const supportedSource = stored.source === ADMISSION_REQUEST_SOURCE.common || stored.source === ADMISSION_REQUEST_SOURCE.personal && source.kind === ADMISSION_SOURCE_KIND.personal && stored.bindingId !== null;
+  return supportedSource && (policy?.mode === ADMISSION_POLICY_MODE.manualReview || policy?.mode === ADMISSION_POLICY_MODE.allowlist);
+}
+
 /** @param row - Authorized private SQL projection. @param now - SQL clock after actor/role locks. @param recoveryLocked - Current platform recovery state. @returns Private domain facts for the implemented manual writer, with historical evidence kept distinct. */
 export function mapAdmissionReviewStorage(row: AdmissionReviewStorageRecord, now: Date, recoveryLocked: boolean): AdmissionReviewRecord {
   const stored = row.request;
@@ -56,14 +76,12 @@ export function mapAdmissionReviewStorage(row: AdmissionReviewStorageRecord, now
     status: stored.status, version: stored.version, decisionId: stored.decisionId, cancelReason: stored.cancelReason,
     contact, evidence: evidenceFromStorage(stored), submittedAt: new Date(stored.submittedAt), expiresAt: new Date(stored.expiresAt), resolvedAt: stored.resolvedAt ? new Date(stored.resolvedAt) : null, retryAllowedAt: stored.retryAllowedAt ? new Date(stored.retryAllowedAt) : null };
   const policy = row.policy ? { ...row.policy, activatedAt: row.policy.activatedAt ? new Date(row.policy.activatedAt) : null } : null;
-  const proofContact = row.proof ? contactFromStorage(row.proof.contactType, row.proof.contactValue) : null;
-  const proof = row.proof && proofContact ? { ...row.proof, contact: proofContact, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, verifiedAt: new Date(row.proof.verifiedAt), applyBefore: new Date(row.proof.applyBefore) } : null;
-  const invitationContact = row.invitation ? contactFromStorage(row.invitation.contactType, row.invitation.contactValue) : null;
-  const source: AdmissionSourceFacts = row.invitation && invitationContact ? { kind: ADMISSION_SOURCE_KIND.personal, invitation: { ...row.invitation, contact: invitationContact, expiresAt: row.invitation.expiresAt ? new Date(row.invitation.expiresAt) : null } } : { kind: ADMISSION_SOURCE_KIND.common };
+  const proof = proofFromStorage(row.proof);
+  const source = sourceFromStorage(row.invitation);
   if (stored.source === ADMISSION_REQUEST_SOURCE.personal && (source.kind !== ADMISSION_SOURCE_KIND.personal || !stored.invitationId || stored.requiresAllowlist !== source.invitation.requiresAllowlist)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
   const entryContact = row.allowlistEntry ? contactFromStorage(row.allowlistEntry.contactType, row.allowlistEntry.contactValue) : null;
   const bindingContact = row.contactBinding ? contactFromStorage(row.contactBinding.contactType, row.contactBinding.contactValue) : null;
-  const approvalSupported = (stored.source === ADMISSION_REQUEST_SOURCE.common || stored.source === ADMISSION_REQUEST_SOURCE.personal && source.kind === ADMISSION_SOURCE_KIND.personal && stored.bindingId !== null) && (policy?.mode === ADMISSION_POLICY_MODE.manualReview || policy?.mode === ADMISSION_POLICY_MODE.allowlist);
+  const approvalSupported = isApprovalSupported(stored, source, policy);
   return { request, applicantName: row.applicantName, internalReason: row.internalReason, externalMessage: row.externalMessage, approvalSupported,
     review: { now, tribe: { ...row.tribe, recoveryLocked }, account: { userId: stored.userId, normalizedEmail: row.applicantEmail.trim().toLowerCase(), googleAccount: row.googleAccount }, policy, source, contact, whatsappNumber: request.whatsappNumber,
       membership: row.membership, localProof: proof, baseEvidence: row.baseEvidence, currentConnection: row.connection,

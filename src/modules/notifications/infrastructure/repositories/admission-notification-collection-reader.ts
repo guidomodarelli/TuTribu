@@ -45,7 +45,9 @@ export class AdmissionNotificationCollectionReader {
     const reader = new PostgresAdmissionNotificationRecipientEmailReader(this.database, async () => { const current = await this.readSecurityConfig(); return { environment: current.environment, securityEpoch: current.securityEpoch }; });
     // A deterministic recipient/audience order also applies when two tenant pages share user accounts.
     for (const key of [...batches.keys()].sort()) {
-      const batch = batches.get(key)!, first = batch[0];
+      const batch = batches.get(key);
+      if (!batch) continue;
+      const first = batch[0];
       const destinations = await reader.readBatch({ tribeId, recipientUserId: first.recipientUserId, audience: first.audience, obligationIds: batch.map((scope) => scope.obligationId) });
       for (const scope of batch) if (destinations.has(scope.obligationId)) trustedScopes.add(scope);
     }

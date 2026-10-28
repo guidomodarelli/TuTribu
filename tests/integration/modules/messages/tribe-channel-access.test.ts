@@ -137,8 +137,9 @@ describe.skipIf(!validationDatabaseUrl)("tribe channel access rule", () => {
   });
 
   afterAll(async () => {
-    if (!pool) return;
-    if (fixture) {
+    // beforeAll may fail before assigning either resource.
+    if (!(pool as typeof pool | undefined)) return;
+    if (fixture as ChannelAccessFixture | undefined) {
       await pool.query("delete from public.tribes where id = any($1)", [[fixture.academyTribeId, fixture.legacyTribeId]]);
       await pool.query('delete from public."user" where id = any($1)', [[fixture.freeMemberId, fixture.mutedMemberId, fixture.academyMemberId, fixture.leaderId, fixture.outsiderId]]);
       await pool.query(`drop owned by ${fixture.nonBypassRole}`);

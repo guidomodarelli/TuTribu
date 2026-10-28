@@ -169,10 +169,13 @@ export async function getRequestAuthContext(): Promise<RequestAuthContext> {
     };
   }
 
+  // Stored profile fields may be absent even where the SDK types them as required.
+  const user: { id: string; email?: string | null; image?: string | null; name?: string | null } = session.user;
+
   return {
-    email: session.user.email ?? null,
-    image: session.user.image ?? null,
-    name: session.user.name ?? null,
-    userId: session.user.id,
+    email: user.email ?? null,
+    image: user.image ?? null,
+    name: user.name ?? null,
+    userId: user.id,
   };
 }

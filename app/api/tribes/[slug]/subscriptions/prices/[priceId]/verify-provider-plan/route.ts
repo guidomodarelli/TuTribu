@@ -45,6 +45,51 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type VerifyTribeSubscriptionProviderPlanResult = Awaited<
+  ReturnType<RequestModules["subscriptions"]["useCases"]["verifyTribeSubscriptionProviderPlan"]>
+>;
+
+function createPostResultResponse(result: VerifyTribeSubscriptionProviderPlanResult): Response {
+  switch (result.status) {
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
+      return createJsonResponse(
+        {
+          ...(typeof result.freeJoinIsCurrent === "boolean"
+            ? { freeJoinIsCurrent: result.freeJoinIsCurrent }
+            : {}),
+          message:
+            result.price.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
+              ? PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.canceledMessage
+              : PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.successMessage,
+          price: result.price,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+      return createJsonResponse(
+        {
+          message:
+            PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.missingIntegrationMessage,
+        },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+      return createJsonResponse(
+        { message: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 /**
  * Verifies one active provider plan for a tribe price.
  *
@@ -85,42 +130,7 @@ export async function POST(
         tribeSlug: slug,
       });
 
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
-        return createJsonResponse(
-          {
-            ...(typeof result.freeJoinIsCurrent === "boolean"
-              ? { freeJoinIsCurrent: result.freeJoinIsCurrent }
-              : {}),
-            message:
-              result.price.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
-                ? PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.canceledMessage
-                : PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.successMessage,
-            price: result.price,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
-        return createJsonResponse(
-          {
-            message:
-              PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.missingIntegrationMessage,
-          },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          { message: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result);
   } catch (error) {
     logger.error({
       message: PROVIDER_PLAN_VERIFICATION_ROUTE_LOG.failureMessage,

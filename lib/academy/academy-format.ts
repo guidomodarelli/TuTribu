@@ -15,13 +15,39 @@ import {
 
 const YEAR_LENGTH = 4;
 const CENTS_PER_UNIT = 100;
-const THOUSANDS_GROUP_PATTERN = /\B(?=(\d{3})+(?!\d))/g;
+const THOUSANDS_GROUP_SIZE = 3;
+const DIGITS_PATTERN = /^\d+$/u;
+const NEGATIVE_SIGN = "-";
 const THOUSANDS_SEPARATOR = ".";
 const DECIMAL_SEPARATOR = ",";
 const CENTS_DIGITS = 2;
 const START_OF_DAY = "00:00";
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: "$" };
 const FREQUENCY_LABEL: Record<string, string> = { monthly: "por mes" };
+
+/**
+ * "15000" → "15.000": groups the digits of an integer in thousands, keeping
+ * its sign. Any other text (`NaN`, exponent notation) is returned as is.
+ *
+ * @param integerText - Integer as produced by `String(number)`.
+ * @returns Integer text with thousands separators.
+ */
+function groupThousands(integerText: string): string {
+  const sign = integerText.startsWith(NEGATIVE_SIGN) ? NEGATIVE_SIGN : "";
+  const digits = integerText.slice(sign.length);
+
+  if (!DIGITS_PATTERN.test(digits)) {
+    return integerText;
+  }
+
+  const groups: string[] = [];
+
+  for (let end = digits.length; end > 0; end -= THOUSANDS_GROUP_SIZE) {
+    groups.unshift(digits.slice(Math.max(0, end - THOUSANDS_GROUP_SIZE), end));
+  }
+
+  return sign + groups.join(THOUSANDS_SEPARATOR);
+}
 
 /**
  * "06 may 2026" in Buenos Aires time.
@@ -47,7 +73,7 @@ export function formatAcademyPrice(price: {
   const units = Math.floor(price.amountCents / CENTS_PER_UNIT);
   const cents = price.amountCents % CENTS_PER_UNIT;
   const amount =
-    String(units).replace(THOUSANDS_GROUP_PATTERN, THOUSANDS_SEPARATOR) +
+    groupThousands(String(units)) +
     (cents > 0 ? DECIMAL_SEPARATOR + String(cents).padStart(CENTS_DIGITS, "0") : "");
   const symbol = CURRENCY_SYMBOL[price.currency] ?? price.currency;
   const frequency = FREQUENCY_LABEL[price.frequency] ?? price.frequency;

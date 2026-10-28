@@ -7,14 +7,13 @@ import { setTimeout as delay } from "node:timers/promises";
 import { sql } from "drizzle-orm";
 import { makeSignature } from "better-auth/crypto";
 import { describe, expect, it } from "vitest";
-import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase  } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionContactVerification } from "@/tests/support/admission-contact-verification-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { createAdmissionRequestMeasurement, findAdmissionBudgetOverruns, signedAdmissionSessionCookie, withAdmissionQueryCounter } from "@/tests/support/admission-request-measurement";
 import { ADMISSION_REQUEST_MEASUREMENT } from "@/tests/support/constants/admission-request-measurement";
 import { ADMISSION_APPLICANT_QUERY_BUDGET as BUDGET, ADMISSION_APPLICANT_QUERY_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-applicant-queries";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
-import type { AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 
 const SAMPLES = ADMISSION_REQUEST_MEASUREMENT.samples;
 /** @param text - JSON command response. @returns Its original result. */
@@ -89,7 +88,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
           const [verified] = await measure("verify_verification_code", "POST", [{ path: `${api}/challenges/${challenges.get(applicant.userId)}/verify`, cookie: cookies.get(applicant.userId), body: { operationId: randomUUID(), confirmed: true, verificationCode: codes.get(applicant.userId) } }]);
           proofs.set(applicant.userId, String(resultOf(verified).proofId));
         }
-        const requests = (await measure("submit_request", "POST", common.map((applicant) => ({ path: `${api}/submissions`, cookie: cookies.get(applicant.userId), body: { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 2, proofId: proofs.get(applicant.userId) } })), [201])).map((text) => String((JSON.parse(text) as { request: { id: string } }).request.id));
+        const requests = (await measure("submit_request", "POST", common.map((applicant) => ({ path: `${api}/submissions`, cookie: cookies.get(applicant.userId), body: { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 2, proofId: proofs.get(applicant.userId) } })), [201])).map((text) => (JSON.parse(text) as { request: { id: string } }).request.id);
         await measure("redeem_invitation", "POST", invited.map((applicant, index) => ({ path: `${api}/submissions`, cookie: cookies.get(applicant.userId), body: { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 2, invitationToken: tokens[index], proofId: proofs.get(applicant.userId) } })), [201]);
         await measure("read_own_request", "GET", common.map((applicant) => ({ path: `${api}/own-request`, cookie: cookies.get(applicant.userId) })));
         await measure("page_own_request", "GET", common.map((applicant, index) => ({ path: `/admissions/requests/${requests[index]}`, cookie: cookies.get(applicant.userId) })));

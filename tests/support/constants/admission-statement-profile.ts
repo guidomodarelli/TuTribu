@@ -10,7 +10,7 @@ export const ADMISSION_STATEMENT_PROFILE = {
   percentagePattern: /^\d+(?:\.\d+)?%$/,
   operationPattern: /^\s*([a-z]+)/i,
   identifierPattern: /[a-z_][a-z0-9_]*/gi,
-  scalarProjectionPattern: /^\s*select\s+\$\d+\s*;?\s*$/i,
+  scalarProjectionPattern: /^\s*select\s+\$\d+\s*(?:;\s*)?$/i,
   trackingSetting: "pg_stat_statements.track", planningSetting: "pg_stat_statements.track_planning", versionSetting: "server_version_num",
   unavailable: "native_statement_inspector_failed",
 } as const;

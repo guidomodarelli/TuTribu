@@ -62,6 +62,43 @@ async function findTribePageAccessLookup({
   };
 }
 
+/**
+ * Hides the page from a blocked, removed, or non-active member.
+ *
+ * @param membershipAccess - Current membership of the viewer, if any.
+ * @returns The hidden result, or `null` when the membership is active or muted.
+ */
+function findHiddenMembershipResult(
+  membershipAccess: TribeMembershipAccess | null
+): TribePageAccessResult | null {
+  const membershipStatus = membershipAccess?.status ?? null;
+
+  if (
+    membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked ||
+    membershipStatus === TRIBE_MEMBERSHIP_STATUS.removed
+  ) {
+    return {
+      status: TRIBE_PAGE_ACCESS_STATUS.hidden,
+      blockedReason:
+        membershipAccess?.statusReason ??
+        TRIBE_MEMBERSHIP_STATUS_REASON.none,
+      reason: TRIBE_PAGE_ACCESS_REASON.blockedHidden,
+    };
+  }
+
+  if (
+    membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active &&
+    membershipStatus !== TRIBE_MEMBERSHIP_STATUS.muted
+  ) {
+    return {
+      status: TRIBE_PAGE_ACCESS_STATUS.hidden,
+      reason: TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible,
+    };
+  }
+
+  return null;
+}
+
 export function getTribePageAccess({
   tribeReadRepository,
 }: GetTribePageAccessDependencies) {
@@ -105,29 +142,12 @@ export function getTribePageAccess({
       normalizedSlug,
       tribeReadRepository,
     });
-    const membershipStatus = pageAccessLookup.membershipAccess?.status ?? null;
+    const hiddenMembershipResult = findHiddenMembershipResult(
+      pageAccessLookup.membershipAccess
+    );
 
-    if (
-      membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked ||
-      membershipStatus === TRIBE_MEMBERSHIP_STATUS.removed
-    ) {
-      return {
-        status: TRIBE_PAGE_ACCESS_STATUS.hidden,
-        blockedReason:
-          pageAccessLookup.membershipAccess?.statusReason ??
-          TRIBE_MEMBERSHIP_STATUS_REASON.none,
-        reason: TRIBE_PAGE_ACCESS_REASON.blockedHidden,
-      };
-    }
-
-    if (
-      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active &&
-      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.muted
-    ) {
-      return {
-        status: TRIBE_PAGE_ACCESS_STATUS.hidden,
-        reason: TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible,
-      };
+    if (hiddenMembershipResult) {
+      return hiddenMembershipResult;
     }
 
     const communityAccess =

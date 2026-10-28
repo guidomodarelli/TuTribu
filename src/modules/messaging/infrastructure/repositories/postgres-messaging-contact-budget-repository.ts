@@ -13,6 +13,12 @@ import { assertMessagingAuthenticatedMacKeyMaterial } from "./assert-messaging-k
 import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
 
 /** Key ids identify immutable platform key material; a rotation must use a new id and retain its needed predecessors. */
+/** @returns Code-unit order of the entry keys, so proofs and fingerprints keep a stable order. */
+function compareEntryKeys([left]: readonly [string, unknown], [right]: readonly [string, unknown]): number {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+}
+
 export class PostgresMessagingContactBudgetRepository implements MessagingContactBudgetRepository {
   /**
    * @param database - Current caller's guarded transaction; alias locks survive until its commit/rollback.
@@ -47,7 +53,7 @@ export class PostgresMessagingContactBudgetRepository implements MessagingContac
     if (!ring.keys.has(ring.activeKeyId)) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable);
     const fingerprints: { keyId: string; fingerprint: Uint8Array }[] = [];
     // Global contact accounting intentionally excludes mutable connection/tribe/channel/epoch fields.
-    for (const [keyId, key] of [...ring.keys].sort(([leftId], [rightId]) => leftId < rightId ? -1 : leftId > rightId ? 1 : 0)) {
+    for (const [keyId, key] of [...ring.keys].sort(compareEntryKeys)) {
       const data = new TextEncoder().encode(JSON.stringify([CONTACT_BUDGET_FINGERPRINT_DOMAIN, keyId, contact.type, contact.value]));
       const fingerprint = new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, key, data));
       fingerprints.push({ keyId, fingerprint });
@@ -79,7 +85,8 @@ export class PostgresMessagingContactBudgetRepository implements MessagingContac
     if (current.recoveryLocked || current.environment !== config.environment || current.securityEpoch !== config.securityEpoch || currentRing.activeKeyId !== ring.activeKeyId || JSON.stringify([...currentRing.keys.keys()].sort()) !== JSON.stringify([...ring.keys.keys()].sort())) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable);
     await this.assertKeyMaterial(current);
     await this.assertAuthorized();
-    const active = fingerprints.find((entry) => entry.keyId === ring.activeKeyId)!;
+    const active = fingerprints.find((entry) => entry.keyId === ring.activeKeyId);
+    if (!active) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable);
     return { subjectId, fingerprintKeyId: active.keyId, fingerprint: active.fingerprint };
   }
 }

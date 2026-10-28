@@ -12,7 +12,7 @@ function recoveryFixture() {
   const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T00:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
   const registered = { operationType: "submit_admission", operation: { state: "completed", operationId, replayed: true, result: { operationId, outcome: "already_member", admissionRequestId: null, committedRequestVersion: null, membership: { role: "tribemate", status: "active" }, privateCiphertext: "synthetic-private" }, leaseOwner: randomUUID() } };
-  const reader = { read: vi.fn(async (): Promise<unknown | null> => registered) };
+  const reader = { read: vi.fn(async (): Promise<unknown> => registered) };
   return { accounts, account, reader, registered, now, query: { tribeId, operationId, requestId: randomUUID() } };
 }
 

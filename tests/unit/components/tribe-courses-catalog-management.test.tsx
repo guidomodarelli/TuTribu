@@ -35,7 +35,7 @@ function buildJsonResponse(body: unknown, status = 200): Response {
 
 describe("TribeCoursesCatalogManagement", () => {
   beforeEach(() => {
-    global.fetch = vi.fn() as unknown as typeof fetch;
+    global.fetch = vi.fn();
   });
 
   afterEach(() => {
@@ -81,7 +81,7 @@ describe("TribeCoursesCatalogManagement", () => {
         },
         201
       )
-    ) as unknown as typeof fetch;
+    );
 
     render(
       <TribeCoursesCatalogManagement initialCourses={[]} tribeSlug={TRIBE_SLUG} />
@@ -141,7 +141,7 @@ describe("TribeCoursesCatalogManagement", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     global.fetch = vi.fn(async () =>
       buildJsonResponse({ message: "No pudimos eliminar el curso." }, 500)
-    ) as unknown as typeof fetch;
+    );
 
     render(
       <TribeCoursesCatalogManagement

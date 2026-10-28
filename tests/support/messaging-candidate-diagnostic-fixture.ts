@@ -12,16 +12,21 @@ import { createVerificationDeliveryPayloadMac } from "@/src/modules/messaging/in
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
-import { VERIFICATION_CODE_GENERATION } from "@/src/modules/academy-admissions/constants/verification-challenge";
+import { VERIFICATION_CODE_GENERATION, VERIFICATION_CHALLENGE_STATE  } from "@/src/modules/academy-admissions/constants/verification-challenge";
 import { VERIFICATION_FROZEN_PAYLOAD_FORMAT } from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { MESSAGE_DELIVERY_STATE, MESSAGE_ATTEMPT_STATE, MESSAGE_USAGE_CATEGORY, MESSAGE_RESERVATION_STATE, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
-import { VERIFICATION_CHALLENGE_STATE } from "@/src/modules/academy-admissions/constants/verification-challenge";
 import { CONNECTION_DIAGNOSTIC_OUTCOME } from "@/src/modules/messaging/constants/connection-diagnostic";
 import { CODE_REQUEST_EVENT } from "@/src/modules/messaging/constants/code-request-budget";
 import { ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 
 /** Records only scope identifiers and observable expected transitions, never plaintext or cryptographic bytes. */
 export type CandidateDiagnosticHistory = { challengeId: string; diagnosticId: string; deliveryId: string; connectionId: string; connectionVersion: number; scenario: "queued" | "verified" | "accepted" | "unknown" };
+
+/** @param scenario - Historical diagnostic scenario. @returns The delivery state seeded for it; every scenario except `queued` has an attempt. */
+function deliveryStateFor(scenario: CandidateDiagnosticHistory["scenario"]) {
+  if (scenario === "unknown") return MESSAGE_DELIVERY_STATE.unknown;
+  return scenario === "queued" ? MESSAGE_DELIVERY_STATE.queued : MESSAGE_DELIVERY_STATE.accepted;
+}
 
 /**
  * Inserts original dates and immutable payloads once, including coherent historical attempt/reservation records.
@@ -47,7 +52,7 @@ export async function prepareCandidateDiagnosticHistory(database: AcademyAdmissi
           const signed = await createVerificationCodeMac(config).sign(code, context), envelope = await createVerificationCodeEnvelope(config).seal(code, context, createdAt), fingerprint = await createAdmissionContactFingerprint(scope.contact, config);
           const frozenIntent = { format: VERIFICATION_FROZEN_PAYLOAD_FORMAT, challengeId, deliveryId, envelopeId, senderId: CANDIDATE_DIAGNOSTIC_HISTORY.senderId, templateId: null, templateLanguage: null, channel: scope.channel, purpose: scope.purpose };
           const payload = await createVerificationDeliveryPayloadMac(config).sign({ tribeId: resource.tribeId, connectionId: resource.connectionId, connectionVersion: version, challengeId, diagnosticId, deliveryId, contactSubjectId, fingerprintKeyId: fingerprint.keyId, contactFingerprint: fingerprint.digest, frozenIntent, createdAt, expiresAt });
-          const hasAttempt = scenario !== "queued", deliveryState = scenario === "unknown" ? MESSAGE_DELIVERY_STATE.unknown : hasAttempt ? MESSAGE_DELIVERY_STATE.accepted : MESSAGE_DELIVERY_STATE.queued;
+          const hasAttempt = scenario !== "queued", deliveryState = deliveryStateFor(scenario);
           await transaction.execute(sql`insert into public.messaging_contact_budget_subjects(id,created_at) values (${contactSubjectId},${createdAt})`);
           await transaction.execute(sql`insert into public.messaging_contact_fingerprint_aliases(subject_id,fingerprint_key_id,contact_fingerprint,created_at) values (${contactSubjectId},${fingerprint.keyId},${Buffer.from(fingerprint.digest)},${createdAt})`);
           await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,contact_subject_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,state,queued_usage_policy_version,created_at,due_at,deadline_at) values (${deliveryId},${resource.tribeId},${resource.connectionId},${version},${config.environment},${config.securityEpoch},${scope.purpose},${diagnosticId},${userId},${contactSubjectId},${challengeId},${scope.channel},${randomUUID()},${Buffer.from(payload.mac)},${payload.keyId},${JSON.stringify(frozenIntent)}::jsonb,${deliveryState},${CANDIDATE_DIAGNOSTIC_HISTORY.usagePolicyVersion},${createdAt},${createdAt},${expiresAt})`);

@@ -194,67 +194,43 @@ export function buildMessagesModule({
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
-      cleanupOrphanMessageFiles: cleanupOrphanMessageFiles({
-        messageFileRepository,
-      }),
-      cleanupOrphanMessageImages: cleanupOrphanMessageImages({
-        messageImageRepository,
-      }),
+      cleanupOrphanMessageFiles: cleanupOrphanMessageFiles({ messageFileRepository }),
+      cleanupOrphanMessageImages: cleanupOrphanMessageImages({ messageImageRepository }),
       createTribeMessage: createTribeMessage({
         messageCreationRepository,
         messageFileRepository,
         messageImageRepository,
       }),
-      createTribeChannel: createTribeChannel({
-        tribeChannelRepository,
-      }),
-      deleteTribeChannel: deleteTribeChannel({
-        tribeChannelRepository,
-      }),
+      createTribeChannel: createTribeChannel({ tribeChannelRepository }),
+      deleteTribeChannel: deleteTribeChannel({ tribeChannelRepository }),
       deleteTribeMessage: deleteTribeMessage({
         messageDeletionRepository,
         messageFileRepository,
         messageImageRepository,
       }),
       createMessageReply: createMessageReply({ messageReplyRepository }),
-      createMessageImageUpload: createMessageImageUpload({
-        messageImageRepository,
-      }),
+      createMessageImageUpload: createMessageImageUpload({ messageImageRepository }),
       deleteMessageImage: deleteMessageImage({ messageImageRepository }),
-      createMessageFileDownloadUrl: createMessageFileDownloadUrl({
-        messageFileRepository,
-      }),
-      createMessageFileUpload: createMessageFileUpload({
-        messageFileRepository,
-      }),
+      createMessageFileDownloadUrl: createMessageFileDownloadUrl({ messageFileRepository }),
+      createMessageFileUpload: createMessageFileUpload({ messageFileRepository }),
       deleteMessageFile: deleteMessageFile({ messageFileRepository }),
       listTribeRound: listTribeRound({
         listCachedTribeRoundSharedData,
         messageRoundReadRepository,
       }),
-      listMessageReplies: listMessageReplies({
-        messageRoundReadRepository,
-      }),
-      listMessageLikers: listMessageLikers({
-        messageRoundReadRepository,
-      }),
-      listTribeChannels: listTribeChannels({
-        tribeChannelRepository,
-      }),
+      listMessageReplies: listMessageReplies({ messageRoundReadRepository }),
+      listMessageLikers: listMessageLikers({ messageRoundReadRepository }),
+      listTribeChannels: listTribeChannels({ tribeChannelRepository }),
       toggleMessageLike: toggleMessageLike({ messageReactionRepository }),
       toggleMessagePin: toggleMessagePin({ messagePinRepository }),
       submitMessagePollVote: submitMessagePollVote({ messagePollRepository }),
-      updateTribeChannel: updateTribeChannel({
-        tribeChannelRepository,
-      }),
+      updateTribeChannel: updateTribeChannel({ tribeChannelRepository }),
       updateTribeMessageContent: updateTribeMessageContent({
         messageContentUpdateRepository,
         messageFileRepository,
         messageImageRepository,
       }),
-      updateTribeMessageCreatedAt: updateTribeMessageCreatedAt({
-        messageCreatedAtUpdateRepository,
-      }),
+      updateTribeMessageCreatedAt: updateTribeMessageCreatedAt({ messageCreatedAtUpdateRepository }),
     },
   };
 }

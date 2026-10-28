@@ -4,5 +4,9 @@ import { REPORTING_PRIVATE_ROUTE_PREFIXES, REPORTING_PRIVATE_ROUTE_FRAGMENTS, RE
 /** @param pathname - Current own route. @param search - Current own query, including an encoded login return. @returns Whether reporting tools must stay unmounted; no token values are returned or logged. */
 export function isPrivateReportingLocation(pathname: string, search: URLSearchParams): boolean {
   if (REPORTING_PRIVATE_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix)) || REPORTING_PRIVATE_ROUTE_FRAGMENTS.some((fragment) => pathname.includes(fragment)) || REPORTING_PRIVATE_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname))) return true;
-  return Array.from(search.values()).some((value) => REPORTING_PRIVATE_ROUTE_PREFIXES.some((prefix) => value.includes(prefix)) || REPORTING_PRIVATE_ROUTE_FRAGMENTS.some((fragment) => value.includes(fragment)) || REPORTING_PRIVATE_ROUTE_PATTERNS.some((pattern) => pattern.test(value)));
+  // A for...of loop avoids materializing the query values and, unlike Iterator#some, runs on every supported browser.
+  for (const value of search.values()) {
+    if (REPORTING_PRIVATE_ROUTE_PREFIXES.some((prefix) => value.includes(prefix)) || REPORTING_PRIVATE_ROUTE_FRAGMENTS.some((fragment) => value.includes(fragment)) || REPORTING_PRIVATE_ROUTE_PATTERNS.some((pattern) => pattern.test(value))) return true;
+  }
+  return false;
 }

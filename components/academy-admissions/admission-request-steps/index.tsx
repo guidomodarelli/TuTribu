@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { GuidedSteps, type GuidedStep, type GuidedStepsAction } from "@/components/forms/guided-steps";
 import { AdmissionForm, type AdmissionFormProps } from "@/components/academy-admissions/admission-form";
-import { ContactVerification, ContactVerificationResendActions, contactVerificationAvailability, type ContactVerificationProps } from "@/components/academy-admissions/contact-verification";
+import { ContactVerification, ContactVerificationResendActions, contactVerificationAvailability, type ContactVerificationAvailability, type ContactVerificationProps } from "@/components/academy-admissions/contact-verification";
 import { ADMISSION_REQUEST_FLOW_COPY as COPY, ADMISSION_REQUEST_FLOW_MODE, type AdmissionRequestFlowMode } from "@/src/modules/academy-admissions/constants/admission-request-flow";
 import styles from "./styles.module.scss";
 
@@ -28,6 +28,65 @@ export type AdmissionRequestStepsProps = {
   finalBlockedReason?: string;
 };
 
+/** @param verification - Contact verification facts. @param availability - Writes the facts allow. @param issuing - Whether the code is being sent. @returns What blocks sending the code, or undefined once it was sent, is sending or can be sent. */
+function sendBlockedReason(verification: ContactVerificationProps, availability: ContactVerificationAvailability, issuing: boolean): string | undefined {
+  const sent = Boolean(verification.challenge) || verification.proofReady;
+  if (sent || issuing) return undefined;
+  if (availability.noCountries) return COPY.noCountries;
+  return verification.confirmed ? undefined : COPY.sendConfirmRequired;
+}
+
+/**
+ * @param props - The flow's writes and collapsed recovery.
+ * @param verification - Contact verification facts.
+ * @param availability - Writes the facts allow.
+ * @returns The send and verify steps of the contact code.
+ */
+function verificationSteps(props: AdmissionRequestStepsProps, verification: ContactVerificationProps, availability: ContactVerificationAvailability): GuidedStep[] {
+  const sent = Boolean(verification.challenge) || verification.proofReady;
+  const resendCollapsed = Boolean(verification.challenge) && !verification.proofReady && !availability.resendInView;
+  return [{
+    id: "send", title: COPY.sendTitle, description: COPY.sendDescription,
+    blockedReason: sendBlockedReason(verification, availability, props.issuing),
+    action: sent ? undefined : { label: COPY.sendAction, loading: props.issuing, disabled: availability.issueBlocked && !props.issuing, onRun: verification.onIssue },
+    content: <ContactVerification {...verification} part="send" />,
+  }, {
+    id: "verify", title: COPY.verifyTitle, description: COPY.verifyDescription,
+    blockedReason: !verification.challenge && !verification.proofReady ? COPY.codeMissing : undefined,
+    action: verification.proofReady ? undefined : { label: COPY.verifyAction, loading: props.verifying, disabled: availability.verifyBlocked && !props.verifying, onRun: verification.onVerify },
+    // A code that expired, ran out of attempts or must be replaced makes the resend the step's next action; otherwise it stays collapsed.
+    content: <>
+      <ContactVerification {...verification} part="verify" />
+      {availability.resendInView && <div className={styles.AdmissionRequestSteps__resend}><ContactVerificationResendActions {...verification} /></div>}
+    </>,
+    secondary: resendCollapsed || props.recovery ? <>{resendCollapsed && <ContactVerificationResendActions {...verification} />}{props.recovery}</> : undefined,
+    secondaryLabel: COPY.resendLabel,
+  }];
+}
+
+/** @param props - Request draft and contact verification facts. @returns The final review of a new request, with its consent. */
+function SubmitReview({ form, verification }: { form: AdmissionRequestStepsProps["form"]; verification: ContactVerificationProps | null }) {
+  return <>
+    {verification?.proofReady && <p role="status" className={styles.AdmissionRequestSteps__success}>{COPY.proofChecked}</p>}
+    <dl className={styles.AdmissionRequestSteps__facts}>
+      {form.contactType === "phone" && <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.phoneFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{form.draft.phone || COPY.empty}{form.draft.country ? ` (${form.draft.country})` : ""}</dd></div>}
+      {form.showWhatsappNumber && <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.whatsappFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{form.draft.whatsappNumber?.trim() || COPY.empty}</dd></div>}
+      <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.messageFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{form.draft.message.trim() || COPY.empty}</dd></div>
+      {verification && <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.codeFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{verification.proofReady ? COPY.codeChecked : COPY.codePending}</dd></div>}
+    </dl>
+    <AdmissionForm {...form} layout="consent" onSubmit={() => {}} />
+  </>;
+}
+
+/** @param props - Contact verification facts. @returns The final step that applies the checked code to the pending request. */
+function ApplyReview({ verification }: { verification: ContactVerificationProps | null }) {
+  return <>
+    {verification?.proofReady && <p role="status" className={styles.AdmissionRequestSteps__success}>{COPY.proofChecked}</p>}
+    <p className={styles.AdmissionRequestSteps__note}>{verification?.proofReady ? COPY.applyReady : COPY.codePending}</p>
+    {verification?.errorMessage && <p role="alert" className={styles.AdmissionRequestSteps__error}>{verification.errorMessage}</p>}
+  </>;
+}
+
 /** @param props - Controlled request draft, verification facts and the flow's writes. @returns The guided request flow. */
 export function AdmissionRequestSteps(props: AdmissionRequestStepsProps) {
   const { form, verification } = props, submitting = props.mode === ADMISSION_REQUEST_FLOW_MODE.submit;
@@ -39,45 +98,12 @@ export function AdmissionRequestSteps(props: AdmissionRequestStepsProps) {
     content: <AdmissionForm {...form} layout="details" hideContact={Boolean(verification)} onSubmit={() => {}} />,
   });
 
-  if (verification && availability) {
-    const sent = Boolean(verification.challenge) || verification.proofReady;
-    steps.push({
-      id: "send", title: COPY.sendTitle, description: COPY.sendDescription,
-      blockedReason: sent || props.issuing ? undefined : availability.noCountries ? COPY.noCountries : !verification.confirmed ? COPY.sendConfirmRequired : undefined,
-      action: sent ? undefined : { label: COPY.sendAction, loading: props.issuing, disabled: availability.issueBlocked && !props.issuing, onRun: verification.onIssue },
-      content: <ContactVerification {...verification} part="send" />,
-    });
-    steps.push({
-      id: "verify", title: COPY.verifyTitle, description: COPY.verifyDescription,
-      blockedReason: !verification.challenge && !verification.proofReady ? COPY.codeMissing : undefined,
-      action: verification.proofReady ? undefined : { label: COPY.verifyAction, loading: props.verifying, disabled: availability.verifyBlocked && !props.verifying, onRun: verification.onVerify },
-      // A code that expired, ran out of attempts or must be replaced makes the resend the step's next action; otherwise it stays collapsed.
-      content: <>
-        <ContactVerification {...verification} part="verify" />
-        {availability.resendInView && <div className={styles.AdmissionRequestSteps__resend}><ContactVerificationResendActions {...verification} /></div>}
-      </>,
-      secondary: verification.challenge && !verification.proofReady && !availability.resendInView || props.recovery ? <>{verification.challenge && !verification.proofReady && !availability.resendInView && <ContactVerificationResendActions {...verification} />}{props.recovery}</> : undefined,
-      secondaryLabel: COPY.resendLabel,
-    });
-  }
+  if (verification && availability) steps.push(...verificationSteps(props, verification, availability));
 
   steps.push({
     id: "finish", title: submitting ? COPY.submitTitle : COPY.applyTitle, description: submitting ? COPY.submitDescription : COPY.applyDescription,
     blockedReason: props.finalAction.loading ? undefined : props.finalBlockedReason ?? (submitting && !form.confirmed ? COPY.submitConfirmRequired : undefined),
-    content: submitting ? <>
-      {verification?.proofReady && <p role="status" className={styles.AdmissionRequestSteps__success}>{COPY.proofChecked}</p>}
-      <dl className={styles.AdmissionRequestSteps__facts}>
-        {form.contactType === "phone" && <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.phoneFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{form.draft.phone || COPY.empty}{form.draft.country ? ` (${form.draft.country})` : ""}</dd></div>}
-        {form.showWhatsappNumber && <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.whatsappFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{form.draft.whatsappNumber?.trim() || COPY.empty}</dd></div>}
-        <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.messageFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{form.draft.message.trim() || COPY.empty}</dd></div>
-        {verification && <div className={styles.AdmissionRequestSteps__fact}><dt className={styles.AdmissionRequestSteps__term}>{COPY.codeFact}</dt><dd className={styles.AdmissionRequestSteps__value}>{verification.proofReady ? COPY.codeChecked : COPY.codePending}</dd></div>}
-      </dl>
-      <AdmissionForm {...form} layout="consent" onSubmit={() => {}} />
-    </> : <>
-      {verification?.proofReady && <p role="status" className={styles.AdmissionRequestSteps__success}>{COPY.proofChecked}</p>}
-      <p className={styles.AdmissionRequestSteps__note}>{verification?.proofReady ? COPY.applyReady : COPY.codePending}</p>
-      {verification?.errorMessage && <p role="alert" className={styles.AdmissionRequestSteps__error}>{verification.errorMessage}</p>}
-    </>,
+    content: submitting ? <SubmitReview form={form} verification={verification} /> : <ApplyReview verification={verification} />,
   });
 
   return <div className={styles.AdmissionRequestSteps}>

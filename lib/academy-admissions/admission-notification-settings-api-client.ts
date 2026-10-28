@@ -15,7 +15,20 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { admissionApiClient } from "./admission-api-client";
 import { createAdmissionManagementBrowserTransport, admissionManagementBrowserFailure as failure } from "./admission-management-browser-transport";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
+import { omitKeys } from "@/lib/object-omit";
 
+/**
+ * Binds a parsed own DTO to the native viewer the middleend reported in its header.
+ * @param response - Own successful response. @param parsed - DTO guard result. @param writing - Whether a write was sent.
+ * @returns The viewer-bound DTO, or a controlled failure when the DTO or the viewer metadata is unusable.
+ */
+function readViewerBoundValue<Value>(response: Response, parsed: z.ZodSafeParseResult<Value>, writing: boolean): AdmissionNotificationSettingsBrowserResult<AdmissionNotificationSettingsBoundResult<Value>> {
+  let metadata: unknown;
+  try { metadata = JSON.parse(response.headers.get(PERSONAL_INVITATION_VIEWER_HEADER) ?? "null"); } catch { return failure(ADMISSION_ERROR_CODE.publicContractUnusable, writing); }
+  const viewer = personalInvitationViewerMetadataSchema.safeParse(metadata);
+  if (!parsed.success || !viewer.success || viewer.data.viewerId === null) return failure(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+  return { status: STATUS.ready, value: { viewerId: viewer.data.viewerId, data: parsed.data } };
+}
 /** @param options - Own HTTP and viewer ports. @returns Explicit commands and reads with cancellation, no automatic OAuth, retry or dispatch. */
 export function createAdmissionNotificationSettingsApiClient(options: { fetch?: typeof fetch; viewer?: AdmissionNotificationSettingsBrowserClient["viewer"] } = {}): AdmissionNotificationSettingsBrowserClient {
   const transport = options.fetch ?? fetch, { rejected, timedOut } = createAdmissionManagementBrowserTransport(transport);
@@ -36,11 +49,7 @@ export function createAdmissionNotificationSettingsApiClient(options: { fetch?: 
       if (signal.aborted) return { status: STATUS.aborted };
       const ownError = admissionPublicErrorSchema.safeParse(value);
       if (ownError.success) return failure(ownError.data.operation && command?.operationId && ownError.data.operation.operationId !== command.operationId ? ADMISSION_ERROR_CODE.publicContractUnusable : ownError.data.code, Boolean(command));
-      let metadata: unknown;
-      try { metadata = JSON.parse(response.headers.get(PERSONAL_INVITATION_VIEWER_HEADER) ?? "null"); } catch { return failure(ADMISSION_ERROR_CODE.publicContractUnusable, Boolean(command)); }
-      const parsed = schema.safeParse(value), viewer = personalInvitationViewerMetadataSchema.safeParse(metadata);
-      if (!parsed.success || !viewer.success || viewer.data.viewerId === null) return failure(ADMISSION_ERROR_CODE.publicContractUnusable, Boolean(command));
-      return { status: STATUS.ready, value: { viewerId: viewer.data.viewerId, data: parsed.data } };
+      return readViewerBoundValue(response, schema.safeParse(value), Boolean(command));
     } catch { return signal.aborted ? { status: STATUS.aborted } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, Boolean(command)); }
   }
   return {
@@ -68,8 +77,7 @@ export function createAdmissionNotificationSettingsApiClient(options: { fetch?: 
       const result = await request(`${base(slug)}/${API.operation}/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal);
       if (result.status !== STATUS.ready) return result;
       if (result.value.data.type !== REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings || result.value.data.operationId !== operationId) return failure(ADMISSION_ERROR_CODE.publicContractUnusable);
-      const { type: _type, ...original } = result.value.data;
-      return { status: STATUS.ready, value: { viewerId: result.value.viewerId, data: original } };
+      return { status: STATUS.ready, value: { viewerId: result.value.viewerId, data: omitKeys(result.value.data, ["type"]) } };
     },
   };
 }

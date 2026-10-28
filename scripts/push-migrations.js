@@ -112,14 +112,12 @@ async function runPushMigrations(scriptArguments = process.argv.slice(2)) {
 }
 
 if ((process.argv[1] ?? "").endsWith("push-migrations.js")) {
-  runPushMigrations().then((exitCode) => {
-    process.exitCode = exitCode;
-  });
+  runPushMigrations()
+    .then((exitCode) => {
+      process.exitCode = exitCode;
+    })
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
 }
-
-module.exports = {
-  buildDrizzleKitCommand,
-  buildDrizzleKitArguments,
-  normalizeScriptArguments,
-  runPushMigrations,
-};

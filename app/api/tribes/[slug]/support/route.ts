@@ -82,13 +82,7 @@ function isPayloadObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function readRequiredText(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
-}
-
-function readOptionalText(value: unknown): string | null {
+function readTrimmedText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null;
@@ -185,6 +179,70 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type SaveTribeSupportResult = Awaited<
+  ReturnType<RequestModules["tribes"]["useCases"]["saveTribeSupport"]>
+>;
+
+function createPutResultResponse(result: SaveTribeSupportResult): Response {
+  switch (result.status) {
+    case TRIBE_SUPPORT_SAVE_STATUS.updated:
+      return createJsonResponse(
+        {
+          message: SUPPORT_ROUTE_RESPONSE.savedMessage,
+          settings: result.settings
+            ? serializeSettings(result.settings)
+            : null,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_SUPPORT_SAVE_STATUS.notFound:
+      return createJsonResponse(
+        { message: SUPPORT_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_SUPPORT_SAVE_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: SUPPORT_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
+type SupportContact = { message: string | null; phoneNumber: string };
+
+/**
+ * Validates the WhatsApp number and the optional message in the order the
+ * route reports their errors.
+ *
+ * @param parsedBody - JSON body object.
+ * @returns The normalized contact, or the first validation message.
+ */
+function readSupportContact(
+  parsedBody: Record<string, unknown>
+): SupportContact | { errorMessage: string } {
+  const phoneNumber = readTrimmedText(parsedBody.phoneNumber);
+  const message = readTrimmedText(parsedBody.message);
+
+  if (!phoneNumber || !hasPhoneDigits(phoneNumber)) {
+    return { errorMessage: SUPPORT_ROUTE_RESPONSE.missingPhoneMessage };
+  }
+
+  const normalizedPhoneNumber = normalizeWhatsappPhoneNumber(phoneNumber);
+
+  if (!normalizedPhoneNumber) {
+    return { errorMessage: SUPPORT_ROUTE_RESPONSE.invalidPhoneMessage };
+  }
+
+  if (message && message.length > SUPPORT_MESSAGE_MAX_LENGTH) {
+    return { errorMessage: SUPPORT_ROUTE_RESPONSE.messageTooLongMessage };
+  }
+
+  return { message, phoneNumber: normalizedPhoneNumber };
+}
+
 export async function PUT(
   request: Request,
   context: {
@@ -212,7 +270,7 @@ export async function PUT(
   }
 
   try {
-    const parsedBody = await request.json().catch(() => ({}));
+    const parsedBody: unknown = await request.json().catch(() => ({}));
 
     if (!isPayloadObject(parsedBody)) {
       return createJsonResponse(
@@ -230,62 +288,23 @@ export async function PUT(
       );
     }
 
-    const phoneNumber = readRequiredText(parsedBody.phoneNumber);
-    const message = readOptionalText(parsedBody.message);
+    const contact = readSupportContact(parsedBody);
 
-    if (!phoneNumber || !hasPhoneDigits(phoneNumber)) {
+    if ("errorMessage" in contact) {
       return createJsonResponse(
-        { message: SUPPORT_ROUTE_RESPONSE.missingPhoneMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const normalizedPhoneNumber = normalizeWhatsappPhoneNumber(phoneNumber);
-
-    if (!normalizedPhoneNumber) {
-      return createJsonResponse(
-        { message: SUPPORT_ROUTE_RESPONSE.invalidPhoneMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    if (message && message.length > SUPPORT_MESSAGE_MAX_LENGTH) {
-      return createJsonResponse(
-        { message: SUPPORT_ROUTE_RESPONSE.messageTooLongMessage },
+        { message: contact.errorMessage },
         HTTP_STATUS.badRequest
       );
     }
 
     const result = await modules.tribes.useCases.saveTribeSupport({
       channel,
-      message,
-      phoneNumber: normalizedPhoneNumber,
+      message: contact.message,
+      phoneNumber: contact.phoneNumber,
       tribeSlug: slug,
     });
 
-    switch (result.status) {
-      case TRIBE_SUPPORT_SAVE_STATUS.updated:
-        return createJsonResponse(
-          {
-            message: SUPPORT_ROUTE_RESPONSE.savedMessage,
-            settings: result.settings
-              ? serializeSettings(result.settings)
-              : null,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUPPORT_SAVE_STATUS.notFound:
-        return createJsonResponse(
-          { message: SUPPORT_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUPPORT_SAVE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: SUPPORT_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPutResultResponse(result);
   } catch (error) {
     logger.error({
       error,

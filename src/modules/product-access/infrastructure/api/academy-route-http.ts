@@ -13,7 +13,7 @@
 
 import type { z } from "zod";
 
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 export const ACADEMY_HTTP_STATUS = {

@@ -44,7 +44,15 @@ describe("explicit notification recovery HTTP", () => {
 
   it.each(["authority", "reason", "consent", "version", "target"])("should reject invalid %s before opening native services", async (kind) => {
     const fixture = prepareHttp();
-    const extra = kind === "authority" ? { actorUserId: randomUUID(), deduplicationProven: true } : kind === "reason" ? { reason: "retry_uncertain" } : kind === "consent" ? { confirmed: false } : kind === "version" ? { expectedVersion: 0 } : { targetConnectionId: "invalid" };
+    /** @returns The request field that is invalid only for this kind. */
+    const invalidField = () => {
+      if (kind === "authority") return { actorUserId: randomUUID(), deduplicationProven: true };
+      if (kind === "reason") return { reason: "retry_uncertain" };
+      if (kind === "consent") return { confirmed: false };
+      if (kind === "version") return { expectedVersion: 0 };
+      return { targetConnectionId: "invalid" };
+    };
+    const extra = invalidField();
     const response = await fixture.handler(fixture.request({ ...fixture.body, ...extra }), fixture.context);
     expect(response.status).toBe(400);
     expect(fixture.opens).toBe(0);
@@ -60,7 +68,15 @@ describe("explicit notification recovery HTTP", () => {
 
   it.each(["operation", "original", "target", "version", "self_child"])("should reject a valid-shaped result that crosses the requested %s", async (kind) => {
     const fixture = prepareHttp();
-    const result = { ...fixture.result, ...(kind === "original" ? { originalDeliveryId: randomUUID() } : kind === "target" ? { targetConnectionId: randomUUID() } : kind === "version" ? { originalVersion: 4 } : kind === "self_child" ? { recoveryDeliveryId: fixture.result.originalDeliveryId.toUpperCase() } : {}) };
+    /** @returns The result field crossed only for this kind. */
+    const crossedField = () => {
+      if (kind === "original") return { originalDeliveryId: randomUUID() };
+      if (kind === "target") return { targetConnectionId: randomUUID() };
+      if (kind === "version") return { originalVersion: 4 };
+      if (kind === "self_child") return { recoveryDeliveryId: fixture.result.originalDeliveryId.toUpperCase() };
+      return {};
+    };
+    const result = { ...fixture.result, ...crossedField() };
     fixture.setOutcome({ ok: true, value: { state: "completed", operationId: kind === "operation" ? randomUUID() : fixture.body.operationId, result, replayed: false } });
     const response = await fixture.handler(fixture.request(), fixture.context);
     expect(response.status).toBe(500);

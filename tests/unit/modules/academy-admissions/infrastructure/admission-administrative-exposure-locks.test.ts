@@ -28,7 +28,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native administrat
           const reviews = new PostgresAdmissionReviewReader((_scope, run) => run(transaction), async () => false);
           expect((await reviews.readList(scope, { limit: 25 })).records).toEqual([]);
           const deletionPid = (await deletion.query("select pg_backend_pid() as pid")).rows[0].pid;
-          const pendingDeletion = deletion.query("delete from public.\"user\" where id=$1", [guardian.userId]).then(() => ({ code: null as string | null }), (error: { code?: string }) => ({ code: error.code ?? null }));
+          const pendingDeletion = deletion.query("delete from public.\"user\" where id=$1", [guardian.userId]).then(() => ({ code: null as string | null }), (error: unknown) => ({ code: (error as { code?: string }).code ?? null }));
           const horizon = Date.now() + ADMINISTRATIVE_EXPOSURE_LOCK_OBSERVATION.timeoutMs;
           let blocked = false;
           while (!blocked && Date.now() < horizon) {

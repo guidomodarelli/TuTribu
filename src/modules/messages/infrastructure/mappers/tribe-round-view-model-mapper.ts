@@ -44,7 +44,7 @@ export type TribeRoundMessageProjection = {
   likedByViewer: boolean;
   likeCount: number;
   media?: MessageMediaResult[];
-  permissions?: TribeRoundMessageResult["permissions"];
+  permissions?: NonNullable<TribeRoundMessageResult["permissions"]>;
   pinnedAt?: Date | string | null;
   poll?: MessagePollResult | null;
   replyAuthorsPreview?: TribeRoundAuthorProjection[];
@@ -141,10 +141,10 @@ export function createTribeChannel({
       accessScope === TRIBE_CHANNEL_ACCESS_SCOPE.tribemates
         ? accessScope
         : TRIBE_CHANNEL_ACCESS_SCOPE.tribemates,
-    emoji: emoji || "",
+    emoji: emoji ?? "",
     id,
-    name: name || "",
-    slug: slug || "",
+    name: name ?? "",
+    slug: slug ?? "",
     sortOrder: Number(sortOrder ?? 0),
   };
 }

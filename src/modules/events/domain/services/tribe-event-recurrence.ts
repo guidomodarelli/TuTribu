@@ -133,6 +133,101 @@ function estimateFirstCandidateIndex(
 }
 
 /**
+ * Facts of one expansion, in epoch milliseconds.
+ */
+type OccurrenceExpansion = {
+  durationMs: number | null;
+  effectiveDurationMs: number;
+  isSingleEvent: boolean;
+  matchesByOverlap: boolean;
+  rangeEndTime: number;
+  rangeStartTime: number;
+  schedule: TribeEventSchedule;
+  seriesStartTime: number;
+  untilTime: number | null;
+};
+
+/**
+ * Tells whether no later occurrence can match: this one starts at or after
+ * the range end, or after the end of the series.
+ */
+function endsExpansion(expansion: OccurrenceExpansion, occurrenceTime: number): boolean {
+  if (occurrenceTime >= expansion.rangeEndTime) {
+    return true;
+  }
+
+  return expansion.untilTime !== null && occurrenceTime > expansion.untilTime;
+}
+
+/**
+ * Tells whether an occurrence matches the range: by start, or by overlap.
+ */
+function isOccurrenceInRange(expansion: OccurrenceExpansion, occurrenceTime: number): boolean {
+  return expansion.matchesByOverlap
+    ? occurrenceTime + expansion.effectiveDurationMs > expansion.rangeStartTime
+    : occurrenceTime >= expansion.rangeStartTime;
+}
+
+function toOccurrenceWindow(
+  occurrenceTime: number,
+  durationMs: number | null
+): TribeEventOccurrenceWindow {
+  return {
+    endsAt:
+      durationMs === null
+        ? null
+        : new Date(occurrenceTime + durationMs).toISOString(),
+    startsAt: new Date(occurrenceTime).toISOString(),
+  };
+}
+
+/**
+ * Walks the candidate occurrences from `firstIndex`, at most
+ * `TRIBE_EVENT_RECURRENCE_EXPANSION_LIMIT` of them, keeping those in range.
+ */
+function collectOccurrences(
+  expansion: OccurrenceExpansion,
+  firstIndex: number
+): TribeEventOccurrenceWindow[] {
+  const { isSingleEvent, schedule, seriesStartTime } = expansion;
+  const occurrences: TribeEventOccurrenceWindow[] = [];
+
+  for (
+    let index = firstIndex;
+    index < firstIndex + TRIBE_EVENT_RECURRENCE_EXPANSION_LIMIT;
+    index += 1
+  ) {
+    const occurrenceTime = getOccurrenceTime(
+      schedule.recurrenceFrequency,
+      seriesStartTime,
+      index
+    );
+
+    if (occurrenceTime === null) {
+      if (isSingleEvent) {
+        break;
+      }
+
+      continue;
+    }
+
+    if (endsExpansion(expansion, occurrenceTime)) {
+      break;
+    }
+
+    if (isOccurrenceInRange(expansion, occurrenceTime)) {
+      occurrences.push(toOccurrenceWindow(occurrenceTime, expansion.durationMs));
+    }
+
+    if (isSingleEvent) {
+      break;
+    }
+  }
+
+  return occurrences;
+}
+
+/**
  * Expands an event series into its concrete occurrences inside a range. Single
  * events yield at most one occurrence.
  *
@@ -182,60 +277,26 @@ export function expandTribeEventOccurrences(
   const earliestCandidateStartTime = matchesByOverlap
     ? rangeStartTime - effectiveDurationMs
     : rangeStartTime;
-  const occurrences: TribeEventOccurrenceWindow[] = [];
   const firstIndex = estimateFirstCandidateIndex(
     schedule.recurrenceFrequency,
     seriesStartTime,
     earliestCandidateStartTime
   );
 
-  for (
-    let index = firstIndex;
-    index < firstIndex + TRIBE_EVENT_RECURRENCE_EXPANSION_LIMIT;
-    index += 1
-  ) {
-    const occurrenceTime = getOccurrenceTime(
-      schedule.recurrenceFrequency,
+  return collectOccurrences(
+    {
+      durationMs,
+      effectiveDurationMs,
+      isSingleEvent,
+      matchesByOverlap,
+      rangeEndTime,
+      rangeStartTime,
+      schedule,
       seriesStartTime,
-      index
-    );
-
-    if (occurrenceTime === null) {
-      if (isSingleEvent) {
-        break;
-      }
-
-      continue;
-    }
-
-    if (occurrenceTime >= rangeEndTime) {
-      break;
-    }
-
-    if (untilTime !== null && occurrenceTime > untilTime) {
-      break;
-    }
-
-    const isInRange = matchesByOverlap
-      ? occurrenceTime + effectiveDurationMs > rangeStartTime
-      : occurrenceTime >= rangeStartTime;
-
-    if (isInRange) {
-      occurrences.push({
-        endsAt:
-          durationMs === null
-            ? null
-            : new Date(occurrenceTime + durationMs).toISOString(),
-        startsAt: new Date(occurrenceTime).toISOString(),
-      });
-    }
-
-    if (isSingleEvent) {
-      break;
-    }
-  }
-
-  return occurrences;
+      untilTime,
+    },
+    firstIndex
+  );
 }
 
 /**

@@ -89,6 +89,48 @@ function readNumberField(body: unknown, field: string): number | null {
     : null;
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type UpdateTribeChannelResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["updateTribeChannel"]>
+>;
+
+function createPatchResultResponse(result: UpdateTribeChannelResult, slug: string): Response {
+  switch (result.status) {
+    case TRIBE_CHANNEL_MUTATION_STATUS.updated:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          channel: result.channel,
+          message: CHANNEL_ROUTE_RESPONSE.updateSuccessMessage,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.invalidNameMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function PATCH(
   request: Request,
   context: {
@@ -116,7 +158,7 @@ export async function PATCH(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const sortOrder = readNumberField(body, CHANNEL_ROUTE_FIELD.sortOrder);
 
     if (sortOrder === null) {
@@ -134,39 +176,7 @@ export async function PATCH(
       sortOrder,
     });
 
-    switch (result.status) {
-      case TRIBE_CHANNEL_MUTATION_STATUS.updated:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            channel: result.channel,
-            message: CHANNEL_ROUTE_RESPONSE.updateSuccessMessage,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.invalidNameMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPatchResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: CHANNEL_ROUTE_LOG.updateFailureMessage,
@@ -182,6 +192,55 @@ export async function PATCH(
       { message: CHANNEL_ROUTE_RESPONSE.unexpectedUpdateMessage },
       HTTP_STATUS.serverError
     );
+  }
+}
+
+type DeleteTribeChannelResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["deleteTribeChannel"]>
+>;
+
+function createDeleteResultResponse(result: DeleteTribeChannelResult, slug: string): Response {
+  switch (result.status) {
+    case TRIBE_CHANNEL_MUTATION_STATUS.deleted:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.deleteSuccessMessage },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.movedAndDeletedMessage },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.channelHasMessagesMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.invalidChannelMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.lastChannel:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.lastChannelMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
   }
 }
 
@@ -212,55 +271,14 @@ export async function DELETE(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result = await modules.messages.useCases.deleteTribeChannel({
       channelId,
       tribeSlug: slug,
       targetChannelId: readStringField(body, CHANNEL_ROUTE_FIELD.targetChannelId),
     });
 
-    switch (result.status) {
-      case TRIBE_CHANNEL_MUTATION_STATUS.deleted:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.deleteSuccessMessage },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.movedAndDeletedMessage },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.channelHasMessagesMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.invalidChannelMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.lastChannel:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.lastChannelMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createDeleteResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: CHANNEL_ROUTE_LOG.deleteFailureMessage,

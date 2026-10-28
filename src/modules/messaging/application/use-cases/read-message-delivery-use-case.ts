@@ -17,7 +17,7 @@ export class ReadMessageDeliveryUseCase{
     try{
       const account=await this.accounts.getAuthenticatedAccount();if(!account||!isAuthenticatedSessionLive(account.session.expiresAt,this.clock()))throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
       const value=await this.reader.read({actorUserId:account.userId,sessionId:account.session.id,tribeId:query.tribeId,requestId:query.requestId},query.deliveryId);
-      const current=await this.accounts.getAuthenticatedAccount();if(!current||current.userId!==account.userId||current.session.id!==account.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,this.clock()))throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
+      const current=await this.accounts.getAuthenticatedAccount();if(current?.userId !== account.userId||current.session.id!==account.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,this.clock()))throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
       if(!value)return{ok:false as const,failure:messagingFailure(MESSAGING_ERROR_CODE.resourceUnavailable)};
       return{ok:true as const,value};
     }catch(error){return{ok:false as const,failure:messagingFailure(error instanceof MessagingSecretAccessError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure,{cause:error})};}

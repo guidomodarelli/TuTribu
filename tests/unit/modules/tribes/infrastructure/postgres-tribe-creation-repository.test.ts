@@ -5,7 +5,7 @@ import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe
 
 describe("PostgresTribeCreationRepository", () => {
   it("creates the tribe and leader membership through an atomic SQL statement", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           id: "tribe-1",
@@ -54,10 +54,10 @@ describe("PostgresTribeCreationRepository", () => {
 
   it("maps duplicate slug failures to a domain conflict error", async () => {
     const repository = new PostgresTribeCreationRepository(async () => {
-      throw {
-        code: "23505",
-        message: 'duplicate key value violates unique constraint "tribes_slug_key"',
-      };
+      throw Object.assign(
+        new Error('duplicate key value violates unique constraint "tribes_slug_key"'),
+        { code: "23505" }
+      );
     });
 
     await expect(
@@ -71,7 +71,7 @@ describe("PostgresTribeCreationRepository", () => {
   });
 
   it("checks whether a slug is already registered through the diagnostic function that bypasses tribes RLS", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [{ slug_taken: true }],
     }); });
 

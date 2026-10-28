@@ -10,6 +10,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Los líderes de una academia ya pueden habilitar las ventas del acceso pago desde Gestionar academia, con Mercado Pago conectado y un precio configurado.
 - En una tribu en modo academia, quien todavía no es integrante y abre un enlace a una sección (por ejemplo Cursos o Eventos) llega a la página de Academia para solicitar el ingreso, en lugar de ver «Esta página no existe o ya no está disponible».
+- Cuando no podés dar «Me gusta» a un mensaje, el botón igual se enfoca con el teclado y los lectores de pantalla lo anuncian como un botón no disponible; al enfocarlo sigue mostrando quiénes dieron me gusta, sin abrir el mensaje.
 
 ## [1.10.0] - 2026-10-26
 

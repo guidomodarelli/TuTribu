@@ -470,7 +470,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
       );
     });
   }
@@ -482,7 +482,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
       );
     });
   }
@@ -500,7 +500,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         )
       `);
 
-      return (result.rows ?? []) as PendingRemoteFileRow[];
+      return result.rows as PendingRemoteFileRow[];
     });
   }
 
@@ -513,7 +513,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         from public.list_queued_remote_file_deletions(${batchLimit})
       `);
 
-      return (result.rows ?? []) as QueuedRemoteFileRow[];
+      return result.rows as QueuedRemoteFileRow[];
     });
   }
 
@@ -528,7 +528,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
           ${batchLimit}
         ) as reclaimed
       `);
-      const reclaimed = ((result.rows?.[0] ?? null) as ReclaimedDraftsRow | null)
+      const reclaimed = ((result.rows[0] ?? null) as ReclaimedDraftsRow | null)
         ?.reclaimed;
 
       return Number(reclaimed ?? 0);
@@ -566,7 +566,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
           )
       `);
 
-      return (result.rows ?? []) as AttachableMessageFileRow[];
+      return result.rows as AttachableMessageFileRow[];
     });
   }
 
@@ -602,7 +602,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as DeletableMessageFileRow | null;
+      return (result.rows[0] ?? null) as DeletableMessageFileRow | null;
     });
   }
 
@@ -637,7 +637,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as DownloadableMessageFileRow | null;
+      return (result.rows[0] ?? null) as DownloadableMessageFileRow | null;
     });
   }
 
@@ -670,7 +670,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
           and message_files.status = ${MESSAGE_FILE_STATUS.pendingDelete}
       `);
 
-      return (result.rows ?? []) as DeletableMessageFileRow[];
+      return result.rows as DeletableMessageFileRow[];
     });
   }
 
@@ -687,7 +687,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         limit 1
       `);
 
-      return (result.rows?.[0] ?? null) as TargetTribeRow | null;
+      return (result.rows[0] ?? null) as TargetTribeRow | null;
     });
   }
 
@@ -737,7 +737,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         returning message_files.id as asset_id
       `);
 
-      return (result.rows?.[0] ?? null) as InsertedMessageFileRow | null;
+      return (result.rows[0] ?? null) as InsertedMessageFileRow | null;
     });
   }
 
@@ -752,7 +752,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedMessageFileRow | null)?.asset_id
+        ((result.rows[0] ?? null) as MarkedMessageFileRow | null)?.asset_id
       );
     });
   }
@@ -769,7 +769,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedMessageFileRow | null)?.asset_id
+        ((result.rows[0] ?? null) as MarkedMessageFileRow | null)?.asset_id
       );
     });
   }
@@ -803,7 +803,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
       `);
 
       return Boolean(
-        ((result.rows?.[0] ?? null) as MarkedMessageFileRow | null)?.asset_id
+        ((result.rows[0] ?? null) as MarkedMessageFileRow | null)?.asset_id
       );
     });
   }

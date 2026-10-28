@@ -62,7 +62,7 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
         ) as events
         order by events.id asc
       `);
-      const rows = (seriesResult.rows ?? []) as TribeEventReminderSeriesRow[];
+      const rows = seriesResult.rows as TribeEventReminderSeriesRow[];
       const pageRows = rows.slice(0, limit);
       const hasNextPage = rows.length > limit;
 
@@ -79,7 +79,7 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
         ) as event_occurrence_exceptions
       `);
       const exceptions = mapTribeEventOccurrenceExceptions(
-        (exceptionsResult.rows ?? []) as TribeEventOccurrenceExceptionRow[]
+        exceptionsResult.rows as TribeEventOccurrenceExceptionRow[]
       );
 
       return {
@@ -134,7 +134,7 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
       `);
 
       return mapCount(
-        ((result.rows?.[0] ?? null) as { created_count: number | string | null } | null)
+        ((result.rows[0] ?? null) as { created_count: number | string | null } | null)
           ?.created_count ?? null
       );
     });

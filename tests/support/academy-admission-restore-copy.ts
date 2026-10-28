@@ -15,7 +15,7 @@ import {
 } from "./constants/academy-admission-restore-copy";
 
 /** Consumes only metadata required to fence an already owned branch. */
-type Branch = { id: string; name: string; parent_id: string; default: boolean };
+type Branch = { id: string; name: string; parent_id: string; default?: boolean };
 /** Consumes only the asynchronous operation identity and terminal discriminator. */
 type Operation = { id: string; status: string };
 /** Uses the existing private administrative transport, including its authentication and request deadline. */
@@ -62,7 +62,7 @@ export async function withAcademyAdmissionRestoreCopy<Result>(input: {
   let result: Result | undefined, workError: unknown, failed = false;
 
   /** @param branch - Current provider facts. @param expected - Independently known own identity. @returns Nothing after exact ownership is proven. */
-  const assertOwned = (branch: Branch, expected: Branch): void => {
+  const assertOwned = (branch: Branch | null | undefined, expected: Branch): void => {
     if (!branch?.id || !expected.id || branch.id !== expected.id || branch.name !== expected.name || branch.parent_id !== expected.parent_id || branch.default !== false || branch.id === branch.parent_id) {
       throw new AcademyAdmissionRestoreError(ADMISSION_RESTORE_ERROR_CODE.ownershipUnproven, "authorize", expected.id);
     }
@@ -180,7 +180,7 @@ export async function withAcademyAdmissionRestoreCopy<Result>(input: {
       });
     } catch (error) { cleanupErrors.push(error); }
   }
-  if (cleanupErrors.length) throw new AcademyAdmissionRestoreError(ADMISSION_RESTORE_ERROR_CODE.cleanupIncomplete, "cleanup", owned?.id, new AggregateError([...(failed ? [workError] : []), ...cleanupErrors]), { branchName: name, parentId: source.id });
+  if (cleanupErrors.length) throw new AcademyAdmissionRestoreError(ADMISSION_RESTORE_ERROR_CODE.cleanupIncomplete, "cleanup", owned?.id, new AggregateError([...(failed ? [workError] : []), ...cleanupErrors], "AcademyAdmissionRestore.cleanup failed: cleanup_incomplete"), { branchName: name, parentId: source.id });
   if (failed) throw new AcademyAdmissionRestoreError(ADMISSION_RESTORE_ERROR_CODE.setupFailed, "run", owned?.id, workError, { branchName: name, parentId: source.id });
   return result as Result;
 }

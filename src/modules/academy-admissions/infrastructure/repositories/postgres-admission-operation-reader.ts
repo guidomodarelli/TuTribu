@@ -34,8 +34,25 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
     if (!(await database.execute(sql`select id from public.session where id=${scope.sessionId} and "userId"=${scope.userId} and "userId"=public.current_app_user_id() and "expiresAt">clock_timestamp()`)).rows[0]) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
   }
 
+  /** @param database - Same read transaction. @param scope - Native server account/session/tribe. @param target - Registered action and whether the actor is the active leader. @throws AdmissionOperationError unless the current leader may recover leader-only work. */
+  private async authorizeLeaderRecovery(database: RequestDatabase, scope: AdmissionCommandScope, { operationType, leader }: { operationType: RegisteredOperationRow["operation_type"]; leader: boolean }): Promise<void> {
+    if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(operationType) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    if (operationType === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings || operationType === REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview) {
+      if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      await authorizeAdmissionPolicy(database, { ...scope, action: ADMISSION_ACTION.readPolicy, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId });
+    }
+    if (PERSONAL_INVITATION_RECOVERABLE_OPERATIONS.includes(operationType)) {
+      if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageInvitations, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageInvitations, resourceId: scope.tribeId });
+    }
+    if (ALLOWLIST_RECOVERABLE_OPERATIONS.includes(operationType) || ALLOWLIST_IMPORT_RECOVERABLE_OPERATIONS.includes(operationType)) {
+      if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageAllowlist, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageAllowlist, resourceId: scope.tribeId });
+    }
+  }
+
   /** @param scope - Native server account/session/tribe. @param operationId - Original client UUID. @returns Genuine registered original state or absence, without creating work. */
-  async read(scope: AdmissionCommandScope, operationId: string): Promise<unknown | null> {
+  async read(scope: AdmissionCommandScope, operationId: string): Promise<unknown> {
     return this.execute(scope, async (database) => {
       await this.authorizeSession(database, scope);
       const rows = (await database.execute<RegisteredOperationRow>(sql`select operation_type,state,idempotency_key,public_result,member_role,member_status,request_user_id from public.read_own_admission_operations(${scope.tribeId},${scope.sessionId},${operationId}) where operation_type=any(${sql.param(ADMISSION_RECOVERABLE_OPERATION_TYPES)}::text[]) limit 2`)).rows;
@@ -44,29 +61,22 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
       if (!row) { await this.authorizeSession(database, scope); return null; }
       const leader = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && row.member_role === TRIBE_MEMBER_ROLE.leader;
       const reviewer = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && (row.member_role === TRIBE_MEMBER_ROLE.leader || row.member_role === TRIBE_MEMBER_ROLE.guardian);
-      if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(row.operation_type) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      if (row.operation_type === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings || row.operation_type === REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview) {
-        if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-        await authorizeAdmissionPolicy(database, { ...scope, action: ADMISSION_ACTION.readPolicy, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId });
-      }
-      if (PERSONAL_INVITATION_RECOVERABLE_OPERATIONS.includes(row.operation_type)) {
-        if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-        await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageInvitations, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageInvitations, resourceId: scope.tribeId });
-      }
-      if (ALLOWLIST_RECOVERABLE_OPERATIONS.includes(row.operation_type) || ALLOWLIST_IMPORT_RECOVERABLE_OPERATIONS.includes(row.operation_type)) {
-        if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-        await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageAllowlist, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageAllowlist, resourceId: scope.tribeId });
-      }
-      if ((row.operation_type === ADMISSION_OPERATION_TYPE.decide || row.operation_type === ADMISSION_BATCH_DECISION_OPERATION) && !reviewer) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      if (row.operation_type === ADMISSION_OPERATION_TYPE.allowRetry && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      if (row.operation_type === ADMISSION_WHATSAPP_OPERATION && row.state === OPERATION_STATE.completed && row.request_user_id !== scope.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      if (row.operation_type === ADMISSION_OPERATION_TYPE.cancel && row.state === OPERATION_STATE.completed) {
-        const result = row.public_result;
-        if (typeof result !== "object" || result === null || !("admissionRequestId" in result) || typeof result.admissionRequestId !== "string") throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-        if (!row.request_user_id || row.request_user_id !== scope.userId && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      }
+      await this.authorizeLeaderRecovery(database, scope, { operationType: row.operation_type, leader });
+      assertRecoveryOwnership(row, scope, { leader, reviewer });
       await this.authorizeSession(database, scope);
       return { operationType: row.operation_type, operation: row.state === OPERATION_STATE.started ? { state: OPERATION_STATE.started, operationId: row.idempotency_key } : { state: OPERATION_STATE.completed, operationId: row.idempotency_key, replayed: true, result: row.public_result } };
     });
+  }
+}
+
+/** @param row - Registered original. @param scope - Native server account. @param actor - Whether the actor is the active leader or an active reviewer. @throws AdmissionOperationError unless the actor may read this decision, retry, WhatsApp or cancel original. */
+function assertRecoveryOwnership(row: RegisteredOperationRow, scope: AdmissionCommandScope, { leader, reviewer }: { leader: boolean; reviewer: boolean }): void {
+  if ((row.operation_type === ADMISSION_OPERATION_TYPE.decide || row.operation_type === ADMISSION_BATCH_DECISION_OPERATION) && !reviewer) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  if (row.operation_type === ADMISSION_OPERATION_TYPE.allowRetry && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  if (row.operation_type === ADMISSION_WHATSAPP_OPERATION && row.state === OPERATION_STATE.completed && row.request_user_id !== scope.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  if (row.operation_type === ADMISSION_OPERATION_TYPE.cancel && row.state === OPERATION_STATE.completed) {
+    const result = row.public_result;
+    if (typeof result !== "object" || result === null || !("admissionRequestId" in result) || typeof result.admissionRequestId !== "string") throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+    if (!row.request_user_id || row.request_user_id !== scope.userId && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }
 }

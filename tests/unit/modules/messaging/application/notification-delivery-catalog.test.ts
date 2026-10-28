@@ -31,10 +31,14 @@ describe("notification delivery catalog", () => {
   });
   it.each(["private_field", "bad_version", "same_child", "bad_cursor"] as const)("should reject unusable own %s facts safely", async (scenario) => {
     const fixture = setupCatalog();
-    fixture.replace(scenario === "private_field" ? { items: [{ ...fixture.item, recipient: "private" }], nextCursor: null }
-      : scenario === "bad_version" ? { items: [{ ...fixture.item, version: 0 }], nextCursor: null }
-      : scenario === "same_child" ? { items: [{ ...fixture.item, recoveryDeliveryId: fixture.item.id.toUpperCase() }], nextCursor: null }
-      : { items: [fixture.item], nextCursor: { deliveryId: randomUUID(), createdAt: fixture.item.createdAt } });
+    /** @returns The catalog page that is unusable only in this scenario's fact. */
+    const unusablePage = () => {
+      if (scenario === "private_field") return { items: [{ ...fixture.item, recipient: "private" }], nextCursor: null };
+      if (scenario === "bad_version") return { items: [{ ...fixture.item, version: 0 }], nextCursor: null };
+      if (scenario === "same_child") return { items: [{ ...fixture.item, recoveryDeliveryId: fixture.item.id.toUpperCase() }], nextCursor: null };
+      return { items: [fixture.item], nextCursor: { deliveryId: randomUUID(), createdAt: fixture.item.createdAt } };
+    };
+    fixture.replace(unusablePage());
     expect(await fixture.useCase.execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
   });
   it("should deny a guardian before reading the leader catalog", async () => {

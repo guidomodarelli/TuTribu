@@ -52,10 +52,14 @@ describe("admission notification grouping policy", () => {
 
   it.each(["request", "recipient preference", "availability", "email settings"])("should reject crossed %s scope before constructing a group", (scope) => {
     const input = facts();
-    const changed = scope === "request" ? { ...input, request: { ...input.request, tribeId: "other-tribe" } }
-      : scope === "recipient preference" ? { ...input, recipient: { ...input.recipient, preference: { ...input.recipient.preference!, recipientUserId: "other-account" } } }
-      : scope === "availability" ? { ...input, availability: { ...input.availability, recipientUserId: "other-account" } }
-      : { ...input, emailSettings: { ...input.emailSettings, tribeId: "other-tribe" } };
+    /** @returns The facts crossed only in this scope. */
+    const crossScope = () => {
+      if (scope === "request") return { ...input, request: { ...input.request, tribeId: "other-tribe" } };
+      if (scope === "recipient preference") return { ...input, recipient: { ...input.recipient, preference: { ...input.recipient.preference!, recipientUserId: "other-account" } } };
+      if (scope === "availability") return { ...input, availability: { ...input.availability, recipientUserId: "other-account" } };
+      return { ...input, emailSettings: { ...input.emailSettings, tribeId: "other-tribe" } };
+    };
+    const changed = crossScope();
     expect(planAdmissionNotificationEmailCandidate(changed)).toEqual({ status: "suppressed", reason: "notification_scope_mismatch" });
   });
 

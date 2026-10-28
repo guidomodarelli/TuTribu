@@ -1,3 +1,6 @@
+/** Dotted Orca version number (major.minor with an optional patch), shared by both version line forms. */
+const ORCA_VERSION_SOURCE = String.raw`\d+\.\d+(?:\.\d+)?`;
+
 /** Bounds a disposable Linux reader capability probe; product journeys retain their separate gate. */
 export const ADMISSION_READER_PROBE = {
   engines: ["chromium", "webkit"],
@@ -56,10 +59,11 @@ export const ADMISSION_READER_PROBE = {
   },
   actionKeyWords: ["tab", "space"],
   outputPatterns: {
-    versionLine: /^(?:(?<plainVersion>\d+\.\d+(?:\.\d+)?)\s*$|Orca version (?<detailedVersion>\d+\.\d+(?:\.\d+)?)(?=,|\s|$))/gmu,
+    versionLine: new RegExp(String.raw`^(?:(?<plainVersion>${ORCA_VERSION_SOURCE})\s*$|Orca version (?<detailedVersion>${ORCA_VERSION_SOURCE})(?=,|\s|$))`, "gmu"),
     lineSeparator: /\r?\n/u,
-    markup: /<[^>]*>/gu,
-    speechEnvelope: /^[\s:'"]+|[\s'"]+$/gu,
+    // A tag cannot contain `<`: a stray `<` in spoken text no longer swallows the words up to the next tag.
+    markup: /<[^<>]*>/gu,
+    speechEnvelope: /^[\s:'"]+|(?<![\s'"])[\s'"]+$/gu,
     wordSeparator: /\s+/u,
     whitespace: /\s+/gu,
   },

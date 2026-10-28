@@ -21,8 +21,13 @@ const COPY = {
   separator: " · ",
   waitlistedSuffix: " en espera",
   maybeSuffix: " tal vez",
-  goingVerb: (count: number, isPast: boolean) =>
-    isPast ? (count === 1 ? " fue" : " fueron") : count === 1 ? " va" : " van",
+  goingVerb: (count: number, isPast: boolean) => {
+    if (isPast) {
+      return count === 1 ? " fue" : " fueron";
+    }
+
+    return count === 1 ? " va" : " van";
+  },
   remainingSpots: (spots: number) => (spots === 1 ? "Queda 1 lugar" : `Quedan ${spots} lugares`),
   streak: (attended: number, total: number) =>
     `Fuiste a ${attended} de los últimos ${total} encuentros 🔥`,

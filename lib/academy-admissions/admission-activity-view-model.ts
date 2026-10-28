@@ -17,6 +17,24 @@ function displayPrimitive(value: string | number | boolean | readonly string[] |
   return String(value);
 }
 
+/** @param label - Change label. @param policy - Guarded policy snapshot. @returns One labeled row per present snapshot field. */
+function policySnapshotRows(label: string, policy: PolicySnapshot): AdmissionActivityDetailRow[] {
+  const rows: AdmissionActivityDetailRow[] = [];
+  for (const [policyName, policyLabel] of Object.entries(ADMISSION_POLICY_SNAPSHOT_LABELS)) {
+    const policyValue = policy[policyName as keyof PolicySnapshot];
+    if (policyValue === undefined) continue;
+    rows.push({ label: `${label} · ${policyLabel}`, value: policyName === "activatedAt" && typeof policyValue === "string" ? formatAdmissionObservationTime(policyValue) : displayPrimitive(policyValue) });
+  }
+  return rows;
+}
+
+/** @param field - Change field. @param value - Its guarded primitive value. @returns Display copy: durations and cutoffs formatted, anything else as a primitive. */
+function displayChangeValue(field: keyof ActivityChanges, value: string | number | boolean | readonly string[] | null): string {
+  if (field === "durationMs" && typeof value === "number") return formatAdmissionObservationDuration(value);
+  if (field === "cutoff" && typeof value === "string") return formatAdmissionObservationTime(value);
+  return displayPrimitive(value);
+}
+
 /**
  * Chooses only named fields of the existing own historical DTO and its policy snapshots.
  * @param changes - Already guarded owner facts; no JSON body, provider profile or free note is accepted.
@@ -27,16 +45,8 @@ export function createAdmissionActivityDetailRows(changes: ActivityChanges): Adm
   for (const [name, label] of Object.entries(ADMISSION_ACTIVITY_CHANGE_LABELS)) {
     const field = name as keyof ActivityChanges, value = changes[field];
     if (value === undefined) continue;
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      const policy = value as PolicySnapshot;
-      for (const [policyName, policyLabel] of Object.entries(ADMISSION_POLICY_SNAPSHOT_LABELS)) {
-        const policyValue = policy[policyName as keyof PolicySnapshot];
-        if (policyValue === undefined) continue;
-        rows.push({ label: `${label} · ${policyLabel}`, value: policyName === "activatedAt" && typeof policyValue === "string" ? formatAdmissionObservationTime(policyValue) : displayPrimitive(policyValue) });
-      }
-    } else {
-      rows.push({ label, value: field === "durationMs" && typeof value === "number" ? formatAdmissionObservationDuration(value) : field === "cutoff" && typeof value === "string" ? formatAdmissionObservationTime(value) : displayPrimitive(value) });
-    }
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) rows.push(...policySnapshotRows(label, value));
+    else rows.push({ label, value: displayChangeValue(field, value) });
   }
   return rows;
 }

@@ -153,6 +153,54 @@ export function parseSandboxArguments(scriptArguments) {
   return { isDryRun: flags.includes(SANDBOX_FLAG.dryRun), mode };
 }
 
+const SLUG_SEPARATOR = "-";
+const LAST_INDEX = -1;
+const SECOND_TO_LAST_INDEX = -2;
+const LINE_FEED = "\n";
+const CARRIAGE_RETURN = "\r";
+
+/**
+ * Removes every leading and trailing occurrence of a character.
+ *
+ * @param {string} text - Text to trim.
+ * @param {string} character - Single character to remove from both ends.
+ * @returns {string} Trimmed text.
+ */
+function trimCharacter(text, character) {
+  let start = 0;
+  let end = text.length;
+
+  while (start < end && text[start] === character) {
+    start += 1;
+  }
+
+  while (end > start && text[end - 1] === character) {
+    end -= 1;
+  }
+
+  return text.slice(start, end);
+}
+
+/**
+ * Removes the trailing line breaks (`\n` or `\r\n`) of a text.
+ *
+ * @param {string} text - Text to trim.
+ * @returns {string} Text without trailing line breaks.
+ */
+function trimTrailingLineBreaks(text) {
+  let trimmed = text;
+
+  while (trimmed.endsWith(LINE_FEED)) {
+    trimmed = trimmed.slice(0, LAST_INDEX);
+
+    if (trimmed.endsWith(CARRIAGE_RETURN)) {
+      trimmed = trimmed.slice(0, LAST_INDEX);
+    }
+  }
+
+  return trimmed;
+}
+
 /**
  * Resolves the stable sandbox branch name: the explicit override when set,
  * otherwise `dev-sandbox-<os-username>` so each developer gets one branch.
@@ -168,10 +216,10 @@ export function resolveSandboxBranchName({ branchNameOverride, username }) {
     return trimmedOverride;
   }
 
-  const usernameSlug = username
+  const dashedUsername = username
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, "-");
+  const usernameSlug = trimCharacter(dashedUsername, SLUG_SEPARATOR);
 
   if (!usernameSlug) {
     throw new Error(`${OPERATION_PREFIX}: no se pudo derivar el nombre de la branch del usuario; definí ${SANDBOX_ENVIRONMENT.branchName}.`);
@@ -266,7 +314,7 @@ export function removeSandboxEnvironment(environmentFileText) {
     }
   }
 
-  while (keptLines.length > 1 && keptLines.at(-1) === "" && keptLines.at(-2) === "") {
+  while (keptLines.length > 1 && keptLines.at(LAST_INDEX) === "" && keptLines.at(SECOND_TO_LAST_INDEX) === "") {
     keptLines.pop();
   }
 
@@ -284,7 +332,7 @@ export function removeSandboxEnvironment(environmentFileText) {
  */
 export function upsertSandboxEnvironment(environmentFileText, connectionStrings) {
   const lineEnding = detectLineEnding(environmentFileText);
-  const baseText = removeSandboxEnvironment(environmentFileText).replace(/(\r?\n)+$/, "");
+  const baseText = trimTrailingLineBreaks(removeSandboxEnvironment(environmentFileText));
   const blockLines = [
     ENVIRONMENT_BLOCK_MARKER.start,
     ...MANAGED_ENVIRONMENT_KEYS.map((key) => `${key}=${connectionStrings[key]}`),
@@ -559,6 +607,91 @@ function readEnvironmentFile(environmentFilePath) {
 }
 
 /**
+ * Runs one planned step. Steps that create or read the branch update
+ * `run.state` for the steps that follow.
+ *
+ * @param {string} step - Planned step.
+ * @param {{ apiKey: string | undefined, branchName: string, environmentFilePath: string, existingBranch: unknown, projectId: string | undefined, state: { branchId: string | undefined, connectionString: string | undefined } }} run - Shared run context.
+ * @returns {Promise<number | undefined>} Exit code that stops the run, or `undefined` to continue.
+ */
+async function runSandboxStep(step, run) {
+  const { apiKey, branchName, environmentFilePath, existingBranch, projectId, state } = run;
+
+  switch (step) {
+    case SANDBOX_STEP.createBranch:
+      console.log(SCRIPT_MESSAGE.step.createBranch(branchName));
+      state.branchId = await createSandboxBranch({ apiKey, branchName, projectId });
+      break;
+    case SANDBOX_STEP.reuseBranch:
+      console.log(SCRIPT_MESSAGE.step.reuseBranch(branchName));
+      await ensureReadWriteEndpoint({ apiKey, branchId: state.branchId, projectId });
+      break;
+    case SANDBOX_STEP.resetBranch:
+      console.log(SCRIPT_MESSAGE.step.resetBranch(branchName));
+      state.branchId = await resetSandboxBranch({ apiKey, branch: existingBranch, projectId });
+      await ensureReadWriteEndpoint({ apiKey, branchId: state.branchId, projectId });
+      break;
+    case SANDBOX_STEP.deleteBranch:
+      console.log(SCRIPT_MESSAGE.step.deleteBranch(branchName));
+      await deleteSandboxBranch({ apiKey, branchId: state.branchId, projectId });
+      break;
+    case SANDBOX_STEP.migrate: {
+      console.log(SCRIPT_MESSAGE.step.migrate);
+      state.connectionString = await readSandboxConnectionString({ apiKey, branchId: state.branchId, projectId });
+      const migrationExitCode = await migrateSandbox(state.connectionString);
+      // drizzle-kit leaves its spinner line without a trailing newline.
+      console.log();
+
+      if (migrationExitCode !== EXIT_CODE.success) {
+        console.error(SCRIPT_MESSAGE.migrationsFailed);
+        return migrationExitCode;
+      }
+      break;
+    }
+    case SANDBOX_STEP.generateMessagingKeys: {
+      console.log(SCRIPT_MESSAGE.step.generateMessagingKeys);
+      const messagingEnvironment = buildDevelopmentMessagingEnvironment();
+      writeFileSync(environmentFilePath, appendDevelopmentMessagingEnvironment(readEnvironmentFile(environmentFilePath), messagingEnvironment));
+      // The enrollment child process inherits these values in this same run.
+      Object.assign(process.env, messagingEnvironment);
+      console.log(SCRIPT_MESSAGE.messagingKeysGenerated);
+      break;
+    }
+    case SANDBOX_STEP.enrollMessagingKeys: {
+      console.log(SCRIPT_MESSAGE.step.enrollMessagingKeys);
+      const enrollmentExitCode = await enrollSandboxMessagingKeys(state.connectionString);
+
+      if (enrollmentExitCode !== EXIT_CODE.success) {
+        console.error(SCRIPT_MESSAGE.messagingKeyEnrollmentFailed);
+        return enrollmentExitCode;
+      }
+      break;
+    }
+    case SANDBOX_STEP.writeEnvironment:
+      writeFileSync(
+        environmentFilePath,
+        upsertSandboxEnvironment(
+          readEnvironmentFile(environmentFilePath),
+          buildSandboxEnvironment(state.connectionString)
+        )
+      );
+      console.log(SCRIPT_MESSAGE.environmentWritten(redactConnectionString(state.connectionString)));
+      console.log(SCRIPT_MESSAGE.ready);
+      break;
+    case SANDBOX_STEP.removeEnvironment:
+      if (existsSync(environmentFilePath)) {
+        writeFileSync(environmentFilePath, removeSandboxEnvironment(readEnvironmentFile(environmentFilePath)));
+      }
+      console.log(SCRIPT_MESSAGE.environmentRemoved);
+      break;
+    default:
+      throw new Error(`${OPERATION_PREFIX}: paso desconocido ${step}`);
+  }
+
+  return undefined;
+}
+
+/**
  * Runs the requested mode end to end.
  *
  * @param {string[]} scriptArguments - Arguments after the script path.
@@ -597,80 +730,20 @@ async function main(scriptArguments) {
     return EXIT_CODE.success;
   }
 
-  let branchId = existingBranch?.id;
-  /** @type {string | undefined} */
-  let connectionString;
+  const run = {
+    apiKey,
+    branchName,
+    environmentFilePath,
+    existingBranch,
+    projectId,
+    state: { branchId: existingBranch?.id, connectionString: undefined },
+  };
 
   for (const step of steps) {
-    switch (step) {
-      case SANDBOX_STEP.createBranch:
-        console.log(SCRIPT_MESSAGE.step.createBranch(branchName));
-        branchId = await createSandboxBranch({ apiKey, branchName, projectId });
-        break;
-      case SANDBOX_STEP.reuseBranch:
-        console.log(SCRIPT_MESSAGE.step.reuseBranch(branchName));
-        await ensureReadWriteEndpoint({ apiKey, branchId, projectId });
-        break;
-      case SANDBOX_STEP.resetBranch:
-        console.log(SCRIPT_MESSAGE.step.resetBranch(branchName));
-        branchId = await resetSandboxBranch({ apiKey, branch: existingBranch, projectId });
-        await ensureReadWriteEndpoint({ apiKey, branchId, projectId });
-        break;
-      case SANDBOX_STEP.deleteBranch:
-        console.log(SCRIPT_MESSAGE.step.deleteBranch(branchName));
-        await deleteSandboxBranch({ apiKey, branchId, projectId });
-        break;
-      case SANDBOX_STEP.migrate: {
-        console.log(SCRIPT_MESSAGE.step.migrate);
-        connectionString = await readSandboxConnectionString({ apiKey, branchId, projectId });
-        const migrationExitCode = await migrateSandbox(connectionString);
-        // drizzle-kit leaves its spinner line without a trailing newline.
-        console.log();
+    const stepExitCode = await runSandboxStep(step, run);
 
-        if (migrationExitCode !== EXIT_CODE.success) {
-          console.error(SCRIPT_MESSAGE.migrationsFailed);
-          return migrationExitCode;
-        }
-        break;
-      }
-      case SANDBOX_STEP.generateMessagingKeys: {
-        console.log(SCRIPT_MESSAGE.step.generateMessagingKeys);
-        const messagingEnvironment = buildDevelopmentMessagingEnvironment();
-        writeFileSync(environmentFilePath, appendDevelopmentMessagingEnvironment(readEnvironmentFile(environmentFilePath), messagingEnvironment));
-        // The enrollment child process inherits these values in this same run.
-        Object.assign(process.env, messagingEnvironment);
-        console.log(SCRIPT_MESSAGE.messagingKeysGenerated);
-        break;
-      }
-      case SANDBOX_STEP.enrollMessagingKeys: {
-        console.log(SCRIPT_MESSAGE.step.enrollMessagingKeys);
-        const enrollmentExitCode = await enrollSandboxMessagingKeys(connectionString);
-
-        if (enrollmentExitCode !== EXIT_CODE.success) {
-          console.error(SCRIPT_MESSAGE.messagingKeyEnrollmentFailed);
-          return enrollmentExitCode;
-        }
-        break;
-      }
-      case SANDBOX_STEP.writeEnvironment:
-        writeFileSync(
-          environmentFilePath,
-          upsertSandboxEnvironment(
-            readEnvironmentFile(environmentFilePath),
-            buildSandboxEnvironment(connectionString)
-          )
-        );
-        console.log(SCRIPT_MESSAGE.environmentWritten(redactConnectionString(connectionString)));
-        console.log(SCRIPT_MESSAGE.ready);
-        break;
-      case SANDBOX_STEP.removeEnvironment:
-        if (existsSync(environmentFilePath)) {
-          writeFileSync(environmentFilePath, removeSandboxEnvironment(readEnvironmentFile(environmentFilePath)));
-        }
-        console.log(SCRIPT_MESSAGE.environmentRemoved);
-        break;
-      default:
-        throw new Error(`${OPERATION_PREFIX}: paso desconocido ${step}`);
+    if (stepExitCode !== undefined) {
+      return stepExitCode;
     }
   }
 

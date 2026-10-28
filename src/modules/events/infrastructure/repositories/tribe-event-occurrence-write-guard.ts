@@ -132,7 +132,7 @@ async function readTribeEventOccurrenceWriteGuard(
       and events.id = ${eventId}
     limit 1
   `);
-  const row = (result.rows?.[0] ?? null) as OccurrenceWriteGuardRow | null;
+  const row = (result.rows[0] ?? null) as OccurrenceWriteGuardRow | null;
 
   if (!row?.tribe_id || !row.can_read) {
     return null;

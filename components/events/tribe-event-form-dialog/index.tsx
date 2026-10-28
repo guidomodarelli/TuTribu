@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type Dispatch, type SetStateAction, type SubmitEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { Button, Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
@@ -319,39 +319,40 @@ function createInitialFormState(
   };
 }
 
-function createInitialValues(
-  occurrence: TribeEventOccurrenceResult | null,
+/** Initial values of a new event, prefilled from a template or proposal. */
+function createInitialCreateValues(
   initialValues: TribeEventFormInitialValues | undefined
 ): EventFormValues {
-  if (!occurrence) {
-    const suggestedEndsAt =
-      initialValues?.startsAt && initialValues.durationMinutes
-        ? new Date(
-            Date.parse(initialValues.startsAt) +
-              initialValues.durationMinutes * TIME_FORMAT.millisecondsPerMinute
-          ).toISOString()
-        : null;
-    const startDateKey = initialValues?.startsAt
-      ? getBuenosAiresDateKey(initialValues.startsAt)
-      : EMPTY_VALUE;
-    const endDateKey = suggestedEndsAt ? getBuenosAiresDateKey(suggestedEndsAt) : EMPTY_VALUE;
+  const suggestedEndsAt =
+    initialValues?.startsAt && initialValues.durationMinutes
+      ? new Date(
+          Date.parse(initialValues.startsAt) +
+            initialValues.durationMinutes * TIME_FORMAT.millisecondsPerMinute
+        ).toISOString()
+      : null;
+  const startDateKey = initialValues?.startsAt
+    ? getBuenosAiresDateKey(initialValues.startsAt)
+    : EMPTY_VALUE;
+  const endDateKey = suggestedEndsAt ? getBuenosAiresDateKey(suggestedEndsAt) : EMPTY_VALUE;
 
-    return {
-      ...FORM_DEFAULTS,
-      date: startDateKey,
-      description: initialValues?.description ?? FORM_DEFAULTS.description,
-      endsDate: endDateKey === startDateKey ? EMPTY_VALUE : endDateKey,
-      endsTime: suggestedEndsAt ? formatBuenosAiresTime(suggestedEndsAt) : EMPTY_VALUE,
-      eventType: initialValues?.eventType ?? FORM_DEFAULTS.eventType,
-      recurrenceFrequency:
-        initialValues?.recurrenceFrequency ?? FORM_DEFAULTS.recurrenceFrequency,
-      startsTime: initialValues?.startsAt
-        ? formatBuenosAiresTime(initialValues.startsAt)
-        : EMPTY_VALUE,
-      title: initialValues?.title ?? FORM_DEFAULTS.title,
-    };
-  }
+  return {
+    ...FORM_DEFAULTS,
+    date: startDateKey,
+    description: initialValues?.description ?? FORM_DEFAULTS.description,
+    endsDate: endDateKey === startDateKey ? EMPTY_VALUE : endDateKey,
+    endsTime: suggestedEndsAt ? formatBuenosAiresTime(suggestedEndsAt) : EMPTY_VALUE,
+    eventType: initialValues?.eventType ?? FORM_DEFAULTS.eventType,
+    recurrenceFrequency:
+      initialValues?.recurrenceFrequency ?? FORM_DEFAULTS.recurrenceFrequency,
+    startsTime: initialValues?.startsAt
+      ? formatBuenosAiresTime(initialValues.startsAt)
+      : EMPTY_VALUE,
+    title: initialValues?.title ?? FORM_DEFAULTS.title,
+  };
+}
 
+/** Initial values of an edited event: the saved series. */
+function createInitialEditValues(occurrence: TribeEventOccurrenceResult): EventFormValues {
   const startDateKey = getBuenosAiresDateKey(occurrence.seriesStartsAt);
   const endDateKey = occurrence.seriesEndsAt
     ? getBuenosAiresDateKey(occurrence.seriesEndsAt)
@@ -374,6 +375,13 @@ function createInitialValues(
     startsTime: formatBuenosAiresTime(occurrence.seriesStartsAt),
     title: occurrence.title,
   };
+}
+
+function createInitialValues(
+  occurrence: TribeEventOccurrenceResult | null,
+  initialValues: TribeEventFormInitialValues | undefined
+): EventFormValues {
+  return occurrence ? createInitialEditValues(occurrence) : createInitialCreateValues(initialValues);
 }
 
 /**
@@ -476,23 +484,149 @@ function focusFormControl(form: HTMLFormElement, fieldId: EventFormFieldId): voi
   }
 }
 
+type EventFormMode = "approve" | "create" | "edit";
+
+const EVENT_FORM_MODE_COPY: Record<EventFormMode, { description: string; submit: string; title: string }> = {
+  approve: { description: COPY.approveDescription, submit: COPY.approveButton, title: COPY.approveTitle },
+  create: { description: COPY.createDescription, submit: COPY.saveButton, title: COPY.createTitle },
+  edit: { description: COPY.editDescription, submit: COPY.saveButton, title: COPY.editTitle },
+};
+
+/** Whether the form edits a saved event, approves a proposal or creates an event. */
+function resolveEventFormMode(isEditing: boolean, isApproving: boolean): EventFormMode {
+  if (isEditing) {
+    return "edit";
+  }
+
+  return isApproving ? "approve" : "create";
+}
+
 /**
- * Create, edit and approve form of an event. Validation runs on submit and
- * reports the first problem under the control it belongs to, marking and
- * focusing it.
+ * Suggested end for a new start while the end is still a suggestion: one
+ * duration later (the template's or the default). A template duration that
+ * crosses midnight keeps the next-day end so the saved event keeps the
+ * advertised length; the default duration is left empty in that case
+ * because an empty end already means a default-length occurrence.
  */
-export function TribeEventFormDialog({
-  editingOccurrence,
-  initialValues,
-  isOpen,
-  isSaving,
-  onClose,
-  onSubmit,
-  purpose = TRIBE_EVENT_FORM_PURPOSE.save,
-}: TribeEventFormDialogProps) {
-  const [initialFormState] = useState<InitialFormState>(() =>
-    createInitialFormState(editingOccurrence, initialValues)
-  );
+function resolveSuggestedEnd(
+  startsTime: string,
+  suggestedDurationMinutes: number,
+  templateDurationMinutes: number | undefined
+): SuggestedEndSchedule {
+  const suggestedEnd = startsTime
+    ? suggestEndSchedule(startsTime, suggestedDurationMinutes)
+    : null;
+  const endsOnLaterDay =
+    suggestedEnd !== null && suggestedEnd.dayOffset > SAME_DAY_OFFSET;
+  const leavesEndEmpty =
+    suggestedEnd === null || (endsOnLaterDay && templateDurationMinutes === undefined);
+
+  return leavesEndEmpty
+    ? { dayOffset: SAME_DAY_OFFSET, endsTime: EMPTY_VALUE }
+    : suggestedEnd;
+}
+
+/**
+ * End date after a suggested end changed: the matching later day, empty when
+ * a previously suggested next-day end no longer applies, or unchanged.
+ */
+function resolveSuggestedEndsDate(
+  currentValues: EventFormValues,
+  nextDayOffset: number,
+  hadSuggestedEndDate: boolean
+): string {
+  if (nextDayOffset > SAME_DAY_OFFSET) {
+    return addDaysToBuenosAiresDateKey(currentValues.date, nextDayOffset);
+  }
+
+  return hadSuggestedEndDate ? EMPTY_VALUE : currentValues.endsDate;
+}
+
+type EndSuggestionState = {
+  isEndSuggested: boolean;
+  setEndsOnAnotherDay: Dispatch<SetStateAction<boolean>>;
+  setIsEndSuggested: Dispatch<SetStateAction<boolean>>;
+  setSuggestedEndDayOffset: Dispatch<SetStateAction<number>>;
+  setValidationIssue: Dispatch<SetStateAction<EventFormValidationIssue | null>>;
+  setValues: Dispatch<SetStateAction<EventFormValues>>;
+  suggestedEndDayOffset: number;
+  templateDurationMinutes: number | undefined;
+};
+
+/** Start time and «Termina otro día» updates, which move or hand over the suggested end. */
+function createEndSuggestionActions({
+  isEndSuggested,
+  setEndsOnAnotherDay,
+  setIsEndSuggested,
+  setSuggestedEndDayOffset,
+  setValidationIssue,
+  setValues,
+  suggestedEndDayOffset,
+  templateDurationMinutes,
+}: EndSuggestionState) {
+  // While the end is still a suggestion, every start change recomputes it.
+  // A previously suggested next-day end date is withdrawn when the new
+  // suggestion no longer crosses midnight.
+  const updateStartsTime = (startsTime: string) => {
+    setValidationIssue(null);
+
+    if (!isEndSuggested) {
+      setValues((currentValues) => ({ ...currentValues, startsTime }));
+      return;
+    }
+
+    const nextEnd = resolveSuggestedEnd(
+      startsTime,
+      templateDurationMinutes ?? TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
+      templateDurationMinutes
+    );
+    const nextDayOffset = nextEnd.dayOffset;
+    const hadSuggestedEndDate = suggestedEndDayOffset > SAME_DAY_OFFSET;
+
+    setSuggestedEndDayOffset(nextDayOffset);
+
+    if (nextDayOffset > SAME_DAY_OFFSET) {
+      setEndsOnAnotherDay(true);
+    } else if (hadSuggestedEndDate) {
+      setEndsOnAnotherDay(false);
+    }
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      endsDate: resolveSuggestedEndsDate(currentValues, nextDayOffset, hadSuggestedEndDate),
+      endsTime: nextEnd.endsTime,
+      startsTime,
+    }));
+  };
+
+  const toggleEndsOnAnotherDay = (isChecked: boolean) => {
+    setIsEndSuggested(false);
+    setEndsOnAnotherDay(isChecked);
+    setSuggestedEndDayOffset(SAME_DAY_OFFSET);
+
+    setValidationIssue(null);
+    // Checking it starts from the day after the start date; the manager can
+    // still pick another day. Unchecking withdraws the end date.
+    setValues((currentValues) => ({
+      ...currentValues,
+      endsDate: isChecked
+        ? currentValues.endsDate || addDaysToBuenosAiresDateKey(currentValues.date, NEXT_DAY_OFFSET)
+        : EMPTY_VALUE,
+    }));
+  };
+
+  return { toggleEndsOnAnotherDay, updateStartsTime };
+}
+
+/**
+ * Form values plus the rules that keep a suggested end in step with the
+ * start, until the manager picks the end explicitly.
+ *
+ * @param initialFormState - Values and suggestion state the form opens with.
+ * @param templateDurationMinutes - Template or proposal duration, when creating from one.
+ * @returns Values, validation state and their update actions.
+ */
+function useEventFormState(initialFormState: InitialFormState, templateDurationMinutes: number | undefined) {
   const initialFormValues = initialFormState.values;
   const [values, setValues] = useState<EventFormValues>(initialFormValues);
   const [validationIssue, setValidationIssue] = useState<EventFormValidationIssue | null>(null);
@@ -511,27 +645,6 @@ export function TribeEventFormDialog({
   const [suggestedEndDayOffset, setSuggestedEndDayOffset] = useState(
     initialFormState.suggestedEndDayOffset
   );
-  const isEditing = editingOccurrence !== null;
-  const isApproving = !isEditing && purpose === TRIBE_EVENT_FORM_PURPOSE.approve;
-  const dialogTitle = isEditing
-    ? COPY.editTitle
-    : isApproving
-      ? COPY.approveTitle
-      : COPY.createTitle;
-  const dialogDescription = isEditing
-    ? COPY.editDescription
-    : isApproving
-      ? COPY.approveDescription
-      : COPY.createDescription;
-  const templateDurationMinutes = isEditing ? undefined : initialValues?.durationMinutes;
-  const suggestedDurationMinutes =
-    templateDurationMinutes ?? TRIBE_EVENT_DEFAULT_DURATION_MINUTES;
-  const isRecurring =
-    values.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
-
-  /** Validation message of a control, shown under it while it is the one to fix. */
-  const getFieldError = (fieldId: EventFormFieldId) =>
-    validationIssue?.fieldId === fieldId ? validationIssue.message : undefined;
 
   const updateField = (field: keyof EventFormValues, value: string) => {
     setValidationIssue(null);
@@ -557,73 +670,234 @@ export function TribeEventFormDialog({
     }));
   };
 
-  // While the end is still a suggestion, every start change recomputes it one
-  // duration later (the template's or the default). A template duration that
-  // crosses midnight also fills the next-day end date so the saved event keeps
-  // the advertised length; the default duration is left empty in that case
-  // because an empty end already means a default-length occurrence. A
-  // previously suggested next-day end date is withdrawn when the new
-  // suggestion no longer crosses midnight.
-  const updateStartsTime = (startsTime: string) => {
-    setValidationIssue(null);
+  const { toggleEndsOnAnotherDay, updateStartsTime } = createEndSuggestionActions({
+    isEndSuggested,
+    setEndsOnAnotherDay,
+    setIsEndSuggested,
+    setSuggestedEndDayOffset,
+    setValidationIssue,
+    setValues,
+    suggestedEndDayOffset,
+    templateDurationMinutes,
+  });
 
-    if (!isEndSuggested) {
-      setValues((currentValues) => ({ ...currentValues, startsTime }));
-      return;
-    }
-
-    const suggestedEnd = startsTime
-      ? suggestEndSchedule(startsTime, suggestedDurationMinutes)
-      : null;
-    const endsOnLaterDay =
-      suggestedEnd !== null && suggestedEnd.dayOffset > SAME_DAY_OFFSET;
-    const leavesEndEmpty =
-      suggestedEnd === null || (endsOnLaterDay && templateDurationMinutes === undefined);
-    const nextEnd =
-      leavesEndEmpty || suggestedEnd === null
-        ? { dayOffset: SAME_DAY_OFFSET, endsTime: EMPTY_VALUE }
-        : suggestedEnd;
-    const nextDayOffset = nextEnd.dayOffset;
-    const hadSuggestedEndDate = suggestedEndDayOffset > SAME_DAY_OFFSET;
-
-    setSuggestedEndDayOffset(nextDayOffset);
-
-    if (nextDayOffset > SAME_DAY_OFFSET) {
-      setEndsOnAnotherDay(true);
-    } else if (hadSuggestedEndDate) {
-      setEndsOnAnotherDay(false);
-    }
-
-    setValues((currentValues) => ({
-      ...currentValues,
-      endsDate:
-        nextDayOffset > SAME_DAY_OFFSET
-          ? addDaysToBuenosAiresDateKey(currentValues.date, nextDayOffset)
-          : hadSuggestedEndDate
-            ? EMPTY_VALUE
-            : currentValues.endsDate,
-      endsTime: nextEnd.endsTime,
-      startsTime,
-    }));
+  return {
+    endsOnAnotherDay,
+    setValidationIssue,
+    toggleEndsOnAnotherDay,
+    updateDate,
+    updateEndField,
+    updateField,
+    updateStartsTime,
+    validationIssue,
+    values,
   };
+}
 
-  const toggleEndsOnAnotherDay = (isChecked: boolean) => {
-    setIsEndSuggested(false);
-    setEndsOnAnotherDay(isChecked);
-    setSuggestedEndDayOffset(SAME_DAY_OFFSET);
+type EventFormState = ReturnType<typeof useEventFormState>;
 
-    setValidationIssue(null);
-    // Checking it starts from the day after the start date; the manager can
-    // still pick another day. Unchecking withdraws the end date.
-    setValues((currentValues) => ({
-      ...currentValues,
-      endsDate: isChecked
-        ? currentValues.endsDate || addDaysToBuenosAiresDateKey(currentValues.date, NEXT_DAY_OFFSET)
-        : EMPTY_VALUE,
-    }));
-  };
+type EventFormFieldsProps = {
+  form: EventFormState;
+  /** Validation message of a control, shown under it while it is the one to fix. */
+  getFieldError: (fieldId: EventFormFieldId) => string | undefined;
+};
 
-  const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
+/** Date, start, end and «Termina otro día» controls. */
+function EventScheduleFields({ form, getFieldError }: EventFormFieldsProps) {
+  const { endsOnAnotherDay, values } = form;
+
+  return (
+    <>
+      <div className={styles.TribeEventFormDialog__row}>
+        <Input
+          id={FIELD_ID.date}
+          label={COPY.dateLabel}
+          required
+          type={INPUT_TYPE.date}
+          value={values.date}
+          onChange={(event) => form.updateDate(event.currentTarget.value)}
+        />
+        <Input
+          id={FIELD_ID.startsTime}
+          label={COPY.startsTimeLabel}
+          required
+          type={INPUT_TYPE.time}
+          value={values.startsTime}
+          onChange={(event) => form.updateStartsTime(event.currentTarget.value)}
+        />
+      </div>
+      <div className={styles.TribeEventFormDialog__row}>
+        <Input
+          error={getFieldError(FIELD_ID.endsTime)}
+          id={FIELD_ID.endsTime}
+          label={COPY.endsTimeLabel}
+          type={INPUT_TYPE.time}
+          value={values.endsTime}
+          onChange={(event) => form.updateEndField("endsTime", event.currentTarget.value)}
+        />
+        <AnimatePresence initial={false}>
+          {endsOnAnotherDay ? (
+            <motion.div
+              key={FIELD_ID.endsDate}
+              {...CONDITIONAL_FIELD_MOTION}
+            >
+              <Input
+                error={getFieldError(FIELD_ID.endsDate)}
+                id={FIELD_ID.endsDate}
+                label={COPY.endsDateLabel}
+                min={values.date || undefined}
+                type={INPUT_TYPE.date}
+                value={values.endsDate}
+                onChange={(event) => form.updateEndField("endsDate", event.currentTarget.value)}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+      <div className={styles.TribeEventFormDialog__toggle}>
+        <Checkbox
+          checked={endsOnAnotherDay}
+          id={FIELD_ID.endsOnAnotherDay}
+          onCheckedChange={(checked) => form.toggleEndsOnAnotherDay(checked === true)}
+        />
+        <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
+      </div>
+    </>
+  );
+}
+
+/** Repetition and, for a series, the date it repeats until. */
+function EventRecurrenceFields({ form, getFieldError }: EventFormFieldsProps) {
+  const { values } = form;
+  const isRecurring =
+    values.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
+
+  return (
+    <div className={styles.TribeEventFormDialog__row}>
+      <Select
+        className={styles.TribeEventFormDialog__field}
+        id={FIELD_ID.recurrenceFrequency}
+        label={COPY.recurrenceFrequencyLabel}
+        options={RECURRENCE_SELECT_OPTIONS}
+        value={values.recurrenceFrequency}
+        onValueChange={(value) => form.updateField("recurrenceFrequency", value)}
+      />
+      <AnimatePresence initial={false}>
+        {isRecurring ? (
+          <motion.div
+            key={FIELD_ID.recurrenceUntil}
+            {...CONDITIONAL_FIELD_MOTION}
+          >
+            <Input
+              error={getFieldError(FIELD_ID.recurrenceUntil)}
+              id={FIELD_ID.recurrenceUntil}
+              label={COPY.recurrenceUntilLabel}
+              min={values.date || undefined}
+              type={INPUT_TYPE.date}
+              value={values.recurrenceUntil}
+              onChange={(event) =>
+                form.updateField("recurrenceUntil", event.currentTarget.value)
+              }
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Capacity, meeting link and description controls. */
+function EventDetailsFields({ form, getFieldError, isEditing }: EventFormFieldsProps & { isEditing: boolean }) {
+  const { values } = form;
+
+  return (
+    <>
+      <Input
+        className={styles.TribeEventFormDialog__capacity}
+        description={
+          isEditing ? COPY.capacityHint + " " + COPY.capacityEditHint : COPY.capacityHint
+        }
+        error={getFieldError(FIELD_ID.capacity)}
+        id={FIELD_ID.capacity}
+        // Plain text with a numeric keyboard: native number validation
+        // would block the submit with a browser-language bubble instead
+        // of the Spanish inline message.
+        inputMode={INPUT_MODE.numeric}
+        label={COPY.capacityLabel}
+        placeholder={COPY.capacityPlaceholder}
+        value={values.capacity}
+        onChange={(event) => form.updateField("capacity", event.currentTarget.value)}
+      />
+      <Input
+        id={FIELD_ID.meetingUrl}
+        inputMode={INPUT_MODE.url}
+        label={COPY.meetingUrlLabel}
+        placeholder={COPY.meetingUrlPlaceholder}
+        type={INPUT_TYPE.url}
+        value={values.meetingUrl}
+        onChange={(event) => form.updateField("meetingUrl", event.currentTarget.value)}
+      />
+      <Textarea
+        id={FIELD_ID.description}
+        label={COPY.descriptionLabel}
+        maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
+        value={values.description}
+        onChange={(event) => form.updateField("description", event.currentTarget.value)}
+      />
+    </>
+  );
+}
+
+type EventFormActionsProps = Pick<TribeEventFormDialogProps, "isSaving" | "onClose"> & {
+  submitLabel: string;
+};
+
+/** Cancel and submit buttons of the form. */
+function EventFormActions({ isSaving, onClose, submitLabel }: EventFormActionsProps) {
+  return (
+    <div className={styles.TribeEventFormDialog__actions}>
+      <Button
+        type={BUTTON_ATTRIBUTE.typeButton}
+        variant={BUTTON_ATTRIBUTE.variantGhost}
+        onClick={onClose}
+      >
+        {COPY.cancelButton}
+      </Button>
+      <Button disabled={isSaving} type={BUTTON_ATTRIBUTE.typeSubmit}>
+        {isSaving ? COPY.savingButton : submitLabel}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Create, edit and approve form of an event. Validation runs on submit and
+ * reports the first problem under the control it belongs to, marking and
+ * focusing it.
+ */
+export function TribeEventFormDialog({
+  editingOccurrence,
+  initialValues,
+  isOpen,
+  isSaving,
+  onClose,
+  onSubmit,
+  purpose = TRIBE_EVENT_FORM_PURPOSE.save,
+}: TribeEventFormDialogProps) {
+  const [initialFormState] = useState<InitialFormState>(() =>
+    createInitialFormState(editingOccurrence, initialValues)
+  );
+  const isEditing = editingOccurrence !== null;
+  const form = useEventFormState(initialFormState, isEditing ? undefined : initialValues?.durationMinutes);
+  const { endsOnAnotherDay, setValidationIssue, validationIssue, values } = form;
+  const isApproving = !isEditing && purpose === TRIBE_EVENT_FORM_PURPOSE.approve;
+  const modeCopy = EVENT_FORM_MODE_COPY[resolveEventFormMode(isEditing, isApproving)];
+
+  /** Validation message of a control, shown under it while it is the one to fix. */
+  const getFieldError = (fieldId: EventFormFieldId) =>
+    validationIssue?.fieldId === fieldId ? validationIssue.message : undefined;
+
+  const handleSubmit = (submitEvent: SubmitEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
 
     if (isSaving) {
@@ -652,8 +926,8 @@ export function TribeEventFormDialog({
     >
       <DialogContent
         className={styles.TribeEventFormDialog}
-        title={dialogTitle}
-        description={dialogDescription}
+        title={modeCopy.title}
+        description={modeCopy.description}
       >
         <form className={styles.TribeEventFormDialog__form} onSubmit={handleSubmit}>
           <Input
@@ -662,143 +936,19 @@ export function TribeEventFormDialog({
             maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
             required
             value={values.title}
-            onChange={(event) => updateField("title", event.currentTarget.value)}
+            onChange={(event) => form.updateField("title", event.currentTarget.value)}
           />
           <Select
             id={FIELD_ID.eventType}
             label={COPY.eventTypeLabel}
             options={EVENT_TYPE_OPTIONS}
             value={values.eventType}
-            onValueChange={(value) => updateField("eventType", value)}
+            onValueChange={(value) => form.updateField("eventType", value)}
           />
-          <div className={styles.TribeEventFormDialog__row}>
-            <Input
-              id={FIELD_ID.date}
-              label={COPY.dateLabel}
-              required
-              type={INPUT_TYPE.date}
-              value={values.date}
-              onChange={(event) => updateDate(event.currentTarget.value)}
-            />
-            <Input
-              id={FIELD_ID.startsTime}
-              label={COPY.startsTimeLabel}
-              required
-              type={INPUT_TYPE.time}
-              value={values.startsTime}
-              onChange={(event) => updateStartsTime(event.currentTarget.value)}
-            />
-          </div>
-          <div className={styles.TribeEventFormDialog__row}>
-            <Input
-              error={getFieldError(FIELD_ID.endsTime)}
-              id={FIELD_ID.endsTime}
-              label={COPY.endsTimeLabel}
-              type={INPUT_TYPE.time}
-              value={values.endsTime}
-              onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
-            />
-            <AnimatePresence initial={false}>
-              {endsOnAnotherDay ? (
-                <motion.div
-                  key={FIELD_ID.endsDate}
-                  {...CONDITIONAL_FIELD_MOTION}
-                >
-                  <Input
-                    error={getFieldError(FIELD_ID.endsDate)}
-                    id={FIELD_ID.endsDate}
-                    label={COPY.endsDateLabel}
-                    min={values.date || undefined}
-                    type={INPUT_TYPE.date}
-                    value={values.endsDate}
-                    onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-          <div className={styles.TribeEventFormDialog__toggle}>
-            <Checkbox
-              checked={endsOnAnotherDay}
-              id={FIELD_ID.endsOnAnotherDay}
-              onCheckedChange={(checked) => toggleEndsOnAnotherDay(checked === true)}
-            />
-            <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
-          </div>
-          <div className={styles.TribeEventFormDialog__row}>
-            <Select
-              className={styles.TribeEventFormDialog__field}
-              id={FIELD_ID.recurrenceFrequency}
-              label={COPY.recurrenceFrequencyLabel}
-              options={RECURRENCE_SELECT_OPTIONS}
-              value={values.recurrenceFrequency}
-              onValueChange={(value) => updateField("recurrenceFrequency", value)}
-            />
-            <AnimatePresence initial={false}>
-              {isRecurring ? (
-                <motion.div
-                  key={FIELD_ID.recurrenceUntil}
-                  {...CONDITIONAL_FIELD_MOTION}
-                >
-                  <Input
-                    error={getFieldError(FIELD_ID.recurrenceUntil)}
-                    id={FIELD_ID.recurrenceUntil}
-                    label={COPY.recurrenceUntilLabel}
-                    min={values.date || undefined}
-                    type={INPUT_TYPE.date}
-                    value={values.recurrenceUntil}
-                    onChange={(event) =>
-                      updateField("recurrenceUntil", event.currentTarget.value)
-                    }
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-          <Input
-            className={styles.TribeEventFormDialog__capacity}
-            description={
-              isEditing ? COPY.capacityHint + " " + COPY.capacityEditHint : COPY.capacityHint
-            }
-            error={getFieldError(FIELD_ID.capacity)}
-            id={FIELD_ID.capacity}
-            // Plain text with a numeric keyboard: native number validation
-            // would block the submit with a browser-language bubble instead
-            // of the Spanish inline message.
-            inputMode={INPUT_MODE.numeric}
-            label={COPY.capacityLabel}
-            placeholder={COPY.capacityPlaceholder}
-            value={values.capacity}
-            onChange={(event) => updateField("capacity", event.currentTarget.value)}
-          />
-          <Input
-            id={FIELD_ID.meetingUrl}
-            inputMode={INPUT_MODE.url}
-            label={COPY.meetingUrlLabel}
-            placeholder={COPY.meetingUrlPlaceholder}
-            type={INPUT_TYPE.url}
-            value={values.meetingUrl}
-            onChange={(event) => updateField("meetingUrl", event.currentTarget.value)}
-          />
-          <Textarea
-            id={FIELD_ID.description}
-            label={COPY.descriptionLabel}
-            maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
-            value={values.description}
-            onChange={(event) => updateField("description", event.currentTarget.value)}
-          />
-          <div className={styles.TribeEventFormDialog__actions}>
-            <Button
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={onClose}
-            >
-              {COPY.cancelButton}
-            </Button>
-            <Button disabled={isSaving} type={BUTTON_ATTRIBUTE.typeSubmit}>
-              {isSaving ? COPY.savingButton : isApproving ? COPY.approveButton : COPY.saveButton}
-            </Button>
-          </div>
+          <EventScheduleFields form={form} getFieldError={getFieldError} />
+          <EventRecurrenceFields form={form} getFieldError={getFieldError} />
+          <EventDetailsFields form={form} getFieldError={getFieldError} isEditing={isEditing} />
+          <EventFormActions isSaving={isSaving} submitLabel={modeCopy.submit} onClose={onClose} />
         </form>
       </DialogContent>
     </Dialog>

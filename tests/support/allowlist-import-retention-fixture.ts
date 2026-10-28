@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
+import { type prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
@@ -13,6 +13,9 @@ import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/
 
 /** Names the original state and immutable identities used by SQL assertions. */
 export type ImportRetentionFixtureCase = { name: "fresh" | "completed" | "processing"; tribeId: string; importId: string; operationId: string };
+
+/** Original completed row counts persisted for each import state. */
+const COMPLETED_ROWS_BY_CASE: Record<ImportRetentionFixtureCase["name"], number> = { fresh: 0, completed: 3, processing: 1 };
 
 /** @param database - Exact owned disposable branch. @returns Only scoped identities and original metadata; no contacts, names or protected bytes. */
 export async function prepareAllowlistImportRetention(database: AcademyAdmissionTestDatabase) {
@@ -39,7 +42,7 @@ export async function seedAllowlistImportRetention(database: AcademyAdmissionTes
       const createdAt = new Date(now.getTime() - ADMISSION_LIMIT.csvRetentionMs + (name === "fresh" ? 6 : -1) * SECONDS_PER_HOUR * MILLISECONDS_PER_SECOND), expiresAt = new Date(createdAt.getTime() + ADMISSION_LIMIT.csvRetentionMs), markerAt = new Date(createdAt.getTime() + MILLISECONDS_PER_SECOND);
       await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by,created_at) values (${tribeId},'Academia de importación de ejemplo',${`retention-${tribeId}`},${userId},${new Date(now.getTime() - 4 * ADMISSION_LIMIT.csvRetentionMs)})`);
       await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,created_at) values (${tribeId},${userId},'leader','active',${new Date(now.getTime() - 3 * ADMISSION_LIMIT.csvRetentionMs)})`);
-      const completedRows = name === "completed" ? 3 : name === "processing" ? 1 : 0;
+      const completedRows = COMPLETED_ROWS_BY_CASE[name];
       await transaction.execute(sql`insert into public.academy_admission_operations(id,actor_user_id,tribe_id,operation_type,idempotency_key,intent_fingerprint,fingerprint_key_id,state,public_result,created_at,completed_at) values (${operationId},${userId},${tribeId},'confirm_allowlist_import',${randomUUID()},${randomBytes(MESSAGING_CRYPTO.keyBytes)},${security.config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].activeKeyId},${name === "completed" ? "completed" : "started"},${name === "completed" ? JSON.stringify({ importId, counts: { selected: 3, added: 3 } }) : null}::jsonb,${markerAt},${name === "completed" ? markerAt : null})`);
       await transaction.execute(sql`insert into public.academy_allowlist_imports(id,tribe_id,actor_user_id,contact_type,policy_version,file_fingerprint,fingerprint_key_id,security_environment,security_epoch,created_at,expires_at,purge_after,state,selected_rows,completed_rows,active_operation_id) values (${importId},${tribeId},${userId},'email',1,${randomBytes(MESSAGING_CRYPTO.keyBytes)},${security.config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].activeKeyId},${security.config.environment},${security.config.securityEpoch},${createdAt},${expiresAt},${expiresAt},${name === "fresh" ? "processing" : name},array[1,2,3],${completedRows},${operationId})`);
       await transaction.execute(sql`insert into public.academy_allowlist_import_selections(operation_id,import_id,tribe_id,actor_user_id,expected_version,selected_rows,accepted_at) values (${operationId},${importId},${tribeId},${userId},1,array[1,2,3],${markerAt})`);

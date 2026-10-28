@@ -146,7 +146,7 @@ export async function insertAcademyGrantWithEnrollment(
       (select id from inserted_grant) as grant_id,
       (select count(*) from enrollment) as enrollment_count
   `);
-  const insertedRow = (result.rows?.[0] ?? null) as { grant_id: string | null } | null;
+  const insertedRow = (result.rows[0] ?? null) as { grant_id: string | null } | null;
 
   if (insertedRow?.grant_id) {
     return { grantId: insertedRow.grant_id, inserted: true };
@@ -163,7 +163,7 @@ export async function insertAcademyGrantWithEnrollment(
       and member_access_grants.source_key = ${grant.sourceKey}
     limit 1
   `);
-  const row = (existingResult.rows?.[0] ?? null) as { grant_id: string | null } | null;
+  const row = (existingResult.rows[0] ?? null) as { grant_id: string | null } | null;
 
   if (!row?.grant_id) {
     throw new Error("insertAcademyGrantWithEnrollment failed: grant row not resolved", {

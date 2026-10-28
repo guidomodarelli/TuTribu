@@ -1,7 +1,6 @@
 /** Publishes current policy/impact through one own GET boundary, independently of original operation snapshots. @module admission-policy-query-handler */
 import "server-only";
-import type { AdmissionFailure } from "../../application/results/admission-errors";
-import { admissionFailure } from "../../application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
 import { admissionPolicyStateResultSchema } from "../../application/results/admission-policy-result-schemas";
 import { ADMISSION_HTTP_OPERATION } from "../../constants/admission-http";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";

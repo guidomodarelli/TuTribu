@@ -13,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { toast } from "@golfo/ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
+import type * as GolfoUiModule from "@golfo/ui";
 
 /**
  * Timers faked by the debounce suites. Only timeouts are faked: Motion runs
@@ -220,7 +221,7 @@ function setMessageEditorContent(rootElement: HTMLElement, text: string) {
   replaceMessageEditorText(
     rootElement,
     0,
-    rootElement.textContent?.length ?? 0,
+    rootElement.textContent.length,
     text
   );
 }
@@ -251,7 +252,7 @@ vi.mock("next/navigation", () => ({
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -648,6 +649,11 @@ function expectCreateMessageRequest(expected: Record<string, unknown>) {
   expect(bodies).toContainEqual({ ...expected, clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
 }
 
+/** Asserts that the test logged no console error other than the tolerated Radix act warnings. */
+function expectNoUnexpectedConsoleErrors() {
+  expect(unexpectedConsoleErrors).toEqual([]);
+}
+
 describe("TribeRound", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -678,7 +684,7 @@ describe("TribeRound", () => {
     await settleReactUpdates();
     // Unmount before asserting so a failed assertion never leaves this test's DOM to the next one.
     cleanup();
-    expect(unexpectedConsoleErrors).toEqual([]);
+    expectNoUnexpectedConsoleErrors();
     consoleErrorSpy.mockRestore();
   });
 
@@ -1199,7 +1205,7 @@ describe("TribeRound", () => {
     expect(
       await screen.findAllByText((_, element) =>
         Boolean(
-          element?.textContent?.startsWith("Mensaje creado: 26 abr 2026")
+          element?.textContent.startsWith("Mensaje creado: 26 abr 2026")
         )
       )
     ).not.toHaveLength(0);
@@ -1859,6 +1865,7 @@ describe("TribeRound", () => {
   });
 
   it("submits editor links as Markdown while keeping the editor text readable", async () => {
+    expect.hasAssertions();
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
@@ -2837,7 +2844,8 @@ describe("TribeRound", () => {
       within(optimisticMessageArticle as HTMLElement).getByRole("button", {
         name: "Me gusta 0",
       })
-    ).toBeDisabled();
+      // A disabled ReactionButton stays focusable, so it is aria-disabled rather than disabled.
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
       within(optimisticMessageArticle as HTMLElement).getByRole("button", {
         name: "Pinear mensaje",
@@ -2922,7 +2930,7 @@ describe("TribeRound", () => {
       .mockResolvedValueOnce({
         json: async () => ({ message: "El mensaje ya estaba publicado.", messageId: "message-stored", replayed: true }),
         ok: true,
-      } as Response);
+      });
 
     render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
 
@@ -2955,7 +2963,7 @@ describe("TribeRound", () => {
 
   it("does not resend a publication the server rejected with an HTTP error", async () => {
     const user = userEvent.setup();
-    (global.fetch as Mock).mockResolvedValueOnce({ json: async () => ({ message: "No tenes permisos para publicar en esta tribu." }), ok: false, statusText: "Forbidden" } as Response);
+    (global.fetch as Mock).mockResolvedValueOnce({ json: async () => ({ message: "No tenes permisos para publicar en esta tribu." }), ok: false, statusText: "Forbidden" });
 
     render(<TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />);
 
@@ -5088,6 +5096,7 @@ describe("TribeRound", () => {
   });
 
   it("submits a poll draft with a new message", async () => {
+    expect.hasAssertions();
     const user = userEvent.setup();
 
     render(
@@ -7727,7 +7736,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -7756,7 +7765,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", {
           name: "Link del video",
@@ -7778,7 +7787,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
     const imageFile = new File(["image"], "captura.png", {
       type: "image/png",
     });
@@ -7833,7 +7842,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", {
           name: "Descripción de la imagen",
@@ -7855,7 +7864,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -7884,7 +7893,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", { name: "Opción 1" })
       ).toBeInTheDocument();
@@ -7907,7 +7916,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -7939,7 +7948,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", { name: "Opción 3" })
       ).toBeInTheDocument();
@@ -8006,7 +8015,7 @@ describe("TribeRound", () => {
     const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+      scrollIntoViewSpy;
 
     try {
       render(
@@ -8035,7 +8044,7 @@ describe("TribeRound", () => {
 
       const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
-      ) as unknown as HTMLElement;
+      ) as HTMLElement;
       expect(
         within(scrolledElement).getByRole("textbox", {
           name: "Título del mensaje",

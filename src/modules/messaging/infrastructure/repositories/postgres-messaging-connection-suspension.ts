@@ -32,7 +32,8 @@ export class PostgresMessagingConnectionSuspension implements Pick<MessagingConn
     const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.suspendMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed,reason:input.reason}};
     const ledger=new PostgresAdmissionOperationRepository((run)=>executeMessagingLedger(()=>this.execute(context,run)),async(database)=>{await this.authorize(database,context);return true;},this.readSecurityConfig);
     try{return await ledger.run(command,messagingConnectionLifecycleResultSchema,async(database,ledgerId)=>{
-      if(!input.confirmed||!Object.values(MESSAGING_CONNECTION_SECURITY_REASON).includes(input.reason))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+      /* Consent is rechecked at runtime: callers outside the typed boundary may send it unset. */
+      if(!(input.confirmed as boolean)||!Object.values(MESSAGING_CONNECTION_SECURITY_REASON).includes(input.reason))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const row=await this.authorize(database,context);
       if(row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
       if(row.state===MESSAGING_CONNECTION_STATE.disconnected||row.retired_at!==null)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);

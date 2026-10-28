@@ -27,10 +27,13 @@ export type AdmissionMessagingMaintenanceBeginning = { readonly acquired: true; 
 /** Publishes only safe workflow observations; transport acceptance remains with the outbox owner. */
 export type AdmissionMessagingMaintenanceResult = { readonly runId: string | null; readonly status: "completed" | "incomplete" | "busy" | "unresolved"; readonly newRunStarted: boolean; readonly deadlineReached: boolean; readonly observation: "recorded" | "unavailable" | "pending"; readonly phases: readonly AdmissionMessagingMaintenancePhaseSnapshot[]; readonly health: AdmissionMessagingMaintenanceHealth };
 
+/** Identifies one phase execution of an original run; the soft phase deadline defaults to the hard shared deadline. */
+export type AdmissionMessagingMaintenancePhaseRequest = { readonly phase: AdmissionMessagingMaintenancePhase; readonly deadlineAtMilliseconds: number; readonly signal: AbortSignal; readonly run: AdmissionMessagingMaintenanceRun; readonly phaseDeadlineAtMilliseconds?: number };
+
 /** Each phase composes existing original owners and confirms its own transaction before returning counts. */
 export interface AdmissionMessagingMaintenanceWork {
-  /** @param phase - One fixed server-owned workflow phase. @param deadlineAtMilliseconds - Original shared host deadline, never extended; it bounds every commit. @param signal - Cancellation for the same original work, never evidence of rollback. @param run - Original private acquisition and external scope; every phase must retain its scope across recovery changes. @param phaseDeadlineAtMilliseconds - Soft deadline of this phase: owners stop starting new steps after it, so one slow phase cannot consume the whole run. @returns Its confirmed minimal output, including mixed results and configuration omissions. */
-  runPhase(phase: AdmissionMessagingMaintenancePhase, deadlineAtMilliseconds: number, signal: AbortSignal, run: AdmissionMessagingMaintenanceRun, phaseDeadlineAtMilliseconds?: number): Promise<AdmissionMessagingMaintenancePhaseOutput>;
+  /** @param request - phase: one fixed server-owned workflow phase; deadlineAtMilliseconds: original shared host deadline, never extended, it bounds every commit; signal: cancellation for the same original work, never evidence of rollback; run: original private acquisition and external scope, every phase must retain its scope across recovery changes; phaseDeadlineAtMilliseconds: soft deadline of this phase, owners stop starting new steps after it so one slow phase cannot consume the whole run. @returns Its confirmed minimal output, including mixed results and configuration omissions. */
+  runPhase(request: AdmissionMessagingMaintenancePhaseRequest): Promise<AdmissionMessagingMaintenancePhaseOutput>;
 }
 /** Stores one bounded current workflow and native health under current private authority. */
 export interface AdmissionMessagingMaintenanceProgress {

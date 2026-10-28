@@ -21,7 +21,7 @@ describe("allowlist preview rows", () => {
     expect(rows[0].errors).toEqual(["admission_contact_invalid", "admission_name_invalid"]);
     expect(rows[0].input.displayName).toHaveLength(101);
     expect(rows[1].errors).toEqual(["admission_name_invalid"]); expect(rows[2].errors).toEqual([]);
-    expect(rows.every((row) => row.outcome === null && row.selected === false)).toBe(true);
+    expect(rows.map((row) => [row.outcome, row.selected])).toEqual(rows.map(() => [null, false]));
   });
 
   it("should require an unambiguous international phone and retain HTML or formula names as data", () => {
@@ -31,8 +31,8 @@ describe("allowlist preview rows", () => {
   });
 
   it("should reject invalid row numbering or capacity without manufacturing preview identities", () => {
-    expect(() => prepareAllowlistImportRows([{ rowNumber: 2, identity: "valid@example.test", displayName: "" }], "email")).toThrowError(expect.objectContaining({ code: "invalid_input" }));
-    expect(() => prepareAllowlistImportRows(Array.from({ length: ADMISSION_LIMIT.csvDataRowCount + 1 }, (_, index) => ({ rowNumber: index + 1, identity: "valid@example.test", displayName: "" })), "email")).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => prepareAllowlistImportRows([{ rowNumber: 2, identity: "valid@example.test", displayName: "" }], "email")).toThrow(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => prepareAllowlistImportRows(Array.from({ length: ADMISSION_LIMIT.csvDataRowCount + 1 }, (_, index) => ({ rowNumber: index + 1, identity: "valid@example.test", displayName: "" })), "email")).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should fix leader, tribe, policy version and file reference without selecting or confirming rows", () => {
@@ -69,16 +69,16 @@ describe("explicit import progress", () => {
   });
 
   it.each([{ selectedRows: [3] }, { selectedRows: [0] }, { selectedRows: [4] }, { selectedRows: [1, 1] }, { selectedRows: [] }])("should reject an invalid, duplicated or absent selection: $selectedRows", ({ selectedRows }) => {
-    const data = fixture(); expect(() => selectAllowlistImportRows({ ...data, expectedVersion: 1, selectedRows, confirmed: true })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    const data = fixture(); expect(() => selectAllowlistImportRows({ ...data, expectedVersion: 1, selectedRows, confirmed: true })).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should close stale policy/version, foreign leader scope and expired previews before selecting", () => {
     const data = fixture(), command = { ...data, expectedVersion: 1, selectedRows: [1], confirmed: true as const };
-    expect(() => selectAllowlistImportRows({ ...command, expectedVersion: 2 })).toThrowError(expect.objectContaining({ code: "allowlist_import_conflict" }));
-    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, policyVersion: 4 } })).toThrowError(expect.objectContaining({ code: "policy_conflict" }));
-    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, actorUserId: "other-leader" } })).toThrowError(expect.objectContaining({ code: "permission_denied" }));
-    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, now: data.preview.expiresAt } })).toThrowError(expect.objectContaining({ code: "resource_unavailable" }));
-    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, now: new Date("2026-10-09T06:59:59Z") } })).toThrowError(expect.objectContaining({ code: "resource_unavailable" }));
+    expect(() => selectAllowlistImportRows({ ...command, expectedVersion: 2 })).toThrow(expect.objectContaining({ code: "allowlist_import_conflict" }));
+    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, policyVersion: 4 } })).toThrow(expect.objectContaining({ code: "policy_conflict" }));
+    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, actorUserId: "other-leader" } })).toThrow(expect.objectContaining({ code: "permission_denied" }));
+    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, now: data.preview.expiresAt } })).toThrow(expect.objectContaining({ code: "resource_unavailable" }));
+    expect(() => selectAllowlistImportRows({ ...command, context: { ...data.context, now: new Date("2026-10-09T06:59:59Z") } })).toThrow(expect.objectContaining({ code: "resource_unavailable" }));
   });
 
   it("should retain actual completed rows when another selected row is still pending and resume only that row", () => {
@@ -86,7 +86,7 @@ describe("explicit import progress", () => {
     const first = recordAllowlistImportRowOutcomes({ preview: selected, expectedVersion: 2, context: data.context, outcomes: [{ rowNumber: 1, outcome: "added", entryId: "first-entry", entryVersion: 1, committedAt: data.context.now }] });
     expect(first).toMatchObject({ version: 3, state: "processing" });
     expect(first.rows[0]).toMatchObject({ outcome: "added", entryId: "first-entry", committedAt: data.context.now }); expect(first.rows[1].outcome).toBeNull();
-    expect(() => selectAllowlistImportRows({ preview: first, expectedVersion: 3, context: data.context, selectedRows: [1, 2], confirmed: true })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => selectAllowlistImportRows({ preview: first, expectedVersion: 3, context: data.context, selectedRows: [1, 2], confirmed: true })).toThrow(expect.objectContaining({ code: "invalid_input" }));
     const resumed = selectAllowlistImportRows({ preview: first, expectedVersion: 3, context: data.context, selectedRows: [2], confirmed: true });
     expect(resumed).toBe(first);
     const done = recordAllowlistImportRowOutcomes({ preview: resumed, expectedVersion: 3, context: data.context, outcomes: [{ rowNumber: 2, outcome: "conflict", entryId: null, entryVersion: null, committedAt: data.context.now }] });
@@ -98,8 +98,8 @@ describe("explicit import progress", () => {
     const outcome = { rowNumber: 1, outcome: "added" as const, entryId: "first-entry", entryVersion: 1, committedAt: data.context.now };
     const first = recordAllowlistImportRowOutcomes({ preview: selected, expectedVersion: 2, context: data.context, outcomes: [outcome] });
     expect(recordAllowlistImportRowOutcomes({ preview: first, expectedVersion: 3, context: data.context, outcomes: [outcome] })).toBe(first);
-    expect(() => recordAllowlistImportRowOutcomes({ preview: first, expectedVersion: 3, context: data.context, outcomes: [{ ...outcome, outcome: "unchanged" }] })).toThrowError(expect.objectContaining({ code: "allowlist_import_conflict" }));
-    expect(() => recordAllowlistImportRowOutcomes({ preview: first, expectedVersion: 3, context: data.context, outcomes: [{ ...outcome, rowNumber: 2, entryId: "second-entry" }, { ...outcome, outcome: "unchanged" }] })).toThrowError(expect.objectContaining({ code: "allowlist_import_conflict" }));
+    expect(() => recordAllowlistImportRowOutcomes({ preview: first, expectedVersion: 3, context: data.context, outcomes: [{ ...outcome, outcome: "unchanged" }] })).toThrow(expect.objectContaining({ code: "allowlist_import_conflict" }));
+    expect(() => recordAllowlistImportRowOutcomes({ preview: first, expectedVersion: 3, context: data.context, outcomes: [{ ...outcome, rowNumber: 2, entryId: "second-entry" }, { ...outcome, outcome: "unchanged" }] })).toThrow(expect.objectContaining({ code: "allowlist_import_conflict" }));
     expect(first.rows[0]).toMatchObject({ outcome: "added" }); expect(first.rows[1].outcome).toBeNull();
   });
 });

@@ -13,8 +13,10 @@ import { MESSAGE_DISPATCH_RUN_OUTCOME } from "../../constants/message-dispatch-o
 type ObservationExecutor = <Value>(actor: string | null, run: (database: RequestDatabase) => Promise<Value>) => Promise<Value>;
 /** Server-only writer accepts scopes resolved by the original native claim/focal composition. */
 export class PostgresMessageDispatchRunRecorder implements MessageDispatchRunRecorder {
-  /** @param execute - Existing owner worker executor. @param authorize - Live backend purpose or maintenance bearer. @param security - Non-secret hosting facts. @param focalTribeId - Optional native exact scope. @param runtimeNow - Host clock used to align the SQL sample with the existing run budget. */
-  constructor(private readonly execute: ObservationExecutor, private readonly authorize: () => Promise<boolean>, private readonly security: () => Promise<MessagingSecurityFacts>, private readonly focalTribeId?: string, private readonly runtimeNow: () => number = Date.now) {}
+  private readonly focalTribeId?: string;
+  private readonly runtimeNow: () => number;
+  /** @param execute - Existing owner worker executor. @param authorize - Live backend purpose or maintenance bearer. @param security - Non-secret hosting facts. @param options - `focalTribeId`: optional native exact scope. `runtimeNow`: host clock used to align the SQL sample with the existing run budget. */
+  constructor(private readonly execute: ObservationExecutor, private readonly authorize: () => Promise<boolean>, private readonly security: () => Promise<MessagingSecurityFacts>, { focalTribeId, runtimeNow = Date.now }: { focalTribeId?: string; runtimeNow?: () => number } = {}) { this.focalTribeId = focalTribeId; this.runtimeNow = runtimeNow; }
   /** @param start - Optional original environment/epoch. @returns Current facts after checking backend purpose; no human actor is manufactured. */
   private async requireCurrent(start?: MessageDispatchRunStart): Promise<MessagingSecurityFacts> {
     if (!await this.authorize()) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.permissionDenied, { operation: MESSAGE_STORAGE_OPERATION.observe });
@@ -25,7 +27,7 @@ export class PostgresMessageDispatchRunRecorder implements MessageDispatchRunRec
   /** @param database - Original transaction. @returns Fresh SQL time sampled after waits. */
   private async now(database: RequestDatabase): Promise<Date> { return new Date((await database.execute<{ at: string }>(sql`select clock_timestamp() as at`)).rows[0].at); }
   /** @param database - Original short transaction. @param start - Protected original start. @param run - Selected counters/scope. @param at - Actual owner clock. @param outcome - Closed operational completion. @returns Whether this is a newly persisted run, so a replay never moves its finish time. */
-  private async writeRun(database: RequestDatabase, start: MessageDispatchRunStart, run: MessageDispatchTribeRun, at: Date, outcome: "completed" | "incomplete"): Promise<boolean> {
+  private async writeRun(database: RequestDatabase, start: MessageDispatchRunStart, run: MessageDispatchTribeRun, { at, outcome }: { at: Date; outcome: "completed" | "incomplete" }): Promise<boolean> {
     if (this.focalTribeId && run.tribeId !== this.focalTribeId) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.permissionDenied, { operation: MESSAGE_STORAGE_OPERATION.observe });
     const counts = run.counters;
     const counters = { claimed: counts.claimed, authorized: counts.authorized, accepted: counts.accepted, delivered: counts.delivered, rejected: counts.rejected, unknown: counts.unknown, suppressed: counts.suppressed, quotaDeferred: counts.quotaDeferred, unresolved: counts.unresolved, deadlineReached: counts.deadlineReached };
@@ -48,7 +50,7 @@ export class PostgresMessageDispatchRunRecorder implements MessageDispatchRunRec
         for (const run of runs) {
           const counts = run.counters;
           const outcome = run.outcome === MESSAGE_DISPATCH_RUN_OUTCOME.completed && counts.unresolved === 0 && !counts.deadlineReached && finishedAt.getTime() - start.startedAt.getTime() < budgetMs ? MESSAGE_DISPATCH_RUN_OUTCOME.completed : MESSAGE_DISPATCH_RUN_OUTCOME.incomplete;
-          if (await this.writeRun(database, start, run, finishedAt, outcome)) insertedTribes.push(run.tribeId);
+          if (await this.writeRun(database, start, run, { at: finishedAt, outcome })) insertedTribes.push(run.tribeId);
         }
         await this.writePhases(database, start, phases);
         await this.requireCurrent(start);
@@ -69,7 +71,7 @@ export class PostgresMessageDispatchRunRecorder implements MessageDispatchRunRec
   /** @param start - Original run. @param samples - Actually settled retained work. @returns After current-authority late observations commit without changing original run completion or causing another RPC. */
   async appendPhases(start: MessageDispatchRunStart, samples: readonly MessageDispatchPhaseSample[], lateScopes: readonly MessageDispatchTribeRun[] = []): Promise<void> {
     if (!samples.length) return;
-    try { await this.execute(null, async (database) => { await this.requireCurrent(start); const observedAt = await this.now(database); for (const run of lateScopes) await this.writeRun(database, start, run, observedAt, MESSAGE_DISPATCH_RUN_OUTCOME.incomplete); await this.writePhases(database, start, samples); await this.requireCurrent(start); }); }
+    try { await this.execute(null, async (database) => { await this.requireCurrent(start); const observedAt = await this.now(database); for (const run of lateScopes) await this.writeRun(database, start, run, { at: observedAt, outcome: MESSAGE_DISPATCH_RUN_OUTCOME.incomplete }); await this.writePhases(database, start, samples); await this.requireCurrent(start); }); }
     catch (error) { if (error instanceof MessagingDeliveryStorageError) throw error; throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.operationUnresolved, { operation: MESSAGE_STORAGE_OPERATION.observe, cause: error }); }
   }
 }

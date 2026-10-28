@@ -208,8 +208,11 @@ function hasTrialFrequencyValidationError(body: unknown): boolean {
     body,
     PRICE_ROUTE_FIELD.trialFrequencyType
   )?.trim();
+  // A blank type falls back to days, like a missing one.
   const normalizedTrialFrequencyType =
-    trialFrequencyType || PRICE_ROUTE_TRIAL.daysType;
+    trialFrequencyType === undefined || trialFrequencyType === ""
+      ? PRICE_ROUTE_TRIAL.daysType
+      : trialFrequencyType;
 
   if (!trialFrequency) {
     return false;
@@ -312,6 +315,58 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type CreateTribeSubscriptionPriceResult = Awaited<
+  ReturnType<RequestModules["subscriptions"]["useCases"]["createTribeSubscriptionPrice"]>
+>;
+
+function createPostResultResponse(result: CreateTribeSubscriptionPriceResult, body: unknown): Response {
+  switch (result.status) {
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
+      return createJsonResponse(
+        {
+          message: PRICE_ROUTE_RESPONSE.createdMessage,
+          price: result.price,
+        },
+        HTTP_STATUS.created
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
+      return createJsonResponse(
+        createInvalidPriceInputResponse(body),
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
+      return createJsonResponse(
+        { message: PRICE_ROUTE_RESPONSE.limitReachedMessage },
+        HTTP_STATUS.badRequest
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+      return createJsonResponse(
+        { message: PRICE_ROUTE_RESPONSE.missingIntegrationMessage },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+      return createJsonResponse(
+        { message: PRICE_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.current:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
+    default:
+      return createJsonResponse(
+        { message: PRICE_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -338,7 +393,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result = await modules.subscriptions.useCases.createTribeSubscriptionPrice({
       amount: readStringField(body, PRICE_ROUTE_FIELD.amount),
       name: readStringField(body, PRICE_ROUTE_FIELD.name),
@@ -358,42 +413,7 @@ export async function POST(
       tribeSlug: slug,
     });
 
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
-        return createJsonResponse(
-          {
-            message: PRICE_ROUTE_RESPONSE.createdMessage,
-            price: result.price,
-          },
-          HTTP_STATUS.created
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-        return createJsonResponse(
-          createInvalidPriceInputResponse(body),
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
-        return createJsonResponse(
-          { message: PRICE_ROUTE_RESPONSE.limitReachedMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-        return createJsonResponse(
-          { message: PRICE_ROUTE_RESPONSE.missingIntegrationMessage },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          { message: PRICE_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: PRICE_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result, body);
   } catch (error) {
     if (isMercadoPagoMinimumAmountError(error)) {
       return createJsonResponse(

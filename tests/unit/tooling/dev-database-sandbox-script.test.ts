@@ -75,9 +75,20 @@ const FILE_WITH_PREVIOUS_ASSIGNMENTS = [
 
 let sandboxScript: DevDatabaseSandboxScript;
 
-/** Matches the variable name of each `KEY=value` assignment line in an env file. */
-const ENVIRONMENT_ASSIGNMENT_KEY_PATTERN =
-  /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/gm;
+/** Matches the variable name of a `KEY=value` assignment line, once its leading whitespace is trimmed. */
+const ENVIRONMENT_ASSIGNMENT_KEY_PATTERN = /^(?:export\s+)?([A-Za-z_]\w*)\s*=/;
+
+/**
+ * Lists the variable names an env file assigns, one per assignment line.
+ * @param environmentFileText - Contents of the env file.
+ * @returns The assigned keys in file order.
+ */
+function readAssignedEnvironmentKeys(environmentFileText: string): string[] {
+  return environmentFileText.split("\n").flatMap((line) => {
+    const assignmentMatch = ENVIRONMENT_ASSIGNMENT_KEY_PATTERN.exec(line.trimStart());
+    return assignmentMatch ? [assignmentMatch[1]] : [];
+  });
+}
 
 /**
  * Resolves the values Next.js applies from an env file with these contents,
@@ -89,12 +100,7 @@ function loadEffectiveEnvironment(environmentFileText: string) {
   const projectDirectory = mkdtempSync(join(tmpdir(), "dev-database-sandbox-"));
   // The loader never overrides variables already in process.env (CI sets DATABASE_URL, BETTER_AUTH_URL, ...),
   // so hide every key the file assigns while loading it.
-  const assignedKeys = new Set(
-    Array.from(
-      environmentFileText.matchAll(ENVIRONMENT_ASSIGNMENT_KEY_PATTERN),
-      (assignmentMatch) => assignmentMatch[1]
-    )
-  );
+  const assignedKeys = new Set(readAssignedEnvironmentKeys(environmentFileText));
   const inheritedEnvironment = Object.fromEntries(
     Array.from(assignedKeys, (key) => [key, process.env[key]])
   );

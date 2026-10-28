@@ -7,6 +7,9 @@ import { MessagingSecretAccessError } from "../domain/errors/messaging-secret-ac
 import type { MessageDeliverySender, PreparedMessageDeliverySender } from "../domain/repositories/message-delivery-sender";
 import type { AuthorizedDeliveryMessagingContext } from "../domain/repositories/messaging-repositories";
 
+/** Verification purposes routed to the OTP/diagnostic owner; the marker's persisted purpose is checked at runtime. */
+const VERIFICATION_DELIVERY_PURPOSES: ReadonlySet<string> = new Set([ADMISSION_VERIFICATION_PURPOSE.admission, ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic]);
+
 /** Preserves distinct complete-email and code preparations without inferring a source from its identifier. */
 export class PurposeRoutedMessageDeliverySender implements MessageDeliverySender {
   /** @param verification - Original OTP/diagnostic material owner. @param notification - Complete-group material owner, absent for an exact focal launch. */
@@ -19,7 +22,7 @@ export class PurposeRoutedMessageDeliverySender implements MessageDeliverySender
       if (context.notificationGroupId === null || !this.notification) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       return this.notification.prepare(context, signal);
     }
-    if (context.notificationGroupId === null && (context.deliveryPurpose === ADMISSION_VERIFICATION_PURPOSE.admission || context.deliveryPurpose === ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic)) return this.verification.prepare(context, signal);
+    if (context.notificationGroupId === null && VERIFICATION_DELIVERY_PURPOSES.has(context.deliveryPurpose)) return this.verification.prepare(context, signal);
     throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
   }
 }

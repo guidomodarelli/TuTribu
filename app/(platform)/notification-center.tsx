@@ -17,6 +17,18 @@ type NotificationCenterProps = {
 };
 
 /**
+ * Both surfaces until hydration, then the sheet on mobile and the popover
+ * otherwise.
+ */
+function resolveBellSurface(isHydrated: boolean, isMobile: boolean): NotificationBellSurface {
+  if (!isHydrated) {
+    return NOTIFICATION_BELL_SURFACE.responsive;
+  }
+
+  return isMobile ? NOTIFICATION_BELL_SURFACE.sheet : NOTIFICATION_BELL_SURFACE.popover;
+}
+
+/**
  * Client container of the header bell: owns the inbox state (initial inbox
  * from the server, refresh on open, unread polling) and the read marks, and
  * renders the presentational bell. Selecting an item marks it as read and
@@ -27,11 +39,7 @@ export function NotificationCenter({ initialInbox }: NotificationCenterProps) {
   const isHydrated = useIsHydrated();
   // `useIsMobile` is `false` on the server: ship both surfaces until hydration
   // (CSS picks one) so a mobile first load never swaps Popover for Sheet.
-  const surface: NotificationBellSurface = !isHydrated
-    ? NOTIFICATION_BELL_SURFACE.responsive
-    : isMobile
-      ? NOTIFICATION_BELL_SURFACE.sheet
-      : NOTIFICATION_BELL_SURFACE.popover;
+  const surface = resolveBellSurface(isHydrated, isMobile);
   const [isOpen, setIsOpen] = useState(false);
   const center = useNotificationCenter(initialInbox, { isOpen });
 

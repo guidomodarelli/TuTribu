@@ -48,7 +48,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               const forbidden = [secret, token, fixture.own.userId, fixture.own.email, fixture.read.sessionId, tribeId];
               const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.name));
               const entries = [{ segment: "academia/admissions", capture: "notification-settings-entry" }, { segment: "academia/admissions/settings", capture: "notification-settings-policy-entry" }];
-              for (const entry of entries) {
+              /** Reaches own notification settings from one admission page, capturing it for the manual when required. */
+              const reachNotificationsFrom = async (entry: (typeof entries)[number]) => {
                 await page.goto(`${origin}/${slug}/${entry.segment}`, { waitUntil: "domcontentloaded" });
                 const navigation = page.getByRole("navigation", { name: "Secciones de admisión", exact: true });
                 await navigation.getByRole("link", { name: "Avisos", exact: true }).waitFor();
@@ -60,7 +61,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 await page.waitForURL(`${origin}/${slug}/academia/admissions/notifications`);
                 await page.getByRole("heading", { name: "Avisos de admisión", exact: true }).waitFor();
                 await page.getByRole("form", { name: "Configurar avisos de admisión", exact: true }).waitFor();
-              }
+              };
+              for (const entry of entries) await reachNotificationsFrom(entry);
               expect(errors).toEqual([]); expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 0 });
               const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as deliveries from public.message_deliveries where tribe_id=${tribeId}`)).rows[0]);
               expect(effects).toEqual({ deliveries: 0 });

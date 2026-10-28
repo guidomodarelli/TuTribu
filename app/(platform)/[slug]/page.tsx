@@ -366,200 +366,240 @@ function renderOpenJoinStatusScreen(joinStatus: string | null, slug: string) {
   return null;
 }
 
-export async function TribePageContent({
-  params,
-  searchParams = Promise.resolve({}),
-}: TribePageProps) {
-  const [{ slug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const mercadoPagoPreapprovalId = readFirstSearchParamValue(
-    resolvedSearchParams[TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]
-  );
-  const channelSlug = readFirstSearchParamValue(
-    resolvedSearchParams[TRIBE_PAGE_QUERY.channel]
-  );
-  const page = readPositiveIntegerSearchParam(
-    resolvedSearchParams[TRIBE_PAGE_QUERY.page]
-  );
-  // The campfire is a channel: the channel access rule decides who reads it,
-  // so a free academy member reads it without community access.
-  const access = await resolveTribePageAccess({
-    allowWithChannelReadAccess: true,
-    operation: TRIBE_PAGE_LOG.operation,
+type TribePageAccessContext = Awaited<ReturnType<typeof resolveTribePageAccess>>;
+type TribePageAccessResult = TribePageAccessContext["result"];
+type HiddenTribePageAccess = Extract<
+  TribePageAccessResult,
+  { status: typeof TRIBE_PAGE_ACCESS_STATUS.hidden }
+>;
+type VisibleTribePageAccess = Exclude<TribePageAccessResult, HiddenTribePageAccess>;
+
+type TribePageRequest = {
+  access: TribePageAccessContext;
+  channelSlug: string | null;
+  joinStatus: string | null;
+  mercadoPagoPreapprovalId: string | null;
+  page: ReturnType<typeof readPositiveIntegerSearchParam>;
+  slug: string;
+};
+
+/**
+ * Mercado Pago return of a visitor without a session: in an in-app browser
+ * the return opens in the external browser (where the session lives), and
+ * otherwise the visitor signs in and comes back to the return.
+ */
+async function handleUnauthenticatedSubscriptionReturn(
+  { logger }: TribePageAccessContext,
+  { mercadoPagoPreapprovalId, slug }: { mercadoPagoPreapprovalId: string; slug: string }
+) {
+  const fallbackSignInUrl = buildSubscriptionReturnSignInRedirect(
     slug,
+    mercadoPagoPreapprovalId
+  );
+  const requestHeaders = await headers();
+  const userAgent = requestHeaders.get(USER_AGENT_HEADER);
+  const externalBrowserPlatform =
+    resolveExternalBrowserPlatform(userAgent);
+
+  logger.info({
+    message: TRIBE_PAGE_LOG.unauthenticatedSubscriptionReturnMessage,
+    metadata: {
+      externalBrowserPlatform,
+      slug,
+      userAgent,
+    },
   });
 
-  const {
-    authenticatedMember,
-    logger,
-    modules,
-    requestId,
-    result: accessResult,
-  } = access;
+  if (externalBrowserPlatform) {
+    const targetHttpsUrl =
+      resolvePublicAppBaseUrl() +
+      buildSubscriptionReturnPath(slug, mercadoPagoPreapprovalId);
+    const externalBrowserUrl = buildExternalBrowserUrl({
+      platform: externalBrowserPlatform,
+      targetHttpsUrl,
+    });
 
-  if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-    logger.info({
-      message: TRIBE_PAGE_LOG.hiddenAccessMessage,
+    if (externalBrowserUrl) {
+      return renderOpenInExternalBrowserHandoff(
+        externalBrowserUrl,
+        fallbackSignInUrl
+      );
+    }
+  }
+
+  redirect(fallbackSignInUrl);
+}
+
+/**
+ * Mercado Pago return of a member whose access a payment can recover:
+ * redirects when it resolved, shows the waiting screen while it is pending,
+ * and returns `null` to fall through otherwise.
+ */
+async function handleRecoverableSubscriptionReturn(
+  { authenticatedMember, logger, modules, requestId }: TribePageAccessContext,
+  { mercadoPagoPreapprovalId, slug }: { mercadoPagoPreapprovalId: string; slug: string }
+) {
+  const subscriptionReturnOutcome = await resolveSubscriptionReturnOutcome({
+    modules,
+    providerSubscriptionId: mercadoPagoPreapprovalId,
+    requestId,
+    tribeSlug: slug,
+  });
+
+  if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.failed) {
+    logger.error({
+      message: TRIBE_PAGE_LOG.resolveSubscriptionReturnFailureMessage,
+      error: subscriptionReturnOutcome.error,
       metadata: {
-        reason: accessResult.reason,
+        reason:
+          TRIBE_PAGE_LOG_REASON.unexpectedSubscriptionReturnRepositoryError,
         slug,
         viewerId: authenticatedMember?.id ?? null,
       },
     });
-
-    if (
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden &&
-      mercadoPagoPreapprovalId
-    ) {
-      const fallbackSignInUrl = buildSubscriptionReturnSignInRedirect(
-        slug,
-        mercadoPagoPreapprovalId
-      );
-      const requestHeaders = await headers();
-      const userAgent = requestHeaders.get(USER_AGENT_HEADER);
-      const externalBrowserPlatform =
-        resolveExternalBrowserPlatform(userAgent);
-
-      logger.info({
-        message: TRIBE_PAGE_LOG.unauthenticatedSubscriptionReturnMessage,
-        metadata: {
-          externalBrowserPlatform,
-          slug,
-          userAgent,
-        },
-      });
-
-      if (externalBrowserPlatform) {
-        const targetHttpsUrl =
-          resolvePublicAppBaseUrl() +
-          buildSubscriptionReturnPath(slug, mercadoPagoPreapprovalId);
-        const externalBrowserUrl = buildExternalBrowserUrl({
-          platform: externalBrowserPlatform,
-          targetHttpsUrl,
-        });
-
-        if (externalBrowserUrl) {
-          return renderOpenInExternalBrowserHandoff(
-            externalBrowserUrl,
-            fallbackSignInUrl
-          );
-        }
-      }
-
-      redirect(fallbackSignInUrl);
-    }
-
-    if (isSubscriptionRecoverableAccess(accessResult) && mercadoPagoPreapprovalId) {
-      const subscriptionReturnOutcome = await resolveSubscriptionReturnOutcome({
-        modules,
-        providerSubscriptionId: mercadoPagoPreapprovalId,
-        requestId,
-        tribeSlug: slug,
-      });
-
-      if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.failed) {
-        logger.error({
-          message: TRIBE_PAGE_LOG.resolveSubscriptionReturnFailureMessage,
-          error: subscriptionReturnOutcome.error,
-          metadata: {
-            reason:
-              TRIBE_PAGE_LOG_REASON.unexpectedSubscriptionReturnRepositoryError,
-            slug,
-            viewerId: authenticatedMember?.id ?? null,
-          },
-        });
-      }
-
-      if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.redirect) {
-        redirect(subscriptionReturnOutcome.path);
-      }
-
-      if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.pending) {
-        return renderSubscriptionReturnStatus(slug, mercadoPagoPreapprovalId);
-      }
-    }
-
-    if (
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden
-    ) {
-      redirect(buildJoinSignInRedirect(slug));
-    }
-
-    // Academy mode: a basic member who reads no channel lands on the academy
-    // offer and personal steps instead of the campfire.
-    if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
-      redirect(ROUTES.tribes.academy(slug));
-    }
-
-    // The open-join action redirects non-checkout outcomes back with a
-    // join_status query. A failed checkout can leave the member blocked or
-    // payment-blocked, so this terminal status screen must render for both the
-    // not_found_or_not_visible and blocked_hidden reasons, not just for
-    // non-members, otherwise blocked members fall through to a misleading 404.
-    const joinStatusScreen = renderOpenJoinStatusScreen(
-      readFirstSearchParamValue(
-        resolvedSearchParams[TRIBE_PAGE_QUERY.joinStatus]
-      ),
-      slug
-    );
-
-    if (joinStatusScreen) {
-      return joinStatusScreen;
-    }
-
-    // A member blocked or removed by a failed payment can recover paid access by
-    // re-subscribing through the same tokenless open-join offer, so surface it
-    // instead of a 404. Conduct blocks (and any non-payment reason) stay hidden:
-    // isSubscriptionRecoverableAccess only covers payment_blocked and
-    // subscription_inactive, mirroring the RLS open-join recovery policies.
-    const canRecoverPaidAccessViaOpenJoin =
-      isSubscriptionRecoverableAccess(accessResult);
-
-    // The open-join offer is the raw-link entry point only. When a Mercado Pago
-    // return is in flight (preapproval_id present) its terminal return handling
-    // ran above; if it could not be resolved we fall through to notFound instead
-    // of a fresh "Completá tu suscripción" prompt, so a bad or transient return
-    // never turns into a duplicate checkout.
-    if (
-      !mercadoPagoPreapprovalId &&
-      (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
-        canRecoverPaidAccessViaOpenJoin)
-    ) {
-      const offer = await modules.subscriptions.useCases
-        .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
-        .catch(() => ({
-          status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,
-        }));
-
-      if (
-        offer.status === TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available
-      ) {
-        const startOpenJoin = startOpenJoinSubscriptionAction.bind(null, {
-          slug,
-        });
-
-        return (
-          <div className={styles.TribePage}>
-            <TribeOpenJoin offer={offer.price} startAction={startOpenJoin} />
-          </div>
-        );
-      }
-
-      // Academy mode: the public link leads to the minimum academy offer (no
-      // private tribe data) where the visitor can take the basic entry.
-      const academyOffer = await modules.productAccess.useCases
-        .getAcademyPublicOffer({ tribeSlug: slug })
-        .catch(() => null);
-
-      if (academyOffer) {
-        redirect(ROUTES.tribes.academy(slug));
-      }
-    }
-
-    notFound();
   }
+
+  if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.redirect) {
+    redirect(subscriptionReturnOutcome.path);
+  }
+
+  if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.pending) {
+    return renderSubscriptionReturnStatus(slug, mercadoPagoPreapprovalId);
+  }
+
+  return null;
+}
+
+/**
+ * Tokenless open-join offer of the current paid price; without one, an
+ * academy sends the visitor to its public offer. Returns `null` when there is
+ * nothing to offer.
+ */
+async function renderOpenJoinOffer({ modules }: TribePageAccessContext, slug: string) {
+  const offer = await modules.subscriptions.useCases
+    .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
+    .catch(() => ({
+      status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,
+    }));
+
+  if (
+    offer.status === TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available
+  ) {
+    const startOpenJoin = startOpenJoinSubscriptionAction.bind(null, {
+      slug,
+    });
+
+    return (
+      <div className={styles.TribePage}>
+        <TribeOpenJoin offer={offer.price} startAction={startOpenJoin} />
+      </div>
+    );
+  }
+
+  // Academy mode: the public link leads to the minimum academy offer (no
+  // private tribe data) where the visitor can take the basic entry.
+  const academyOffer = await modules.productAccess.useCases
+    .getAcademyPublicOffer({ tribeSlug: slug })
+    .catch(() => null);
+
+  if (academyOffer) {
+    redirect(ROUTES.tribes.academy(slug));
+  }
+
+  return null;
+}
+
+/**
+ * Tribe page for a viewer who cannot open the tribe: subscription returns,
+ * sign-in, the academy, the open-join status or offer, or a 404.
+ */
+async function renderHiddenTribePage(
+  accessResult: HiddenTribePageAccess,
+  { access, joinStatus, mercadoPagoPreapprovalId, slug }: TribePageRequest
+) {
+  const { authenticatedMember, logger } = access;
+
+  logger.info({
+    message: TRIBE_PAGE_LOG.hiddenAccessMessage,
+    metadata: {
+      reason: accessResult.reason,
+      slug,
+      viewerId: authenticatedMember?.id ?? null,
+    },
+  });
+
+  if (
+    accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden &&
+    mercadoPagoPreapprovalId
+  ) {
+    return handleUnauthenticatedSubscriptionReturn(access, { mercadoPagoPreapprovalId, slug });
+  }
+
+  if (isSubscriptionRecoverableAccess(accessResult) && mercadoPagoPreapprovalId) {
+    const returnScreen = await handleRecoverableSubscriptionReturn(access, { mercadoPagoPreapprovalId, slug });
+
+    if (returnScreen) {
+      return returnScreen;
+    }
+  }
+
+  if (
+    accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden
+  ) {
+    redirect(buildJoinSignInRedirect(slug));
+  }
+
+  // Academy mode: a basic member who reads no channel lands on the academy
+  // offer and personal steps instead of the campfire.
+  if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
+    redirect(ROUTES.tribes.academy(slug));
+  }
+
+  // The open-join action redirects non-checkout outcomes back with a
+  // join_status query. A failed checkout can leave the member blocked or
+  // payment-blocked, so this terminal status screen must render for both the
+  // not_found_or_not_visible and blocked_hidden reasons, not just for
+  // non-members, otherwise blocked members fall through to a misleading 404.
+  const joinStatusScreen = renderOpenJoinStatusScreen(joinStatus, slug);
+
+  if (joinStatusScreen) {
+    return joinStatusScreen;
+  }
+
+  // A member blocked or removed by a failed payment can recover paid access by
+  // re-subscribing through the same tokenless open-join offer, so surface it
+  // instead of a 404. Conduct blocks (and any non-payment reason) stay hidden:
+  // isSubscriptionRecoverableAccess only covers payment_blocked and
+  // subscription_inactive, mirroring the RLS open-join recovery policies.
+  const canRecoverPaidAccessViaOpenJoin =
+    isSubscriptionRecoverableAccess(accessResult);
+
+  // The open-join offer is the raw-link entry point only. When a Mercado Pago
+  // return is in flight (preapproval_id present) its terminal return handling
+  // ran above; if it could not be resolved we fall through to notFound instead
+  // of a fresh "Completá tu suscripción" prompt, so a bad or transient return
+  // never turns into a duplicate checkout.
+  if (
+    !mercadoPagoPreapprovalId &&
+    (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
+      canRecoverPaidAccessViaOpenJoin)
+  ) {
+    const openJoinOffer = await renderOpenJoinOffer(access, slug);
+
+    if (openJoinOffer) {
+      return openJoinOffer;
+    }
+  }
+
+  notFound();
+}
+
+/** Campfire of a viewer who can open the tribe: the agenda and the round. */
+async function renderVisibleTribePage(
+  accessResult: VisibleTribePageAccess,
+  { access, channelSlug, mercadoPagoPreapprovalId, page, slug }: TribePageRequest
+) {
+  const { authenticatedMember, logger, modules } = access;
 
   if (!authenticatedMember) {
     notFound();
@@ -584,7 +624,7 @@ export async function TribePageContent({
         metadata: {
           reason: TRIBE_PAGE_LOG_REASON.unexpectedRoundRepositoryError,
           slug,
-          viewerId: authenticatedMember?.id ?? null,
+          viewerId: authenticatedMember.id,
         },
       });
       notFound();
@@ -630,6 +670,45 @@ export async function TribePageContent({
       />
     </div>
   );
+}
+
+export async function TribePageContent({
+  params,
+  searchParams = Promise.resolve({}),
+}: TribePageProps) {
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  // The campfire is a channel: the channel access rule decides who reads it,
+  // so a free academy member reads it without community access.
+  const access = await resolveTribePageAccess({
+    allowWithChannelReadAccess: true,
+    operation: TRIBE_PAGE_LOG.operation,
+    slug,
+  });
+  const request: TribePageRequest = {
+    access,
+    channelSlug: readFirstSearchParamValue(
+      resolvedSearchParams[TRIBE_PAGE_QUERY.channel]
+    ),
+    joinStatus: readFirstSearchParamValue(
+      resolvedSearchParams[TRIBE_PAGE_QUERY.joinStatus]
+    ),
+    mercadoPagoPreapprovalId: readFirstSearchParamValue(
+      resolvedSearchParams[TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]
+    ),
+    page: readPositiveIntegerSearchParam(
+      resolvedSearchParams[TRIBE_PAGE_QUERY.page]
+    ),
+    slug,
+  };
+
+  if (access.result.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
+    return renderHiddenTribePage(access.result, request);
+  }
+
+  return renderVisibleTribePage(access.result, request);
 }
 
 export default function TribePage(props: TribePageProps) {

@@ -37,6 +37,24 @@ type ResolveTribePageAccessOptions = {
   slug: string;
 };
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+/**
+ * Module graph seen by the optional subscription reconciliation. Partial
+ * graphs (route fixtures without a subscriptions module) skip it, so the
+ * reconciliation use case is read as possibly absent.
+ */
+type SubscriptionReconciliationModules = {
+  subscriptions?: {
+    useCases?: Partial<
+      Pick<
+        RequestModules["subscriptions"]["useCases"],
+        "reconcileCurrentTribeMemberSubscription"
+      >
+    >;
+  };
+};
+
 type ResolveVisibleTribePageAccessOptions = ResolveTribePageAccessOptions & {
   /**
    * Internal path (with any query worth keeping) of the page being rendered.
@@ -62,7 +80,7 @@ export async function resolveTribePageAccess({
   const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  const subscriptionReconciliationModules =
+  const subscriptionReconciliationModules: SubscriptionReconciliationModules | null =
     authenticatedMember
       ? await createRequestModules({
           mercadoPagoWebhookVerified: true,

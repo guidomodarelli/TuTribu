@@ -33,6 +33,29 @@ type TribeEventProposalRouteContext = {
   }>;
 };
 
+type DecisionFailureContext = {
+  error: unknown;
+  logger: ReturnType<typeof createServerLogger>;
+  logMetadata: Record<string, unknown>;
+};
+
+function createDecisionFailureResponse({
+  error,
+  logger,
+  logMetadata,
+}: DecisionFailureContext): Response {
+  logger.error({
+    message: PROPOSAL_ROUTE_LOG.decisionFailureMessage,
+    error,
+    metadata: logMetadata,
+  });
+
+  return createJsonResponse(
+    { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalReviewMessage },
+    TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
+  );
+}
+
 /**
  * Resolves a pending proposal without creating an event: a manager rejects
  * it (optional note for the author) or the author withdraws it. 409 when it
@@ -115,15 +138,6 @@ export async function PATCH(request: Request, context: TribeEventProposalRouteCo
       status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
     });
   } catch (error) {
-    logger.error({
-      message: PROPOSAL_ROUTE_LOG.decisionFailureMessage,
-      error,
-      metadata: logMetadata,
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalReviewMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
+    return createDecisionFailureResponse({ error, logger, logMetadata });
   }
 }

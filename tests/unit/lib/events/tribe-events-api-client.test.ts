@@ -120,7 +120,7 @@ describe("fetchTribeEventAttendanceStreakRequest", () => {
 
     global.fetch = vi.fn(async () => {
       throw abortError;
-    }) as unknown as typeof fetch;
+    });
 
     await expect(fetchTribeEventAttendanceStreakRequest({ tribeSlug: TRIBE_SLUG })).rejects.toBe(
       abortError
@@ -283,7 +283,7 @@ describe("fetchTribeEventMonthListingRequest", () => {
   it("rethrows an aborted request for the caller to ignore", async () => {
     const abortError = new DOMException("The operation was aborted.", "AbortError");
 
-    global.fetch = vi.fn(async () => Promise.reject(abortError)) as unknown as typeof fetch;
+    global.fetch = vi.fn(async () => { throw abortError; });
 
     await expect(
       fetchTribeEventMonthListingRequest({ month, tribeSlug: TRIBE_SLUG })

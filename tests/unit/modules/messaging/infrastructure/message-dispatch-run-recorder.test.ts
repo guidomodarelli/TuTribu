@@ -17,7 +17,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native dispatch ru
   it("should preserve selected original facts, idempotent late phases and owner-only reads/writes", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareContactVerificationIssuer(database), tribeId = fixture.scope.tribeId;
-      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => fixture.config, tribeId);
+      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => fixture.config, { focalTribeId: tribeId });
       const start = await recorder.begin(randomUUID()), sample = { sampleId: randomUUID(), tribeId, phase: "send" as const, durationMs: 27 };
       const preparationSample = { ...sample, sampleId: randomUUID(), phase: MESSAGE_DISPATCH_OBSERVATION_PHASE.prepare, durationMs: sample.durationMs + 1 };
       const samples = [sample, preparationSample, sample];
@@ -50,7 +50,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native dispatch ru
           await delay(3_200);
         }
         return fixture.config;
-      }, tribeId);
+      }, { focalTribeId: tribeId });
       const start = await recorder.begin(randomUUID()), startAt = start.startedAt;
       await recorder.finish(start, [run(tribeId)], [], 3_000);
       expect(elapsedBeforeWait).toBeLessThan(3_000);
@@ -62,7 +62,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native dispatch ru
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareContactVerificationIssuer(database), tribeId = fixture.scope.tribeId;
       let checks = 0, lockAt = Number.POSITIVE_INFINITY;
-      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => ({ ...fixture.config, recoveryLocked: ++checks >= lockAt }), tribeId);
+      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => ({ ...fixture.config, recoveryLocked: ++checks >= lockAt }), { focalTribeId: tribeId });
       const start = await recorder.begin(randomUUID());
       await expect(recorder.finish(start, [run(tribeId)], [{ sampleId: randomUUID(), tribeId: randomUUID(), phase: "send", durationMs: 9 }], 45_000)).rejects.toMatchObject({ code: "permission_denied" });
       const valid = { sampleId: randomUUID(), tribeId, phase: MESSAGE_DISPATCH_OBSERVATION_PHASE.send, durationMs: 9 };

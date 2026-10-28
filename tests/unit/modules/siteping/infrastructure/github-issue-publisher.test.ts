@@ -66,7 +66,7 @@ describe("FetchGitHubIssuePublisher", () => {
     };
     // The publisher must target the default repository even when the developer's shell exports another one.
     delete process.env.SITEPING_GITHUB_REPOSITORY;
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
     fetchMock.mockResolvedValue({
       json: vi.fn(async () => ({
         html_url: "https://github.com/guidomodarelli/TuTribu/issues/42",

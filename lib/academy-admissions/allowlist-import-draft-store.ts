@@ -18,7 +18,7 @@ function openDatabase(signal: AbortSignal): Promise<IDBDatabase> {
     const cleanup = () => signal.removeEventListener("abort", abort);
     signal.addEventListener("abort", abort, { once: true });
     request.onupgradeneeded = () => { const store = request.result.createObjectStore(ALLOWLIST_IMPORT_DRAFT_STORE, { keyPath: "id" }); store.createIndex(ALLOWLIST_IMPORT_DRAFT_EXPIRATION_INDEX, "expiresAt"); };
-    request.onerror = () => { cleanup(); reject(new Error("Import draft database could not open")); };
+    request.addEventListener("error", () => { cleanup(); reject(new Error("Import draft database could not open")); });
     request.onblocked = () => { cancelled = true; cleanup(); reject(new Error("Import draft database upgrade is blocked")); };
     request.onsuccess = () => { cleanup(); const database = request.result; database.onversionchange = () => database.close(); if (signal.aborted || cancelled) { database.close(); reject(new Error("Import draft database opened after cancellation")); } else resolve(database); };
   });
@@ -33,8 +33,8 @@ async function transact<Value>(mode: IDBTransactionMode, signal: AbortSignal, pe
       const abort = () => { try { transaction.abort(); } catch { /* A completed local transaction cannot be aborted. */ } };
       const cleanup = () => signal.removeEventListener("abort", abort);
       transaction.oncomplete = () => { cleanup(); resolve(value); };
-      transaction.onerror = () => { cleanup(); reject(new Error("Import draft transaction failed")); };
-      transaction.onabort = () => { cleanup(); reject(new Error("Import draft transaction was cancelled")); };
+      transaction.addEventListener("error", () => { cleanup(); reject(new Error("Import draft transaction failed")); });
+      transaction.addEventListener('abort', () => { cleanup(); reject(new Error("Import draft transaction was cancelled")); });
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted) { abort(); return; }
       try { perform(transaction.objectStore(ALLOWLIST_IMPORT_DRAFT_STORE), (result) => { value = result; }); } catch { abort(); }

@@ -17,10 +17,10 @@ export async function prepareAdmissionNotificationGroupAuthority(database: Acade
   /** @param actorUserId - Exact contributing actor or backend collection principal. @param run - Original database-only operation. @returns Its confirmed result without a nested checkout or provider RPC. */
   const execute = <Result>(actorUserId: string | null, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext({ userId: actorUserId, email: null }, run);
   /** @param transaction - Current original transaction. @returns Actual private execution capability and exact fixture principal, without locking business rows before their owner. */
-  const authorize = async (transaction: RequestDatabase) => Boolean((await transaction.execute<{ allowed: boolean }>(sql`select (public.current_app_user_id() is null or public.current_app_user_id()=${fixture.leaderId}) and has_function_privilege(current_user,'public.authorize_messaging_delivery_attempt(uuid,uuid,integer,text,text)','EXECUTE') as allowed`)).rows[0].allowed);
+  const authorize = async (transaction: RequestDatabase) => (await transaction.execute<{ allowed: boolean | null }>(sql`select (public.current_app_user_id() is null or public.current_app_user_id()=${fixture.leaderId}) and has_function_privilege(current_user,'public.authorize_messaging_delivery_attempt(uuid,uuid,integer,text,text)','EXECUTE') as allowed`)).rows[0].allowed === true;
   const guards = createAdmissionNotificationResourceAuthority(readSecurityConfig);
-  const repository = new PostgresMessageDeliveryRepository(execute, authorize, readSecurityConfig, undefined, guards.queued);
-  const secrets = new PostgresEncryptedSecretStore(execute, { getAuthenticatedAccount: async () => null }, readSecurityConfig, "authorized_delivery", guards.marked);
+  const repository = new PostgresMessageDeliveryRepository({ execute, authorizeMaintenance: authorize, readSecurityConfig, authorizeQueuedResource: guards.queued });
+  const secrets = new PostgresEncryptedSecretStore({ executeWithDatabase: execute, accounts: { getAuthenticatedAccount: async () => null }, readSecurityConfig, purpose: "authorized_delivery", authorizeDeliveryResource: guards.marked });
   const provider = new PostgresCurrentMessagingProvider((context, run) => execute(context.authorizationPurpose === "authorized_delivery" ? context.contributingLeaderUserId : context.actorUserId, run), async () => ({ environment: fixture.keys.config.environment, securityEpoch: fixture.keys.config.securityEpoch, recoveryLocked: fixture.keys.config.recoveryLocked }), guards.marked);
   /** @returns One genuine fair lease for this fixture's next queued original. */
   const claim = async () => {

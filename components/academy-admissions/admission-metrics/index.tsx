@@ -16,6 +16,9 @@ function renderCounts(values: readonly MetricValue[]) {
   return <dl className={styles.AdmissionMetrics__counts}>{values.map((item) => <div className={styles.AdmissionMetrics__count} key={item.label}><dt className={styles.AdmissionMetrics__label}>{item.label}</dt><dd className={typeof item.value === "number" ? styles.AdmissionMetrics__value : `${styles.AdmissionMetrics__value} ${styles["AdmissionMetrics__value--text"]}`}>{item.value}</dd></div>)}</dl>;
 }
 
+/** Readable name of each verification channel. */
+const VERIFICATION_CHANNEL_LABEL: Partial<Record<string, string>> = { [MESSAGING_PUBLIC_CHANNEL.email]: "Correo", [MESSAGING_PUBLIC_CHANNEL.sms]: "SMS" };
+
 /** Only own aggregate/settings props enter presentation; all authority and reads belong to the route. */
 export type AdmissionMetricsProps = { metrics: AdmissionMetricsResult; currentUsage: MessagingUsagePolicyStateResult; usageHref: string };
 /** @param props - Independently observed aggregate and current configuration; neither replaces the other. @returns UTC consumption, distinct delivery/attempt counters and actual worker history. */
@@ -43,7 +46,7 @@ export function AdmissionMetrics({ metrics, currentUsage, usageHref }: Admission
     </section>
     <section className={styles.AdmissionMetrics__section} aria-label="Verificación por canal">
       <h2 className={styles.AdmissionMetrics__title}>Verificación por canal</h2>
-      {metrics.verification.length ? <div className={styles.AdmissionMetrics__scroll} role="region" aria-label="Tabla de verificación por canal" tabIndex={0}><table className={styles.AdmissionMetrics__table}><caption className={styles.AdmissionMetrics__caption}>Desafíos de contacto registrados</caption><thead><tr><th scope="col">Canal</th><th scope="col">Emitidos</th><th scope="col">Verificados</th><th scope="col">Invalidados</th><th scope="col">Vencidos</th><th scope="col">Intentos de código fallidos</th></tr></thead><tbody>{metrics.verification.map((row) => <tr key={row.channel}><th scope="row">{row.channel === MESSAGING_PUBLIC_CHANNEL.email ? "Correo" : row.channel === MESSAGING_PUBLIC_CHANNEL.sms ? "SMS" : "WhatsApp"}</th><td>{row.issued}</td><td>{row.verified}</td><td>{row.invalidated}</td><td>{row.expired}</td><td>{row.failedAttempts}</td></tr>)}</tbody></table></div> : <p>No hay desafíos registrados por canal.</p>}
+      {metrics.verification.length ? <div className={styles.AdmissionMetrics__scroll} role="region" aria-label="Tabla de verificación por canal" tabIndex={0}><table className={styles.AdmissionMetrics__table}><caption className={styles.AdmissionMetrics__caption}>Desafíos de contacto registrados</caption><thead><tr><th scope="col">Canal</th><th scope="col">Emitidos</th><th scope="col">Verificados</th><th scope="col">Invalidados</th><th scope="col">Vencidos</th><th scope="col">Intentos de código fallidos</th></tr></thead><tbody>{metrics.verification.map((row) => <tr key={row.channel}><th scope="row">{VERIFICATION_CHANNEL_LABEL[row.channel] ?? "WhatsApp"}</th><td>{row.issued}</td><td>{row.verified}</td><td>{row.invalidated}</td><td>{row.expired}</td><td>{row.failedAttempts}</td></tr>)}</tbody></table></div> : <p>No hay desafíos registrados por canal.</p>}
     </section>
     <section className={styles.AdmissionMetrics__section} aria-label="Entregas e intentos externos">
       <h2 className={styles.AdmissionMetrics__title}>Entregas e intentos externos</h2>

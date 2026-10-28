@@ -37,7 +37,7 @@ const heldLeaderAuthority = new WeakMap<RequestDatabase, HeldLeaderAuthorityScop
  */
 function currentLatestCheck(database: RequestDatabase): LatestReusedCheck | null {
   const scope = heldLeaderAuthority.get(database), latest = scope?.latest;
-  if (!scope || !latest || latest.statements !== scope.statements || performance.now() - latest.issuedAt > ADMISSION_LEADER_AUTHORITY_REUSE.consecutiveWindowMs) return null;
+  if (!scope || latest?.statements !== scope.statements || performance.now() - latest.issuedAt > ADMISSION_LEADER_AUTHORITY_REUSE.consecutiveWindowMs) return null;
   return latest;
 }
 
@@ -65,7 +65,7 @@ export async function withReusedAdmissionLeaderAuthority<Result>(database: Reque
   const scope: HeldLeaderAuthorityScope = { authorities: new Map(), statements: 0, latest: null };
   const client = database.$client, ownQuery = Object.hasOwn(client, "query"), query = client.query;
   // Counts every statement of this connection while the scope is open; restored when it settles.
-  client.query = function countedQuery(this: typeof client, ...args: unknown[]) { scope.statements += 1; return Reflect.apply(query, this, args); } as typeof client.query;
+  client.query = function countedQuery(this: typeof client, ...args: unknown[]) { scope.statements += 1; return Reflect.apply(query, this, args) as unknown; } as typeof client.query;
   heldLeaderAuthority.set(database, scope);
   try { return await run(); } finally {
     heldLeaderAuthority.delete(database);

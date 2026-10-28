@@ -23,6 +23,12 @@ import { createAdmissionNotificationEmailIntentMac } from "../encryption/admissi
 import { hasReadableAdmissionNotificationEmailIntent } from "../encryption/readable-admission-notification-email-intent";
 import { admissionNotificationNow, PostgresAdmissionNotificationGroupReader, readAdmissionNotificationGroup } from "./admission-notification-group-reader";
 
+/** @param reason - Why the group authority is no longer current. @returns Expired, incomplete connection, or unavailable. */
+function staleGroupAuthorityCode(reason: unknown) {
+  if (reason === ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired) return ADMISSION_ERROR_CODE.challengeExpired;
+  return reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable ? ADMISSION_ERROR_CODE.connectionIncomplete : ADMISSION_ERROR_CODE.resourceUnavailable;
+}
+
 /** Consumes only immutable native content coordinates; a retired payer is allowed to be absent. */
 type OriginalGroupDelivery = {
   id: string; connection_id: string; connection_version: number; environment: string; security_epoch: string;
@@ -57,8 +63,8 @@ export class PostgresAdmissionNotificationGroupRecoveryContent implements Notifi
     if (config.recoveryLocked || config.environment !== original.environment || config.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
   }
 
-  /** @param config - Current retained keyring. @param original - Original native identities, potentially minimized. @param scope - Exact immutable original coordinates. @param intent - Complete original protocol. @param normalizedEmail - Currently trusted account email, never persisted. @returns Historical authenticity without inventing an erased legacy identity. */
-  private async authentic(config: MessagingSecurityConfig, original: OriginalGroupDelivery, scope: AdmissionNotificationEmailIntentScope, intent: AdmissionNotificationEmailIntent, normalizedEmail: string): Promise<boolean> {
+  /** @param config - Current retained keyring. @param original - Original native identities, potentially minimized. @param content - `scope`: exact immutable original coordinates. `intent`: complete original protocol. `normalizedEmail`: currently trusted account email, never persisted. @returns Historical authenticity without inventing an erased legacy identity. */
+  private async authentic(config: MessagingSecurityConfig, original: OriginalGroupDelivery, { scope, intent, normalizedEmail }: { scope: AdmissionNotificationEmailIntentScope; intent: AdmissionNotificationEmailIntent; normalizedEmail: string }): Promise<boolean> {
     const mac = createAdmissionNotificationEmailIntentMac(config), signed = { keyId: original.payload_mac_key_id, mac: original.payload_fingerprint };
     if (intent.format === ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT) return mac.verifyOriginal({ ...scope, intent }, signed);
     if (!original.actor_user_id) return false;
@@ -74,26 +80,28 @@ export class PostgresAdmissionNotificationGroupRecoveryContent implements Notifi
     const original = (await database.execute<OriginalGroupDelivery>(sql`select id,connection_id,connection_version,environment,security_epoch,purpose,channel,source_resource_id,notification_group_id,notification_group_audience,recipient_ref,actor_user_id,recovery_of_delivery_id,idempotency_key,queued_usage_policy_version,
       (extract(epoch from created_at)*${MICROSECONDS_PER_SECOND})::bigint::text as created_microseconds,(extract(epoch from deadline_at)*${MICROSECONDS_PER_SECOND})::bigint::text as deadline_microseconds,
       frozen_intent,payload_mac_key_id,payload_fingerprint from public.message_deliveries where id=${command.originalDeliveryId} and tribe_id=${command.tribeId}`)).rows[0];
-    if (!original || !original.notification_group_id || !original.notification_group_audience || original.purpose !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || original.channel !== MESSAGING_PUBLIC_CHANNEL.email || original.source_resource_id !== original.notification_group_id) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (!original?.notification_group_id || !original.notification_group_audience || original.purpose !== NOTIFICATION_DELIVERY_RECOVERY_PURPOSE || original.channel !== MESSAGING_PUBLIC_CHANNEL.email || original.source_resource_id !== original.notification_group_id) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const config = await this.readSecurityConfig();
     this.assertSecurity(config, original);
     const group = await readAdmissionNotificationGroup(database, command.tribeId, original.notification_group_id);
     if (!group || !hasReadableAdmissionNotificationEmailIntent(original.frozen_intent)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const facts = await new PostgresAdmissionNotificationGroupReader(database, authorize, this.readSecurityConfig).read(group);
     const plan = resolveAdmissionNotificationGroupAuthority({ tribeId: command.tribeId, groupId: original.notification_group_id, recipientUserId: original.recipient_ref, audience: original.notification_group_audience }, facts.group, facts.members, facts.nowMicroseconds);
-    if (plan.status !== ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT) throw new AdmissionOperationError(plan.reason === ADMISSION_NOTIFICATION_GROUP_REASON.deadlineExpired ? ADMISSION_ERROR_CODE.challengeExpired : plan.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable ? ADMISSION_ERROR_CODE.connectionIncomplete : ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (plan.status !== ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT) throw new AdmissionOperationError(staleGroupAuthorityCode(plan.reason));
     const intent = original.frozen_intent, resource = facts.resource;
-    if (!resource || resource.connectionId !== command.connectionId || resource.connectionVersion !== command.connectionVersion || resource.contributingLeaderUserId !== command.contributingLeaderUserId || resource.senderId !== command.senderId || resource.queuedUsagePolicyVersion !== command.queuedUsagePolicyVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-    if (intent.groupId !== group.id || intent.groupVersion !== facts.group?.version || intent.channel !== original.channel || Number(original.deadline_microseconds) !== plan.deadlineAtMicroseconds || !admissionNotificationManifestsMatch(plan.manifest, intent.manifest)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    // The readable-intent guard does not validate `channel`; the persisted value is still compared at runtime.
+    const persistedChannel: string = intent.channel;
+    if (resource?.connectionId !== command.connectionId || resource.connectionVersion !== command.connectionVersion || resource.contributingLeaderUserId !== command.contributingLeaderUserId || resource.senderId !== command.senderId || resource.queuedUsagePolicyVersion !== command.queuedUsagePolicyVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    if (intent.groupId !== group.id || intent.groupVersion !== facts.group?.version || persistedChannel !== original.channel || Number(original.deadline_microseconds) !== plan.deadlineAtMicroseconds || !admissionNotificationManifestsMatch(plan.manifest, intent.manifest)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const destinations = new Set(facts.members.map((member) => member.normalizedEmail)), normalizedEmail = destinations.size === 1 ? [...destinations][0] : null;
     if (!normalizedEmail) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const scope: AdmissionNotificationEmailIntentScope = { tribeId: command.tribeId, deliveryId: original.id, originalDeliveryId: original.recovery_of_delivery_id, connectionId: original.connection_id, connectionVersion: original.connection_version, recipientUserId: original.recipient_ref, idempotencyKey: original.idempotency_key, queuedUsagePolicyVersion: original.queued_usage_policy_version, createdAtMicroseconds: Number(original.created_microseconds), deadlineAtMicroseconds: Number(original.deadline_microseconds) };
     await assertMessagingAuthenticatedMacKeyMaterial(database, config, MESSAGING_KEY_PURPOSE.operationPayload);
-    if (!await this.authentic(config, original, scope, intent, normalizedEmail)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (!await this.authentic(config, original, { scope, intent, normalizedEmail })) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     await this.assertAuthorized(database, command, authorize);
     const current = await this.readSecurityConfig();
     this.assertSecurity(current, original);
-    if (!current.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(resource.credentialKeyId) || !await this.authentic(current, original, scope, intent, normalizedEmail)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    if (!current.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(resource.credentialKeyId) || !await this.authentic(current, original, { scope, intent, normalizedEmail })) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     const now = await admissionNotificationNow(database);
     if (now < scope.createdAtMicroseconds || now >= scope.deadlineAtMicroseconds) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
     return { original, intent, scope, normalizedEmail, credentialKeyId: resource.credentialKeyId, config: current };

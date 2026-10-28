@@ -64,7 +64,7 @@ export class PostgresAdmissionActivationRepository implements AdmissionActivatio
         && ADMISSION_PREFLIGHT_RLS_TABLES.every((table) => relations.some((relation) => relation.table_name === table && relation.rls && relation.forced))
         && ADMISSION_PREFLIGHT_STORAGE_CONSTRAINTS.every((required) => constraints.some((constraint) => constraint.table_name === required.table && constraint.name === required.name && constraint.validated))
         && ADMISSION_PREFLIGHT_OWNER_FUNCTIONS.every((required) => functions.some((procedure) => procedure.name === required.name && procedure.signature.replaceAll(" ", "") === required.signature && procedure.owner_execution && procedure.public_execution === required.publicExecution && procedure.configuration?.some((setting) => ADMISSION_PREFLIGHT_FUNCTION_SEARCH_PATHS.includes(setting)))),
-      ingressProtected: ADMISSION_PREFLIGHT_INGRESS_TRIGGERS.every(enabled) && Boolean(ingressPolicy), runtimePrepared,
+      ingressProtected: ADMISSION_PREFLIGHT_INGRESS_TRIGGERS.every(enabled) && ingressPolicy, runtimePrepared,
       evaluatorEnabled: catalog.admission_enabled === true, recoveryLocked,
       unknownCommercialMemberCount: commercial.filter((member) => member.commercial_recovery_status === null).length,
       privilegedCommercialMemberCount: commercial.filter((member) => member.role !== TRIBE_MEMBER_ROLE.tribemate).length };

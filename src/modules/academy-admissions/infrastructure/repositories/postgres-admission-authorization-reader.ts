@@ -93,34 +93,63 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
     const userId = (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
     if (!userId) return null;
     const actor = await this.getCurrentActor(tribeId, userId);
-    if (!actor) return null;
-    const ownRequest = ADMISSION_OWN_REQUEST_ACTIONS.has(this.action);
-    const reviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
+    if (!actor || this.deniesResource(resource.kind, actor, tribeId)) return null;
+    const result = await this.readResourceRow(tribeId, resource, userId);
+    if (!await this.sessionRemainsLive(userId)) return null;
+    return result ?? null;
+  }
+
+  /**
+   * @param kind - Requested resource family.
+   * @param actor - Current scoped actor.
+   * @param tribeId - Current authorized tenant.
+   * @returns Whether the fixed action may not read that family: own requests are always readable, decisions need an active reviewer, the rest need the action permission and the family's own action.
+   */
+  private deniesResource(kind: AdmissionResourceIdentity["kind"], actor: AdmissionActorFacts, tribeId: string): boolean {
     const permission = canPerformAdmissionAction(actor, this.action, { tribeId });
-    let result: AdmissionAuthorizationResource | undefined;
+    switch (kind) {
+      case ADMISSION_RESOURCE_KIND.request: {
+        if (ADMISSION_OWN_REQUEST_ACTIONS.has(this.action)) return false;
+        const reviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
+        return !(ADMISSION_DECISION_ACTIONS.has(this.action) ? reviewer : permission);
+      }
+      case ADMISSION_RESOURCE_KIND.allowlistEntry:
+      case ADMISSION_RESOURCE_KIND.allowlistImport:
+        return !permission || this.action !== ADMISSION_ACTION.manageAllowlist;
+      case ADMISSION_RESOURCE_KIND.personalInvitation:
+        return !permission || this.action !== ADMISSION_ACTION.manageInvitations;
+      case ADMISSION_RESOURCE_KIND.connection:
+        return !permission || (this.action !== ADMISSION_ACTION.manageConnection && this.action !== ADMISSION_ACTION.readConnectionMetadata && this.action !== ADMISSION_ACTION.readConnectionAlert);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * @param tribeId - Current authorized tenant.
+   * @param resource - Own resource kind/id selecting a static query.
+   * @param userId - Current native actor.
+   * @returns The locked minimal ownership row, or undefined when absent.
+   */
+  private async readResourceRow(tribeId: string, resource: AdmissionResourceIdentity, userId: string): Promise<AdmissionAuthorizationResource | undefined> {
     switch (resource.kind) {
       case ADMISSION_RESOURCE_KIND.request: {
-        if (!ownRequest && !(ADMISSION_DECISION_ACTIONS.has(this.action) ? reviewer : permission)) return null;
+        const ownRequest = ADMISSION_OWN_REQUEST_ACTIONS.has(this.action);
         const row = (await this.database.execute<{ id: string; tribe_id: string; user_id: string }>(this.action === ADMISSION_ACTION.readInbox || this.action === ADMISSION_ACTION.readReviewHistory || ADMISSION_DECISION_ACTIONS.has(this.action)
           ? sql`select record->'request'->>'id' as id,record->'request'->>'tribeId' as tribe_id,record->'request'->>'userId' as user_id from public.read_admission_reviews(${tribeId},${this.sessionId},${resource.id},1)`
           : sql`select id,tribe_id,user_id from public.academy_admission_requests where tribe_id=${tribeId} and id=${resource.id} and (${!ownRequest} or user_id=${userId}) for share`)).rows[0];
-        if (row) result = { id: row.id, tribeId: row.tribe_id, applicantUserId: row.user_id };
-        break;
+        return row ? { id: row.id, tribeId: row.tribe_id, applicantUserId: row.user_id } : undefined;
       }
       case ADMISSION_RESOURCE_KIND.allowlistEntry:
-        if (!permission || this.action !== ADMISSION_ACTION.manageAllowlist) return null;
-        result = (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.academy_allowlist_entries where tribe_id=${tribeId} and id=${resource.id} for share`)).rows[0]; break;
+        return (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.academy_allowlist_entries where tribe_id=${tribeId} and id=${resource.id} for share`)).rows[0];
       case ADMISSION_RESOURCE_KIND.allowlistImport:
-        if (!permission || this.action !== ADMISSION_ACTION.manageAllowlist) return null;
-        result = (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.academy_allowlist_imports where tribe_id=${tribeId} and id=${resource.id} and actor_user_id=${userId} for share`)).rows[0]; break;
+        return (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.academy_allowlist_imports where tribe_id=${tribeId} and id=${resource.id} and actor_user_id=${userId} for share`)).rows[0];
       case ADMISSION_RESOURCE_KIND.personalInvitation:
-        if (!permission || this.action !== ADMISSION_ACTION.manageInvitations) return null;
-        result = (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.academy_personal_invitations where tribe_id=${tribeId} and id=${resource.id} for share`)).rows[0]; break;
+        return (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.academy_personal_invitations where tribe_id=${tribeId} and id=${resource.id} for share`)).rows[0];
       case ADMISSION_RESOURCE_KIND.connection:
-        if (!permission || (this.action !== ADMISSION_ACTION.manageConnection && this.action !== ADMISSION_ACTION.readConnectionMetadata && this.action !== ADMISSION_ACTION.readConnectionAlert)) return null;
-        result = (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.tenant_messaging_connections where tribe_id=${tribeId} and id=${resource.id} and (${this.action !== ADMISSION_ACTION.manageConnection} or retired_at is null) for share`)).rows[0]; break;
+        return (await this.database.execute<AdmissionAuthorizationResource>(sql`select id,tribe_id as "tribeId" from public.tenant_messaging_connections where tribe_id=${tribeId} and id=${resource.id} and (${this.action !== ADMISSION_ACTION.manageConnection} or retired_at is null) for share`)).rows[0];
+      default:
+        return undefined;
     }
-    if (!await this.sessionRemainsLive(userId)) return null;
-    return result ?? null;
   }
 }

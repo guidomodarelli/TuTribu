@@ -5,10 +5,11 @@ import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { FRESHNESS_READ_RETRY_DELAYS_MS } from "@/lib/events/tribe-event-read-retry";
 import { buildTribeEventAttendanceApiEndpoint } from "@/lib/events/tribe-events-routes";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...(await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui")),
+  ...(await vi.importActual<typeof GolfoUiModule>("@golfo/ui")),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -28,6 +29,27 @@ const HTTP_METHOD = {
   delete: "DELETE",
   patch: "PATCH",
 } as const;
+
+/**
+ * Renders the hook with stable server props for May 2026.
+ *
+ * @param attendanceStreak - Server attendance streak.
+ * @param events - Server event occurrences.
+ * @returns The rendered hook.
+ */
+function renderServerMutations(
+  attendanceStreak: { attendedCount: number; occurrenceCount: number },
+  events: TribeEventOccurrenceResult[]
+) {
+  return renderHook(() =>
+    useTribeEventMutations({
+      attendanceStreak,
+      events,
+      month: "2026-05",
+      tribeSlug: TRIBE_SLUG,
+    })
+  );
+}
 
 function createOccurrence(
   overrides: Partial<TribeEventOccurrenceResult> = {}
@@ -101,6 +123,13 @@ function createHeldResponse() {
   };
 }
 
+/** Advances the fake timers and settles the resulting React updates. */
+async function advanceTime(delayMs: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(delayMs);
+  });
+}
+
 describe("useTribeEventMutations streak ordering", () => {
   const savedOccurrence = createOccurrence();
   const deletedOccurrence = createOccurrence({
@@ -151,14 +180,7 @@ describe("useTribeEventMutations streak ordering", () => {
   const serverEvents = [savedOccurrence, deletedOccurrence];
 
   function renderMutations() {
-    return renderHook(() =>
-      useTribeEventMutations({
-        attendanceStreak: serverStreak,
-        events: serverEvents,
-        month: "2026-05",
-        tribeSlug: TRIBE_SLUG,
-      })
-    );
+    return renderServerMutations(serverStreak, serverEvents);
   }
 
   it("applies neither response of an edit and a deletion that commit in reverse order and reads once", async () => {
@@ -411,14 +433,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
   });
 
   function renderMutations() {
-    return renderHook(() =>
-      useTribeEventMutations({
-        attendanceStreak: serverStreak,
-        events: serverEvents,
-        month: "2026-05",
-        tribeSlug: TRIBE_SLUG,
-      })
-    );
+    return renderServerMutations(serverStreak, serverEvents);
   }
 
   it("defers a finish refresh requested while an attendance save is uncommitted", async () => {
@@ -615,12 +630,6 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     vi.useRealTimers();
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], shouldAdvanceTime: false });
     vi.setSystemTime(new Date(CLIENT_NOW));
-  }
-
-  async function advanceTime(delayMs: number) {
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(delayMs);
-    });
   }
 
   it("retries a read the route answers with an error with a bounded backoff and stops", async () => {
@@ -1140,12 +1149,6 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
    */
   function useFakeRetryTimers() {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: false });
-  }
-
-  async function advanceTime(delayMs: number) {
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(delayMs);
-    });
   }
 
   it("retries a failed month read with the bounded backoff and trusts the first usable one", async () => {

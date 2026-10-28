@@ -10,12 +10,11 @@ import {
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
-import { TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import { TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS, TRIBE_SUBSCRIPTION_PRICE_STATUS  } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   getTribeSubscriberDiagnostics,
   reconcileTribeSubscriberDiagnostics,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscriber-diagnostics-use-cases";
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 

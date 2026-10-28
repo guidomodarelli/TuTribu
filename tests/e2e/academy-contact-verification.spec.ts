@@ -14,6 +14,9 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { ADMISSION_CONTACT_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 
+/** Synthetic provider sender used by each phone channel; email uses the fixture sender. */
+const SYNTHETIC_PHONE_SENDER_ID = { sms: "synthetic-sms-sender", whatsapp: "synthetic-whatsapp-sender" } as const;
+
 for (const channel of ["email", "sms", "whatsapp"] as const) {
 test(`should retain a confirmed ${channel} terminal challenge failure until an explicit replacement is committed`, async ({ page, context }) => {
   test.setTimeout(ADMISSION_LIMIT.verificationProofFreshnessMs);
@@ -120,7 +123,7 @@ test(`should retain a confirmed ${channel} terminal challenge failure until an e
       expect(serverComponentRequests).toBe(0);
       expect(pageErrors).toBe(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
-    }, { messagingSecurity, preloadModules: [join(process.cwd(), "tests/support/native-zavu-provider-transport.mjs")], environment: { ADMISSION_TEST_ZAVU_CREDENTIAL: fixture.fixture.credential, ADMISSION_TEST_ZAVU_SENDER_ID: channel === "email" ? fixture.fixture.emailSenderId : channel === "sms" ? "synthetic-sms-sender" : "synthetic-whatsapp-sender", ADMISSION_TEST_ZAVU_RECIPIENT: fixture.input.contact.value, ADMISSION_TEST_ZAVU_DIAGNOSTIC_CHANNEL: channel, ADMISSION_TEST_ZAVU_TEMPLATE_ID: "synthetic-otp-template", ADMISSION_TEST_ZAVU_TEST_MODE: "false" }, onProviderRequest: () => { providerRequests++; }, onDiagnosticCode: (code) => { receivedCode = code; } }));
+    }, { messagingSecurity, preloadModules: [join(process.cwd(), "tests/support/native-zavu-provider-transport.mjs")], environment: { ADMISSION_TEST_ZAVU_CREDENTIAL: fixture.fixture.credential, ADMISSION_TEST_ZAVU_SENDER_ID: channel === "email" ? fixture.fixture.emailSenderId : SYNTHETIC_PHONE_SENDER_ID[channel], ADMISSION_TEST_ZAVU_RECIPIENT: fixture.input.contact.value, ADMISSION_TEST_ZAVU_DIAGNOSTIC_CHANNEL: channel, ADMISSION_TEST_ZAVU_TEMPLATE_ID: "synthetic-otp-template", ADMISSION_TEST_ZAVU_TEST_MODE: "false" }, onProviderRequest: () => { providerRequests++; }, onDiagnosticCode: (code) => { receivedCode = code; } }));
   });
 });
 }

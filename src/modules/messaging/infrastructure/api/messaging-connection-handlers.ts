@@ -21,6 +21,12 @@ export type MessagingConnectionServices={connections:Pick<ManageMessagingConnect
 /** Creation accepts no query-selected authority or provider endpoint. */
 const connectionCreationQuerySchema=z.strictObject({});
 
+/** @param operation - Validated creation progress. @returns Accepted while started, OK for a replay, Created for a new connection. */
+function creationHttpStatus(operation:{state:string;replayed?:boolean}):number{
+  if(operation.state===OPERATION_STATE.started)return HTTP_STATUS.accepted;
+  return operation.replayed?HTTP_STATUS.ok:HTTP_STATUS.created;
+}
+
 /** @param open - Native composition, opened only after valid own params/body/origin. @returns Explicit creation without a read side effect or arbitrary message action. */
 export function createMessagingConnectionHandlers(open:()=>Promise<MessagingConnectionServices>){
   return {
@@ -40,7 +46,7 @@ export function createMessagingConnectionHandlers(open:()=>Promise<MessagingConn
         const schema=createAdmissionOperationStateSchema(messagingConnectionMutationSchema),parsed=schema.safeParse(outcome.value);
         if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
         if(parsed.data.state===OPERATION_STATE.completed&&(parsed.data.result.version!==1||parsed.data.result.configurationVersion!==1||parsed.data.result.state!==MESSAGING_CONNECTION_STATE.draft))return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
-        return boundary.success(schema,parsed.data,parsed.data.state===OPERATION_STATE.started?HTTP_STATUS.accepted:parsed.data.replayed?HTTP_STATUS.ok:HTTP_STATUS.created);
+        return boundary.success(schema,parsed.data,creationHttpStatus(parsed.data));
       }catch(error){return boundary.unexpected(error);}
     },
   };

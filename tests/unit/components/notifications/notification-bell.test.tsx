@@ -47,7 +47,7 @@ function buildPromotion(id: string, eventTitle: string, readAt: string | null = 
     readAt,
     tribe: TRIBE,
     type: "event_waitlist_promoted",
-  } as NotificationItemResult;
+  };
 }
 
 type BellProps = ComponentProps<typeof NotificationBell>;

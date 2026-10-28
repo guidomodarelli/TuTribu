@@ -102,6 +102,7 @@ async function observeCutoverRace(database:AcademyAdmissionTestDatabase,fixture:
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership cutover",()=>{
   it("should serialize activation after a legacy admission already in flight",async ()=>{
+    expect.hasAssertions();
     await withAcademyAdmissionDatabase(async (database)=>observeCutoverRace(database,await prepareCutover(database)));
   },120_000);
 

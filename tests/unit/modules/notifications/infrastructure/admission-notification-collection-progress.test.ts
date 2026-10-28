@@ -29,7 +29,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       if (failures.length) throw new AggregateError(failures.map((attempt) => attempt.reason), "Native competing page collection did not confirm both outcomes");
       const results = attempts.flatMap((attempt) => attempt.status === "fulfilled" ? [attempt.value] : []);
       expect(results).toHaveLength(2);
-      expect(results.map((result) => result.replayed).sort()).toEqual([false, true]);
+      expect(results.map((result) => result.replayed).toSorted((left, right) => Number(left) - Number(right))).toEqual([false, true]);
       const first = results.find((result) => !result.replayed)!;
       expect(first).toMatchObject({ previousVersion: 0, version: 1, examined: 25, sweepComplete: false, unavailable: 0, bucketClosed: 0 });
       expect(await fixture.repository.collectPage(command)).toEqual({ ...first, replayed: true });

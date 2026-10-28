@@ -122,6 +122,7 @@ export function mapInvoicePaymentStatus(
     case PROVIDER_PAYMENT_STATUS.rejected:
     case PROVIDER_PAYMENT_STATUS.cancelled:
       return "rejected";
+    case null:
     default:
       // No payment yet, in process, authorized or in mediation: not paid.
       return "pending";
@@ -160,6 +161,46 @@ export function mergeAcademyInvoicePaymentState(
 }
 
 /**
+ * Tells whether an invoice must be ignored: it belongs to another contract,
+ * the ledger entry is already terminal, or it is older than the recorded one.
+ *
+ * @param input - Invoice, contract snapshot and current ledger entry.
+ * @param providerLastModifiedAt - Parsed provider revision of the invoice.
+ * @returns The ignore decision, or `null` when the invoice must be recorded.
+ */
+function findIgnoredInvoiceDecision(
+  {
+    contract,
+    existing,
+    invoice,
+  }: {
+    contract: AcademyContractSnapshot;
+    existing: ExistingLedgerEntry | null;
+    invoice: VerifiedAcademyInvoice;
+  },
+  providerLastModifiedAt: Date | null
+): AcademyInvoiceDecision | null {
+  if (invoice.preapprovalId !== contract.providerSubscriptionId) {
+    return { kind: "ignore", reason: "not_owned" };
+  }
+
+  if (existing && TERMINAL_LEDGER_STATUSES.has(existing.paymentStatus)) {
+    // A refund or chargeback already happened: nothing can resurrect it.
+    return { kind: "ignore", reason: "terminal_state" };
+  }
+
+  if (
+    existing?.providerLastModifiedAt &&
+    providerLastModifiedAt &&
+    providerLastModifiedAt.getTime() < existing.providerLastModifiedAt.getTime()
+  ) {
+    return { kind: "ignore", reason: "stale_update" };
+  }
+
+  return null;
+}
+
+/**
  * Decides the ledger and grant effect of one verified invoice.
  *
  * @param input - Invoice, contract snapshot and current ledger entry.
@@ -174,23 +215,11 @@ export function decideAcademyInvoiceEffect({
   existing: ExistingLedgerEntry | null;
   invoice: VerifiedAcademyInvoice;
 }): AcademyInvoiceDecision {
-  if (invoice.preapprovalId !== contract.providerSubscriptionId) {
-    return { kind: "ignore", reason: "not_owned" };
-  }
-
   const providerLastModifiedAt = parseOptionalDate(invoice.lastModified);
+  const ignored = findIgnoredInvoiceDecision({ contract, existing, invoice }, providerLastModifiedAt);
 
-  if (existing && TERMINAL_LEDGER_STATUSES.has(existing.paymentStatus)) {
-    // A refund or chargeback already happened: nothing can resurrect it.
-    return { kind: "ignore", reason: "terminal_state" };
-  }
-
-  if (
-    existing?.providerLastModifiedAt &&
-    providerLastModifiedAt &&
-    providerLastModifiedAt.getTime() < existing.providerLastModifiedAt.getTime()
-  ) {
-    return { kind: "ignore", reason: "stale_update" };
+  if (ignored) {
+    return ignored;
   }
 
   const ledgerStatus = mapInvoicePaymentStatus(invoice);

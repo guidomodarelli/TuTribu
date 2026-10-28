@@ -46,9 +46,10 @@ export class ZavuMessageDeliverySender implements MessageDeliverySender {
     signal.throwIfAborted();
     const intent = prepared.intent;
     assertPreparedMessageDeliveryScope(context, prepared);
-    if (intent.channel === ZAVU_DELIVERY_CHANNEL.whatsapp && (!intent.templateId || !intent.templateLanguage)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
+    const templateId = intent.channel === ZAVU_DELIVERY_CHANNEL.whatsapp ? intent.templateId : undefined;
+    if (intent.channel === ZAVU_DELIVERY_CHANNEL.whatsapp && (!templateId || !intent.templateLanguage)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
     const text = `${VERIFICATION_MESSAGE_COPY.prefix}${intent.code}${VERIFICATION_MESSAGE_COPY.suffix}`;
-    const content: ZavuMessageDeliveryContent = intent.channel === ZAVU_DELIVERY_CHANNEL.whatsapp ? { messageType: ZAVU_MESSAGE_TYPE.template, content: { templateId: intent.templateId!, templateVariables: { [ZAVU_OTP_TEMPLATE_PARAMETER]: intent.code } } } : { messageType: ZAVU_MESSAGE_TYPE.text, text, ...(intent.channel === ZAVU_DELIVERY_CHANNEL.email ? { subject: VERIFICATION_MESSAGE_COPY.subject } : {}) };
+    const content: ZavuMessageDeliveryContent = templateId ? { messageType: ZAVU_MESSAGE_TYPE.template, content: { templateId, templateVariables: { [ZAVU_OTP_TEMPLATE_PARAMETER]: intent.code } } } : { messageType: ZAVU_MESSAGE_TYPE.text, text, ...(intent.channel === ZAVU_DELIVERY_CHANNEL.email ? { subject: VERIFICATION_MESSAGE_COPY.subject } : {}) };
     return this.transport.send(context, prepared, content, signal);
   }
 }

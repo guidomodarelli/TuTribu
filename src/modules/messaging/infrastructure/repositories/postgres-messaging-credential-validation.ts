@@ -29,6 +29,18 @@ import type {MessagingConnectionVersion} from "../../domain/entities/messaging-c
 export type CredentialValidationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
 
 /** Uses separate ledger namespaces for accounting eligibility and final inspection metadata. */
+/** @returns Valid, invalid for rejected credentials, or unavailable. */
+function validatedCredentialState(outcome:MessagingCredentialValidationOutcome){
+  if(outcome.ok)return MESSAGING_CREDENTIAL_PUBLIC_STATE.valid;
+  return outcome.code===MESSAGING_ERROR_CODE.invalidCredentials?MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid:MESSAGING_CREDENTIAL_PUBLIC_STATE.unavailable;
+}
+
+/** @returns The provider mode the inspection observed, or unknown without one. */
+function validatedCredentialMode(outcome:MessagingCredentialValidationOutcome){
+  if(!outcome.ok)return MESSAGING_CREDENTIAL_MODE.unknown;
+  return outcome.inspection.isTestMode?MESSAGING_CREDENTIAL_MODE.test:MESSAGING_CREDENTIAL_MODE.production;
+}
+
 export class PostgresMessagingCredentialValidation implements MessagingCredentialValidationOperations {
   /** @param execute - Current native principal's guarded DB executor. @param readSecurityConfig - Explicit current external recovery/epoch/keyrings. */
   constructor(private readonly execute:CredentialValidationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
@@ -76,7 +88,7 @@ export class PostgresMessagingCredentialValidation implements MessagingCredentia
       const command=this.command(context,input,MESSAGING_CREDENTIAL_VALIDATION_OPERATION.prepare);
       const result=await this.ledger(context).run(command,messagingCredentialPreparationSchema,async(database)=>{
         const row=(await database.execute<{version:number}>(sql`select version from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId}`)).rows[0];
-        if(!row||row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
+        if(row?.version !== input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
         return{id:context.connectionId,configurationVersion:context.connectionVersion,expectedVersion:input.expectedVersion};
       });
       if(result.state!==OPERATION_STATE.completed)return result;
@@ -101,17 +113,17 @@ export class PostgresMessagingCredentialValidation implements MessagingCredentia
         const original=messagingCredentialPreparationSchema.safeParse(preparation.public_result);
         if(!original.success||original.data.id!==context.connectionId||original.data.configurationVersion!==context.connectionVersion||original.data.expectedVersion!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
         const row=(await database.execute<{version:number;state:TenantMessagingConnection["state"]}>(sql`select version,state from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId}`)).rows[0];
-        if(!row||row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
+        if(row?.version !== input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
         const now=await this.authorize(database,context,true);
         const previousCredential=(await database.execute<{credential_validation_status:MessagingConnectionVersion["credential"]["status"]}>(sql`select credential_validation_status from public.messaging_connection_versions where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion}`)).rows[0];
         if(!previousCredential)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-        const credentialState=outcome.ok?MESSAGING_CREDENTIAL_PUBLIC_STATE.valid:outcome.code===MESSAGING_ERROR_CODE.invalidCredentials?MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid:MESSAGING_CREDENTIAL_PUBLIC_STATE.unavailable;
+        const credentialState=validatedCredentialState(outcome);
         await database.execute(sql`update public.messaging_connection_versions set credential_validation_status=${credentialState},credential_validated_at=${now},is_test_mode=${outcome.ok?outcome.inspection.isTestMode:null},provider_project_ref=${outcome.ok?outcome.inspection.projectId:null},provider_team_ref=${outcome.ok?outcome.inspection.teamId:null},provider_key_ref=${outcome.ok?outcome.inspection.apiKeyId:null},last_activity_at=${now} where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion}`);
         const candidateState=await readMessagingCandidatePreparationState(database,context);
         await database.execute(sql`update public.tenant_messaging_connections set state=coalesce(${candidateState},state),version=version+1,updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
         await this.authorize(database,context,true);
-        await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:MESSAGING_CREDENTIAL_VALIDATION_OPERATION.complete,connectionId:context.connectionId,version:input.expectedVersion+1,state:candidateState??row.state,configurationVersion:context.connectionVersion,previous:{state:row.state,version:row.version,configurationVersion:context.connectionVersion},channel:null,rule:null,cause:outcome.ok?null:outcome.code,createdAt:now,previousCredentialState:previousCredential.credential_validation_status,credentialState,credentialMode:outcome.ok?outcome.inspection.isTestMode?MESSAGING_CREDENTIAL_MODE.test:MESSAGING_CREDENTIAL_MODE.production:MESSAGING_CREDENTIAL_MODE.unknown}));
-        return{id:context.connectionId,version:input.expectedVersion+1,configurationVersion:context.connectionVersion,credentialState,credentialMode:outcome.ok?outcome.inspection.isTestMode?MESSAGING_CREDENTIAL_MODE.test:MESSAGING_CREDENTIAL_MODE.production:MESSAGING_CREDENTIAL_MODE.unknown,validatedAt:now.toISOString(),...(!outcome.ok?{failureCode:outcome.code}:{})};
+        await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:MESSAGING_CREDENTIAL_VALIDATION_OPERATION.complete,connectionId:context.connectionId,version:input.expectedVersion+1,state:candidateState??row.state,configurationVersion:context.connectionVersion,previous:{state:row.state,version:row.version,configurationVersion:context.connectionVersion},channel:null,rule:null,cause:outcome.ok?null:outcome.code,createdAt:now,previousCredentialState:previousCredential.credential_validation_status,credentialState,credentialMode:validatedCredentialMode(outcome)}));
+        return{id:context.connectionId,version:input.expectedVersion+1,configurationVersion:context.connectionVersion,credentialState,credentialMode:validatedCredentialMode(outcome),validatedAt:now.toISOString(),...(!outcome.ok?{failureCode:outcome.code}:{})};
       });
     }catch(error){
       if(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved){

@@ -17,21 +17,27 @@ export function downloadAllowlistImportFile(blob: Blob, fileName: string, comple
   return cleanup;
 }
 
+/** @param file - Explicit browser-selected file. @param signal - Current upload scope. @returns The file bytes, or null when reading fails or the scope is cancelled first. */
+async function readFileBytes(file: File, signal: AbortSignal): Promise<ArrayBuffer | null> {
+  let stopListening = () => {};
+  const cancelled = new Promise<null>((resolve) => {
+    const abort = () => resolve(null);
+    signal.addEventListener("abort", abort, { once: true });
+    stopListening = () => signal.removeEventListener("abort", abort);
+  });
+  try {
+    return await Promise.race([file.arrayBuffer().catch(() => null), cancelled]);
+  } finally {
+    stopListening();
+  }
+}
+
 /** @param file - Explicit browser-selected file. @param signal - Current upload scope. @returns A valid global file proposal, controlled invalidity or intentional cancellation. */
 export async function readAllowlistImportFile(file: File, signal: AbortSignal): Promise<{ status: "ready"; draft: AllowlistImportDraft; rowCount: number } | { status: "invalid" } | { status: "aborted" }> {
   if (signal.aborted) return { status: "aborted" };
   if (file.size > ADMISSION_LIMIT.csvByteCount) return { status: "invalid" };
   try {
-    const bytes = await new Promise<ArrayBuffer | null>((resolve) => {
-      const reader = new FileReader();
-      const cleanup = () => { signal.removeEventListener("abort", abort); reader.onload = null; reader.onerror = null; reader.onabort = null; };
-      const abort = () => { reader.abort(); cleanup(); resolve(null); };
-      reader.onload = () => { const value = reader.result; cleanup(); resolve(value instanceof ArrayBuffer ? value : null); };
-      reader.onerror = () => { cleanup(); resolve(null); };
-      reader.onabort = () => { cleanup(); resolve(null); };
-      signal.addEventListener("abort", abort, { once: true });
-      reader.readAsArrayBuffer(file);
-    });
+    const bytes = await readFileBytes(file, signal);
     if (signal.aborted) return { status: "aborted" };
     if (!bytes) return { status: "invalid" };
     const rows = parseAllowlistCsv(new Uint8Array(bytes));

@@ -19,7 +19,10 @@ function observations(durationForIndex: (index: number) => number, startForNode:
 
 describe("distributed native measurement summary", () => {
   it("uses the global original percentile instead of the percentile of node percentiles", () => {
-    const nodes = observations((index) => index === 0 || index === ADMISSION_DISTRIBUTED_NODE.functionCount ? 10_000 : index % ADMISSION_DISTRIBUTED_NODE.functionCount === 0 ? 1_000 : 2_000);
+    const nodes = observations((index) => {
+      if (index === 0 || index === ADMISSION_DISTRIBUTED_NODE.functionCount) return 10_000;
+      return index % ADMISSION_DISTRIBUTED_NODE.functionCount === 0 ? 1_000 : 2_000;
+    });
     nodes[0].p95Ms = 10_000;
     for (const node of nodes.slice(1)) node.p95Ms = 2_000;
     const result = summarizeAdmissionDistributedPerformance(nodes);

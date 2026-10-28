@@ -5,7 +5,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import type { Pool } from "pg";
 
 import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
 import { isMissingProviderAccountError } from "@/src/modules/auth/infrastructure/better-auth/provider-account-errors";
@@ -134,9 +134,11 @@ async function getGoogleAccessTokenForMember(
   userId: string
 ): Promise<string | null> {
   try {
-    const tokens = await auth.api.getAccessToken({
+    // Better Auth types the refreshed token as always present, but it comes from
+    // the provider's stored credentials, so a missing token is still possible.
+    const tokens = (await auth.api.getAccessToken({
       body: { providerId: BETTER_AUTH_PROVIDER.google, userId },
-    });
+    })) as { accessToken?: string | null } | null | undefined;
 
     return tokens?.accessToken ?? null;
   } catch (error) {

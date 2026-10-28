@@ -68,6 +68,32 @@ const COPY = {
   seeDetail: "Ver detalle",
 } as const;
 
+type TribeNextEventStatusProps = {
+  isLive: boolean;
+  nowTime: number;
+  startsAt: TribeEventOccurrenceResult["startsAt"];
+};
+
+/** Heading status that cross-fades from the countdown into "En vivo ahora". */
+function TribeNextEventStatus({ isLive, nowTime, startsAt }: TribeNextEventStatusProps) {
+  return (
+    <PresenceSwap
+      presenceKey={isLive ? STATUS_PRESENCE_KEY.live : STATUS_PRESENCE_KEY.countdown}
+    >
+      {isLive ? (
+        <p className={styles.TribeNextEvent__live}>
+          <span aria-hidden className={styles.TribeNextEvent__liveDot} />
+          {COPY.liveNow}
+        </p>
+      ) : (
+        <p className={styles.TribeNextEvent__countdown}>
+          {formatOccurrenceCountdown(startsAt, nowTime)}
+        </p>
+      )}
+    </PresenceSwap>
+  );
+}
+
 /**
  * Highlight of the closest occurrence that has not finished yet (never a
  * cancelled date; a moved date shows where it came from): its type, who is
@@ -106,20 +132,7 @@ export function TribeNextEvent({
       <div className={styles.TribeNextEvent__body}>
         <div className={styles.TribeNextEvent__heading}>
           <p className={styles.TribeNextEvent__label}>{COPY.nextEventLabel}</p>
-          <PresenceSwap
-            presenceKey={isLive ? STATUS_PRESENCE_KEY.live : STATUS_PRESENCE_KEY.countdown}
-          >
-            {isLive ? (
-              <p className={styles.TribeNextEvent__live}>
-                <span aria-hidden className={styles.TribeNextEvent__liveDot} />
-                {COPY.liveNow}
-              </p>
-            ) : (
-              <p className={styles.TribeNextEvent__countdown}>
-                {formatOccurrenceCountdown(occurrence.startsAt, nowTime)}
-              </p>
-            )}
-          </PresenceSwap>
+          <TribeNextEventStatus isLive={isLive} nowTime={nowTime} startsAt={occurrence.startsAt} />
         </div>
         <p className={styles.TribeNextEvent__title}>{occurrence.title}</p>
         <TribeEventTypeBadge eventType={occurrence.eventType} />

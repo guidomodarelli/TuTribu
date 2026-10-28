@@ -23,7 +23,8 @@ export class ManageTribeMembershipUseCases {
 
   /** @param input - Original command. @param result - Owner's original result. @returns The same result after binding its public identity and state to the command. */
   private bind(input: TribeMembershipLifecycleInput, result: AdmissionOperationResult<TribeMembershipLifecycleResult>): AdmissionOperationResult<TribeMembershipLifecycleResult> {
-    if (result.operationId !== input.operationId || result.state === OPERATION_STATE.completed && result.result.outcome === TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.changed && (result.result.memberId !== input.memberId || result.result.action !== input.action || result.result.deleted !== (input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.leave) || result.result.status !== (input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.block ? TRIBE_MEMBERSHIP_STATUS.blocked : TRIBE_MEMBERSHIP_STATUS.removed))) throw new TribeMembershipLifecycleError(TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.publicContractUnusable);
+    const expectsDeletion = input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.leave;
+    if (result.operationId !== input.operationId || result.state === OPERATION_STATE.completed && result.result.outcome === TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.changed && (result.result.memberId !== input.memberId || result.result.action !== input.action || result.result.deleted !== expectsDeletion || result.result.status !== (input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.block ? TRIBE_MEMBERSHIP_STATUS.blocked : TRIBE_MEMBERSHIP_STATUS.removed))) throw new TribeMembershipLifecycleError(TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.publicContractUnusable);
     return result;
   }
 

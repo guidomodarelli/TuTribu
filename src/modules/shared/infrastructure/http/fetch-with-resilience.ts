@@ -130,9 +130,7 @@ function buildRequestInit(init: RequestInit, timeoutMs: number): {
 
   const sourceSignal = init.signal;
   const forwardAbort = () => {
-    if (!abortReason) {
-      abortReason = FETCH_FAILURE_REASON.callerAbort;
-    }
+    abortReason ??= FETCH_FAILURE_REASON.callerAbort;
 
     timeoutController.abort();
   };
@@ -161,6 +159,85 @@ function buildRequestInit(init: RequestInit, timeoutMs: number): {
   };
 }
 
+type FetchAttemptContext = {
+  attempt: number;
+  config: FetchResilienceOptions;
+  input: string;
+  method: string;
+};
+
+/**
+ * Reports one lifecycle event of an attempt to the optional logger.
+ *
+ * @param context - Attempt being reported.
+ * @param event - Event fields besides the attempt, input, and method.
+ */
+function logAttemptEvent(
+  context: FetchAttemptContext,
+  event: Omit<FetchLifecycleEvent, "attempt" | "input" | "method">
+): void {
+  context.config.lifecycleLogger?.({
+    attempt: context.attempt + 1,
+    input: context.input,
+    method: context.method,
+    ...event,
+  });
+}
+
+/**
+ * Handles an attempt whose fetch threw: throws the final error when no retry
+ * is left (or the caller aborted), otherwise reports the scheduled retry.
+ *
+ * @param context - Attempt that failed.
+ * @param error - Error thrown by the fetcher.
+ * @param abortReason - Why the attempt was aborted, if it was.
+ */
+function handleAttemptFailure(
+  context: FetchAttemptContext,
+  error: unknown,
+  abortReason: FetchAbortReason
+): void {
+  const isLastAttempt = context.attempt >= context.config.maxRetries;
+
+  if (abortReason === FETCH_FAILURE_REASON.timeout) {
+    logAttemptEvent(context, { event: FETCH_LIFECYCLE_EVENT.timeoutAbort });
+  }
+
+  if (abortReason === FETCH_FAILURE_REASON.callerAbort) {
+    logAttemptEvent(context, {
+      event: FETCH_LIFECYCLE_EVENT.requestFailed,
+      reason: FETCH_FAILURE_REASON.callerAbort,
+    });
+
+    throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestAborted, { cause: error });
+  }
+
+  const timedOut = isAbortError(error) && abortReason === FETCH_FAILURE_REASON.timeout;
+
+  if (timedOut && isLastAttempt) {
+    logAttemptEvent(context, {
+      event: FETCH_LIFECYCLE_EVENT.requestFailed,
+      reason: FETCH_FAILURE_REASON.timeout,
+    });
+    throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestTimedOut, { cause: error });
+  }
+
+  if (isLastAttempt) {
+    logAttemptEvent(context, {
+      event: FETCH_LIFECYCLE_EVENT.requestFailed,
+      reason: abortReason ?? FETCH_FAILURE_REASON.requestError,
+    });
+    throw error;
+  }
+
+  if (timedOut) {
+    logAttemptEvent(context, {
+      event: FETCH_LIFECYCLE_EVENT.retryScheduled,
+      reason: FETCH_FAILURE_REASON.timeout,
+    });
+  }
+}
+
 export async function fetchWithResilience(
   fetcher: HttpFetcher,
   input: string,
@@ -174,97 +251,34 @@ export async function fetchWithResilience(
   const method = init.method ?? FETCH_DEFAULT_METHOD;
 
   async function executeAttempt(attempt: number): Promise<HttpResponse> {
-    const attemptNumber = attempt + 1;
+    const context: FetchAttemptContext = { attempt, config, input, method };
     const { requestInit, cleanup, getAbortReason } = buildRequestInit(init, config.timeoutMs);
 
-    config.lifecycleLogger?.({
-      attempt: attemptNumber,
-      event: FETCH_LIFECYCLE_EVENT.requestAttempted,
-      input,
-      method,
-    });
+    logAttemptEvent(context, { event: FETCH_LIFECYCLE_EVENT.requestAttempted });
+
+    let response: HttpResponse;
 
     try {
-      const response = await fetcher(input, requestInit);
-      cleanup();
-
-      if (shouldRetryResponse(response, attempt, config.maxRetries)) {
-        config.lifecycleLogger?.({
-          attempt: attemptNumber,
-          event: FETCH_LIFECYCLE_EVENT.retryScheduled,
-          input,
-          method,
-          status: response.status,
-        });
-        await delay(config.retryDelayMs);
-        return executeAttempt(attempt + 1);
-      }
-
-      return response;
+      response = await fetcher(input, requestInit);
     } catch (error) {
       cleanup();
-      const abortReason = getAbortReason();
-
-      if (abortReason === FETCH_FAILURE_REASON.timeout) {
-        config.lifecycleLogger?.({
-          attempt: attemptNumber,
-          event: FETCH_LIFECYCLE_EVENT.timeoutAbort,
-          input,
-          method,
-        });
-      }
-
-      if (abortReason === FETCH_FAILURE_REASON.callerAbort) {
-        config.lifecycleLogger?.({
-          attempt: attemptNumber,
-          event: FETCH_LIFECYCLE_EVENT.requestFailed,
-          input,
-          method,
-          reason: FETCH_FAILURE_REASON.callerAbort,
-        });
-
-        throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestAborted);
-      }
-
-      if (
-        isAbortError(error) &&
-        abortReason === FETCH_FAILURE_REASON.timeout &&
-        attempt >= config.maxRetries
-      ) {
-        config.lifecycleLogger?.({
-          attempt: attemptNumber,
-          event: FETCH_LIFECYCLE_EVENT.requestFailed,
-          input,
-          method,
-          reason: FETCH_FAILURE_REASON.timeout,
-        });
-        throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestTimedOut);
-      }
-
-      if (attempt >= config.maxRetries) {
-        config.lifecycleLogger?.({
-          attempt: attemptNumber,
-          event: FETCH_LIFECYCLE_EVENT.requestFailed,
-          input,
-          method,
-          reason: abortReason ?? FETCH_FAILURE_REASON.requestError,
-        });
-        throw error;
-      }
-
-      if (isAbortError(error) && abortReason === FETCH_FAILURE_REASON.timeout) {
-        config.lifecycleLogger?.({
-          attempt: attemptNumber,
-          event: FETCH_LIFECYCLE_EVENT.retryScheduled,
-          input,
-          method,
-          reason: FETCH_FAILURE_REASON.timeout,
-        });
-      }
-
+      handleAttemptFailure(context, error, getAbortReason());
       await delay(config.retryDelayMs);
       return executeAttempt(attempt + 1);
     }
+
+    cleanup();
+
+    if (shouldRetryResponse(response, attempt, config.maxRetries)) {
+      logAttemptEvent(context, {
+        event: FETCH_LIFECYCLE_EVENT.retryScheduled,
+        status: response.status,
+      });
+      await delay(config.retryDelayMs);
+      return executeAttempt(attempt + 1);
+    }
+
+    return response;
   }
 
   return executeAttempt(0);

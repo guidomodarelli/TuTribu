@@ -30,7 +30,7 @@ type Dependencies = {
 type InvalidInput = { status: "invalid_input" };
 
 const CONTROL_CHARACTERS_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u;
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/u;
+const EMAIL_PATTERN = /^[^@\s]+@[^\s@][^\s.@]*\.[^\s@]+$/u;
 const HTTPS_PROTOCOL = "https:";
 
 function normalizeSlug(tribeSlug: string): string {

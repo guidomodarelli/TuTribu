@@ -85,7 +85,9 @@ async function inspectSubmissionReply(response: Response, name: string): Promise
   try { value = await response.json(); } catch { value = undefined; }
   const outcome = admissionOutcomeSchema.safeParse(value), progress = createAdmissionOperationStateSchema(admissionOutcomeSchema).safeParse(value), failure = admissionPublicErrorSchema.safeParse(value);
   const expectedOperationId = (response.request().postDataJSON() as { operationId: string }).operationId;
-  const observedOperationId = outcome.success ? outcome.data.operationId : progress.success ? progress.data.operationId : failure.success ? failure.data.operation?.operationId : null;
+  const failureOperationId = failure.success ? failure.data.operation?.operationId : null;
+  const progressOperationId = progress.success ? progress.data.operationId : failureOperationId;
+  const observedOperationId = outcome.success ? outcome.data.operationId : progressOperationId;
   const started = progress.success && progress.data.state === OPERATION_STATE.started;
   const acceptedFailure = response.status() >= HTTP_STATUS.serverError && failure.success && failure.data.operation?.state === OPERATION_STATE.started;
   const directory = process.env[VALIDATION.captureDirectoryEnvironment];

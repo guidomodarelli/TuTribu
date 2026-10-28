@@ -1,12 +1,16 @@
 /** Maps selected native workflow columns without schema-validating PostgreSQL rows. @module admission-messaging-maintenance-mapper */
 import type { AdmissionMessagingMaintenanceExternalScope, AdmissionMessagingMaintenanceHealth, AdmissionMessagingMaintenancePhaseSnapshot, AdmissionMessagingMaintenanceRun } from "../../domain/repositories/admission-messaging-maintenance";
+import { AdmissionMessagingMaintenanceError } from "../../domain/errors/admission-messaging-maintenance-error";
+import { ADMISSION_MESSAGING_MAINTENANCE_REASON } from "../../constants/admission-messaging-maintenance";
 
 /** Retains native timestamp projections as textual integers until the own internal result boundary. */
 export type AdmissionMessagingMaintenanceRow = { run_id: string; version: number; state: "running" | "completed" | "incomplete"; external_environment: string | null; external_security_epoch: string | null; first_phase: number; next_phase: number; started_milliseconds: string; last_successful_milliseconds: string | null; lease_live: boolean; deadline_live: boolean; deadline_reached: boolean; phases: AdmissionMessagingMaintenancePhaseSnapshot[] };
 
 /** @param row - SQL-owned scope columns whose nullability is constrained together. @returns The original optional external scope, without credentials. */
 export function admissionMaintenanceExternalScope(row: AdmissionMessagingMaintenanceRow): AdmissionMessagingMaintenanceExternalScope | null {
-  return row.external_environment === null ? null : { environment: row.external_environment, securityEpoch: row.external_security_epoch! };
+  if (row.external_environment === null) return null;
+  if (row.external_security_epoch === null) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+  return { environment: row.external_environment, securityEpoch: row.external_security_epoch };
 }
 
 /** @param phases - Own persisted phase observations. @returns Explicit result fields only; private unexpected extras are never copied. */

@@ -26,18 +26,14 @@ type AdmissionProofInvalidationAuditScope = { tribeId: string; actorUserId: stri
  * Selects invalidated proof facts and stages one batch in the owner's existing transaction.
  * @param database - Original protected owner transaction.
  * @param scope - Actual tribe, actor, ledger and owner-selected invalidation reason.
- * @param proofs - Rows changed by the UPDATE, never all previously observed proofs.
- * @param channels - Original challenge channels from the owner's existing locks.
- * @param previousStates - Available predicate, or actual statuses preserved by the existing proof lock.
+ * @param invalidation - Rows changed by the UPDATE, never all previously observed proofs (`proofs`); original challenge channels from the owner's existing locks (`channels`); and the available predicate, or actual statuses preserved by the existing proof lock (`previousStates`).
  * @returns After staging the selected facts; the owner controls commit and rollback.
  * @throws AdmissionOperationError when a changed proof lacks its original status or channel.
  */
 export async function appendAdmissionProofInvalidationAudit(
   database: RequestDatabase,
   scope: AdmissionProofInvalidationAuditScope,
-  proofs: readonly InvalidatedAdmissionProofAuditRow[],
-  channels: ReadonlyMap<string, AdmissionProofAuditChannel>,
-  previousStates: "available" | ReadonlyMap<string, PreviousAdmissionProofState>,
+  { proofs, channels, previousStates }: { proofs: readonly InvalidatedAdmissionProofAuditRow[]; channels: ReadonlyMap<string, AdmissionProofAuditChannel>; previousStates: "available" | ReadonlyMap<string, PreviousAdmissionProofState> },
 ): Promise<void> {
   const events = proofs.map((proof) => {
     const channel = channels.get(proof.challenge_id);

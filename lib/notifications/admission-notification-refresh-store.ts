@@ -31,7 +31,8 @@ function createAdmissionRefreshStore(): AdmissionRefreshStore {
 /** @returns Browser-local state only; no singleton is allocated or modified during SSR. */
 function currentStore(): AdmissionRefreshStore | null {
   if (typeof window === "undefined") return null;
-  return browserStore ??= createAdmissionRefreshStore();
+  browserStore ??= createAdmissionRefreshStore();
+  return browserStore;
 }
 
 /** @param listener - React's external-store listener. @returns Its idempotent browser subscription cleanup. */

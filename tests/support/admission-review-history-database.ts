@@ -11,6 +11,12 @@ import { ADMISSION_PROOF_AUDIT_EVENT } from "@/src/modules/academy-admissions/co
 /** Synthetic sessions stay in memory; no credential is hardcoded or exported to documentation. */
 export type AdmissionReviewHistoryTestIdentity = { userId: string; sessionId: string; sessionToken: string; email: string };
 
+/** @param index - Position in the seeded history. @param count - Seeded history length. @returns The event type stored at that position: creation first, an unknown event last, proof audits between. */
+function historyEventType(index: number, count: number) {
+  if (index === 0) return ADMISSION_REQUEST_EVENT.pendingCreated;
+  return index === count - 1 ? VALIDATION.unknownEvent : ADMISSION_PROOF_AUDIT_EVENT;
+}
+
 /**
  * Prepares minimal current reviewer scope and stored audit fixtures, without invoking a sender or disabling a guard.
  * @param database - This run's confirmed disposable branch.
@@ -50,7 +56,7 @@ export async function prepareAdmissionReviewHistoryDatabase(database: AcademyAdm
     const instant = (await transaction.execute<{ instant: string }>(sql`select to_char((date_trunc('second',clock_timestamp())+${VALIDATION.fractionalMicroseconds}*interval '1 microsecond') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as instant`)).rows[0].instant;
     for (const [index, eventId] of eventIds.entries()) {
       const offset = VALIDATION.eventOffsetsMicroseconds[index];
-      const eventType = index === 0 ? ADMISSION_REQUEST_EVENT.pendingCreated : index === eventIds.length - 1 ? VALIDATION.unknownEvent : ADMISSION_PROOF_AUDIT_EVENT;
+      const eventType = historyEventType(index, eventIds.length);
       await transaction.execute(sql`insert into public.academy_admission_audit_events(id,tribe_id,actor_user_id,resource_type,resource_id,event_type,rule,cause,resource_version,metadata,created_at) values (${eventId},${tribeId},${index === 0 ? applicant.userId : null},'admission_request',${admissionRequestId},${eventType},'manual_review',${VALIDATION.unknownCause},${index === 0 ? 1 : null},jsonb_build_object('fromStatus',null,'toStatus','pending','internalReason',${VALIDATION.privateNote}::text,'rawContact',${applicant.email}::text),${instant}::timestamptz+${offset}*interval '1 microsecond')`);
     }
     for (const [targetTribeId, targetRequestId] of [[tribeId, otherRequestId], [foreignTribeId, foreignRequestId]]) await transaction.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,event_type,metadata) values (${targetTribeId},${applicant.userId},'admission_request',${targetRequestId},'pending_created','{}'::jsonb)`);

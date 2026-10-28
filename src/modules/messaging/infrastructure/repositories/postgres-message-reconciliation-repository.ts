@@ -31,6 +31,13 @@ type OriginalAttemptRow = { id: string; connection_id: string; connection_versio
 type CurrentAttemptRow = Omit<OriginalAttemptRow, "channel"> & { authorized_usage_policy_version: number };
 
 /** Never changes immutable intent, reservation, usage, code material or contact proof. */
+/** @param state - Reconciled attempt state. @returns The safe receipt reason stored with it. */
+function receiptReason(state: string) {
+  if (state === MESSAGE_ATTEMPT_STATE.delivered) return MESSAGE_RECEIPT_REASON.delivered;
+  if (state === MESSAGE_ATTEMPT_STATE.rejected) return MESSAGE_RECEIPT_REASON.rejected;
+  return state === MESSAGE_ATTEMPT_STATE.accepted ? MESSAGE_RECEIPT_REASON.accepted : MESSAGE_RECEIPT_REASON.unknown;
+}
+
 export class PostgresMessageReconciliationRepository implements MessageReconciliationRepository<z.infer<typeof messageDeliverySchema>> {
   /** @param execute - Existing guarded actor executor. @param readSecurityConfig - Current external recovery/environment/epoch snapshot. */
   constructor(private readonly execute: ReconciliationDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
@@ -79,7 +86,7 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
         if (!messagingSecretLifetimeIsCurrent(authority, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authority, now));
         const next = reconcileMessageAttemptState(current.state, observation.outcome);
         if (next !== current.state) {
-          const reason = next === MESSAGE_ATTEMPT_STATE.delivered ? MESSAGE_RECEIPT_REASON.delivered : next === MESSAGE_ATTEMPT_STATE.rejected ? MESSAGE_RECEIPT_REASON.rejected : next === MESSAGE_ATTEMPT_STATE.accepted ? MESSAGE_RECEIPT_REASON.accepted : MESSAGE_RECEIPT_REASON.unknown;
+          const reason = receiptReason(next);
           await database.execute(sql`update public.message_delivery_attempts set state=${next},safe_reason=${reason},completed_at=clock_timestamp(),version=version+1 where id=${current.id} and version=${current.version}`);
           await database.execute(sql`update public.message_deliveries set state=${next === MESSAGE_ATTEMPT_STATE.rejected ? MESSAGE_DELIVERY_STATE.failed : next},last_outcome=${reason},lease_token=null,lease_until=null,version=version+1 where id=${reference.deliveryId}`);
           await database.execute(sql`select public.record_messaging_delivery_audit(${reference.deliveryId},${delivery.state},${delivery.version},${MESSAGE_DELIVERY_RECONCILIATION_AUDIT_EVENT},${context.operation},${reason},${current.id},${current.authorized_usage_policy_version},(select completed_at from public.message_delivery_attempts where id=${current.id} and delivery_id=${reference.deliveryId}))`);

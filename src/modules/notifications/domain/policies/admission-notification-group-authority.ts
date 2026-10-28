@@ -9,7 +9,7 @@ import { createAdmissionNotificationGroupKey, freezeAdmissionNotificationGroup }
 
 /** @param first - Original complete reference manifest. @param second - Independently projected native facts or authenticated frozen intent. @returns Exact identity/member/lifetime equality, independent of jsonb object-key ordering. */
 export function admissionNotificationManifestsMatch(first: AdmissionNotificationGroupManifest, second: AdmissionNotificationGroupManifest): boolean {
-  return first.format === second.format && createAdmissionNotificationGroupKey(first.identity) === createAdmissionNotificationGroupKey(second.identity) && first.items.length === second.items.length && first.items.every((item, index) => {
+  return (first.format as number) === second.format && createAdmissionNotificationGroupKey(first.identity) === createAdmissionNotificationGroupKey(second.identity) && first.items.length === second.items.length && first.items.every((item, index) => {
     const other = second.items[index];
     return item.obligationId === other.obligationId && item.admissionRequestId === other.admissionRequestId && item.event === other.event && item.createdAtMicroseconds === other.createdAtMicroseconds && item.deadlineAtMicroseconds === other.deadlineAtMicroseconds;
   });

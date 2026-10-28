@@ -20,7 +20,7 @@ export class PostgresMessagingConnectionOperationReader implements MessagingConn
   /** @param execute - Existing guarded native principal, selected by the owning composition root. */
   constructor(private readonly execute:<Result>(context:MessagingUsageContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>){}
   /** @param context - Current server-derived actor/session/tribe. @param operationId - Original caller UUID. @returns Only that actor's original metadata, registered progress or real absence. */
-  async read(context:MessagingUsageContext,operationId:string):Promise<unknown|null>{
+  async read(context:MessagingUsageContext,operationId:string):Promise<unknown>{
     try{return await this.execute(context,async(database)=>{
       await authorizeMessagingUsage(database,context);
       const rows=(await database.execute<ConnectionOperationRow>(sql`select operation_type,state,idempotency_key,public_result from public.academy_admission_operations where actor_user_id=${context.actorUserId} and tribe_id=${context.tribeId} and idempotency_key=${operationId} and (operation_type=any(${sql.param([...MESSAGING_CONNECTION_DIRECT_LEDGER_TYPE])}::text[]) or (operation_type=any(${sql.param([...MESSAGING_CONNECTION_ISSUANCE_LEDGER_TYPE])}::text[]) and verification_purpose=${ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic})) limit ${MESSAGING_CONNECTION_OPERATION_MAXIMUM_MATCHES}`)).rows;

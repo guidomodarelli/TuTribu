@@ -1,9 +1,8 @@
 /** Validates the commercial membership review routes once and emits only own guarded DTOs. @module commercial-membership-review-handlers */
 import "server-only";
 import { z } from "zod";
-import type { AdmissionFailure } from "../../application/results/admission-errors";
+import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
 import type { ManageCommercialMembershipReviewsUseCases } from "../../application/use-cases/manage-commercial-membership-reviews-use-cases";
-import { admissionFailure } from "../../application/results/admission-errors";
 import { createAdmissionOperationStateSchema } from "../../application/results/admission-flow-result-schemas";
 import { commercialMembershipResolutionResultSchema, commercialMembershipReviewListSchema } from "../../application/results/commercial-membership-review-schemas";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";

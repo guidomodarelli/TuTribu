@@ -296,14 +296,35 @@ export function buildMembersHtml(
   });
 }
 
+/**
+ * Removes leading and trailing separators by scanning, so a long run of
+ * separators cannot make a regular expression backtrack.
+ * @param value - Slug already reduced to letters, digits and separators.
+ * @returns The slug without separators at either end.
+ */
+function trimFilenameSeparators(value: string): string {
+  let start = 0;
+  let end = value.length;
+
+  while (start < end && value[start] === FILENAME.separator) {
+    start += 1;
+  }
+
+  while (end > start && value[end - 1] === FILENAME.separator) {
+    end -= 1;
+  }
+
+  return value.slice(start, end);
+}
+
 function sanitizeFilenameSlug(tribeSlug: string): string {
   const normalized = tribeSlug
     .trim()
     .toLowerCase()
-    .replace(FILENAME.invalidCharsPattern, FILENAME.separator)
-    .replace(/^-+|-+$/g, "");
+    .replace(FILENAME.invalidCharsPattern, FILENAME.separator);
+  const trimmed = trimFilenameSeparators(normalized);
 
-  return normalized.length > 0 ? normalized : FILENAME.slugFallback;
+  return trimmed.length > 0 ? trimmed : FILENAME.slugFallback;
 }
 
 function buildIsoDateSegment(now: Date): string {
@@ -343,9 +364,9 @@ export function downloadTextFile(
   anchor.href = objectUrl;
   anchor.download = filename;
   anchor.rel = DOWNLOAD_ANCHOR.relValue;
-  document.body.appendChild(anchor);
+  document.body.append(anchor);
   anchor.click();
-  document.body.removeChild(anchor);
+  anchor.remove();
   window.setTimeout(() => {
     URL.revokeObjectURL(objectUrl);
   }, OBJECT_URL_REVOKE_DELAY_MS);

@@ -77,6 +77,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission lifecycl
   }, 240_000);
 
   it("should cancel on a real academy exit and never resurrect the request when academy mode returns", async () => {
+    expect.hasAssertions();
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await fixture(database);
       await database.withContext(data.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set access_model='legacy',admission_enabled=false where tribe_id=${data.tribeId}`));

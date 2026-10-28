@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import {
   TRIBE_STORY_SAVE_STATUS,
@@ -42,8 +42,8 @@ type StoryStatsRow = {
   member_count: number | string;
   name: string;
   online_count: number | string;
-  open_free_join_available: boolean;
-  open_free_join_enabled: boolean;
+  open_free_join_available: boolean | null;
+  open_free_join_enabled: boolean | null;
 };
 
 type StorySaveRow = {
@@ -104,137 +104,29 @@ function mapStats(row: StoryStatsRow): TribeStoryStats {
   };
 }
 
-export class PostgresTribeStoryRepository implements TribeStoryRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+/**
+ * Serializes story media into the JSON records the save statement expands.
+ *
+ * @param media - Ordered media of the story.
+ * @returns JSON array with snake_case media columns.
+ */
+function serializeStoryMedia(media: SaveTribeStoryCommand["media"]): string {
+  return JSON.stringify(
+    media.map((mediaItem) => ({
+      external_video_id: mediaItem.externalVideoId,
+      media_type: mediaItem.mediaType,
+      sort_order: mediaItem.sortOrder,
+      url: mediaItem.url,
+      video_provider: mediaItem.videoProvider,
+    }))
+  );
+}
 
-  async getByTribeSlug({
-    tribeSlug,
-  }: GetTribeStoryQuery): Promise<TribeStorySettings | null> {
-    return this.executeWithDatabase(async (database) => {
-      const storyResult = await database.execute(sql`
-        select
-          story_about.content,
-          story_about.website_url
-        from public.tribe_story_about(${tribeSlug}) as story_about
-      `);
-      const storyRow = (storyResult.rows?.[0] ?? null) as StoryRow | null;
-
-      if (!storyRow) {
-        return null;
-      }
-
-      const mediaResult = await database.execute(sql`
-        select
-          story_media.id,
-          story_media.media_type,
-          story_media.url,
-          story_media.video_provider,
-          story_media.external_video_id,
-          story_media.sort_order
-        from public.tribe_story_about_media(${tribeSlug}) as story_media
-      `);
-      const mediaRows = (mediaResult.rows ?? []) as StoryMediaRow[];
-
-      return {
-        content: storyRow.content,
-        media: mediaRows.map(mapMediaRow),
-        websiteUrl: storyRow.website_url,
-      };
-    }).catch((error: unknown) => {
-      if (isMissingStoryStorageError(error)) {
-        return null;
-      }
-
-      throw error;
-    });
-  }
-
-  async getStatsByTribeSlug({
-    tribeSlug,
-  }: GetTribeStoryQuery): Promise<TribeStoryStats | null> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        select
-          story_stats.name,
-          story_stats.logo_url,
-          story_stats.cover_url,
-          story_stats.member_count,
-          story_stats.admin_count,
-          story_stats.online_count,
-          story_stats.created_at,
-          story_stats.open_free_join_available,
-          story_stats.open_free_join_enabled
-        from public.tribe_story_about_stats(${tribeSlug}) as story_stats
-      `);
-      const row = (result.rows?.[0] ?? null) as StoryStatsRow | null;
-
-      return row ? mapStats(row) : null;
-    }).catch((error: unknown) => {
-      if (isMissingStoryStorageError(error)) {
-        return null;
-      }
-
-      throw error;
-    });
-  }
-
-  async listOnlineMembersByTribeSlug({
-    tribeSlug,
-  }: GetTribeStoryQuery): Promise<TribeStoryOnlineMember[]> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        select
-          online_members.name,
-          online_members.image
-        from public.tribe_story_about_online_members(${tribeSlug}) as online_members
-      `);
-
-      return ((result.rows ?? []) as Array<{
-        image: string | null;
-        name: string | null;
-      }>).flatMap((row) =>
-        row.name ? [{ image: row.image, name: row.name }] : []
-      );
-    }).catch((error: unknown) => {
-      if (isMissingStoryStorageError(error)) {
-        return [];
-      }
-
-      throw error;
-    });
-  }
-
-  async listPublicStorySlugs(): Promise<string[]> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        select public_story.slug
-        from public.list_public_tribe_story_slugs() as public_story
-      `);
-
-      return ((result.rows ?? []) as Array<{ slug: string | null }>).flatMap(
-        (row) => (row.slug ? [row.slug] : [])
-      );
-    }).catch((error: unknown) => {
-      if (isMissingStoryStorageError(error)) {
-        return [];
-      }
-
-      throw error;
-    });
-  }
-
-  async save(command: SaveTribeStoryCommand): Promise<TribeStorySaveResult> {
-    return this.executeWithDatabase(async (database) => {
-      const serializedMedia = JSON.stringify(
-        command.media.map((mediaItem) => ({
-          external_video_id: mediaItem.externalVideoId,
-          media_type: mediaItem.mediaType,
-          sort_order: mediaItem.sortOrder,
-          url: mediaItem.url,
-          video_provider: mediaItem.videoProvider,
-        }))
-      );
-      const result = await database.execute(sql`
+/**
+ * Tribe, permission, story upsert, and media removal CTEs of a story save.
+ */
+function buildSaveStoryCtes(command: SaveTribeStoryCommand): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -276,7 +168,14 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
           where tribe_story_media.tribe_id in (select editable_tribe.id from editable_tribe)
           returning tribe_story_media.id
         ),
-        inserted_media as (
+`;
+}
+
+/**
+ * Media insert CTE of a story save, with the result projection.
+ */
+function buildSaveStoryMediaResult(serializedMedia: string): SQL {
+  return sql`        inserted_media as (
           insert into public.tribe_story_media (
             tribe_id,
             media_type,
@@ -337,9 +236,145 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
             )
             from inserted_media
           ) as media
+      `;
+}
+
+/**
+ * Saves the story and replaces its media when the viewer may manage the tribe story.
+ *
+ * @param command - Story content and ordered media.
+ * @returns The save statement.
+ */
+function buildSaveStoryStatement(command: SaveTribeStoryCommand): SQL {
+  return buildSaveStoryCtes(command).append(
+    buildSaveStoryMediaResult(serializeStoryMedia(command.media))
+  );
+}
+
+export class PostgresTribeStoryRepository implements TribeStoryRepository {
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  async getByTribeSlug({
+    tribeSlug,
+  }: GetTribeStoryQuery): Promise<TribeStorySettings | null> {
+    return this.executeWithDatabase(async (database) => {
+      const storyResult = await database.execute(sql`
+        select
+          story_about.content,
+          story_about.website_url
+        from public.tribe_story_about(${tribeSlug}) as story_about
+      `);
+      const storyRow = (storyResult.rows[0] ?? null) as StoryRow | null;
+
+      if (!storyRow) {
+        return null;
+      }
+
+      const mediaResult = await database.execute(sql`
+        select
+          story_media.id,
+          story_media.media_type,
+          story_media.url,
+          story_media.video_provider,
+          story_media.external_video_id,
+          story_media.sort_order
+        from public.tribe_story_about_media(${tribeSlug}) as story_media
+      `);
+      const mediaRows = mediaResult.rows as StoryMediaRow[];
+
+      return {
+        content: storyRow.content,
+        media: mediaRows.map(mapMediaRow),
+        websiteUrl: storyRow.website_url,
+      };
+    }).catch((error: unknown) => {
+      if (isMissingStoryStorageError(error)) {
+        return null;
+      }
+
+      throw error;
+    });
+  }
+
+  async getStatsByTribeSlug({
+    tribeSlug,
+  }: GetTribeStoryQuery): Promise<TribeStoryStats | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select
+          story_stats.name,
+          story_stats.logo_url,
+          story_stats.cover_url,
+          story_stats.member_count,
+          story_stats.admin_count,
+          story_stats.online_count,
+          story_stats.created_at,
+          story_stats.open_free_join_available,
+          story_stats.open_free_join_enabled
+        from public.tribe_story_about_stats(${tribeSlug}) as story_stats
+      `);
+      const row = (result.rows[0] ?? null) as StoryStatsRow | null;
+
+      return row ? mapStats(row) : null;
+    }).catch((error: unknown) => {
+      if (isMissingStoryStorageError(error)) {
+        return null;
+      }
+
+      throw error;
+    });
+  }
+
+  async listOnlineMembersByTribeSlug({
+    tribeSlug,
+  }: GetTribeStoryQuery): Promise<TribeStoryOnlineMember[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select
+          online_members.name,
+          online_members.image
+        from public.tribe_story_about_online_members(${tribeSlug}) as online_members
       `);
 
-      const row = (result.rows?.[0] ?? null) as StorySaveRow | null;
+      return (result.rows as Array<{
+        image: string | null;
+        name: string | null;
+      }>).flatMap((row) =>
+        row.name ? [{ image: row.image, name: row.name }] : []
+      );
+    }).catch((error: unknown) => {
+      if (isMissingStoryStorageError(error)) {
+        return [];
+      }
+
+      throw error;
+    });
+  }
+
+  async listPublicStorySlugs(): Promise<string[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select public_story.slug
+        from public.list_public_tribe_story_slugs() as public_story
+      `);
+
+      return (result.rows as Array<{ slug: string | null }>).flatMap(
+        (row) => (row.slug ? [row.slug] : [])
+      );
+    }).catch((error: unknown) => {
+      if (isMissingStoryStorageError(error)) {
+        return [];
+      }
+
+      throw error;
+    });
+  }
+
+  async save(command: SaveTribeStoryCommand): Promise<TribeStorySaveResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(buildSaveStoryStatement(command));;
+
+      const row = (result.rows[0] ?? null) as StorySaveRow | null;
 
       if (row?.status === TRIBE_STORY_SAVE_STATUS.updated) {
         if (!row.content) {

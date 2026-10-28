@@ -1,7 +1,6 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
-import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
+import { type LucideIcon, MonitorIcon, MoonIcon, SunIcon, SunMoonIcon  } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { Button, DropdownMenu, type DropdownItem, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@golfo/ui";

@@ -45,7 +45,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("protected academy 
       expect(before.decisions).toEqual([]);
       if (entrypoint === SUBSCRIPTION_MEMBERSHIP_ENTRYPOINT.member) {
         const unexpected = async () => { throw new Error("AcademyMembershipLifecycleTest: provider mutation unexpectedly invoked"); };
-        const repository = new PostgresTribeMemberSubscriptionRepository((callback) => database.withContext(fixture.own, callback), unexpected, unexpected, async () => SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerAuthorizedStatus, unexpected, unexpected, unexpected, createPaidAdmissionResolutionWriter, randomUUID());
+        const repository = new PostgresTribeMemberSubscriptionRepository({ executeWithDatabase: (callback) => database.withContext(fixture.own, callback), createMercadoPagoPreapprovalSubscription: unexpected, getMercadoPagoPreapprovalDetails: unexpected, getMercadoPagoPreapprovalStatus: async () => SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerAuthorizedStatus, updateMercadoPagoPreapprovalStatus: unexpected, updateMercadoPagoPreapprovalBackUrl: unexpected, refreshMercadoPagoAccessToken: unexpected, createAdmissionResolution: createPaidAdmissionResolutionWriter, requestId: randomUUID() });
         expect(await repository.handleWebhook({ eventId: randomUUID(), resourceId: fixture.providerId, topic: SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerWebhookTopic })).toMatchObject({ status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed });
       } else {
         const repository = createSubscriptionMembershipReconciliationRepository(database, fixture.own, SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerAuthorizedStatus);

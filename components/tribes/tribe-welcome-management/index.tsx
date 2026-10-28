@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { LoaderCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { AnimatePresence } from "motion/react";
@@ -438,15 +438,15 @@ function collectInvalidLabelLinkIds(
 }
 
 function areRulesEqual(
-  a: TribeWelcomeRuleResult[],
-  b: TribeWelcomeRuleResult[]
+  left: TribeWelcomeRuleResult[],
+  right: TribeWelcomeRuleResult[]
 ): boolean {
-  if (a.length !== b.length) {
+  if (left.length !== right.length) {
     return false;
   }
 
-  return a.every((ruleA, index) => {
-    const ruleB = b[index];
+  return left.every((ruleA, index) => {
+    const ruleB = right[index];
 
     return (
       ruleA.id === ruleB.id &&
@@ -458,15 +458,15 @@ function areRulesEqual(
 }
 
 function areLinksEqual(
-  a: TribeWelcomeLinkResult[],
-  b: TribeWelcomeLinkResult[]
+  left: TribeWelcomeLinkResult[],
+  right: TribeWelcomeLinkResult[]
 ): boolean {
-  if (a.length !== b.length) {
+  if (left.length !== right.length) {
     return false;
   }
 
-  return a.every((linkA, index) => {
-    const linkB = b[index];
+  return left.every((linkA, index) => {
+    const linkB = right[index];
 
     return (
       linkA.id === linkB.id &&
@@ -524,17 +524,83 @@ async function submitWelcomeUpdate(
   return responseBody.message ?? TRIBE_WELCOME_MANAGEMENT_COPY.saveSuccess;
 }
 
-/**
- * Welcome editor for tribe leaders: greeting, selection modal copy, agreements
- * and resource links, with inline validation, a live preview and a preview of
- * the member selection modal. Non-leaders get the read-only welcome display.
- */
-export function TribeWelcomeManagement({
-  canEdit,
-  canRecordSelections = false,
-  tribeSlug,
-  welcome,
-}: TribeWelcomeManagementProps) {
+type IdSet = ReadonlySet<string>;
+type SetIdSet = Dispatch<SetStateAction<IdSet>>;
+type FocusRefFactory = (
+  id: string
+) => (element: HTMLInputElement | HTMLTextAreaElement | null) => void;
+
+// The required marker is drawn by CSS after the field label, so labels stay plain strings.
+const REQUIRED_FIELD_CLASS_NAME =
+  styles.TribeWelcomeManagement__field +
+  " " +
+  styles["TribeWelcomeManagement__field--required"];
+const REQUIRED_FIELD_GROUP_CLASS_NAME =
+  styles.TribeWelcomeManagement__fieldGroup +
+  " " +
+  styles["TribeWelcomeManagement__fieldGroup--required"];
+const ROW_WITH_HEADER_CLASS_NAME =
+  styles.TribeWelcomeManagement__row +
+  " " +
+  styles["TribeWelcomeManagement__row--withHeader"];
+
+function getActiveStateLabel(isActive: boolean): string {
+  return isActive
+    ? TRIBE_WELCOME_MANAGEMENT_COPY.activeLabel
+    : TRIBE_WELCOME_MANAGEMENT_COPY.inactiveLabel;
+}
+
+function hasPatchKey(patch: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, key);
+}
+
+/** Error of a WhatsApp phone: missing or with an invalid format. */
+function getPhoneErrorMessage(
+  showPhoneError: boolean,
+  link: TribeWelcomeLinkResult
+): string | undefined {
+  if (!showPhoneError) {
+    return undefined;
+  }
+
+  return isWhatsappLinkPhoneEmpty(link)
+    ? TRIBE_WELCOME_MANAGEMENT_COPY.validationWhatsappPhone
+    : TRIBE_WELCOME_MANAGEMENT_COPY.validationWhatsappPhoneInvalid;
+}
+
+/** Error of a link URL: missing or malformed. */
+function getUrlErrorMessage(
+  showUrlError: boolean,
+  link: TribeWelcomeLinkResult
+): string | undefined {
+  if (!showUrlError) {
+    return undefined;
+  }
+
+  return isRequiredTextMissing(link.url ?? "")
+    ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinkUrl
+    : TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlInvalid;
+}
+
+/** Returns a remover of one id from a set held in state, keeping the set when the id is absent. */
+function clearIdFromSet(setter: SetIdSet) {
+  return (id: string) => {
+    setter((current) => {
+      if (!current.has(id)) {
+        return current;
+      }
+
+      const next = new Set(current);
+
+      next.delete(id);
+
+      return next;
+    });
+  };
+}
+
+/** Editable copy of the welcome and the selection modal. */
+function useWelcomeTexts(welcome: TribeWelcomeResult) {
   const [welcomeMessage, setWelcomeMessage] = useState(welcome.welcomeMessage);
   const [selectionModalTitle, setSelectionModalTitle] = useState(
     welcome.selectionModalTitle
@@ -546,38 +612,1185 @@ export function TribeWelcomeManagement({
     welcome.selectionModalBenefit ?? ""
   );
   const [linksHeading, setLinksHeading] = useState(welcome.linksHeading);
+
+  return { linksHeading, selectionModalBenefit, selectionModalDescription, selectionModalTitle, setLinksHeading, setSelectionModalBenefit, setSelectionModalDescription, setSelectionModalTitle, setWelcomeMessage, welcomeMessage };
+}
+
+type WelcomeTexts = ReturnType<typeof useWelcomeTexts>;
+
+/** Validation summary and the rows whose fields failed the last check. */
+function useWelcomeValidation() {
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [invalidUrlLinkIds, setInvalidUrlLinkIds] = useState<IdSet>(() => new Set());
+  const [missingLabelRuleIds, setMissingLabelRuleIds] = useState<IdSet>(() => new Set());
+  const [missingLabelLinkIds, setMissingLabelLinkIds] = useState<IdSet>(() => new Set());
+  const [missingPhoneLinkIds, setMissingPhoneLinkIds] = useState<IdSet>(() => new Set());
+  const [missingBadgeLabelLinkIds, setMissingBadgeLabelLinkIds] = useState<IdSet>(() => new Set());
+
+  const markUrlValidity = (linkId: string, isValid: boolean) => {
+    setInvalidUrlLinkIds((current) => {
+      const next = new Set(current);
+
+      if (isValid) {
+        next.delete(linkId);
+      } else {
+        next.add(linkId);
+      }
+
+      return next;
+    });
+  };
+
+  return { invalidUrlLinkIds, markUrlValidity, missingBadgeLabelLinkIds, missingLabelLinkIds, missingLabelRuleIds, missingPhoneLinkIds, setInvalidUrlLinkIds, setMissingBadgeLabelLinkIds, setMissingLabelLinkIds, setMissingLabelRuleIds, setMissingPhoneLinkIds, setValidationMessage, validationMessage };
+}
+
+type WelcomeValidation = ReturnType<typeof useWelcomeValidation>;
+
+/** Rules and links of the welcome, with focus moved to added rows and away from removed ones. */
+function useWelcomeCollections(welcome: TribeWelcomeResult) {
   const [rules, setRules] = useState(welcome.rules);
   const [links, setLinks] = useState(welcome.links);
-  const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [invalidUrlLinkIds, setInvalidUrlLinkIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [missingLabelRuleIds, setMissingLabelRuleIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [missingLabelLinkIds, setMissingLabelLinkIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [missingPhoneLinkIds, setMissingPhoneLinkIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [missingBadgeLabelLinkIds, setMissingBadgeLabelLinkIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const pendingFocusIdRef = useRef<string | null>(null);
+  const addRuleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const addLinkButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  return { addLinkButtonRef, addRuleButtonRef, links, pendingFocusIdRef, rules, setLinks, setRules };
+}
+
+type WelcomeCollections = ReturnType<typeof useWelcomeCollections>;
+
+/** Saves the welcome once at a time and remembers the last saved version. */
+function useWelcomeSaveState(welcome: TribeWelcomeResult) {
   const [isSaving, setIsSaving] = useState(false);
-  const [savedWelcome, setSavedWelcome] =
-    useState<TribeWelcomeResult>(welcome);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const badgeLabelHelperIdPrefix = useId();
-  const welcomeMessageId = useId();
+  const [savedWelcome, setSavedWelcome] = useState<TribeWelcomeResult>(welcome);
+  const isSavingRef = useRef(false);
+
+  return { isSaving, isSavingRef, savedWelcome, setIsSaving, setSavedWelcome };
+}
+
+type WelcomeSaveState = ReturnType<typeof useWelcomeSaveState>;
+
+type CollectionHandlerOptions = {
+  collections: WelcomeCollections;
+  validation: WelcomeValidation;
+};
+
+/** Edits, adds and removes agreements. */
+function createRuleHandlers({ collections, validation }: CollectionHandlerOptions) {
+  const { addRuleButtonRef, pendingFocusIdRef, setRules } = collections;
+  const clearMissingLabelRule = clearIdFromSet(validation.setMissingLabelRuleIds);
+  const updateRule = (
+    ruleId: string,
+    patch: Partial<TribeWelcomeRuleResult>
+  ) => {
+    setRules((currentRules) =>
+      currentRules.map((rule) =>
+        rule.id === ruleId ? { ...rule, ...patch } : rule
+      )
+    );
+    validation.setValidationMessage(null);
+
+    if (hasPatchKey(patch, WELCOME_RULE_PATCH_KEY.label)) {
+      clearMissingLabelRule(ruleId);
+    }
+  };
+  // Ids are created outside the state updaters so the updaters stay pure (React
+  // may call them twice) and the pending focus always targets the added row.
+  const handleAddRule = () => {
+    const createdRuleId = createClientId();
+
+    pendingFocusIdRef.current = createdRuleId;
+    setRules((currentRules) => [
+      ...currentRules,
+      createEmptyRule(createdRuleId, getNextSortOrder(currentRules)),
+    ]);
+  };
+  // The removed row's controls leave the page, so focus moves to the add
+  // button of the same collection instead of falling back to <body>.
+  const handleRemoveRule = (ruleId: string) => {
+    setRules((currentRules) =>
+      currentRules.filter((currentRule) => currentRule.id !== ruleId)
+    );
+    addRuleButtonRef.current?.focus();
+  };
+
+  return { handleAddRule, handleRemoveRule, updateRule };
+}
+
+/** Edits, adds and removes resource links, clearing the errors an edit fixes. */
+function createLinkHandlers({ collections, validation }: CollectionHandlerOptions) {
+  const { addLinkButtonRef, pendingFocusIdRef, setLinks } = collections;
+  const clearMissingLabelLink = clearIdFromSet(validation.setMissingLabelLinkIds);
+  const clearMissingPhoneLink = clearIdFromSet(validation.setMissingPhoneLinkIds);
+  const clearMissingBadgeLabelLink = clearIdFromSet(validation.setMissingBadgeLabelLinkIds);
+  const updateLink = (
+    linkId: string,
+    patch: Partial<TribeWelcomeLinkResult>
+  ) => {
+    setLinks((currentLinks) =>
+      currentLinks.map((link) =>
+        link.id === linkId ? { ...link, ...patch } : link
+      )
+    );
+    validation.setValidationMessage(null);
+
+    if (hasPatchKey(patch, WELCOME_LINK_PATCH_KEY.url)) {
+      validation.markUrlValidity(linkId, true);
+    }
+    if (hasPatchKey(patch, WELCOME_LINK_PATCH_KEY.label)) {
+      clearMissingLabelLink(linkId);
+    }
+    if (hasPatchKey(patch, WELCOME_LINK_PATCH_KEY.phoneNumber)) {
+      clearMissingPhoneLink(linkId);
+    }
+    if (hasPatchKey(patch, WELCOME_LINK_PATCH_KEY.badgeLabel)) {
+      clearMissingBadgeLabelLink(linkId);
+    }
+  };
+  const handleAddLink = () => {
+    const createdLinkId = createClientId();
+
+    pendingFocusIdRef.current = createdLinkId;
+    setLinks((currentLinks) => [
+      ...currentLinks,
+      createEmptyLink(createdLinkId, getNextSortOrder(currentLinks)),
+    ]);
+  };
+  const handleRemoveLink = (linkId: string) => {
+    setLinks((currentLinks) =>
+      currentLinks.filter((currentLink) => currentLink.id !== linkId)
+    );
+    addLinkButtonRef.current?.focus();
+  };
+
+  return { handleAddLink, handleRemoveLink, updateLink };
+}
+
+/** Focuses a newly added row's first field once it mounts. */
+function createFocusRefFactory(
+  pendingFocusIdRef: RefObject<string | null>
+): FocusRefFactory {
+  return (id) => (element) => {
+    if (element && pendingFocusIdRef.current === id) {
+      element.focus();
+      pendingFocusIdRef.current = null;
+    }
+  };
+}
+
+/** Checks every row and required heading, marking the rows that failed. @returns Whether the welcome can be saved. */
+function validateWelcomeForSave({
+  collections,
+  texts,
+  validation,
+}: {
+  collections: WelcomeCollections;
+  texts: WelcomeTexts;
+  validation: WelcomeValidation;
+}): boolean {
+  const { links, rules } = collections;
+  const nextInvalidUrls = collectInvalidUrlLinkIds(links);
+  const nextMissingRuleLabels = collectInvalidLabelRuleIds(rules);
+  const nextMissingLinkLabels = collectInvalidLabelLinkIds(links);
+  const nextMissingPhones = new Set(
+    links.filter(isWhatsappLinkPhoneInvalid).map((link) => link.id)
+  );
+  const nextMissingBadgeLabels = new Set(
+    links
+      .filter((link) => isRequiredTextMissing(link.badgeLabel))
+      .map((link) => link.id)
+  );
+
+  validation.setInvalidUrlLinkIds(nextInvalidUrls);
+  validation.setMissingLabelRuleIds(nextMissingRuleLabels);
+  validation.setMissingLabelLinkIds(nextMissingLinkLabels);
+  validation.setMissingPhoneLinkIds(nextMissingPhones);
+  validation.setMissingBadgeLabelLinkIds(nextMissingBadgeLabels);
+
+  const hasMissingHeadingFields =
+    isRequiredTextMissing(texts.selectionModalTitle) ||
+    isRequiredTextMissing(texts.selectionModalDescription) ||
+    isRequiredTextMissing(texts.linksHeading);
+
+  const hasClientSideErrors =
+    nextInvalidUrls.size > 0 ||
+    nextMissingRuleLabels.size > 0 ||
+    nextMissingLinkLabels.size > 0 ||
+    nextMissingPhones.size > 0 ||
+    nextMissingBadgeLabels.size > 0 ||
+    hasMissingHeadingFields;
+
+  if (hasClientSideErrors) {
+    validation.setValidationMessage(TRIBE_WELCOME_MANAGEMENT_COPY.validationSummary);
+    return false;
+  }
+
+  return true;
+}
+
+type WelcomeSubmitOptions = {
+  collections: WelcomeCollections;
+  currentWelcome: TribeWelcomeResult;
+  save: WelcomeSaveState;
+  texts: WelcomeTexts;
+  tribeSlug: string;
+  validation: WelcomeValidation;
+};
+
+/** Validates and saves the welcome, one save at a time. */
+function createWelcomeSubmitHandler({
+  currentWelcome,
+  save,
+  tribeSlug,
+  ...validationInput
+}: WelcomeSubmitOptions) {
+  return async (event: React.SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    // A second submit (double click, Enter held down) must not start another
+    // request before the first one re-renders the disabled button.
+    if (save.isSavingRef.current) {
+      return;
+    }
+
+    if (!validateWelcomeForSave(validationInput)) {
+      return;
+    }
+
+    save.isSavingRef.current = true;
+    save.setIsSaving(true);
+    validationInput.validation.setValidationMessage(null);
+
+    try {
+      const message = await submitWelcomeUpdate(
+        tribeSlug,
+        sanitizeWelcomeForSave(currentWelcome)
+      );
+
+      save.setSavedWelcome(currentWelcome);
+      toast.success(message);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : TRIBE_WELCOME_MANAGEMENT_COPY.fallbackSaveError
+      );
+    } finally {
+      save.isSavingRef.current = false;
+      save.setIsSaving(false);
+    }
+  };
+}
+
+/** Title, description and required-field hint of the editor. */
+function WelcomeEditorHeader() {
+  return (
+    <header className={styles.TribeWelcomeManagement__header}>
+      <h1 className={styles.TribeWelcomeManagement__title}>
+        {TRIBE_WELCOME_MANAGEMENT_COPY.editTitle}
+      </h1>
+      <p className={styles.TribeWelcomeManagement__description}>
+        {TRIBE_WELCOME_MANAGEMENT_COPY.editDescriptionPrimary}{" "}
+        {TRIBE_WELCOME_MANAGEMENT_COPY.editDescriptionSecondary}
+      </p>
+      <p className={styles.TribeWelcomeManagement__requiredHint}>
+        <span
+          aria-hidden={WELCOME_MANAGEMENT_ARIA.ariaHiddenTrue}
+          className={styles.TribeWelcomeManagement__requiredAsterisk}
+        >
+          *
+        </span>
+        {" "}
+        {TRIBE_WELCOME_MANAGEMENT_COPY.requiredHelper}
+      </p>
+    </header>
+  );
+}
+
+/** Default badge while a text keeps its default, otherwise the button that restores it. */
+function DefaultValueHint({
+  isDefault,
+  onRestore,
+}: {
+  isDefault: boolean;
+  onRestore: () => void;
+}) {
+  return (
+    <span className={styles.TribeWelcomeManagement__defaultHint}>
+      {isDefault ? (
+        <span className={styles.TribeWelcomeManagement__defaultBadge}>
+          {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
+        </span>
+      ) : (
+        <button
+          className={styles.TribeWelcomeManagement__resetButton}
+          onClick={onRestore}
+          type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+        >
+          {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
+        </button>
+      )}
+    </span>
+  );
+}
+
+type WelcomeTextFieldsProps = {
+  hasValidationMessage: boolean;
+  onTextChange: () => void;
+  texts: WelcomeTexts;
+};
+
+/** Greeting and member selection modal copy fields. */
+function WelcomeModalTextFields({
+  hasValidationMessage,
+  onTextChange,
+  texts,
+}: WelcomeTextFieldsProps) {
   const selectionModalTitleId = useId();
   const selectionModalDescriptionId = useId();
   const selectionModalBenefitId = useId();
+
+  return (
+    <>
+      <div className={REQUIRED_FIELD_CLASS_NAME}>
+        <Input
+          aria-required
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleHint}
+          error={
+            hasValidationMessage && isRequiredTextMissing(texts.selectionModalTitle)
+              ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredSelectionModalTitle
+              : undefined
+          }
+          id={selectionModalTitleId}
+          label={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleLabel}
+          onChange={(event) => {
+            texts.setSelectionModalTitle(event.target.value);
+            onTextChange();
+          }}
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitlePlaceholder}
+          value={texts.selectionModalTitle}
+        />
+        <DefaultValueHint
+          isDefault={texts.selectionModalTitle.trim() === DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE}
+          onRestore={() => {
+            texts.setSelectionModalTitle(DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE);
+            onTextChange();
+          }}
+        />
+      </div>
+
+      <div className={REQUIRED_FIELD_CLASS_NAME}>
+        <Textarea
+          aria-required
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionHint}
+          error={
+            hasValidationMessage && isRequiredTextMissing(texts.selectionModalDescription)
+              ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredSelectionModalDescription
+              : undefined
+          }
+          id={selectionModalDescriptionId}
+          label={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionLabel}
+          onChange={(event) => {
+            texts.setSelectionModalDescription(event.target.value);
+            onTextChange();
+          }}
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionPlaceholder}
+          rows={3}
+          value={texts.selectionModalDescription}
+        />
+        <DefaultValueHint
+          isDefault={texts.selectionModalDescription.trim() === DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION}
+          onRestore={() => {
+            texts.setSelectionModalDescription(DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION);
+            onTextChange();
+          }}
+        />
+      </div>
+
+      <Textarea
+        description={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitHint}
+        id={selectionModalBenefitId}
+        label={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitLabel}
+        onChange={(event) => {
+          texts.setSelectionModalBenefit(event.target.value);
+          onTextChange();
+        }}
+        placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitPlaceholder}
+        rows={3}
+        value={texts.selectionModalBenefit}
+      />
+    </>
+  );
+}
+
+/** Greeting field, the selection modal copy and the resources heading. */
+function WelcomeTextFields({
+  hasValidationMessage,
+  onTextChange,
+  texts,
+}: WelcomeTextFieldsProps) {
+  const welcomeMessageId = useId();
   const linksHeadingId = useId();
-  const pendingFocusIdRef = useRef<string | null>(null);
-  const isSavingRef = useRef(false);
-  const addRuleButtonRef = useRef<HTMLButtonElement | null>(null);
-  const addLinkButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  return (
+    <>
+      <div className={styles.TribeWelcomeManagement__field}>
+        <Textarea
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessageHint}
+          id={welcomeMessageId}
+          label={TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessageLabel}
+          onChange={(event) => {
+            texts.setWelcomeMessage(event.target.value);
+            onTextChange();
+          }}
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessagePlaceholder}
+          rows={3}
+          value={texts.welcomeMessage}
+        />
+        <DefaultValueHint
+          isDefault={texts.welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE}
+          onRestore={() => {
+            texts.setWelcomeMessage(DEFAULT_TRIBE_WELCOME_MESSAGE);
+            onTextChange();
+          }}
+        />
+      </div>
+
+      <WelcomeModalTextFields
+        hasValidationMessage={hasValidationMessage}
+        onTextChange={onTextChange}
+        texts={texts}
+      />
+
+      <div className={REQUIRED_FIELD_CLASS_NAME}>
+        <Input
+          aria-required
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingHint}
+          error={
+            hasValidationMessage && isRequiredTextMissing(texts.linksHeading)
+              ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinksHeading
+              : undefined
+          }
+          id={linksHeadingId}
+          label={TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingLabel}
+          onChange={(event) => {
+            texts.setLinksHeading(event.target.value);
+            onTextChange();
+          }}
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingPlaceholder}
+          value={texts.linksHeading}
+        />
+        <DefaultValueHint
+          isDefault={texts.linksHeading.trim() === DEFAULT_TRIBE_WELCOME_LINKS_HEADING}
+          onRestore={() => {
+            texts.setLinksHeading(DEFAULT_TRIBE_WELCOME_LINKS_HEADING);
+            onTextChange();
+          }}
+        />
+      </div>
+    </>
+  );
+}
+
+type CollectionHeaderProps = {
+  addButtonRef: RefObject<HTMLButtonElement | null>;
+  addLabel: string;
+  count: number;
+  emptyLabel: string;
+  heading: string;
+  onAdd: () => void;
+};
+
+/** Heading, count, add action and empty state of a rules or links collection. */
+function WelcomeCollectionHeader({
+  addButtonRef,
+  addLabel,
+  count,
+  emptyLabel,
+  heading,
+  onAdd,
+}: CollectionHeaderProps) {
+  return (
+    <>
+      <div className={styles.TribeWelcomeManagement__collectionHeader}>
+        <div className={styles.TribeWelcomeManagement__sectionTitleGroup}>
+          <h2 className={styles.TribeWelcomeManagement__subtitle}>{heading}</h2>
+          <span className={styles.TribeWelcomeManagement__count}>
+            <AnimatedCount value={count} />
+          </span>
+        </div>
+        <Button
+          onClick={onAdd}
+          ref={addButtonRef}
+          type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+          variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
+        >
+          <PlusIcon />
+          {addLabel}
+        </Button>
+      </div>
+      {count === 0 ? (
+        <p className={styles.TribeWelcomeManagement__emptyState}>{emptyLabel}</p>
+      ) : null}
+    </>
+  );
+}
+
+type RowActionsProps = {
+  isActive: boolean;
+  legend: string;
+  onActiveChange: (checked: boolean) => void;
+  onRemove: () => void;
+  removeTitle: string;
+};
+
+/** Active switch and remove button of a rule or link row. */
+function WelcomeRowActions({
+  isActive,
+  legend,
+  onActiveChange,
+  onRemove,
+  removeTitle,
+}: RowActionsProps) {
+  return (
+    <div className={styles.TribeWelcomeManagement__rowActions}>
+      <label className={styles.TribeWelcomeManagement__checkLabel}>
+        <Switch checked={isActive} onCheckedChange={onActiveChange} />
+        {getActiveStateLabel(isActive)}
+      </label>
+      <Button
+        aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel(legend)}
+        className={styles.TribeWelcomeManagement__removeButton}
+        onClick={onRemove}
+        size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
+        title={removeTitle}
+        type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+        variant={WELCOME_MANAGEMENT_REQUEST.dangerVariant}
+      >
+        <Trash2Icon />
+      </Button>
+    </div>
+  );
+}
+
+type WelcomeRuleRowProps = {
+  buildFocusRef: FocusRefFactory;
+  legend: string;
+  onRemove: (ruleId: string) => void;
+  onUpdate: (ruleId: string, patch: Partial<TribeWelcomeRuleResult>) => void;
+  rule: TribeWelcomeRuleResult;
+  showLabelError: boolean;
+};
+
+/** One agreement with its text, active switch and remove action. */
+function WelcomeRuleRow({
+  buildFocusRef,
+  legend,
+  onRemove,
+  onUpdate,
+  rule,
+  showLabelError,
+}: WelcomeRuleRowProps) {
+  const ruleInputId = "rule-input-" + rule.id;
+
+  return (
+    <fieldset className={ROW_WITH_HEADER_CLASS_NAME}>
+      <legend className={styles.TribeWelcomeManagement__legend}>{legend}</legend>
+      <label
+        className={
+          styles.TribeWelcomeManagement__fieldLabel +
+          " " +
+          styles["TribeWelcomeManagement__fieldLabel--required"] +
+          " " +
+          styles.TribeWelcomeManagement__rowLabel
+        }
+        htmlFor={ruleInputId}
+      >
+        {TRIBE_WELCOME_MANAGEMENT_COPY.ruleLabel}
+      </label>
+      <WelcomeRowActions
+        isActive={rule.isActive}
+        legend={legend}
+        onActiveChange={(checked) => onUpdate(rule.id, { isActive: checked })}
+        onRemove={() => onRemove(rule.id)}
+        removeTitle={TRIBE_WELCOME_MANAGEMENT_COPY.removeRuleTitle}
+      />
+      <div className={styles.TribeWelcomeManagement__rowField}>
+        <Textarea
+          aria-required
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.ruleHint}
+          error={
+            showLabelError
+              ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredRuleLabel
+              : undefined
+          }
+          id={ruleInputId}
+          onChange={(event) => onUpdate(rule.id, { label: event.target.value })}
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.rulePlaceholder}
+          ref={buildFocusRef(rule.id)}
+          rows={2}
+          value={rule.label}
+        />
+      </div>
+    </fieldset>
+  );
+}
+
+type WelcomeRulesSectionProps = {
+  buildFocusRef: FocusRefFactory;
+  collections: WelcomeCollections;
+  handlers: ReturnType<typeof createRuleHandlers>;
+  missingLabelRuleIds: IdSet;
+};
+
+/** Agreements collection of the welcome. */
+function WelcomeRulesSection({
+  buildFocusRef,
+  collections,
+  handlers,
+  missingLabelRuleIds,
+}: WelcomeRulesSectionProps) {
+  const { rules } = collections;
+
+  return (
+    <section className={styles.TribeWelcomeManagement__collection}>
+      <WelcomeCollectionHeader
+        addButtonRef={collections.addRuleButtonRef}
+        addLabel={TRIBE_WELCOME_MANAGEMENT_COPY.addRuleButton}
+        count={rules.length}
+        emptyLabel={TRIBE_WELCOME_MANAGEMENT_COPY.emptyRules}
+        heading={TRIBE_WELCOME_MANAGEMENT_COPY.rulesHeading}
+        onAdd={handlers.handleAddRule}
+      />
+      <AnimatePresence initial={false}>
+        {rules.map((rule, ruleIndex) => (
+          <AnimatedListItem as="div" key={rule.id}>
+            <WelcomeRuleRow
+              buildFocusRef={buildFocusRef}
+              legend={buildLegend(
+                TRIBE_WELCOME_MANAGEMENT_COPY.ruleLegendPrefix,
+                ruleIndex,
+                rules.length
+              )}
+              onRemove={handlers.handleRemoveRule}
+              onUpdate={handlers.updateRule}
+              rule={rule}
+              showLabelError={missingLabelRuleIds.has(rule.id)}
+            />
+          </AnimatedListItem>
+        ))}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+type LinkFieldProps = {
+  link: TribeWelcomeLinkResult;
+  onUpdate: (linkId: string, patch: Partial<TribeWelcomeLinkResult>) => void;
+};
+
+/** Destination of a link: the WhatsApp phone, or the URL with its blur check. */
+function WelcomeLinkDestinationField({
+  buildFocusRef,
+  link,
+  onMarkUrlValidity,
+  onUpdate,
+  showPhoneError,
+  showUrlError,
+}: LinkFieldProps & {
+  buildFocusRef: FocusRefFactory;
+  onMarkUrlValidity: (linkId: string, isValid: boolean) => void;
+  showPhoneError: boolean;
+  showUrlError: boolean;
+}) {
+  if (link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton) {
+    return (
+      <div className={REQUIRED_FIELD_GROUP_CLASS_NAME}>
+        <Input
+          aria-required
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.linkPhoneHint}
+          error={getPhoneErrorMessage(showPhoneError, link)}
+          label={TRIBE_WELCOME_MANAGEMENT_COPY.linkPhoneLabel}
+          onChange={(event) =>
+            onUpdate(link.id, {
+              phoneNumber: event.target.value,
+            })
+          }
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.linkPhonePlaceholder}
+          ref={buildFocusRef(link.id)}
+          value={link.phoneNumber ?? ""}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={REQUIRED_FIELD_GROUP_CLASS_NAME}>
+      <Input
+        aria-required
+        description={
+          showUrlError ? undefined : TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlHelper
+        }
+        error={getUrlErrorMessage(showUrlError, link)}
+        label={TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlLabel}
+        onBlur={(event) =>
+          onMarkUrlValidity(link.id, isUrlWellFormed(event.target.value))
+        }
+        onChange={(event) => onUpdate(link.id, { url: event.target.value })}
+        placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlPlaceholder}
+        ref={buildFocusRef(link.id)}
+        value={link.url ?? ""}
+      />
+    </div>
+  );
+}
+
+/** Link type select. */
+function WelcomeLinkTypeField({ link, onUpdate }: LinkFieldProps) {
+  return (
+    <div
+      className={
+        styles.TribeWelcomeManagement__field +
+        " " +
+        styles["TribeWelcomeManagement__field--full"]
+      }
+    >
+      <span className={styles.TribeWelcomeManagement__fieldHelper}>
+        {TRIBE_WELCOME_MANAGEMENT_COPY.linkTypeHint}
+      </span>
+      <select
+        className={styles.TribeWelcomeManagement__select}
+        id={"link-type-" + link.id}
+        onChange={(event) =>
+          onUpdate(link.id, {
+            type: event.target.value as TribeWelcomeLinkResult["type"],
+          })
+        }
+        value={link.type}
+      >
+        {Object.values(TRIBE_WELCOME_LINK_TYPE).map((type) => (
+          <option key={type} value={type}>
+            {WELCOME_LINK_TYPE_LABEL[type]}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** Badge label of a link with its character counter. */
+function WelcomeLinkBadgeField({
+  link,
+  onUpdate,
+  showBadgeLabelError,
+}: LinkFieldProps & { showBadgeLabelError: boolean }) {
+  const badgeLabelHelperId = useId() + link.id;
+
+  return (
+    <div className={REQUIRED_FIELD_GROUP_CLASS_NAME}>
+      <Input
+        aria-describedby={showBadgeLabelError ? undefined : badgeLabelHelperId}
+        aria-required
+        description={TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelHint}
+        error={
+          showBadgeLabelError
+            ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredBadgeLabel
+            : undefined
+        }
+        label={TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelLabel}
+        maxLength={BADGE_LABEL_MAX_LENGTH}
+        onChange={(event) =>
+          onUpdate(link.id, {
+            badgeLabel: event.target.value,
+          })
+        }
+        placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelPlaceholder}
+        value={link.badgeLabel}
+      />
+      {showBadgeLabelError ? null : (
+        <span
+          className={styles.TribeWelcomeManagement__fieldHelper}
+          id={badgeLabelHelperId}
+        >
+          {TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelHelper(
+            link.badgeLabel.length,
+            BADGE_LABEL_MAX_LENGTH
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Label, description and, for WhatsApp links, the prefilled message of a link. */
+function WelcomeLinkTextFields({
+  link,
+  onUpdate,
+  showLinkLabelError,
+}: LinkFieldProps & { showLinkLabelError: boolean }) {
+  return (
+    <>
+      <div className={REQUIRED_FIELD_GROUP_CLASS_NAME}>
+        <Textarea
+          aria-required
+          description={TRIBE_WELCOME_MANAGEMENT_COPY.linkLabelHint}
+          error={
+            showLinkLabelError
+              ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinkLabel
+              : undefined
+          }
+          label={TRIBE_WELCOME_MANAGEMENT_COPY.linkLabel}
+          onChange={(event) => onUpdate(link.id, { label: event.target.value })}
+          placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.linkLabelPlaceholder}
+          rows={2}
+          value={link.label}
+        />
+      </div>
+      <Textarea
+        description={TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionHint}
+        label={TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionLabel}
+        onChange={(event) =>
+          onUpdate(link.id, {
+            description: event.target.value || null,
+          })
+        }
+        placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionPlaceholder}
+        rows={2}
+        value={link.description ?? ""}
+      />
+    </>
+  );
+}
+
+/** Prefilled message of a WhatsApp link. */
+function WelcomeLinkMessageField({ link, onUpdate }: LinkFieldProps) {
+  if (link.type !== TRIBE_WELCOME_LINK_TYPE.whatsappButton) {
+    return null;
+  }
+
+  return (
+    <Textarea
+      description={TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageHint}
+      label={TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageLabel}
+      onChange={(event) =>
+        onUpdate(link.id, {
+          message: event.target.value,
+        })
+      }
+      placeholder={TRIBE_WELCOME_MANAGEMENT_COPY.linkMessagePlaceholder}
+      rows={3}
+      value={link.message ?? ""}
+    />
+  );
+}
+
+type WelcomeLinkRowProps = LinkFieldProps & {
+  buildFocusRef: FocusRefFactory;
+  legend: string;
+  onMarkUrlValidity: (linkId: string, isValid: boolean) => void;
+  onRemove: (linkId: string) => void;
+  validation: WelcomeValidation;
+};
+
+/** One resource link with its fields, active switch and remove action. */
+function WelcomeLinkRow({
+  buildFocusRef,
+  legend,
+  link,
+  onMarkUrlValidity,
+  onRemove,
+  onUpdate,
+  validation,
+}: WelcomeLinkRowProps) {
+  return (
+    <fieldset className={ROW_WITH_HEADER_CLASS_NAME}>
+      <legend className={styles.TribeWelcomeManagement__legend}>{legend}</legend>
+      <label
+        className={
+          styles.TribeWelcomeManagement__fieldLabel +
+          " " +
+          styles.TribeWelcomeManagement__rowLabel
+        }
+        htmlFor={"link-type-" + link.id}
+      >
+        {TRIBE_WELCOME_MANAGEMENT_COPY.linkTypeLabel}
+      </label>
+      <div
+        className={
+          styles.TribeWelcomeManagement__rowFields +
+          " " +
+          styles.TribeWelcomeManagement__rowField
+        }
+      >
+        <WelcomeLinkTypeField link={link} onUpdate={onUpdate} />
+        <WelcomeLinkDestinationField
+          buildFocusRef={buildFocusRef}
+          link={link}
+          onMarkUrlValidity={onMarkUrlValidity}
+          onUpdate={onUpdate}
+          showPhoneError={validation.missingPhoneLinkIds.has(link.id)}
+          showUrlError={validation.invalidUrlLinkIds.has(link.id)}
+        />
+        <WelcomeLinkTextFields
+          link={link}
+          onUpdate={onUpdate}
+          showLinkLabelError={validation.missingLabelLinkIds.has(link.id)}
+        />
+        <WelcomeLinkBadgeField
+          link={link}
+          onUpdate={onUpdate}
+          showBadgeLabelError={validation.missingBadgeLabelLinkIds.has(link.id)}
+        />
+        <WelcomeLinkMessageField link={link} onUpdate={onUpdate} />
+      </div>
+      <WelcomeRowActions
+        isActive={link.isActive}
+        legend={legend}
+        onActiveChange={(checked) => onUpdate(link.id, { isActive: checked })}
+        onRemove={() => onRemove(link.id)}
+        removeTitle={TRIBE_WELCOME_MANAGEMENT_COPY.removeLinkTitle}
+      />
+    </fieldset>
+  );
+}
+
+type WelcomeLinksSectionProps = {
+  buildFocusRef: FocusRefFactory;
+  collections: WelcomeCollections;
+  handlers: ReturnType<typeof createLinkHandlers>;
+  validation: WelcomeValidation;
+};
+
+/** Resource links collection of the welcome. */
+function WelcomeLinksSection({
+  buildFocusRef,
+  collections,
+  handlers,
+  validation,
+}: WelcomeLinksSectionProps) {
+  const { links } = collections;
+
+  return (
+    <section className={styles.TribeWelcomeManagement__collection}>
+      <WelcomeCollectionHeader
+        addButtonRef={collections.addLinkButtonRef}
+        addLabel={TRIBE_WELCOME_MANAGEMENT_COPY.addLinkButton}
+        count={links.length}
+        emptyLabel={TRIBE_WELCOME_MANAGEMENT_COPY.emptyLinks}
+        heading={TRIBE_WELCOME_MANAGEMENT_COPY.resourcesHeading}
+        onAdd={handlers.handleAddLink}
+      />
+      <AnimatePresence initial={false}>
+        {links.map((link, linkIndex) => (
+          <AnimatedListItem as="div" key={link.id}>
+            <WelcomeLinkRow
+              buildFocusRef={buildFocusRef}
+              legend={buildLegend(
+                TRIBE_WELCOME_MANAGEMENT_COPY.linkLegendPrefix,
+                linkIndex,
+                links.length
+              )}
+              link={link}
+              onMarkUrlValidity={validation.markUrlValidity}
+              onRemove={handlers.handleRemoveLink}
+              onUpdate={handlers.updateLink}
+              validation={validation}
+            />
+          </AnimatedListItem>
+        ))}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+type WelcomePreviewProps = {
+  currentWelcome: TribeWelcomeResult;
+  hasActivePreviewLinks: boolean;
+  onOpenSelectionModal: () => void;
+};
+
+/** Live preview of the welcome and the button that previews the selection modal. */
+function WelcomePreview({
+  currentWelcome,
+  hasActivePreviewLinks,
+  onOpenSelectionModal,
+}: WelcomePreviewProps) {
+  return (
+    <aside
+      aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.previewSrLabel}
+      className={styles.TribeWelcomeManagement__preview}
+    >
+      <div className={styles.TribeWelcomeManagement__previewHeader}>
+        <p className={styles.TribeWelcomeManagement__previewEyebrow}>
+          {TRIBE_WELCOME_MANAGEMENT_COPY.previewEyebrow}
+        </p>
+        <Button
+          disabled={!hasActivePreviewLinks}
+          onClick={onOpenSelectionModal}
+          type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+          variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
+        >
+          {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalButton}
+        </Button>
+      </div>
+      {/* Not a live region: announcing the whole preview on every keystroke
+          would drown the form for screen reader users. */}
+      <div className={styles.TribeWelcomeManagement__previewSurface}>
+        <TribeWelcomeDisplay welcome={currentWelcome} />
+      </div>
+      {!hasActivePreviewLinks ? (
+        <p className={styles.TribeWelcomeManagement__previewHint}>
+          {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalEmpty}
+        </p>
+      ) : null}
+    </aside>
+  );
+}
+
+/** Validation summary and the save button of the editor. */
+function WelcomeSubmitBar({
+  isDisabled,
+  isSaving,
+  validationMessage,
+}: {
+  isDisabled: boolean;
+  isSaving: boolean;
+  validationMessage: string | null;
+}) {
+  return (
+    <>
+      {validationMessage ? (
+        <p
+          className={styles.TribeWelcomeManagement__error}
+          role={WELCOME_MANAGEMENT_ARIA.roleAlert}
+        >
+          {validationMessage}
+        </p>
+      ) : null}
+
+      <div className={styles.TribeWelcomeManagement__submitBar}>
+        <Button
+          aria-busy={isSaving || undefined}
+          className={styles.TribeWelcomeManagement__submit}
+          disabled={isDisabled}
+          type={WELCOME_MANAGEMENT_REQUEST.submitButtonType}
+        >
+          {isSaving ? (
+            <>
+              <LoaderCircleIcon
+                aria-hidden
+                className={styles.TribeWelcomeManagement__submitSpinner}
+              />
+              {TRIBE_WELCOME_MANAGEMENT_COPY.savingButton}
+            </>
+          ) : (
+            TRIBE_WELCOME_MANAGEMENT_COPY.saveButton
+          )}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+type WelcomeEditorModel = {
+  collections: WelcomeCollections;
+  currentWelcome: TribeWelcomeResult;
+  isDirty: boolean;
+  isPreviewModalOpen: boolean;
+  setIsPreviewModalOpen: (isOpen: boolean) => void;
+  save: WelcomeSaveState;
+  texts: WelcomeTexts;
+  validation: WelcomeValidation;
+};
+
+/** Welcome editor form with its live preview and the selection modal preview. */
+function TribeWelcomeEditor({
+  model,
+  tribeSlug,
+}: {
+  model: WelcomeEditorModel;
+  tribeSlug: string;
+}) {
+  const { collections, currentWelcome, isDirty, save, texts, validation } = model;
+  const { isPreviewModalOpen, setIsPreviewModalOpen } = model;
+  const hasActivePreviewLinks = collections.links.some((link) => link.isActive);
+  const handleSubmit = createWelcomeSubmitHandler({ collections, currentWelcome, save, texts, tribeSlug, validation });
+  const buildFocusRef = createFocusRefFactory(collections.pendingFocusIdRef);
+
+  return (
+    <section className={styles.TribeWelcomeManagement}>
+      <WelcomeEditorHeader />
+
+      <form
+        className={styles.TribeWelcomeManagement__form}
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+      >
+        <WelcomeTextFields
+          hasValidationMessage={validation.validationMessage !== null}
+          onTextChange={() => validation.setValidationMessage(null)}
+          texts={texts}
+        />
+        <WelcomeRulesSection
+          buildFocusRef={buildFocusRef}
+          collections={collections}
+          handlers={createRuleHandlers({ collections, validation })}
+          missingLabelRuleIds={validation.missingLabelRuleIds}
+        />
+        <WelcomeLinksSection
+          buildFocusRef={buildFocusRef}
+          collections={collections}
+          handlers={createLinkHandlers({ collections, validation })}
+          validation={validation}
+        />
+        <WelcomePreview
+          currentWelcome={currentWelcome}
+          hasActivePreviewLinks={hasActivePreviewLinks}
+          onOpenSelectionModal={() => setIsPreviewModalOpen(true)}
+        />
+
+        {/* Kept mounted so the dialog can play its exit animation and return
+            focus to the "Ver modal de selección" button when it closes. */}
+        <TribeWelcomeSelectionModal
+          benefit={currentWelcome.selectionModalBenefit}
+          description={texts.selectionModalDescription}
+          links={collections.links}
+          onClose={() => setIsPreviewModalOpen(false)}
+          open={isPreviewModalOpen}
+          previewOnly
+          title={texts.selectionModalTitle}
+          tribeSlug={tribeSlug}
+        />
+
+        <WelcomeSubmitBar
+          isDisabled={save.isSaving || !isDirty}
+          isSaving={save.isSaving}
+          validationMessage={validation.validationMessage}
+        />
+      </form>
+    </section>
+  );
+}
+
+/**
+ * Welcome editor for tribe leaders: greeting, selection modal copy, agreements
+ * and resource links, with inline validation, a live preview and a preview of
+ * the member selection modal. Non-leaders get the read-only welcome display.
+ */
+export function TribeWelcomeManagement({
+  canEdit,
+  canRecordSelections = false,
+  tribeSlug,
+  welcome,
+}: TribeWelcomeManagementProps) {
+  const texts = useWelcomeTexts(welcome);
+  const collections = useWelcomeCollections(welcome);
+  const validation = useWelcomeValidation();
+  const save = useWelcomeSaveState(welcome);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const { links, rules } = collections;
+  const { linksHeading, selectionModalBenefit, selectionModalDescription, selectionModalTitle, welcomeMessage } = texts;
   const currentWelcome = useMemo(
     () => ({
       linksHeading,
@@ -600,31 +1813,10 @@ export function TribeWelcomeManagement({
       welcomeMessage,
     ]
   );
-  const hasActivePreviewLinks = useMemo(
-    () => links.some((link) => link.isActive),
-    [links]
-  );
   const isDirty = useMemo(
-    () => !areWelcomesEqual(currentWelcome, savedWelcome),
-    [currentWelcome, savedWelcome]
+    () => !areWelcomesEqual(currentWelcome, save.savedWelcome),
+    [currentWelcome, save.savedWelcome]
   );
-  const isWelcomeMessageDefault =
-    welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE;
-  const isSelectionModalTitleDefault =
-    selectionModalTitle.trim() ===
-    DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE;
-  const isSelectionModalDescriptionDefault =
-    selectionModalDescription.trim() ===
-    DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION;
-  const isLinksHeadingDefault =
-    linksHeading.trim() === DEFAULT_TRIBE_WELCOME_LINKS_HEADING;
-  const showSelectionModalTitleError =
-    validationMessage !== null && isRequiredTextMissing(selectionModalTitle);
-  const showSelectionModalDescriptionError =
-    validationMessage !== null &&
-    isRequiredTextMissing(selectionModalDescription);
-  const showLinksHeadingError =
-    validationMessage !== null && isRequiredTextMissing(linksHeading);
 
   if (!canEdit) {
     return (
@@ -635,902 +1827,10 @@ export function TribeWelcomeManagement({
     );
   }
 
-  const markUrlValidity = (linkId: string, isValid: boolean) => {
-    setInvalidUrlLinkIds((current) => {
-      const next = new Set(current);
-
-      if (isValid) {
-        next.delete(linkId);
-      } else {
-        next.add(linkId);
-      }
-
-      return next;
-    });
-  };
-  const clearIdFromSet =
-    (setter: React.Dispatch<React.SetStateAction<ReadonlySet<string>>>) =>
-    (id: string) => {
-      setter((current) => {
-        if (!current.has(id)) {
-          return current;
-        }
-
-        const next = new Set(current);
-
-        next.delete(id);
-
-        return next;
-      });
-    };
-  const clearMissingLabelRule = clearIdFromSet(setMissingLabelRuleIds);
-  const clearMissingLabelLink = clearIdFromSet(setMissingLabelLinkIds);
-  const clearMissingPhoneLink = clearIdFromSet(setMissingPhoneLinkIds);
-  const clearMissingBadgeLabelLink = clearIdFromSet(setMissingBadgeLabelLinkIds);
-  const updateRule = (
-    ruleId: string,
-    patch: Partial<TribeWelcomeRuleResult>
-  ) => {
-    setRules((currentRules) =>
-      currentRules.map((rule) =>
-        rule.id === ruleId ? { ...rule, ...patch } : rule
-      )
-    );
-    setValidationMessage(null);
-
-    if (Object.prototype.hasOwnProperty.call(patch, WELCOME_RULE_PATCH_KEY.label)) {
-      clearMissingLabelRule(ruleId);
-    }
-  };
-  const updateLink = (
-    linkId: string,
-    patch: Partial<TribeWelcomeLinkResult>
-  ) => {
-    setLinks((currentLinks) =>
-      currentLinks.map((link) =>
-        link.id === linkId ? { ...link, ...patch } : link
-      )
-    );
-    setValidationMessage(null);
-
-    if (
-      Object.prototype.hasOwnProperty.call(patch, WELCOME_LINK_PATCH_KEY.url)
-    ) {
-      markUrlValidity(linkId, true);
-    }
-    if (
-      Object.prototype.hasOwnProperty.call(patch, WELCOME_LINK_PATCH_KEY.label)
-    ) {
-      clearMissingLabelLink(linkId);
-    }
-    if (
-      Object.prototype.hasOwnProperty.call(
-        patch,
-        WELCOME_LINK_PATCH_KEY.phoneNumber
-      )
-    ) {
-      clearMissingPhoneLink(linkId);
-    }
-    if (
-      Object.prototype.hasOwnProperty.call(
-        patch,
-        WELCOME_LINK_PATCH_KEY.badgeLabel
-      )
-    ) {
-      clearMissingBadgeLabelLink(linkId);
-    }
-  };
-  // Ids are created outside the state updaters so the updaters stay pure (React
-  // may call them twice) and the pending focus always targets the added row.
-  const handleAddRule = () => {
-    const createdRuleId = createClientId();
-
-    pendingFocusIdRef.current = createdRuleId;
-    setRules((currentRules) => [
-      ...currentRules,
-      createEmptyRule(createdRuleId, getNextSortOrder(currentRules)),
-    ]);
-  };
-  const handleAddLink = () => {
-    const createdLinkId = createClientId();
-
-    pendingFocusIdRef.current = createdLinkId;
-    setLinks((currentLinks) => [
-      ...currentLinks,
-      createEmptyLink(createdLinkId, getNextSortOrder(currentLinks)),
-    ]);
-  };
-  // The removed row's controls leave the page, so focus moves to the add
-  // button of the same collection instead of falling back to <body>.
-  const handleRemoveRule = (ruleId: string) => {
-    setRules((currentRules) =>
-      currentRules.filter((currentRule) => currentRule.id !== ruleId)
-    );
-    addRuleButtonRef.current?.focus();
-  };
-  const handleRemoveLink = (linkId: string) => {
-    setLinks((currentLinks) =>
-      currentLinks.filter((currentLink) => currentLink.id !== linkId)
-    );
-    addLinkButtonRef.current?.focus();
-  };
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    // A second submit (double click, Enter held down) must not start another
-    // request before the first one re-renders the disabled button.
-    if (isSavingRef.current) {
-      return;
-    }
-
-    const nextInvalidUrls = collectInvalidUrlLinkIds(links);
-    const nextMissingRuleLabels = collectInvalidLabelRuleIds(rules);
-    const nextMissingLinkLabels = collectInvalidLabelLinkIds(links);
-    const nextMissingPhones = new Set(
-      links.filter(isWhatsappLinkPhoneInvalid).map((link) => link.id)
-    );
-    const nextMissingBadgeLabels = new Set(
-      links
-        .filter((link) => isRequiredTextMissing(link.badgeLabel))
-        .map((link) => link.id)
-    );
-
-    setInvalidUrlLinkIds(nextInvalidUrls);
-    setMissingLabelRuleIds(nextMissingRuleLabels);
-    setMissingLabelLinkIds(nextMissingLinkLabels);
-    setMissingPhoneLinkIds(nextMissingPhones);
-    setMissingBadgeLabelLinkIds(nextMissingBadgeLabels);
-
-    const hasMissingHeadingFields =
-      isRequiredTextMissing(selectionModalTitle) ||
-      isRequiredTextMissing(selectionModalDescription) ||
-      isRequiredTextMissing(linksHeading);
-
-    const hasClientSideErrors =
-      nextInvalidUrls.size > 0 ||
-      nextMissingRuleLabels.size > 0 ||
-      nextMissingLinkLabels.size > 0 ||
-      nextMissingPhones.size > 0 ||
-      nextMissingBadgeLabels.size > 0 ||
-      hasMissingHeadingFields;
-
-    if (hasClientSideErrors) {
-      setValidationMessage(TRIBE_WELCOME_MANAGEMENT_COPY.validationSummary);
-      return;
-    }
-
-    isSavingRef.current = true;
-    setIsSaving(true);
-    setValidationMessage(null);
-
-    try {
-      const message = await submitWelcomeUpdate(
-        tribeSlug,
-        sanitizeWelcomeForSave(currentWelcome)
-      );
-
-      setSavedWelcome(currentWelcome);
-      toast.success(message);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : TRIBE_WELCOME_MANAGEMENT_COPY.fallbackSaveError
-      );
-    } finally {
-      isSavingRef.current = false;
-      setIsSaving(false);
-    }
-  };
-  const handleRestoreDefaultMessage = () => {
-    setWelcomeMessage(DEFAULT_TRIBE_WELCOME_MESSAGE);
-    setValidationMessage(null);
-  };
-  const handleRestoreDefaultSelectionModalTitle = () => {
-    setSelectionModalTitle(DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE);
-    setValidationMessage(null);
-  };
-  const handleRestoreDefaultSelectionModalDescription = () => {
-    setSelectionModalDescription(
-      DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION
-    );
-    setValidationMessage(null);
-  };
-  const handleRestoreDefaultLinksHeading = () => {
-    setLinksHeading(DEFAULT_TRIBE_WELCOME_LINKS_HEADING);
-    setValidationMessage(null);
-  };
-  const buildFocusRef =
-    (id: string) =>
-    (element: HTMLInputElement | HTMLTextAreaElement | null) => {
-      if (element && pendingFocusIdRef.current === id) {
-        element.focus();
-        pendingFocusIdRef.current = null;
-      }
-    };
-  const getActiveStateLabel = (isActive: boolean) =>
-    isActive
-      ? TRIBE_WELCOME_MANAGEMENT_COPY.activeLabel
-      : TRIBE_WELCOME_MANAGEMENT_COPY.inactiveLabel;
-  // The required marker is drawn by CSS after the field label, so labels stay plain strings.
-  const requiredFieldClassName =
-    styles.TribeWelcomeManagement__field +
-    " " +
-    styles["TribeWelcomeManagement__field--required"];
-  const requiredFieldGroupClassName =
-    styles.TribeWelcomeManagement__fieldGroup +
-    " " +
-    styles["TribeWelcomeManagement__fieldGroup--required"];
-
   return (
-    <section className={styles.TribeWelcomeManagement}>
-      <header className={styles.TribeWelcomeManagement__header}>
-        <h1 className={styles.TribeWelcomeManagement__title}>
-          {TRIBE_WELCOME_MANAGEMENT_COPY.editTitle}
-        </h1>
-        <p className={styles.TribeWelcomeManagement__description}>
-          {TRIBE_WELCOME_MANAGEMENT_COPY.editDescriptionPrimary}{" "}
-          {TRIBE_WELCOME_MANAGEMENT_COPY.editDescriptionSecondary}
-        </p>
-        <p className={styles.TribeWelcomeManagement__requiredHint}>
-          <span
-            aria-hidden={WELCOME_MANAGEMENT_ARIA.ariaHiddenTrue}
-            className={styles.TribeWelcomeManagement__requiredAsterisk}
-          >
-            *
-          </span>
-          {" "}
-          {TRIBE_WELCOME_MANAGEMENT_COPY.requiredHelper}
-        </p>
-      </header>
-
-      <form
-        className={styles.TribeWelcomeManagement__form}
-        onSubmit={(event) => {
-          void handleSubmit(event);
-        }}
-      >
-          <div className={styles.TribeWelcomeManagement__field}>
-            <Textarea
-              description={TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessageHint}
-              id={welcomeMessageId}
-              label={TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessageLabel}
-              onChange={(event) => {
-                setWelcomeMessage(event.target.value);
-                setValidationMessage(null);
-              }}
-              placeholder={
-                TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessagePlaceholder
-              }
-              rows={3}
-              value={welcomeMessage}
-            />
-            <span className={styles.TribeWelcomeManagement__defaultHint}>
-              {isWelcomeMessageDefault ? (
-                <span className={styles.TribeWelcomeManagement__defaultBadge}>
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
-                </span>
-              ) : (
-                <button
-                  className={styles.TribeWelcomeManagement__resetButton}
-                  onClick={handleRestoreDefaultMessage}
-                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                >
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
-                </button>
-              )}
-            </span>
-          </div>
-
-          <div className={requiredFieldClassName}>
-            <Input
-              aria-required
-              description={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleHint}
-              error={
-                showSelectionModalTitleError
-                  ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredSelectionModalTitle
-                  : undefined
-              }
-              id={selectionModalTitleId}
-              label={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleLabel}
-              onChange={(event) => {
-                setSelectionModalTitle(event.target.value);
-                setValidationMessage(null);
-              }}
-              placeholder={
-                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitlePlaceholder
-              }
-              value={selectionModalTitle}
-            />
-            <span className={styles.TribeWelcomeManagement__defaultHint}>
-              {isSelectionModalTitleDefault ? (
-                <span className={styles.TribeWelcomeManagement__defaultBadge}>
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
-                </span>
-              ) : (
-                <button
-                  className={styles.TribeWelcomeManagement__resetButton}
-                  onClick={handleRestoreDefaultSelectionModalTitle}
-                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                >
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
-                </button>
-              )}
-            </span>
-          </div>
-
-          <div className={requiredFieldClassName}>
-            <Textarea
-              aria-required
-              description={
-                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionHint
-              }
-              error={
-                showSelectionModalDescriptionError
-                  ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredSelectionModalDescription
-                  : undefined
-              }
-              id={selectionModalDescriptionId}
-              label={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionLabel}
-              onChange={(event) => {
-                setSelectionModalDescription(event.target.value);
-                setValidationMessage(null);
-              }}
-              placeholder={
-                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionPlaceholder
-              }
-              rows={3}
-              value={selectionModalDescription}
-            />
-            <span className={styles.TribeWelcomeManagement__defaultHint}>
-              {isSelectionModalDescriptionDefault ? (
-                <span className={styles.TribeWelcomeManagement__defaultBadge}>
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
-                </span>
-              ) : (
-                <button
-                  className={styles.TribeWelcomeManagement__resetButton}
-                  onClick={handleRestoreDefaultSelectionModalDescription}
-                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                >
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
-                </button>
-              )}
-            </span>
-          </div>
-
-          <Textarea
-            description={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitHint}
-            id={selectionModalBenefitId}
-            label={TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitLabel}
-            onChange={(event) => {
-              setSelectionModalBenefit(event.target.value);
-              setValidationMessage(null);
-            }}
-            placeholder={
-              TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitPlaceholder
-            }
-            rows={3}
-            value={selectionModalBenefit}
-          />
-
-          <div className={requiredFieldClassName}>
-            <Input
-              aria-required
-              description={TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingHint}
-              error={
-                showLinksHeadingError
-                  ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinksHeading
-                  : undefined
-              }
-              id={linksHeadingId}
-              label={TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingLabel}
-              onChange={(event) => {
-                setLinksHeading(event.target.value);
-                setValidationMessage(null);
-              }}
-              placeholder={
-                TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingPlaceholder
-              }
-              value={linksHeading}
-            />
-            <span className={styles.TribeWelcomeManagement__defaultHint}>
-              {isLinksHeadingDefault ? (
-                <span className={styles.TribeWelcomeManagement__defaultBadge}>
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
-                </span>
-              ) : (
-                <button
-                  className={styles.TribeWelcomeManagement__resetButton}
-                  onClick={handleRestoreDefaultLinksHeading}
-                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                >
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
-                </button>
-              )}
-            </span>
-          </div>
-
-          <section className={styles.TribeWelcomeManagement__collection}>
-            <div className={styles.TribeWelcomeManagement__collectionHeader}>
-              <div className={styles.TribeWelcomeManagement__sectionTitleGroup}>
-                <h2 className={styles.TribeWelcomeManagement__subtitle}>
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.rulesHeading}
-                </h2>
-                <span className={styles.TribeWelcomeManagement__count}>
-                  <AnimatedCount value={rules.length} />
-                </span>
-              </div>
-              <Button
-                onClick={handleAddRule}
-                ref={addRuleButtonRef}
-                type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
-              >
-                <PlusIcon />
-                {TRIBE_WELCOME_MANAGEMENT_COPY.addRuleButton}
-              </Button>
-            </div>
-            {rules.length === 0 ? (
-              <p className={styles.TribeWelcomeManagement__emptyState}>
-                {TRIBE_WELCOME_MANAGEMENT_COPY.emptyRules}
-              </p>
-            ) : null}
-            <AnimatePresence initial={false}>
-            {rules.map((rule, ruleIndex) => {
-              const ruleInputId = "rule-input-" + rule.id;
-              const showRuleLabelError = missingLabelRuleIds.has(rule.id);
-              const ruleLegend = buildLegend(
-                TRIBE_WELCOME_MANAGEMENT_COPY.ruleLegendPrefix,
-                ruleIndex,
-                rules.length
-              );
-
-              return (
-                <AnimatedListItem as="div" key={rule.id}>
-                <fieldset
-                  className={
-                    styles.TribeWelcomeManagement__row +
-                    " " +
-                    styles["TribeWelcomeManagement__row--withHeader"]
-                  }
-                >
-                  <legend className={styles.TribeWelcomeManagement__legend}>
-                    {ruleLegend}
-                  </legend>
-                  <label
-                    className={
-                      styles.TribeWelcomeManagement__fieldLabel +
-                      " " +
-                      styles["TribeWelcomeManagement__fieldLabel--required"] +
-                      " " +
-                      styles.TribeWelcomeManagement__rowLabel
-                    }
-                    htmlFor={ruleInputId}
-                  >
-                    {TRIBE_WELCOME_MANAGEMENT_COPY.ruleLabel}
-                  </label>
-                  <div className={styles.TribeWelcomeManagement__rowActions}>
-                    <label
-                      className={styles.TribeWelcomeManagement__checkLabel}
-                    >
-                      <Switch
-                        checked={rule.isActive}
-                        onCheckedChange={(checked) =>
-                          updateRule(rule.id, { isActive: checked === true })
-                        }
-                      />
-                      {getActiveStateLabel(rule.isActive)}
-                    </label>
-                    <Button
-                      aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel(
-                        ruleLegend
-                      )}
-                      className={styles.TribeWelcomeManagement__removeButton}
-                      onClick={() => handleRemoveRule(rule.id)}
-                      size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_WELCOME_MANAGEMENT_COPY.removeRuleTitle}
-                      type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                      variant={WELCOME_MANAGEMENT_REQUEST.dangerVariant}
-                    >
-                      <Trash2Icon />
-                    </Button>
-                  </div>
-                  <div className={styles.TribeWelcomeManagement__rowField}>
-                    <Textarea
-                      aria-required
-                      description={TRIBE_WELCOME_MANAGEMENT_COPY.ruleHint}
-                      error={
-                        showRuleLabelError
-                          ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredRuleLabel
-                          : undefined
-                      }
-                      id={ruleInputId}
-                      onChange={(event) =>
-                        updateRule(rule.id, { label: event.target.value })
-                      }
-                      placeholder={
-                        TRIBE_WELCOME_MANAGEMENT_COPY.rulePlaceholder
-                      }
-                      ref={buildFocusRef(rule.id)}
-                      rows={2}
-                      value={rule.label}
-                    />
-                  </div>
-                </fieldset>
-                </AnimatedListItem>
-              );
-            })}
-            </AnimatePresence>
-          </section>
-
-          <section className={styles.TribeWelcomeManagement__collection}>
-            <div className={styles.TribeWelcomeManagement__collectionHeader}>
-              <div className={styles.TribeWelcomeManagement__sectionTitleGroup}>
-                <h2 className={styles.TribeWelcomeManagement__subtitle}>
-                  {TRIBE_WELCOME_MANAGEMENT_COPY.resourcesHeading}
-                </h2>
-                <span className={styles.TribeWelcomeManagement__count}>
-                  <AnimatedCount value={links.length} />
-                </span>
-              </div>
-              <Button
-                onClick={handleAddLink}
-                ref={addLinkButtonRef}
-                type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
-              >
-                <PlusIcon />
-                {TRIBE_WELCOME_MANAGEMENT_COPY.addLinkButton}
-              </Button>
-            </div>
-            {links.length === 0 ? (
-              <p className={styles.TribeWelcomeManagement__emptyState}>
-                {TRIBE_WELCOME_MANAGEMENT_COPY.emptyLinks}
-              </p>
-            ) : null}
-            <AnimatePresence initial={false}>
-            {links.map((link, linkIndex) => {
-              const badgeLabelHelperId = badgeLabelHelperIdPrefix + link.id;
-              const linkTypeSelectId = "link-type-" + link.id;
-              const showPhoneError = missingPhoneLinkIds.has(link.id);
-              const showUrlError = invalidUrlLinkIds.has(link.id);
-              const showLinkLabelError = missingLabelLinkIds.has(link.id);
-              const showBadgeLabelError = missingBadgeLabelLinkIds.has(link.id);
-              const linkLegend = buildLegend(
-                TRIBE_WELCOME_MANAGEMENT_COPY.linkLegendPrefix,
-                linkIndex,
-                links.length
-              );
-
-              return (
-                <AnimatedListItem as="div" key={link.id}>
-                <fieldset
-                  className={
-                    styles.TribeWelcomeManagement__row +
-                    " " +
-                    styles["TribeWelcomeManagement__row--withHeader"]
-                  }
-                >
-                  <legend className={styles.TribeWelcomeManagement__legend}>
-                    {linkLegend}
-                  </legend>
-                  <label
-                    className={
-                      styles.TribeWelcomeManagement__fieldLabel +
-                      " " +
-                      styles.TribeWelcomeManagement__rowLabel
-                    }
-                    htmlFor={linkTypeSelectId}
-                  >
-                    {TRIBE_WELCOME_MANAGEMENT_COPY.linkTypeLabel}
-                  </label>
-                  <div
-                    className={
-                      styles.TribeWelcomeManagement__rowFields +
-                      " " +
-                      styles.TribeWelcomeManagement__rowField
-                    }
-                  >
-                    <div
-                      className={
-                        styles.TribeWelcomeManagement__field +
-                        " " +
-                        styles["TribeWelcomeManagement__field--full"]
-                      }
-                    >
-                      <span
-                        className={styles.TribeWelcomeManagement__fieldHelper}
-                      >
-                        {TRIBE_WELCOME_MANAGEMENT_COPY.linkTypeHint}
-                      </span>
-                      <select
-                        className={styles.TribeWelcomeManagement__select}
-                        id={linkTypeSelectId}
-                        onChange={(event) =>
-                          updateLink(link.id, {
-                            type: event.target
-                              .value as TribeWelcomeLinkResult["type"],
-                          })
-                        }
-                        value={link.type}
-                      >
-                        {Object.values(TRIBE_WELCOME_LINK_TYPE).map((type) => (
-                          <option key={type} value={type}>
-                            {WELCOME_LINK_TYPE_LABEL[type]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton ? (
-                      <div className={requiredFieldGroupClassName}>
-                        <Input
-                          aria-required
-                          description={
-                            TRIBE_WELCOME_MANAGEMENT_COPY.linkPhoneHint
-                          }
-                          error={
-                            showPhoneError
-                              ? isWhatsappLinkPhoneEmpty(link)
-                                ? TRIBE_WELCOME_MANAGEMENT_COPY.validationWhatsappPhone
-                                : TRIBE_WELCOME_MANAGEMENT_COPY.validationWhatsappPhoneInvalid
-                              : undefined
-                          }
-                          label={TRIBE_WELCOME_MANAGEMENT_COPY.linkPhoneLabel}
-                          onChange={(event) =>
-                            updateLink(link.id, {
-                              phoneNumber: event.target.value,
-                            })
-                          }
-                          placeholder={
-                            TRIBE_WELCOME_MANAGEMENT_COPY.linkPhonePlaceholder
-                          }
-                          ref={buildFocusRef(link.id)}
-                          value={link.phoneNumber ?? ""}
-                        />
-                      </div>
-                    ) : (
-                      <div className={requiredFieldGroupClassName}>
-                        <Input
-                          aria-required
-                          description={
-                            showUrlError
-                              ? undefined
-                              : TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlHelper
-                          }
-                          error={
-                            showUrlError
-                              ? isRequiredTextMissing(link.url ?? "")
-                                ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinkUrl
-                                : TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlInvalid
-                              : undefined
-                          }
-                          label={TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlLabel}
-                          onBlur={(event) =>
-                            markUrlValidity(
-                              link.id,
-                              isUrlWellFormed(event.target.value)
-                            )
-                          }
-                          onChange={(event) =>
-                            updateLink(link.id, { url: event.target.value })
-                          }
-                          placeholder={
-                            TRIBE_WELCOME_MANAGEMENT_COPY.linkUrlPlaceholder
-                          }
-                          ref={buildFocusRef(link.id)}
-                          value={link.url ?? ""}
-                        />
-                      </div>
-                    )}
-                    <div className={requiredFieldGroupClassName}>
-                      <Textarea
-                        aria-required
-                        description={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.linkLabelHint
-                        }
-                        error={
-                          showLinkLabelError
-                            ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinkLabel
-                            : undefined
-                        }
-                        label={TRIBE_WELCOME_MANAGEMENT_COPY.linkLabel}
-                        onChange={(event) =>
-                          updateLink(link.id, { label: event.target.value })
-                        }
-                        placeholder={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.linkLabelPlaceholder
-                        }
-                        rows={2}
-                        value={link.label}
-                      />
-                    </div>
-                    <Textarea
-                      description={
-                        TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionHint
-                      }
-                      label={
-                        TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionLabel
-                      }
-                      onChange={(event) =>
-                        updateLink(link.id, {
-                          description: event.target.value || null,
-                        })
-                      }
-                      placeholder={
-                        TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionPlaceholder
-                      }
-                      rows={2}
-                      value={link.description ?? ""}
-                    />
-                    <div className={requiredFieldGroupClassName}>
-                      <Input
-                        aria-describedby={
-                          showBadgeLabelError ? undefined : badgeLabelHelperId
-                        }
-                        aria-required
-                        description={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelHint
-                        }
-                        error={
-                          showBadgeLabelError
-                            ? TRIBE_WELCOME_MANAGEMENT_COPY.requiredBadgeLabel
-                            : undefined
-                        }
-                        label={TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelLabel}
-                        maxLength={BADGE_LABEL_MAX_LENGTH}
-                        onChange={(event) =>
-                          updateLink(link.id, {
-                            badgeLabel: event.target.value,
-                          })
-                        }
-                        placeholder={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelPlaceholder
-                        }
-                        value={link.badgeLabel}
-                      />
-                      {showBadgeLabelError ? null : (
-                        <span
-                          className={
-                            styles.TribeWelcomeManagement__fieldHelper
-                          }
-                          id={badgeLabelHelperId}
-                        >
-                          {TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelHelper(
-                            link.badgeLabel.length,
-                            BADGE_LABEL_MAX_LENGTH
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    {link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton ? (
-                      <Textarea
-                        description={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageHint
-                        }
-                        label={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageLabel
-                        }
-                        onChange={(event) =>
-                          updateLink(link.id, {
-                            message: event.target.value,
-                          })
-                        }
-                        placeholder={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.linkMessagePlaceholder
-                        }
-                        rows={3}
-                        value={link.message ?? ""}
-                      />
-                    ) : null}
-                  </div>
-                  <div className={styles.TribeWelcomeManagement__rowActions}>
-                    <label
-                      className={styles.TribeWelcomeManagement__checkLabel}
-                    >
-                      <Switch
-                        checked={link.isActive}
-                        onCheckedChange={(checked) =>
-                          updateLink(link.id, { isActive: checked === true })
-                        }
-                      />
-                      {getActiveStateLabel(link.isActive)}
-                    </label>
-                    <Button
-                      aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel(
-                        linkLegend
-                      )}
-                      className={styles.TribeWelcomeManagement__removeButton}
-                      onClick={() => handleRemoveLink(link.id)}
-                      size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_WELCOME_MANAGEMENT_COPY.removeLinkTitle}
-                      type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                      variant={WELCOME_MANAGEMENT_REQUEST.dangerVariant}
-                    >
-                      <Trash2Icon />
-                    </Button>
-                  </div>
-                </fieldset>
-                </AnimatedListItem>
-              );
-            })}
-            </AnimatePresence>
-          </section>
-
-        <aside
-          aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.previewSrLabel}
-          className={styles.TribeWelcomeManagement__preview}
-        >
-          <div className={styles.TribeWelcomeManagement__previewHeader}>
-            <p className={styles.TribeWelcomeManagement__previewEyebrow}>
-              {TRIBE_WELCOME_MANAGEMENT_COPY.previewEyebrow}
-            </p>
-            <Button
-              disabled={!hasActivePreviewLinks}
-              onClick={() => setIsPreviewModalOpen(true)}
-              type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-              variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
-            >
-              {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalButton}
-            </Button>
-          </div>
-          {/* Not a live region: announcing the whole preview on every keystroke
-              would drown the form for screen reader users. */}
-          <div className={styles.TribeWelcomeManagement__previewSurface}>
-            <TribeWelcomeDisplay welcome={currentWelcome} />
-          </div>
-          {!hasActivePreviewLinks ? (
-            <p className={styles.TribeWelcomeManagement__previewHint}>
-              {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalEmpty}
-            </p>
-          ) : null}
-        </aside>
-
-        {/* Kept mounted so the dialog can play its exit animation and return
-            focus to the "Ver modal de selección" button when it closes. */}
-        <TribeWelcomeSelectionModal
-          benefit={
-            selectionModalBenefit.trim() ? selectionModalBenefit : null
-          }
-          description={selectionModalDescription}
-          links={links}
-          onClose={() => setIsPreviewModalOpen(false)}
-          open={isPreviewModalOpen}
-          previewOnly
-          title={selectionModalTitle}
-          tribeSlug={tribeSlug}
-        />
-
-        {validationMessage ? (
-          <p
-            className={styles.TribeWelcomeManagement__error}
-            role={WELCOME_MANAGEMENT_ARIA.roleAlert}
-          >
-            {validationMessage}
-          </p>
-        ) : null}
-
-        <div className={styles.TribeWelcomeManagement__submitBar}>
-          <Button
-            aria-busy={isSaving || undefined}
-            className={styles.TribeWelcomeManagement__submit}
-            disabled={isSaving || !isDirty}
-            type={WELCOME_MANAGEMENT_REQUEST.submitButtonType}
-          >
-            {isSaving ? (
-              <>
-                <LoaderCircleIcon
-                  aria-hidden
-                  className={styles.TribeWelcomeManagement__submitSpinner}
-                />
-                {TRIBE_WELCOME_MANAGEMENT_COPY.savingButton}
-              </>
-            ) : (
-              TRIBE_WELCOME_MANAGEMENT_COPY.saveButton
-            )}
-          </Button>
-        </div>
-      </form>
-    </section>
+    <TribeWelcomeEditor
+      model={{ collections, currentWelcome, isDirty, isPreviewModalOpen, save, setIsPreviewModalOpen, texts, validation }}
+      tribeSlug={tribeSlug}
+    />
   );
 }

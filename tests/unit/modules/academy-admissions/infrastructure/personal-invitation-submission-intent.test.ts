@@ -18,7 +18,7 @@ describe("personal canje original reference", () => {
   });
 
   it.each(["invitationToken", "verificationCode", "proofId", "sessionId", "phone", "confirmed", "state", "result"])("should reject %s before persisting a reference", (field) => {
-    expect(() => writePersonalInvitationSubmissionIntent({ viewerId: randomUUID(), slug: "synthetic-academy", personalScope: "a".repeat(64), operationId: randomUUID(), [field]: "synthetic-private-value" })).toThrow();
+    expect(() => writePersonalInvitationSubmissionIntent({ viewerId: randomUUID(), slug: "synthetic-academy", personalScope: "a".repeat(64), operationId: randomUUID(), [field]: "synthetic-private-value" })).toThrow(expect.objectContaining({ issues: [expect.objectContaining({ code: "unrecognized_keys", keys: [field] })] }));
     expect(window.sessionStorage.length).toBe(0);
   });
 

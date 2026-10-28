@@ -22,7 +22,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 /** @returns A settled own reader that can later expose a controlled failure. */
-function reader() { return vi.fn(async (_signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => "refreshed"); }
+function reader() { return vi.fn<(signal: AbortSignal) => Promise<AdmissionNotificationRefreshOutcome>>(async () => "refreshed"); }
 /** @param milliseconds - Actual elapsed browser time represented by the clock. @returns After timers and the resulting React updates settle. */
 async function advance(milliseconds: number) { await act(async () => { await vi.advanceTimersByTimeAsync(milliseconds); }); }
 /** @param state - The browser's actual visibility transition under test. */

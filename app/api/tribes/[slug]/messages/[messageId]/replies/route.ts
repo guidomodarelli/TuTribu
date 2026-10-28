@@ -129,6 +129,43 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type CreateMessageReplyResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["createMessageReply"]>
+>;
+
+function createPostResultResponse(result: CreateMessageReplyResult, slug: string): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.created:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          reply: result.reply,
+          message: CREATE_REPLY_ROUTE_RESPONSE.successMessage,
+        },
+        HTTP_STATUS.created
+      );
+    case MESSAGE_MUTATION_STATUS.invalidContent:
+      return createJsonResponse(
+        { message: CREATE_REPLY_ROUTE_RESPONSE.invalidContentMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: CREATE_REPLY_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: CREATE_REPLY_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -163,7 +200,7 @@ export async function POST(
   }
 
   try {
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     const result = await modules.messages.useCases.createMessageReply({
       authorId: authenticatedMember.id,
       tribeSlug: slug,
@@ -171,34 +208,7 @@ export async function POST(
       messageId,
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.created:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            reply: result.reply,
-            message: CREATE_REPLY_ROUTE_RESPONSE.successMessage,
-          },
-          HTTP_STATUS.created
-        );
-      case MESSAGE_MUTATION_STATUS.invalidContent:
-        return createJsonResponse(
-          { message: CREATE_REPLY_ROUTE_RESPONSE.invalidContentMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: CREATE_REPLY_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: CREATE_REPLY_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: CREATE_REPLY_ROUTE_LOG.createFailureMessage,

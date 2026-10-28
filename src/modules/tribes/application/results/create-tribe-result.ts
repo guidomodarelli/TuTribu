@@ -5,7 +5,7 @@ export {
   CREATE_TRIBE_STATUS,
 } from "@/src/modules/tribes/constants/create-tribe";
 
-import {
+import type {
   CREATE_TRIBE_MEMBER_ROLE,
   CREATE_TRIBE_STATUS,
 } from "@/src/modules/tribes/constants/create-tribe";

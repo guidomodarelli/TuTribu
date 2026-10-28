@@ -45,7 +45,7 @@ describe("native admission maintenance catch-up", () => {
   it.each([202, 401, 503])("should fail the native CLI visibly after HTTP %s without a second request or private output", async (status) => {
     const secret = randomUUID(), privateBody = randomUUID(); let requests = 0;
     await withEndpoint((_request, response) => { requests += 1; response.writeHead(status); response.end(privateBody); }, async (origin) => {
-      const outcome = await executeNode(process.execPath, [resolve("scripts/run-admission-maintenance.mjs")], { env: { ...configuration(origin, secret), NODE_ENV: "test", SystemRoot: process.env.SystemRoot }, windowsHide: true }).then((value) => ({ code: 0, ...value }), (error: { code: number; stdout: string; stderr: string }) => error);
+      const outcome = await executeNode(process.execPath, [resolve("scripts/run-admission-maintenance.mjs")], { env: { ...configuration(origin, secret), NODE_ENV: "test", SystemRoot: process.env.SystemRoot }, windowsHide: true }).then((value) => ({ code: 0, ...value }), (error: unknown) => error as { code: number; stdout: string; stderr: string });
       expect(outcome.code).toBe(1);
       expect(JSON.parse(outcome.stderr)).toEqual({ operation: "admission_maintenance_catch_up", code: status === 202 ? "request_unconfirmed" : "request_failed", status });
       expect(outcome.stdout).toBe(""); expect(outcome.stderr).not.toContain(secret); expect(outcome.stderr).not.toContain(privateBody);
@@ -85,7 +85,7 @@ describe("native admission maintenance catch-up", () => {
 
   it("should preserve cancellation as unconfirmed after the original request began without retrying it", async () => {
     let requests = 0; const began = Promise.withResolvers<void>(), controller = new AbortController();
-    await withEndpoint((_request, _response) => { requests += 1; began.resolve(); }, async (origin) => {
+    await withEndpoint(() => { requests += 1; began.resolve(); }, async (origin) => {
       const original = runAdmissionMaintenanceCatchUp(configuration(origin, randomUUID()), { signal: controller.signal });
       await began.promise; controller.abort();
       await expect(original).rejects.toMatchObject({ code: "request_unconfirmed" });

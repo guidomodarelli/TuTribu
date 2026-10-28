@@ -85,7 +85,7 @@ export async function prepareAdmissionEntrySampleSessions(
       const sessionResponse = await runPrivateBrowserRequest("entry_sample_application_session", () => context.request.get(`${applicationOrigin}${SAMPLE.sessionPath}`, { timeout: SAMPLE.requestTimeoutMs }));
       try {
         const result = publicAuthSessionResultSchema.safeParse(await sessionResponse.json());
-        if (sessionResponse.status() !== HTTP_STATUS.ok || !result.success || !result.data || result.data.user.email !== email) throw new Error(FAILURE.sessionUnconfirmed);
+        if (sessionResponse.status() !== HTTP_STATUS.ok || !result.success || result.data?.user.email !== email) throw new Error(FAILURE.sessionUnconfirmed);
         identities.push({ userId: result.data.user.id, sessionId: result.data.session.id, email });
       } finally { await sessionResponse.dispose(); }
     }

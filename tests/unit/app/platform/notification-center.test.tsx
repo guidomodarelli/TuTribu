@@ -11,11 +11,12 @@ import { toast } from "@golfo/ui";
 import { NotificationCenter } from "@/app/(platform)/notification-center";
 import { NOTIFICATION_UNREAD_POLL_INTERVAL_MS } from "@/hooks/use-notification-center";
 import type { NotificationInboxResponse } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double used by the events tests: it isolates
 // Sonner's timers and global store; `promise` only records its lifecycle copy.
 vi.mock("@golfo/ui", async () => ({
-  ...(await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui")),
+  ...(await vi.importActual<typeof GolfoUiModule>("@golfo/ui")),
   toast: {
     error: vi.fn(),
     promise: vi.fn(),
@@ -88,6 +89,14 @@ function respondWith(body: unknown, status = 200) {
 
 function renderCenter(initialInbox: NotificationInboxResponse | null = inbox) {
   return render(<NotificationCenter initialInbox={initialInbox} />, { wrapper: RouterProvider });
+}
+
+/** Builds a JSON response with the status the route double answers. */
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "Content-Type": "application/json" },
+    status,
+  });
 }
 
 describe("NotificationCenter", () => {
@@ -267,11 +276,7 @@ describe("NotificationCenter", () => {
     let serverInbox: NotificationInboxResponse = inbox;
     let failPendingMarkRead: (response: Response) => void = () => {};
     let settlePendingMarkAll: () => void = () => {};
-    const json = (body: unknown, status = 200) =>
-      new Response(JSON.stringify(body), {
-        headers: { "Content-Type": "application/json" },
-        status,
-      });
+    const json = jsonResponse;
 
     (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/notifications") {
@@ -334,11 +339,7 @@ describe("NotificationCenter", () => {
     let hasCommittedMarkRead = false;
     let settlePendingMarkRead: () => void = () => {};
     let inboxLoads = 0;
-    const json = (body: unknown, status = 200) =>
-      new Response(JSON.stringify(body), {
-        headers: { "Content-Type": "application/json" },
-        status,
-      });
+    const json = jsonResponse;
 
     (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/notifications") {
@@ -405,11 +406,7 @@ describe("NotificationCenter", () => {
     const user = userEvent.setup();
     const markReadReleases = new Map<string, () => void>();
     let inboxLoads = 0;
-    const json = (body: unknown, status = 200) =>
-      new Response(JSON.stringify(body), {
-        headers: { "Content-Type": "application/json" },
-        status,
-      });
+    const json = jsonResponse;
 
     (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/notifications") {
@@ -478,11 +475,7 @@ describe("NotificationCenter", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const staleCountReleases: Array<() => void> = [];
     let settlePendingMarkRead: () => void = () => {};
-    const json = (body: unknown, status = 200) =>
-      new Response(JSON.stringify(body), {
-        headers: { "Content-Type": "application/json" },
-        status,
-      });
+    const json = jsonResponse;
 
     (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/notifications") {
@@ -745,7 +738,7 @@ describe("NotificationCenter hydration", () => {
     const container = document.createElement("div");
 
     container.innerHTML = await renderServerMarkup();
-    document.body.appendChild(container);
+    document.body.append(container);
     window.innerWidth = MOBILE_VIEWPORT_WIDTH_PX;
 
     const serverSheetTrigger = container.querySelector('[data-slot="sheet-trigger"]');
@@ -789,7 +782,7 @@ describe("NotificationCenter hydration", () => {
     const container = document.createElement("div");
 
     container.innerHTML = await renderServerMarkup();
-    document.body.appendChild(container);
+    document.body.append(container);
 
     const serverPopoverTrigger = container.querySelector('[data-slot="popover-trigger"]');
     let root: ReturnType<typeof hydrateRoot> | undefined;

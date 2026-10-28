@@ -1,4 +1,4 @@
-# Shared setup for every quality gate job: pnpm, Node.js from `.nvmrc`, a
+# Shared setup for every quality gate job: pnpm, Node.js from `.nvmrc`, Bun from `.bun-version`, a
 # frozen-lockfile install and the isolated build environment. The caller must
 # check out the repository first, because this action lives in it.
 name: Set up quality gate
@@ -8,14 +8,22 @@ runs:
   using: composite
   steps:
     - name: Set up pnpm
-      uses: pnpm/action-setup@v6
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
     - name: Set up Node.js
-      uses: actions/setup-node@v7
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version-file: .nvmrc
         cache: pnpm
         cache-dependency-path: pnpm-lock.yaml
+
+    # `pnpm run typecheck` and `typecheck:tests` run `bun check`, Bun's type checker (same errors as `tsc` from
+    # TypeScript 7), and `pnpm run lint` runs `bun lint`, which ships only in Bun canary until 1.4.5; `.bun-version`
+    # says which Bun to use.
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version-file: .bun-version
 
     - name: Install dependencies
       shell: bash

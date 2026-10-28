@@ -2,7 +2,7 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 import { after } from "next/server";
-import { Pool } from "pg";
+import type { Pool } from "pg";
 
 import {
   resolveMissingVideoThumbnails,

@@ -327,7 +327,7 @@ describe("Tribe message routes", () => {
           allowMultipleVotes: true,
           options: ["Álgebra", "Geometría"],
         },
-      } as never),
+      }),
       buildCreateRouteContext()
     );
 
@@ -508,7 +508,7 @@ describe("Tribe message routes", () => {
           allowMultipleVotes: false,
           options: ["Álgebra", "álgebra"],
         },
-      } as never),
+      }),
       buildCreateRouteContext()
     );
     const body = await response.json();
@@ -999,7 +999,7 @@ describe("Tribe message routes", () => {
     const response = await POST_POLL_VOTE(
       buildJsonRequest({
         optionIds: ["option-1"],
-      } as never),
+      }),
       buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
     );
     const body = await response.json();
@@ -1026,7 +1026,7 @@ describe("Tribe message routes", () => {
     const response = await POST_POLL_VOTE(
       buildJsonRequest({
         optionIds: ["option-1"],
-      } as never),
+      }),
       buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
     );
     const body = await response.json();

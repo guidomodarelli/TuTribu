@@ -68,7 +68,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
           for (const [engine, browserType] of [[selectedEngine, selectedBrowser]] as const) {
             const browser = await browserType.launch({ headless: true });
             try {
-              for (const width of [390, 1280]) {
+              /** Runs the applicant admission, uncertainty and cancellation flow for the next participant at the given width. */
+              const verifyAdmissionView = async (width: number) => {
                 const participant = participants[participantIndex++], context = await browser.newContext({ viewport: { width, height: 900 } });
                 try {
                   const page = await context.newPage(), errors: string[] = [];
@@ -83,6 +84,21 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
                       return helpers.__umCap(captureName, currentMain);
                     }, name);
                     expect(capture.blockedSheets).toEqual([]);
+                  };
+                  /** Inlines the same-origin fonts referenced by captured @font-face rules, in place. @param rules - Captured stylesheet rules. */
+                  const embedCapturedFonts = async (rules: string[]) => {
+                    for (let ruleIndex = 0; ruleIndex < rules.length; ruleIndex += 1) {
+                      const rule: string = rules[ruleIndex];
+                      if (!rule.startsWith("@font-face")) continue;
+                      for (const font of rule.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
+                        if (font[1].startsWith("data:")) continue;
+                        const url = new URL(font[1], origin);
+                        if (url.origin !== origin) throw new Error("Admission capture tried to embed an unrelated font origin");
+                        const response = await context.request.get(url.href);
+                        expect(response.ok()).toBe(true);
+                        rules[ruleIndex] = rules[ruleIndex].replace(font[1], `data:font/woff2;base64,${(await response.body()).toString("base64")}`);
+                      }
+                    }
                   };
                   page.on("pageerror", (error) => errors.push(error.message));
                   page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) errors.push("hydration_error"); });
@@ -102,7 +118,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
                     else await route.continue();
                   });
                   // The data step hands over to the submission, which holds the consent and the final action.
-                  await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Continuar" && !button.disabled));
+                  await page.waitForFunction(() => Array.from(document.querySelectorAll("button")).some((button) => button.textContent.trim() === "Continuar" && !button.disabled));
                   await page.getByRole("button", { name: "Continuar", exact: true }).click();
                   await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }).check();
                   await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
@@ -137,7 +153,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
                   try { await page.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirmCancel }).check(); }
                   catch (error) {
                     await page.screenshot({ path: join(captures, `${engine}-${width}-navigation-failure.png`), fullPage: true });
-                    const panels = await page.locator("main").evaluateAll((elements) => elements.map((element) => ({ visible: Boolean(element.getBoundingClientRect().height), text: element.textContent?.slice(0, 900) })));
+                    const panels = await page.locator("main").evaluateAll((elements) => elements.map((element) => ({ visible: Boolean(element.getBoundingClientRect().height), text: element.textContent.slice(0, 900) })));
                     process.stdout.write(JSON.stringify({ navigationPath: new URL(page.url()).pathname, panels }) + "\n");
                     throw error;
                   }
@@ -154,23 +170,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("manual admissi
                       if (helpers.__umCheck(forbidden).length) throw new Error("Admission capture contained a private fixture identity");
                       return { meta: { capturedAt: new Date().toISOString().slice(0, 10) }, rules: JSON.parse(sessionStorage.getItem("__umRules")!), caps: JSON.parse(sessionStorage.getItem("__umCaps")!) };
                     }, [participant.userId, participant.sessionId, participant.token, secret, `${participant.userId}@example.test`]);
-                    for (let ruleIndex = 0; ruleIndex < payload.rules.length; ruleIndex += 1) {
-                      const rule: string = payload.rules[ruleIndex];
-                      if (!rule.startsWith("@font-face")) continue;
-                      for (const font of rule.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
-                        if (font[1].startsWith("data:")) continue;
-                        const url = new URL(font[1], origin);
-                        if (url.origin !== origin) throw new Error("Admission capture tried to embed an unrelated font origin");
-                        const response = await context.request.get(url.href);
-                        expect(response.ok()).toBe(true);
-                        payload.rules[ruleIndex] = payload.rules[ruleIndex].replace(font[1], `data:font/woff2;base64,${(await response.body()).toString("base64")}`);
-                      }
-                    }
+                    await embedCapturedFonts(payload.rules);
                     await writeFile(join(captures, `${engine}-${width}-captures.json`), JSON.stringify(payload), "utf8");
                   }
                   expect(errors).toEqual([]);
                 } finally { await context.close(); process.stdout.write(JSON.stringify({ phase: "context_closed", engine, width }) + "\n"); }
-              }
+              };
+              for (const width of [390, 1280]) await verifyAdmissionView(width);
             } finally { await browser.close(); process.stdout.write(JSON.stringify({ phase: "browser_closed", engine }) + "\n"); }
           }
         } finally { if (server.exitCode === null) server.kill(); await exited; process.stdout.write(JSON.stringify({ phase: "server_closed", engine: selectedEngine }) + "\n"); }

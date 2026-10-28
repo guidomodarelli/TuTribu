@@ -53,7 +53,7 @@ describe("Mercado Pago OAuth routes", () => {
     process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
     process.env.MERCADO_PAGO_CLIENT_ID = "client-id";
     process.env.MERCADO_PAGO_CLIENT_SECRET = "client-secret";
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
     getAuthenticatedMember.mockResolvedValue(authenticatedLeader);
     getMemberTribes.mockResolvedValue([
       { logoUrl: null, membershipStatus: "active" as const,

@@ -6,5 +6,8 @@ import { ADMISSION_PREFLIGHT_REASON } from "../../constants/admission-preflight"
 export const admissionPreflightResultSchema = z.object({
   prepared: z.boolean(), reasons: z.array(z.enum(ADMISSION_PREFLIGHT_REASON)),
   impact: z.object({ unknownCommercialMemberCount: z.int().nonnegative(), privilegedCommercialMemberCount: z.int().nonnegative() }),
-}).refine((result) => result.prepared === (result.reasons.length === 0)
-  && (!result.prepared || result.impact.unknownCommercialMemberCount === 0 && result.impact.privilegedCommercialMemberCount === 0));
+}).refine((result) => {
+  const hasNoReasons = result.reasons.length === 0;
+  return result.prepared === hasNoReasons
+    && (!result.prepared || result.impact.unknownCommercialMemberCount === 0 && result.impact.privilegedCommercialMemberCount === 0);
+});

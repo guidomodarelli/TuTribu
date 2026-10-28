@@ -27,7 +27,7 @@ export async function openConnectionsStep(page: Page, name: string): Promise<voi
   if (await toggle.getAttribute("aria-pressed") === "true") await toggle.click();
   for (let moves = 0; moves < MAXIMUM_MOVES; moves += 1) {
     const progress = page.getByRole("navigation", { name: PROGRESS_NAME });
-    const labels = await progress.locator("[data-label]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-label") ?? ""));
+    const labels = await progress.locator("[data-label]").evaluateAll((elements) => elements.map((element) => element.dataset.label ?? ""));
     const current = await progress.getByRole("listitem").evaluateAll((items) => items.findIndex((item) => item.getAttribute("aria-current") === "step"));
     const target = name === "Pruebas" ? labels.findIndex((label) => label.startsWith(TEST_STEP_PREFIX)) : labels.indexOf(name);
     if (target < 0) throw new Error(`The connection flow has no step named ${name}: ${labels.join(", ")}`);

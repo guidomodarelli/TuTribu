@@ -65,6 +65,142 @@ type SubscriptionsModuleDependencies = {
 };
 
 /**
+ * Builds the academy subscription use cases.
+ *
+ * @returns Use cases keyed by name.
+ */
+function buildAcademySubscriptionUseCases({
+  academySubscriptionRepository,
+  isAcademySalesActivationAllowed,
+}: Pick<
+  SubscriptionsModuleDependencies,
+  "academySubscriptionRepository" | "isAcademySalesActivationAllowed"
+>) {
+  return {
+    cancelOwnAcademyRenewal: cancelOwnAcademyRenewal({ academySubscriptionRepository }),
+    getOwnAcademyRenewalStatus: getOwnAcademyRenewalStatus({ academySubscriptionRepository }),
+    handleAcademyAuthorizedPaymentWebhook: handleAcademyAuthorizedPaymentWebhook({
+      academySubscriptionRepository,
+    }),
+    handleAcademyPaymentWebhook: handleAcademyPaymentWebhook({ academySubscriptionRepository }),
+    reconcileAcademySubscriptionCoverage: reconcileAcademySubscriptionCoverage({
+      academySubscriptionRepository,
+    }),
+    reconcileOwnAcademyCoverage: reconcileOwnAcademyCoverage({ academySubscriptionRepository }),
+    startAcademySubscription: startAcademySubscription({
+      academySubscriptionRepository,
+      isAcademySalesActivationAllowed,
+    }),
+  };
+}
+
+/**
+ * Builds the payment integration use cases.
+ *
+ * @returns Use cases keyed by name.
+ */
+function buildPaymentIntegrationUseCases(tribePaymentIntegrationRepository: TribePaymentIntegrationRepository) {
+  return {
+    connectTribePaymentIntegration: connectTribePaymentIntegration({
+      tribePaymentIntegrationRepository,
+    }),
+    updateTribePaymentIntegrationAccountLabel:
+      updateTribePaymentIntegrationAccountLabel({
+        tribePaymentIntegrationRepository,
+      }),
+  };
+}
+
+/**
+ * Builds the subscription price use cases.
+ *
+ * @returns Use cases keyed by name.
+ */
+function buildSubscriptionPriceUseCases(tribeSubscriptionPriceRepository: TribeSubscriptionPriceRepository) {
+  return {
+    createTribeSubscriptionPrice: createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository,
+    }),
+    deleteTribeSubscriptionPrice: deleteTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository,
+    }),
+    deleteTribeSubscriptionPriceWithInvitationActions:
+      deleteTribeSubscriptionPriceWithInvitationActions({
+        tribeSubscriptionPriceRepository,
+      }),
+    listTribeSubscriptionPrices: listTribeSubscriptionPrices({
+      tribeSubscriptionPriceRepository,
+    }),
+    getTribeCurrentSubscriptionOffer: getTribeCurrentSubscriptionOffer({
+      tribeSubscriptionPriceRepository,
+    }),
+    makeTribeSubscriptionPriceCurrent: makeTribeSubscriptionPriceCurrent({
+      tribeSubscriptionPriceRepository,
+    }),
+    setTribeOpenFreeJoin: setTribeOpenFreeJoin({
+      tribeSubscriptionPriceRepository,
+    }),
+    setTribeFreeJoinAsCurrent: setTribeFreeJoinAsCurrent({
+      tribeSubscriptionPriceRepository,
+    }),
+    syncMercadoPagoSubscriptionProviderPlanWebhook:
+      syncMercadoPagoSubscriptionProviderPlanWebhook({
+        tribeSubscriptionPriceRepository,
+      }),
+    updateTribeSubscriptionPrice: updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository,
+    }),
+    verifyTribeSubscriptionProviderPlan: verifyTribeSubscriptionProviderPlan({
+      tribeSubscriptionPriceRepository,
+    }),
+    verifyTribeSubscriptionProviderPlans: verifyTribeSubscriptionProviderPlans({
+      tribeSubscriptionPriceRepository,
+    }),
+  };
+}
+
+/**
+ * Builds the member subscription use cases.
+ *
+ * @returns Use cases keyed by name.
+ */
+function buildMemberSubscriptionUseCases(tribeMemberSubscriptionRepository: TribeMemberSubscriptionRepository) {
+  return {
+    cancelOwnTribeMemberSubscription: cancelOwnTribeMemberSubscription({
+      tribeMemberSubscriptionRepository,
+    }),
+    handleMercadoPagoSubscriptionWebhook: handleMercadoPagoSubscriptionWebhook({
+      tribeMemberSubscriptionRepository,
+    }),
+    reconcileCurrentTribeMemberSubscription:
+      reconcileCurrentTribeMemberSubscription({
+        tribeMemberSubscriptionRepository,
+      }),
+    resolveTribeMemberSubscriptionReturnPath:
+      resolveTribeMemberSubscriptionReturnPath({
+        tribeMemberSubscriptionRepository,
+      }),
+    resolveTribeMemberSubscriptionReturn:
+      resolveTribeMemberSubscriptionReturn({
+        tribeMemberSubscriptionRepository,
+      }),
+    retryTribeMemberSubscriptionPayment: retryTribeMemberSubscriptionPayment({
+      tribeMemberSubscriptionRepository,
+    }),
+    startTribeMemberSubscription: startTribeMemberSubscription({
+      tribeMemberSubscriptionRepository,
+    }),
+    startTribeOpenJoinSubscription: startTribeOpenJoinSubscription({
+      tribeMemberSubscriptionRepository,
+    }),
+    validatePendingTribeMemberSubscriptionReturn:
+      validatePendingTribeMemberSubscriptionReturn({
+        tribeMemberSubscriptionRepository,
+      }),
+  };
+}
+
+/**
  * Builds subscription use cases from concrete repository implementations.
  *
  * @param dependencies - Repository dependencies for the subscriptions module.
@@ -81,105 +217,19 @@ export function buildSubscriptionsModule({
 }: SubscriptionsModuleDependencies) {
   return {
     useCases: {
-      cancelOwnAcademyRenewal: cancelOwnAcademyRenewal({ academySubscriptionRepository }),
-      getOwnAcademyRenewalStatus: getOwnAcademyRenewalStatus({ academySubscriptionRepository }),
-      handleAcademyAuthorizedPaymentWebhook: handleAcademyAuthorizedPaymentWebhook({
-        academySubscriptionRepository,
-      }),
-      handleAcademyPaymentWebhook: handleAcademyPaymentWebhook({ academySubscriptionRepository }),
-      reconcileAcademySubscriptionCoverage: reconcileAcademySubscriptionCoverage({
-        academySubscriptionRepository,
-      }),
-      reconcileOwnAcademyCoverage: reconcileOwnAcademyCoverage({ academySubscriptionRepository }),
-      startAcademySubscription: startAcademySubscription({
-        academySubscriptionRepository,
-        isAcademySalesActivationAllowed,
-      }),
-      connectTribePaymentIntegration: connectTribePaymentIntegration({
-        tribePaymentIntegrationRepository,
-      }),
-      updateTribePaymentIntegrationAccountLabel:
-        updateTribePaymentIntegrationAccountLabel({
-          tribePaymentIntegrationRepository,
-        }),
-      createTribeSubscriptionPrice: createTribeSubscriptionPrice({
-        tribeSubscriptionPriceRepository,
-      }),
-      deleteTribeSubscriptionPrice: deleteTribeSubscriptionPrice({
-        tribeSubscriptionPriceRepository,
-      }),
-      deleteTribeSubscriptionPriceWithInvitationActions:
-        deleteTribeSubscriptionPriceWithInvitationActions({
-          tribeSubscriptionPriceRepository,
-        }),
-      cancelOwnTribeMemberSubscription: cancelOwnTribeMemberSubscription({
-        tribeMemberSubscriptionRepository,
-      }),
-      handleMercadoPagoSubscriptionWebhook: handleMercadoPagoSubscriptionWebhook({
-        tribeMemberSubscriptionRepository,
-      }),
+      ...buildAcademySubscriptionUseCases({ academySubscriptionRepository, isAcademySalesActivationAllowed }),
+      ...buildPaymentIntegrationUseCases(tribePaymentIntegrationRepository),
+      ...buildSubscriptionPriceUseCases(tribeSubscriptionPriceRepository),
+      ...buildMemberSubscriptionUseCases(tribeMemberSubscriptionRepository),
       getTribeSubscriberDiagnostics: getTribeSubscriberDiagnostics({
         tribeSubscriberDiagnosticsRepository,
       }),
-      listTribeSubscriptionPrices: listTribeSubscriptionPrices({
-        tribeSubscriptionPriceRepository,
-      }),
-      getTribeCurrentSubscriptionOffer: getTribeCurrentSubscriptionOffer({
-        tribeSubscriptionPriceRepository,
-      }),
-      makeTribeSubscriptionPriceCurrent: makeTribeSubscriptionPriceCurrent({
-        tribeSubscriptionPriceRepository,
-      }),
-      setTribeOpenFreeJoin: setTribeOpenFreeJoin({
-        tribeSubscriptionPriceRepository,
-      }),
-      setTribeFreeJoinAsCurrent: setTribeFreeJoinAsCurrent({
-        tribeSubscriptionPriceRepository,
-      }),
-      reconcileCurrentTribeMemberSubscription:
-        reconcileCurrentTribeMemberSubscription({
-          tribeMemberSubscriptionRepository,
-        }),
       reconcileTribeSubscriptionProviderSubscribers:
         reconcileTribeSubscriptionProviderSubscribers({
           tribeProviderSubscriberReconciliationRepository,
         }),
       reconcileTribeSubscriberDiagnostics: reconcileTribeSubscriberDiagnostics({
         tribeSubscriberDiagnosticsRepository,
-      }),
-      resolveTribeMemberSubscriptionReturnPath:
-        resolveTribeMemberSubscriptionReturnPath({
-          tribeMemberSubscriptionRepository,
-        }),
-      resolveTribeMemberSubscriptionReturn:
-        resolveTribeMemberSubscriptionReturn({
-          tribeMemberSubscriptionRepository,
-        }),
-      retryTribeMemberSubscriptionPayment: retryTribeMemberSubscriptionPayment({
-        tribeMemberSubscriptionRepository,
-      }),
-      syncMercadoPagoSubscriptionProviderPlanWebhook:
-        syncMercadoPagoSubscriptionProviderPlanWebhook({
-          tribeSubscriptionPriceRepository,
-        }),
-      startTribeMemberSubscription: startTribeMemberSubscription({
-        tribeMemberSubscriptionRepository,
-      }),
-      startTribeOpenJoinSubscription: startTribeOpenJoinSubscription({
-        tribeMemberSubscriptionRepository,
-      }),
-      validatePendingTribeMemberSubscriptionReturn:
-        validatePendingTribeMemberSubscriptionReturn({
-          tribeMemberSubscriptionRepository,
-        }),
-      updateTribeSubscriptionPrice: updateTribeSubscriptionPrice({
-        tribeSubscriptionPriceRepository,
-      }),
-      verifyTribeSubscriptionProviderPlan: verifyTribeSubscriptionProviderPlan({
-        tribeSubscriptionPriceRepository,
-      }),
-      verifyTribeSubscriptionProviderPlans: verifyTribeSubscriptionProviderPlans({
-        tribeSubscriptionPriceRepository,
       }),
     },
   };

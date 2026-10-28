@@ -7,7 +7,7 @@ export const NEON_CLI_ENTRYPOINT = {
   pnpmCommand: "pnpm",
   /** `npm_execpath` is pnpm's own binary or script when the tests run through pnpm. */
   pnpmExecutablePattern: /pnpm(\.exe|\.cjs|\.js)?$/i,
-  javascriptEntrypointPattern: /\.(c|m)?js$/i,
+  javascriptEntrypointPattern: /\.[cm]?js$/i,
   pnpmListArguments: ["ls", "--global", "--json", "--depth", "0"],
   pnpmListTimeoutMs: 30_000,
   /** pnpm reports Windows global paths in verbatim `\\?\` form. */

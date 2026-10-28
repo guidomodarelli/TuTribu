@@ -49,6 +49,56 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type ReconcileTribeSubscriptionProviderSubscribersResult = Awaited<
+  ReturnType<
+    RequestModules["subscriptions"]["useCases"]["reconcileTribeSubscriptionProviderSubscribers"]
+  >
+>;
+
+function createPostResultResponse(result: ReconcileTribeSubscriptionProviderSubscribersResult): Response {
+  switch (result.status) {
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
+      return createJsonResponse(
+        {
+          message:
+            PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.successMessage,
+          price: result.price,
+          providerActiveSubscribersCount:
+            result.providerActiveSubscribersCount,
+          verifiedCount: result.verifiedCount,
+        },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+      return createJsonResponse(
+        {
+          message:
+            PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE
+              .missingIntegrationMessage,
+        },
+        HTTP_STATUS.serviceUnavailable
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+      return createJsonResponse(
+        {
+          message: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.notFoundMessage,
+        },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        {
+          message: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.forbiddenMessage,
+        },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 /**
  * Reconciles real Mercado Pago subscribers for a tribe price.
  *
@@ -94,45 +144,7 @@ export async function POST(
           tribeSlug: slug,
         });
 
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
-        return createJsonResponse(
-          {
-            message:
-              PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.successMessage,
-            price: result.price,
-            providerActiveSubscribersCount:
-              result.providerActiveSubscribersCount,
-            verifiedCount: result.verifiedCount,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
-        return createJsonResponse(
-          {
-            message:
-              PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE
-                .missingIntegrationMessage,
-          },
-          HTTP_STATUS.serviceUnavailable
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          {
-            message: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.notFoundMessage,
-          },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          {
-            message: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.forbiddenMessage,
-          },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result);
   } catch (error) {
     logger.error({
       message: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG.failureMessage,

@@ -43,7 +43,7 @@ export class PostgresMessagingCandidateExpiration implements MessagingCandidateE
         for (const scope of selected) {
           await this.assertAuthority(database);
           const row = (await database.execute<CandidateResource>(sql`select connection.id as connection_id,connection.tribe_id,connection.candidate_version,connection.version as connection_version,connection.is_selected,connection.selected_version,connection.is_candidate,connection.state,connection.retired_at as connection_retired_at,resource.retired_at as resource_retired_at,resource.last_activity_at,resource.secret_ref from public.tenant_messaging_connections connection join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id and resource.version=${scope.candidate_version} where connection.id=${scope.connection_id} and connection.tribe_id=${scope.tribe_id} for update of connection,resource`)).rows[0];
-          if (!row || row.candidate_version !== scope.candidate_version) continue;
+          if (row?.candidate_version !== scope.candidate_version) continue;
           const now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
           const assessment = assessMessagingCandidateExpiration({ isSelected: row.selected_version === row.candidate_version, isCandidate: row.is_candidate, connectionRetiredAt: row.connection_retired_at ? new Date(row.connection_retired_at) : null, resourceRetiredAt: row.resource_retired_at ? new Date(row.resource_retired_at) : null, lastActivityAt: new Date(row.last_activity_at), now });
           if (!assessment.eligible) continue;

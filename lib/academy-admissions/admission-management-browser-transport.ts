@@ -3,15 +3,16 @@
 import type { z } from "zod";
 import type { PersonalInvitationManagementBrowserResult as ManagementBrowserResult } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode  } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 
 /** @param code - Own catalog code. @param uncertain - A write reply does not prove its final effect. @returns Safe Spanish feedback only. */
 export function admissionManagementBrowserFailure(code: AdmissionErrorCode, uncertain = false): ManagementBrowserResult<never> { return { status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain }; }
+/** Optional write of a management request: the exact original command and its static method. */
+export type ManagementWrite = { body?: { operationId: string }; method?: string };
 /** @param transport - Explicit project-owned HTTP edge. @returns JSON requests and own error parsing, without automatic retry. */
 export function createAdmissionManagementBrowserTransport(transport: typeof fetch) {
   /** A hung response ends at the deadline with the shared timeout copy; a write stays uncertain because it may have committed. */
@@ -24,14 +25,15 @@ export function createAdmissionManagementBrowserTransport(transport: typeof fetc
     if (!parsed.success || parsed.data.operation && operationId && parsed.data.operation.operationId !== operationId) return admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
     return admissionManagementBrowserFailure(parsed.data.code, writing && (response.status >= HTTP_STATUS.serverError || parsed.data.operation?.state === OPERATION_STATE.started));
   }
-  /** @param path - Static own resource. @param schema - Public own DTO guard. @param signal - Explicit scope cancellation. @param body - Exact original command. @param method - Static write method. @returns Guarded own result, controlled uncertainty or cancellation. */
-  function json<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, body?: { operationId: string }, method = "POST"): Promise<ManagementBrowserResult<Value>> {
-    const writing = Boolean(body);
+  /** @param path - Static own resource. @param schema - Public own DTO guard. @param callerSignal - Explicit scope cancellation. @param write - Exact original command (`body`) and its static write method (POST by default). @returns Guarded own result, controlled uncertainty or cancellation. */
+  function json<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, write: ManagementWrite = {}): Promise<ManagementBrowserResult<Value>> {
+    const writing = Boolean(write.body);
     if (callerSignal.aborted) return Promise.resolve({ status: "aborted" });
-    return boundBrowserRequest<ManagementBrowserResult<Value>>(callerSignal, (signal) => send(path, schema, signal, writing, body, method), () => timedOut(writing));
+    return boundBrowserRequest<ManagementBrowserResult<Value>>(callerSignal, (signal) => send(path, schema, signal, write), () => timedOut(writing));
   }
   /** Sends one own request under a signal that already follows the caller and the deadline. */
-  async function send<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, writing: boolean, body: { operationId: string } | undefined, method: string): Promise<ManagementBrowserResult<Value>> {
+  async function send<Value>(path: string, schema: z.ZodType<Value>, signal: AbortSignal, { body, method = "POST" }: ManagementWrite): Promise<ManagementBrowserResult<Value>> {
+    const writing = Boolean(body);
     try {
       const response = await transport(path, { method: writing ? method : "GET", credentials: "same-origin", cache: "no-store", signal, ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
       if (signal.aborted) return { status: "aborted" };

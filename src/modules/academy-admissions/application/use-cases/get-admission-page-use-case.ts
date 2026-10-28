@@ -1,5 +1,6 @@
 /** Builds one native current-account page snapshot through read-only application ports. @module get-admission-page-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
+import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { GetAdmissionOverviewUseCase } from "./get-admission-overview-use-case";
 import type { GetOwnAdmissionUseCases } from "./get-own-admission-use-cases";
@@ -25,23 +26,11 @@ export class GetAdmissionPageUseCase {
       const overview = await this.readers.overview.execute({ slug: query.slug, requestId: query.requestId });
       if (!overview.ok) throw new AdmissionOperationError(overview.failure.code);
       if (query.legacyInvitationToken && first && overview.value.request?.status !== ADMISSION_REQUEST_STATUS.pending && (overview.value.state === ADMISSION_OVERVIEW_STATE.available || overview.value.state === ADMISSION_OVERVIEW_STATE.verificationRequired)) {
-        const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
-        if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code);
-        const arrival = await this.readers.legacyInvitations?.findActiveByToken({ userId: first.userId, sessionId: first.session.id, tribeId: tribe.value.tribeId, token: query.legacyInvitationToken });
-        if (!arrival) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+        await this.assertLegacyArrival(query, first, query.legacyInvitationToken);
       }
-      let request = overview.value.request ?? null;
-      if (query.admissionRequestId) {
-        if (!first) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
-        if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code);
-        const exact = await this.readers.own.getOwn({ tribeId: tribe.value.tribeId, requestId: query.requestId, admissionRequestId: query.admissionRequestId });
-        if (!exact.ok) throw new AdmissionOperationError(exact.failure.code);
-        if (!exact.value) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-        request = exact.value;
-      }
+      const request = query.admissionRequestId ? await this.readExactRequest(query, first, query.admissionRequestId) : overview.value.request ?? null;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (first ? !current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now) : current !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (!keepsInitialAccount(first, current, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const parsed = admissionPageStateSchema.safeParse({ kind: "ready", overview: overview.value, request, viewerId: first?.userId ?? null, renderedAt: now.toISOString() });
       if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: parsed.data };
@@ -49,4 +38,29 @@ export class GetAdmissionPageUseCase {
       return admissionOperationFailure(error);
     }
   }
+
+  /** @param query - Validated slug and correlation. @param first - Account that opened the page. @param token - Proposed legacy invitation token. @throws AdmissionOperationError when the link is not an active invitation of this tribe. */
+  private async assertLegacyArrival(query: { slug: string; requestId: string }, first: AuthenticatedAccount, token: string): Promise<void> {
+    const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
+    if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code);
+    const arrival = await this.readers.legacyInvitations?.findActiveByToken({ userId: first.userId, sessionId: first.session.id, tribeId: tribe.value.tribeId, token });
+    if (!arrival) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+  }
+
+  /** @param query - Validated slug and correlation. @param first - Account that opened the page, if any. @param admissionRequestId - Exact own request id. @returns The own request. @throws AdmissionOperationError when signed out or the request is not own. */
+  private async readExactRequest(query: { slug: string; requestId: string }, first: AuthenticatedAccount | null, admissionRequestId: string) {
+    if (!first) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
+    if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code);
+    const exact = await this.readers.own.getOwn({ tribeId: tribe.value.tribeId, requestId: query.requestId, admissionRequestId });
+    if (!exact.ok) throw new AdmissionOperationError(exact.failure.code);
+    if (!exact.value) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    return exact.value;
+  }
+}
+
+/** @returns Whether the account read after the facts is the same live session as before, or the read stays anonymous. */
+function keepsInitialAccount(first: AuthenticatedAccount | null, current: AuthenticatedAccount | null, now: Date): boolean {
+  if (!first) return current === null;
+  return current?.userId === first.userId && current.session.id === first.session.id && isAuthenticatedSessionLive(current.session.expiresAt, now);
 }

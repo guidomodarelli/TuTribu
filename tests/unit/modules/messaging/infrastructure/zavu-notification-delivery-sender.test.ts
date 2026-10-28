@@ -117,7 +117,8 @@ describe("real SDK notification email sender", () => {
 
   it.each(["unknown_provider", "unsupported_notification", "unsupported_email"] as const)("should close %s at explicit registry resolution without substituting verification or another provider", async (scenario) => {
     const fixture = notificationFixture(), transport = createAdmissionProviderTransport([]), actual = createZavuProviderDescriptor(transport.fetch);
-    const descriptor = scenario === "unsupported_notification" ? { ...actual, createNotificationSender: undefined } : scenario === "unsupported_email" ? { ...actual, channels: ["sms" as const] } : actual;
+    const emailDescriptor = scenario === "unsupported_email" ? { ...actual, channels: ["sms" as const] } : actual;
+    const descriptor = scenario === "unsupported_notification" ? { ...actual, createNotificationSender: undefined } : emailDescriptor;
     if (scenario === "unknown_provider") fixture.prepared.providerId = randomUUID();
     const sender = new RegisteredNotificationDeliverySender(new MessagingProviderRegistry([descriptor]), { prepare: async () => fixture.prepared });
     await expect(sender.prepare(fixture.context, new AbortController().signal)).rejects.toMatchObject({ code: "missing_capability" });

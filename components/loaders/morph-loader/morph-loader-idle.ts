@@ -7,8 +7,7 @@
  * variant, as pure functions of the loop clock.
  */
 
-import { DEGREES_PER_TURN, FULL_TURN_RADIANS, HALF, STROKE_COUNT } from "./morph-loader-geometry";
-import type { MorphLoaderShape, StrokePose } from "./morph-loader-geometry";
+import { DEGREES_PER_TURN, FULL_TURN_RADIANS, HALF, STROKE_COUNT, type MorphLoaderShape, type StrokePose  } from "./morph-loader-geometry";
 
 const QUARTER_TURN_DEGREES = DEGREES_PER_TURN / STROKE_COUNT;
 const SMOOTHSTEP_CUBIC = 3;

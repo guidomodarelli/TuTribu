@@ -10,6 +10,16 @@ const frameworkOrigin = new URL(process.env.BETTER_AUTH_URL).origin;
 if (!credential || !recipient) throw new Error("NativeAdmissionPhoneTransport failed: synthetic_scope_missing");
 
 /**
+ * @param body - Parsed synthetic provider payload, kept in memory only.
+ * @param whatsapp - Whether the payload uses the WhatsApp template channel.
+ * @returns The six-digit diagnostic code candidate, or undefined when the payload carries none.
+ */
+function readDiagnosticCode(body, whatsapp) {
+  if (whatsapp) return body.content?.templateVariables?.["1"];
+  return typeof body.text === "string" ? body.text.match(/\b\d{6}\b/u)?.[0] : undefined;
+}
+
+/**
  * Restricts real SDK messages to the fixture's original phone and exact channel resources.
  * @param input - Native fetch input from Next or the pinned SDK.
  * @param init - Request options, including the original cancellation signal.
@@ -24,7 +34,7 @@ globalThis.fetch = async (input, init) => {
   if (request.headers.get("Authorization") !== `Bearer ${credential}`) throw new Error("NativeAdmissionPhoneTransport failed: crossed_credential");
   const body = await request.json(), whatsapp = body.channel === "whatsapp", sms = body.channel === "sms";
   const sender = whatsapp ? process.env.ADMISSION_TEST_ZAVU_WHATSAPP_SENDER : process.env.ADMISSION_TEST_ZAVU_SMS_SENDER;
-  const code = whatsapp ? body.content?.templateVariables?.["1"] : typeof body.text === "string" ? body.text.match(/\b\d{6}\b/u)?.[0] : undefined;
+  const code = readDiagnosticCode(body, whatsapp);
   const contentMatches = whatsapp ? body.messageType === "template" && body.content?.templateId === process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID && body.text === undefined && body.templateLanguage === undefined : body.messageType === "text" && body.content === undefined;
   if ((!whatsapp && !sms) || !sender || body.to !== recipient || body.fallbackEnabled !== false || request.headers.get("Zavu-Sender") !== sender || !contentMatches || typeof body.idempotencyKey !== "string" || typeof code !== "string" || !/^\d{6}$/u.test(code)) throw new Error("NativeAdmissionPhoneTransport failed: crossed_message_intent");
   // IPC reports counts and simulates receipt in memory; body, credential and code never enter logs.

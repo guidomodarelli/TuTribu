@@ -2,8 +2,7 @@
 /** Exercises real local lifecycle HTTP validators and result bindings through own application ports. @module messaging-connection-lifecycle-routes-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { createMessagingConnectionLifecycleHandlers } from "@/src/modules/messaging/infrastructure/api/messaging-connection-lifecycle-handlers";
-import type { MessagingConnectionLifecycleServices } from "@/src/modules/messaging/infrastructure/api/messaging-connection-lifecycle-handlers";
+import { createMessagingConnectionLifecycleHandlers, type MessagingConnectionLifecycleServices  } from "@/src/modules/messaging/infrastructure/api/messaging-connection-lifecycle-handlers";
 
 describe("explicit local connection lifecycle HTTP",()=>{
   it("should reject authority, dependency overrides, unrecognized cause and duplicate compromise flags before opening native services",async()=>{

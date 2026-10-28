@@ -21,7 +21,7 @@ import { assertMessagingAuthenticatedMacKeyMaterials } from "@/src/modules/messa
 
 const runExecutable = promisify(execFile);
 const COMMAND_PATH = join(process.cwd(), "scripts", "enroll-messaging-key-materials.mjs");
-const INHERITED_SECRET_KEYS = ["DATABASE_URL", "DATABASE_MIGRATION_URL", "DATABASE_MAINTENANCE_URL", ...Object.values(MESSAGING_HOSTING_ENV)];
+const INHERITED_SECRET_KEYS = new Set(["DATABASE_URL", "DATABASE_MIGRATION_URL", "DATABASE_MAINTENANCE_URL", ...Object.values(MESSAGING_HOSTING_ENV)]);
 
 type HostingKeyrings = Record<string, { activeKeyId: string; keys: { id: string; materialBase64: string }[] }>;
 type CommandOutcome = { exitCode: number; stdout: string; stderr: string };
@@ -46,7 +46,7 @@ function createHostingEnvironment(keyrings: HostingKeyrings, securityEpoch: stri
 
 /** @param environment - Only the variables the operator would export. @returns The real command's exit code and output, without inheriting this process's database or messaging secrets. */
 async function runEnrollmentCommand(environment: Record<string, string>): Promise<CommandOutcome> {
-  const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !INHERITED_SECRET_KEYS.includes(key)));
+  const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !INHERITED_SECRET_KEYS.has(key)));
   try {
     const { stdout, stderr } = await runExecutable(process.execPath, [COMMAND_PATH], { env: { ...inherited, ...environment } as NodeJS.ProcessEnv, windowsHide: true });
     return { exitCode: 0, stdout, stderr };

@@ -53,6 +53,26 @@ function buildRequestKey(occurrence: TribeEventOccurrenceResult, reloadCount: nu
 }
 
 /**
+ * Idle without a request; the settled list for the current request, or the
+ * previous list while the same occurrence refreshes; loading otherwise.
+ */
+function selectReportState(
+  requestKey: string | null,
+  settledReport: SettledReportState | null,
+  isRefreshingSameOccurrence: boolean
+): TribeEventAttendanceReportState {
+  if (requestKey === null) {
+    return { status: TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.idle };
+  }
+
+  if (settledReport && (settledReport.requestKey === requestKey || isRefreshingSameOccurrence)) {
+    return settledReport.state;
+  }
+
+  return { status: TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.loading };
+}
+
+/**
  * Loads the manager attendance report of the open occurrence on demand.
  * Each request is tied to a key and aborted when the key changes or the
  * component unmounts, so a stale answer never replaces a newer one; the
@@ -129,13 +149,8 @@ export function useTribeEventAttendanceReport({
   // previous list instead of flashing the loading copy.
   const isRefreshingSameOccurrence =
     settledReport?.occurrenceKey === occurrenceKey &&
-    settledReport?.state.status === TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.loaded;
-  const reportState: TribeEventAttendanceReportState =
-    requestKey === null
-      ? { status: TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.idle }
-      : settledReport?.requestKey === requestKey || (settledReport && isRefreshingSameOccurrence)
-        ? settledReport.state
-        : { status: TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.loading };
+    settledReport.state.status === TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.loaded;
+  const reportState = selectReportState(requestKey, settledReport, isRefreshingSameOccurrence);
 
   return {
     reload: () => setReloadCount((currentCount) => currentCount + 1),

@@ -4,10 +4,9 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type {AdmissionBatchItem,AdmissionBatchOperationCommand} from "@/src/modules/academy-admissions/domain/entities/admission-operation";
+import type {AdmissionBatchItem,AdmissionBatchOperationCommand, AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OPERATION_LEASE_MS, ADMISSION_OPERATION_MAC_KEY_PURPOSES } from "@/src/modules/academy-admissions/constants/admission-operation";
@@ -38,6 +37,12 @@ type OperationClaim<Result> = AdmissionOperationResult<Result> | { state: "claim
 /** Reads the database clock after locks and local crypto rather than before an awaited operation. */
 async function clock(database: RequestDatabase): Promise<Date> { return new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now); }
 
+/** @returns Code-unit order of the lowercased resource ids, the stable lock order shared by execution and recovery. */
+function compareBatchResourceIds(first: AdmissionBatchItem, second: AdmissionBatchItem): number {
+  if (first.resourceId < second.resourceId) return -1;
+  return first.resourceId > second.resourceId ? 1 : 0;
+}
+
 /**
  * Canonicalizes a fixed batch before both execution and read-only recovery.
  * @param command - Owner-normalized context and explicitly selected resources/versions.
@@ -46,9 +51,14 @@ async function clock(database: RequestDatabase): Promise<Date> { return new Date
  */
 function normalizeBatch(command:AdmissionBatchOperationCommand):{items:AdmissionBatchItem[];command:AdmissionOperationCommand}{
   if(command.intent.items.length<1||command.intent.items.length>ADMISSION_LIMIT.batchRequestCount)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-  const items=command.intent.items.map((item)=>({...item,resourceId:item.resourceId.toLowerCase()})).sort((first,second)=>first.resourceId<second.resourceId?-1:first.resourceId>second.resourceId?1:0);
+  const items=command.intent.items.map((item)=>({...item,resourceId:item.resourceId.toLowerCase()})).sort(compareBatchResourceIds);
   if(new Set(items.map((item)=>item.resourceId)).size!==items.length)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   return{items,command:{...command,intent:{context:command.intent.context,items:items.map((item)=>({resourceId:item.resourceId,expectedVersion:item.expectedVersion,intent:item.intent}))}}};
+}
+
+/** @param error - Any failure. @returns Whether it is a current permission or authentication denial, which must surface unchanged. */
+function isAccessDenial(error: unknown): error is AdmissionOperationError {
+  return error instanceof AdmissionOperationError && (error.code === ADMISSION_ERROR_CODE.permissionDenied || error.code === ADMISSION_ERROR_CODE.authenticationRequired);
 }
 
 /**
@@ -70,52 +80,72 @@ export class PostgresAdmissionOperationRepository {
     for (let step = 0; step < maximumSteps && claim.state === "claimed"; step += 1) {
       const currentClaim = claim;
       try {
-        claim = await this.executeWithDatabase(async (database): Promise<OperationClaim<Result>> => {
-          await this.assertAuthorized(database, command);
-          const row = await this.readLocked(database, command);
-          if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-          const fingerprint = await this.readFingerprint(database);
-          if (!await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
-          await this.assertAuthorized(database, command);
-          if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
-          const now = await clock(database);
-          if (row.lease_owner !== currentClaim.owner || row.version !== currentClaim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
-          const chunk = await mutate(database, row.id);
-          const currentFingerprint = await this.readFingerprint(database);
-          if (!await currentFingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-          await this.assertAuthorized(database, command);
-          const completedAt = await clock(database);
-          if (new Date(row.lease_until) <= completedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-          if (chunk.completed) {
-            const projected = schema.safeParse(chunk.result);
-            if (!projected.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-            const done = (await database.execute(sql`update public.academy_admission_operations set state=${OPERATION_STATE.completed},public_result=${JSON.stringify(projected.data)}::jsonb,completed_at=${completedAt},lease_owner=null,lease_until=null,version=version+1 where id=${row.id} and state=${OPERATION_STATE.started} and lease_owner=${currentClaim.owner} and version=${currentClaim.version} and lease_until>clock_timestamp() returning id`)).rows[0];
-            if (!done) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-            return { state: OPERATION_STATE.completed, operationId: command.idempotencyKey, replayed: false, result: projected.data };
-          }
-          const renewed = (await database.execute<{ version: number }>(sql`update public.academy_admission_operations set lease_until=clock_timestamp()+${ADMISSION_OPERATION_LEASE_MS}*interval '1 millisecond',version=version+1 where id=${row.id} and state=${OPERATION_STATE.started} and lease_owner=${currentClaim.owner} and version=${currentClaim.version} and lease_until>clock_timestamp() returning version`)).rows[0];
-          if (!renewed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-          return { state: "claimed", ledgerId: row.id, owner: currentClaim.owner, version: renewed.version };
-        });
+        claim = await this.executeWithDatabase((database) => this.runChunkStep({ database, command, schema, claim: currentClaim, mutate }));
       } catch (error) {
-        if (error instanceof AdmissionOperationError && (error.code === ADMISSION_ERROR_CODE.permissionDenied || error.code === ADMISSION_ERROR_CODE.authenticationRequired)) throw error;
-        // A block may have COMMITted before its response was lost. Never redispatch
-        // it here: the row owner and exact original must be consulted first.
-        try { const original = await this.read(command, schema); if (original?.state === OPERATION_STATE.completed) return original; }
-        catch (recoveryError) { if (recoveryError instanceof AdmissionOperationError && (recoveryError.code === ADMISSION_ERROR_CODE.permissionDenied || recoveryError.code === ADMISSION_ERROR_CODE.authenticationRequired)) throw recoveryError; throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, recoveryError], "Admission block original recovery failed", { cause: error }) }); }
-        throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: error });
+        return await this.recoverChunkFailure(command, schema, error);
       }
     }
     return claim.state === "claimed" ? { state: OPERATION_STATE.started, operationId: command.idempotencyKey } : claim;
   }
   /**
+   * Runs one DB-only block on the current claim and completes or renews it.
+   * @param step - Exact transaction, original command, own result schema, current claim and the owner's block.
+   * @returns The completed original, registered progress, or the renewed claim for the next block.
+   */
+  private async runChunkStep<Result>({ database, command, schema, claim, mutate }: { database: RequestDatabase; command: AdmissionOperationCommand; schema: z.ZodType<Result>; claim: Extract<OperationClaim<Result>, { state: "claimed" }>; mutate: (database: RequestDatabase, ledgerId: string) => Promise<{ completed: false } | { completed: true; result: unknown }> }): Promise<OperationClaim<Result>> {
+    await this.assertAuthorized(database, command);
+    const row = await this.readLocked(database, command);
+    if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
+    const fingerprint = await this.readFingerprint(database);
+    if (!await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
+    await this.assertAuthorized(database, command);
+    if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
+    const now = await clock(database);
+    if (row.lease_owner !== claim.owner || row.version !== claim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
+    const chunk = await mutate(database, row.id);
+    const currentFingerprint = await this.readFingerprint(database);
+    if (!await currentFingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    await this.assertAuthorized(database, command);
+    const completedAt = await clock(database);
+    if (new Date(row.lease_until) <= completedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
+    if (chunk.completed) {
+      const projected = schema.safeParse(chunk.result);
+      if (!projected.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+      const done = (await database.execute(sql`update public.academy_admission_operations set state=${OPERATION_STATE.completed},public_result=${JSON.stringify(projected.data)}::jsonb,completed_at=${completedAt},lease_owner=null,lease_until=null,version=version+1 where id=${row.id} and state=${OPERATION_STATE.started} and lease_owner=${claim.owner} and version=${claim.version} and lease_until>clock_timestamp() returning id`)).rows[0];
+      if (!done) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
+      return { state: OPERATION_STATE.completed, operationId: command.idempotencyKey, replayed: false, result: projected.data };
+    }
+    const renewed = (await database.execute<{ version: number }>(sql`update public.academy_admission_operations set lease_until=clock_timestamp()+${ADMISSION_OPERATION_LEASE_MS}*interval '1 millisecond',version=version+1 where id=${row.id} and state=${OPERATION_STATE.started} and lease_owner=${claim.owner} and version=${claim.version} and lease_until>clock_timestamp() returning version`)).rows[0];
+    if (!renewed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
+    return { state: "claimed", ledgerId: row.id, owner: claim.owner, version: renewed.version };
+  }
+
+  /**
+   * A block may have COMMITted before its response was lost. Never redispatch it here: the row owner and exact original must be consulted first.
+   * @param command - Original scoped operation. @param schema - Own final snapshot. @param error - The block failure.
+   * @returns The completed original when the registry proves it.
+   * @throws AdmissionOperationError for current denial, or unresolved progress otherwise.
+   */
+  private async recoverChunkFailure<Result>(command: AdmissionOperationCommand, schema: z.ZodType<Result>, error: unknown): Promise<AdmissionOperationResult<Result>> {
+    if (isAccessDenial(error)) throw error;
+    try { const original = await this.read(command, schema); if (original?.state === OPERATION_STATE.completed) return original; }
+    catch (recoveryError) { if (isAccessDenial(recoveryError)) throw recoveryError; throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, recoveryError], "Admission block original recovery failed", { cause: error }) }); }
+    throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: error });
+  }
+
+  private readonly authorizeRegistration?: OperationAuthorizer;
+  private readonly nativeSubmissionScope?: NativeSubmissionScope;
+
+  /**
    * @param executeWithDatabase - Existing guarded current-user executor.
    * @param authorize - Mandatory transaction-bound current permission/resource check, including necessary locks.
    * @param readSecurityConfig - Explicit local hosting-secret snapshot; no outbound work inside a transaction.
-   * @param authorizeRegistration - Optional current authority guard for registry-only claims; business effects always use authorize.
-   * @param nativeSubmissionScope - Explicit server composition for a guarded native submission projection; other operations retain their original path.
+   * @param options - Optional current authority guard for registry-only claims (`authorizeRegistration`; business effects always use authorize) and explicit server composition for a guarded native submission projection (`nativeSubmissionScope`; other operations retain their original path).
    */
-  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly authorize: OperationAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly authorizeRegistration?: OperationAuthorizer, private readonly nativeSubmissionScope?: NativeSubmissionScope) {}
+  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly authorize: OperationAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, options: { authorizeRegistration?: OperationAuthorizer; nativeSubmissionScope?: NativeSubmissionScope } = {}) {
+    this.authorizeRegistration = options.authorizeRegistration;
+    this.nativeSubmissionScope = options.nativeSubmissionScope;
+  }
 
   /**
    * Re-resolves current actor and owner authority before replay or fingerprint comparison.

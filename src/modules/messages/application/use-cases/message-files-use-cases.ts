@@ -65,7 +65,7 @@ export function normalizeMessageFileDrafts(
   const seenAssetIds = new Set<string>();
 
   for (const draft of rawDrafts) {
-    const assetId = (draft.assetId ?? "").trim();
+    const assetId = draft.assetId.trim();
 
     if (!isAttachmentAssetId(assetId) || seenAssetIds.has(assetId)) {
       return { status: MESSAGE_MUTATION_STATUS.invalidFile };

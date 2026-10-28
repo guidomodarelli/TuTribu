@@ -9,11 +9,12 @@ import {
 import { toast } from "@golfo/ui";
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global
 // notification store; `promise` only records the lifecycle copy it receives.
 vi.mock("@golfo/ui", async () => ({
-  ...(await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui")),
+  ...(await vi.importActual<typeof GolfoUiModule>("@golfo/ui")),
   toast: {
     error: vi.fn(),
     promise: vi.fn(),

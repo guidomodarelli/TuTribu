@@ -48,6 +48,12 @@ function summarizeDatabaseObservations(observations: readonly AdmissionTransacti
   };
 }
 
+/** @param result - Submission result of one participant. @returns Its failure code, the unconfirmed marker for unfinished work, or null once completed. */
+function submissionFailure(result: { ok: false; failure: { code: string } } | { ok: true; value: { state: string } }): string | null {
+  if (!result.ok) return result.failure.code;
+  return result.value.state !== "completed" ? ADMISSION_PERFORMANCE_FAILURE.unconfirmed : null;
+}
+
 /**
  * Preserves native accounts, claim/effect commits, warm-up and the entire concurrent cohort.
  * @param database - Real branch-scoped database adapter, never a provider or UI mock.
@@ -106,7 +112,7 @@ export async function runAdmissionPerformanceWorkload(database: AdmissionPerform
       const startedAt = performance.now(); inFlight += 1; peakInFlight = Math.max(peakInFlight, inFlight);
       try {
         const result = await commands.submit.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: ADMISSION_PERFORMANCE.expectedPolicyVersion, confirmed: true, ...(participant.index >= enabledParticipantCount ? { message: ADMISSION_PERFORMANCE.exceptionReason } : {}) });
-        observed.push({ index: participant.index, durationMs: performance.now() - startedAt, startedOffsetMs: startedAt - measurementStarted, outcome: result.ok && result.value.state === "completed" ? result.value.result.outcome : null, failure: !result.ok ? result.failure.code : result.value.state !== "completed" ? ADMISSION_PERFORMANCE_FAILURE.unconfirmed : null, ...(!result.ok ? { cause: result.failure.cause } : {}) });
+        observed.push({ index: participant.index, durationMs: performance.now() - startedAt, startedOffsetMs: startedAt - measurementStarted, outcome: result.ok && result.value.state === "completed" ? result.value.result.outcome : null, failure: submissionFailure(result), ...(!result.ok ? { cause: result.failure.cause } : {}) });
       } catch (error) { observed.push({ index: participant.index, durationMs: performance.now() - startedAt, startedOffsetMs: startedAt - measurementStarted, outcome: null, failure: ADMISSION_PERFORMANCE_FAILURE.unexpectedException, cause: error }); }
       finally { inFlight -= 1; }
     }));

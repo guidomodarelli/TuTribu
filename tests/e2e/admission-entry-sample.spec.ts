@@ -23,7 +23,8 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 /** Owns the resources acquired for each synthetic account, including partial setup. */
 type CohortPosition = { alias: string; browser: "chromium" | "webkit"; width: number; context: BrowserContext };
 
-test("should confirm at least nine of ten independent synthetic entries strictly below two minutes", async ({}, testInfo) => {
+test("should confirm at least nine of ten independent synthetic entries strictly below two minutes", async () => {
+  const testInfo = test.info();
   const observations: (AdmissionEntrySampleObservation & { phase: string; responseStatus: number | null; replayConfirmed: boolean })[] = [];
   const report: Record<string, unknown> = {
     method: SAMPLE.method, humanUsability: false, googleVerification: false, externalDelivery: false,
@@ -31,6 +32,7 @@ test("should confirm at least nine of ten independent synthetic entries strictly
     criterionMs: SAMPLE.completionLimitMs, observations,
   };
   const browsers: Browser[] = [], positions: CohortPosition[] = [];
+  let cleanupFailures: number;
   try {
     const engines = [chromium, webkit];
     for (const [index, engine] of engines.entries()) {
@@ -128,17 +130,24 @@ test("should confirm at least nine of ten independent synthetic entries strictly
     });
     report.cleanupConfirmed = true;
   } finally {
-    try {
-      const contextsClosed = await Promise.allSettled(positions.map((position) => position.context.close()));
-      const browsersClosed = await Promise.allSettled(browsers.map((browser) => browser.close()));
-      const cleanupFailures = [...contextsClosed, ...browsersClosed].filter((result) => result.status === "rejected").length;
-      report.browserCleanupFailures = cleanupFailures;
-      if (cleanupFailures) throw new Error(FAILURE.browserCleanup);
-    } finally {
-      const reportPath = testInfo.outputPath(SAMPLE.reportName);
-      await mkdir(dirname(reportPath), { recursive: true });
-      await writeFile(reportPath, JSON.stringify(report, null, 2));
-      await testInfo.attach(SAMPLE.reportName, { path: reportPath, contentType: "application/json" });
-    }
+    cleanupFailures = await closeCohortBrowsers(positions, browsers);
+    report.browserCleanupFailures = cleanupFailures;
+    const reportPath = testInfo.outputPath(SAMPLE.reportName);
+    await mkdir(dirname(reportPath), { recursive: true });
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    await testInfo.attach(SAMPLE.reportName, { path: reportPath, contentType: "application/json" });
   }
+  if (cleanupFailures) throw new Error(FAILURE.browserCleanup);
 });
+
+/**
+ * Closes every cohort context and browser, waiting for all of them even when some fail.
+ * @param positions - Cohort positions whose contexts were opened, including partial setup.
+ * @param browsers - Browsers launched for the cohort.
+ * @returns How many contexts and browsers failed to close.
+ */
+async function closeCohortBrowsers(positions: CohortPosition[], browsers: Browser[]): Promise<number> {
+  const contextsClosed = await Promise.allSettled(positions.map((position) => position.context.close()));
+  const browsersClosed = await Promise.allSettled(browsers.map((browser) => browser.close()));
+  return [...contextsClosed, ...browsersClosed].filter((result) => result.status === "rejected").length;
+}

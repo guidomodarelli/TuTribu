@@ -25,7 +25,7 @@ export class GetOwnAdmissionUseCases {
       if (!first || !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const result = await this.reader.readOwn({ ...query, userId: first.userId, sessionId: first.session.id });
       const current = await this.accounts.getAuthenticatedAccount();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       if (result === null) return { ok: true as const, value: null };
       const parsed = admissionOwnRequestSchema.safeParse(result);
       if (!parsed.success || query.admissionRequestId && parsed.data.id !== query.admissionRequestId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);

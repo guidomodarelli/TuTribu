@@ -35,7 +35,8 @@ export class PostgresCredentialValidationBudget implements CredentialValidationB
    * @returns Current SQL time after the last awaited authority/configuration read.
    */
   private async authorize(database: RequestDatabase, context: AuthorizedMessagingContext): Promise<Date> {
-    if (context.authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader
+    // Fail closed even if a caller bypasses the static contract (casts, untyped composition).
+    if ((context.authorizationPurpose as string) !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader
       || context.operation !== REAUTHENTICATION_OPERATION.validateMessagingConnection
       || context.resourceId !== context.connectionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
     const authority = await authorizeMessagingSecret(database, context);

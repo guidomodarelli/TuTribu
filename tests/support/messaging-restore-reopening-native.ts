@@ -1,10 +1,8 @@
 /** Exercises an explicit fresh connection, diagnostic, policy and admission after private recovery. @module messaging-restore-reopening-fixture */
 import { randomUUID } from "node:crypto";
-import type { MessagingRestoreSql } from "./messaging-restore-composition";
+import { type MessagingRestoreSql, composeAdmissionRestoreOwnersForPrincipal , composeMessagingRestoreOwnersForPrincipal  } from "./messaging-restore-composition";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { prepareRestoreAdmissionCheckpoint } from "./messaging-restore-admission-fixture";
-import { composeAdmissionRestoreOwnersForPrincipal } from "./messaging-restore-composition";
-import { composeMessagingRestoreOwnersForPrincipal } from "./messaging-restore-composition";
 import { prepareMessagingActivationFromCreation, type MessagingActivationCreation } from "./messaging-activation-native";
 import { composeRestoreAdmissionDispatch } from "./messaging-restore-dispatch-native";
 import { createAdmissionProviderTransport } from "./admission-provider-transport";
@@ -77,7 +75,6 @@ export async function admitAfterMessagingRestore(database: MessagingRestoreSql, 
   if (dispatch.authorized !== 1 || dispatch.accepted !== 1 || dispatch.unknown !== 0) throw new Error("Messaging restore reopening failed: fresh_dispatch_unconfirmed");
   onPhase?.(MESSAGING_RESTORE_SAFETY_PHASE.freshDispatchCompleted);
   const verified = await current.admission.verification.verify({ ...applicant.context, operationId: randomUUID(), challengeId: issued.result.challengeId, verificationCode: code });
-  code = "";
   if (verified.state !== "completed" || verified.result.result !== "verified") throw new Error("Messaging restore reopening failed: fresh_proof_unavailable");
   onPhase?.(MESSAGING_RESTORE_SAFETY_PHASE.freshProofConfirmed);
   const submitted = await current.admission.requests.submit({ ...applicant.context, type: "submit_admission", operationId: randomUUID(), expectedPolicyVersion: current.policy.version, confirmed: true, source: { kind: ADMISSION_SOURCE_KIND.common }, contact: applicant.contact, proofId: verified.result.proofId, message: null });

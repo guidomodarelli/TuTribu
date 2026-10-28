@@ -11,6 +11,14 @@ import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseE
 import { PostgresSecretMaterialMaintenance } from "./postgres-secret-material-maintenance";
 import { PostgresVerificationMaterialMaintenance } from "./postgres-verification-material-maintenance";
 
+/** @param error - Failure of a composed owner. @returns Its input/permission code, unavailable for an incomplete connection, otherwise unresolved. */
+function retentionFailureCode(error: unknown) {
+  const known = error instanceof MessagingCandidateExpirationError || error instanceof MessagingSecretMaterialError || error instanceof MessagingDeliveryStorageError;
+  if (!known) return MESSAGING_ERROR_CODE.operationUnresolved;
+  if (error.code === MESSAGING_ERROR_CODE.invalidInput || error.code === MESSAGING_ERROR_CODE.permissionDenied) return error.code;
+  return error.code === MESSAGING_ERROR_CODE.connectionIncomplete ? MESSAGING_ERROR_CODE.resourceUnavailable : MESSAGING_ERROR_CODE.operationUnresolved;
+}
+
 /** Ensures a late OTP/restore failure also rolls back earlier candidate and credential mutations. */
 export class PostgresMessagingRetentionRepository implements MessagingSecretRetention {
   /** @param execute - Original guarded backend transaction. @param authorize - Live private principal. @param readRecoveryLock - Current key-independent recovery stop. */
@@ -43,11 +51,7 @@ export class PostgresMessagingRetentionRepository implements MessagingSecretRete
       });
     } catch (error) {
       if (error instanceof MessagingRetentionError) throw error;
-      const known = error instanceof MessagingCandidateExpirationError || error instanceof MessagingSecretMaterialError || error instanceof MessagingDeliveryStorageError;
-      const code = known && (error.code === MESSAGING_ERROR_CODE.invalidInput || error.code === MESSAGING_ERROR_CODE.permissionDenied) ? error.code
-        : known && error.code === MESSAGING_ERROR_CODE.connectionIncomplete ? MESSAGING_ERROR_CODE.resourceUnavailable
-          : MESSAGING_ERROR_CODE.operationUnresolved;
-      throw new MessagingRetentionError(code, { cause: error });
+      throw new MessagingRetentionError(retentionFailureCode(error), { cause: error });
     }
   }
 }

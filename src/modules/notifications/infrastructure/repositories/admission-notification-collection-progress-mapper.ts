@@ -1,4 +1,6 @@
 /** Maps only selected native checkpoint columns without schema-validating database rows. @module admission-notification-collection-progress-mapper */
+import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import type { AdmissionNotificationAudience } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationCollectionPageResult, AdmissionNotificationCollectionProgressSnapshot } from "../../domain/repositories/admission-notification-collection-progress";
 import type { AdmissionNotificationSourceCursor, AdmissionNotificationSourcePosition } from "../../domain/repositories/admission-notification-source-reader";
@@ -15,12 +17,15 @@ export type AdmissionNotificationCollectionProgressRow = {
 /** @param row - Coherent SQL-owned checkpoint. @returns Only the latest immutable page metadata, without a source cursor or delivery authority. */
 export function collectionProgressPageResult(row: AdmissionNotificationCollectionProgressRow): AdmissionNotificationCollectionPageResult | null {
   if (row.last_operation_id === null) return null;
-  return { tribeId: row.tribe_id, operationId: row.last_operation_id, previousVersion: row.version - 1, version: row.version, examined: row.examined, collected: row.collected, existing: row.existing, suppressed: row.suppressed, unavailable: row.unavailable, bucketClosed: row.bucket_closed, sweepComplete: row.sweep_complete, completedAtMicroseconds: Number(row.last_completed_microseconds!), sourceThroughMicroseconds: row.last_page_through_microseconds === null ? null : Number(row.last_page_through_microseconds), sweepHadUnavailable: row.sweep_had_unavailable, replayed: false };
+  if (row.last_completed_microseconds === null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.dependencyUnavailable);
+  return { tribeId: row.tribe_id, operationId: row.last_operation_id, previousVersion: row.version - 1, version: row.version, examined: row.examined, collected: row.collected, existing: row.existing, suppressed: row.suppressed, unavailable: row.unavailable, bucketClosed: row.bucket_closed, sweepComplete: row.sweep_complete, completedAtMicroseconds: Number(row.last_completed_microseconds), sourceThroughMicroseconds: row.last_page_through_microseconds === null ? null : Number(row.last_page_through_microseconds), sweepHadUnavailable: row.sweep_had_unavailable, replayed: false };
 }
 
 /** @param row - Native checkpoint whose constraints keep all frontier fields coherent. @returns The last source examined by any sweep, or null before the first one. */
 export function collectionProgressFrontier(row: AdmissionNotificationCollectionProgressRow): AdmissionNotificationSourcePosition | null {
-  return row.after_created_microseconds === null ? null : { createdAtMicroseconds: Number(row.after_created_microseconds), obligationId: row.after_obligation_id!, recipientUserId: row.after_recipient_user_id!, audience: row.after_audience! };
+  if (row.after_created_microseconds === null) return null;
+  if (row.after_obligation_id === null || row.after_recipient_user_id === null || row.after_audience === null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.dependencyUnavailable);
+  return { createdAtMicroseconds: Number(row.after_created_microseconds), obligationId: row.after_obligation_id, recipientUserId: row.after_recipient_user_id, audience: row.after_audience };
 }
 
 /** @param row - Native checkpoint whose constraints keep all continuation fields coherent. @returns The open sweep's horizon and frontier, or null when the next page starts a new sweep; this is never a send token. */

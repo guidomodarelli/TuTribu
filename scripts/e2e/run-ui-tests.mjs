@@ -174,12 +174,11 @@ async function runUiTests(playwrightArguments) {
 }
 
 nextEnvironment.loadEnvConfig(process.cwd());
-runUiTests(process.argv.slice(2).filter((argument) => argument !== ARGUMENT_SEPARATOR)).then(
-  (exitCode) => {
+runUiTests(process.argv.slice(2).filter((argument) => argument !== ARGUMENT_SEPARATOR))
+  .then((exitCode) => {
     process.exitCode = exitCode;
-  },
-  (error) => {
+  })
+  .catch((error) => {
     console.error("run-ui-tests failed", error);
     process.exitCode = EXIT_CODE.failure;
-  }
-);
+  });

@@ -16,6 +16,12 @@ import { planAdmissionNotificationEmailCandidate } from "../../domain/policies/a
 import type { AdmissionNotificationCollectionAuthorizer } from "./postgres-admission-notification-collection-progress";
 import { PostgresAdmissionNotificationRecipientEmailReader } from "./postgres-admission-notification-recipient-email-reader";
 
+/** @param lock - Requested row lock. @returns The locking clause of the group read. */
+function groupLockClause(lock: "update" | "share" | null | undefined) {
+  if (lock === "update") return sql`for update`;
+  return lock === "share" ? sql`for share` : sql``;
+}
+
 /** Consumes selected native columns without schema validation or Date conversion. */
 type GroupRow = { id: string; tribe_id: string; recipient_user_id: string; audience: AdmissionNotificationAudience; mode: Exclude<AdmissionNotificationPreferenceMode, "omitted">; preference_version: number; email_settings_version: number; time_zone: string; starts_microseconds: string; closes_microseconds: string; individual_obligation_id: string | null; state: AdmissionNotificationGroupState; version: number; frozen_manifest: AdmissionNotificationGroupManifest | null; deadline_microseconds: string | null; suppression_reason: AdmissionNotificationSuppressionReason | null; closed_microseconds: string | null; created_microseconds: string };
 /** Retains a member even when its original notice is no longer available. */
@@ -38,7 +44,7 @@ export async function readAdmissionNotificationGroup(database: RequestDatabase, 
     individual_obligation_id,state,version,frozen_manifest,(extract(epoch from deadline_at)*${MICROSECONDS_PER_SECOND})::bigint::text as deadline_microseconds,
     suppression_reason,(extract(epoch from closed_at)*${MICROSECONDS_PER_SECOND})::bigint::text as closed_microseconds,
     (extract(epoch from created_at)*${MICROSECONDS_PER_SECOND})::bigint::text as created_microseconds
-    from public.admission_notification_groups where id=${groupId} and tribe_id=${tribeId} ${lock === "update" ? sql`for update` : lock === "share" ? sql`for share` : sql``}`)).rows[0];
+    from public.admission_notification_groups where id=${groupId} and tribe_id=${tribeId} ${groupLockClause(lock)}`)).rows[0];
   return row ? { id: row.id, identity: { tribeId: row.tribe_id, recipientUserId: row.recipient_user_id, audience: row.audience, mode: row.mode, preferenceVersion: row.preference_version, emailSettingsVersion: row.email_settings_version, individualObligationId: row.individual_obligation_id, window: { startsAtMicroseconds: Number(row.starts_microseconds), closesAtMicroseconds: Number(row.closes_microseconds), timeZone: row.time_zone } }, state: row.state, version: row.version, frozenManifest: row.frozen_manifest, deadlineAtMicroseconds: row.deadline_microseconds === null ? null : Number(row.deadline_microseconds), suppressionReason: row.suppression_reason, closedAtMicroseconds: row.closed_microseconds === null ? null : Number(row.closed_microseconds), createdAtMicroseconds: Number(row.created_microseconds) } : null;
 }
 

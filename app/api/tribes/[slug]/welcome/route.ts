@@ -99,13 +99,7 @@ function isValidExternalUrl(value: string): boolean {
   }
 }
 
-function readOptionalText(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
-}
-
-function readRequiredText(value: unknown): string | null {
+function readTrimmedText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null;
@@ -116,7 +110,7 @@ function readSortOrder(value: unknown, fallback: number): number {
 }
 
 function readPayloadId(value: unknown): string | null {
-  const existingId = readRequiredText(value);
+  const existingId = readTrimmedText(value);
 
   if (!existingId) {
     return randomUUID();
@@ -158,7 +152,7 @@ function mapPayloadRules(rules: unknown): TribeWelcomeRuleResult[] | null {
     mappedRules.push({
       id,
       isActive: rule.isActive !== false,
-      label: readRequiredText(rule.label) ?? "",
+      label: readTrimmedText(rule.label) ?? "",
       sortOrder: readSortOrder(rule.sortOrder, index + 1),
     });
   }
@@ -185,18 +179,18 @@ function mapPayloadLinks(links: unknown): TribeWelcomeLinkResult[] | null {
     }
 
     mappedLinks.push({
-      badgeLabel: readRequiredText(link.badgeLabel) ?? "",
-      description: readOptionalText(link.description),
+      badgeLabel: readTrimmedText(link.badgeLabel) ?? "",
+      description: readTrimmedText(link.description),
       id,
       isActive: link.isActive !== false,
-      label: readRequiredText(link.label) ?? "",
-      message: readOptionalText(link.message),
-      phoneNumber: readOptionalText(link.phoneNumber),
+      label: readTrimmedText(link.label) ?? "",
+      message: readTrimmedText(link.message),
+      phoneNumber: readTrimmedText(link.phoneNumber),
       sortOrder: readSortOrder(link.sortOrder, index + 1),
       type: isWelcomeLinkType(link.type)
         ? link.type
         : TRIBE_WELCOME_LINK_TYPE.customButton,
-      url: readOptionalText(link.url),
+      url: readTrimmedText(link.url),
     });
   }
 
@@ -209,6 +203,37 @@ function mapPayloadLinks(links: unknown): TribeWelcomeLinkResult[] | null {
  * @param input - Normalized welcome payload collected from the route request.
  * @returns A safe Spanish validation message when the payload is invalid, otherwise null.
  */
+function validateWelcomeLink(link: TribeWelcomeLinkResult): string | null {
+  if (link.label.trim().length === 0) {
+    return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
+  }
+
+  if (
+    link.badgeLabel.trim().length === 0 ||
+    link.badgeLabel.length > BADGE_LABEL_MAX_LENGTH
+  ) {
+    return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
+  }
+
+  if (link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton) {
+    if (!hasPhoneNumberDigits(link.phoneNumber)) {
+      return WELCOME_ROUTE_RESPONSE.missingWhatsappPhoneMessage;
+    }
+
+    if (!hasValidWhatsappPhoneFormat(link.phoneNumber)) {
+      return WELCOME_ROUTE_RESPONSE.invalidWhatsappPhoneMessage;
+    }
+
+    return null;
+  }
+
+  if (!link.url?.trim() || !isValidExternalUrl(link.url)) {
+    return WELCOME_ROUTE_RESPONSE.invalidUrlMessage;
+  }
+
+  return null;
+}
+
 function validateWelcomePayload(input: {
   linksHeading: string;
   links: TribeWelcomeLinkResult[];
@@ -234,31 +259,10 @@ function validateWelcomePayload(input: {
   }
 
   for (const link of input.links) {
-    if (link.label.trim().length === 0) {
-      return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
-    }
+    const linkError = validateWelcomeLink(link);
 
-    if (
-      link.badgeLabel.trim().length === 0 ||
-      link.badgeLabel.length > BADGE_LABEL_MAX_LENGTH
-    ) {
-      return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
-    }
-
-    if (link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton) {
-      if (!hasPhoneNumberDigits(link.phoneNumber)) {
-        return WELCOME_ROUTE_RESPONSE.missingWhatsappPhoneMessage;
-      }
-
-      if (!hasValidWhatsappPhoneFormat(link.phoneNumber)) {
-        return WELCOME_ROUTE_RESPONSE.invalidWhatsappPhoneMessage;
-      }
-
-      continue;
-    }
-
-    if (!link.url?.trim() || !isValidExternalUrl(link.url)) {
-      return WELCOME_ROUTE_RESPONSE.invalidUrlMessage;
+    if (linkError) {
+      return linkError;
     }
   }
 
@@ -332,6 +336,96 @@ export async function GET(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type SaveTribeWelcomeResult = Awaited<
+  ReturnType<RequestModules["tribes"]["useCases"]["saveTribeWelcome"]>
+>;
+
+function createPutResultResponse(result: SaveTribeWelcomeResult): Response {
+  switch (result.status) {
+    case TRIBE_WELCOME_SAVE_STATUS.updated:
+      return createJsonResponse(
+        { message: WELCOME_ROUTE_RESPONSE.savedMessage },
+        HTTP_STATUS.ok
+      );
+    case TRIBE_WELCOME_SAVE_STATUS.notFound:
+      return createJsonResponse(
+        { message: WELCOME_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case TRIBE_WELCOME_SAVE_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: WELCOME_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
+type WelcomeDraft = Omit<
+  Parameters<RequestModules["tribes"]["useCases"]["saveTribeWelcome"]>[0],
+  "tribeSlug"
+>;
+
+/**
+ * Reads and validates the welcome body in the order the route reports its
+ * errors.
+ *
+ * @param parsedBody - Untrusted JSON body.
+ * @returns The welcome to save, or the first validation message.
+ */
+function readWelcomeDraft(parsedBody: unknown): WelcomeDraft | { errorMessage: string } {
+  if (!isPayloadObject(parsedBody)) {
+    return { errorMessage: WELCOME_ROUTE_RESPONSE.invalidBodyMessage };
+  }
+
+  const body = parsedBody;
+  const welcomeMessage = readTrimmedText(body.welcomeMessage);
+  const selectionModalTitle = readTrimmedText(body.selectionModalTitle);
+  const selectionModalDescription = readTrimmedText(
+    body.selectionModalDescription
+  );
+  const selectionModalBenefit = readTrimmedText(body.selectionModalBenefit);
+  const linksHeading = readTrimmedText(body.linksHeading);
+  const rules = mapPayloadRules(body.rules);
+  const links = mapPayloadLinks(body.links);
+
+  if (
+    !welcomeMessage ||
+    !selectionModalTitle ||
+    !selectionModalDescription ||
+    !linksHeading ||
+    !rules ||
+    !links
+  ) {
+    return { errorMessage: WELCOME_ROUTE_RESPONSE.invalidBodyMessage };
+  }
+
+  const validationMessage = validateWelcomePayload({
+    linksHeading,
+    links,
+    rules,
+    selectionModalDescription,
+    selectionModalTitle,
+    welcomeMessage,
+  });
+
+  if (validationMessage) {
+    return { errorMessage: validationMessage };
+  }
+
+  return {
+    linksHeading,
+    links,
+    rules,
+    selectionModalBenefit,
+    selectionModalDescription,
+    selectionModalTitle,
+    welcomeMessage,
+  };
+}
+
 export async function PUT(
   request: Request,
   context: {
@@ -362,85 +456,23 @@ export async function PUT(
     }
 
     viewerId = authenticatedMember.id;
-    const parsedBody = await request.json().catch(() => ({}));
+    const parsedBody: unknown = await request.json().catch(() => ({}));
 
-    if (!isPayloadObject(parsedBody)) {
+    const draft = readWelcomeDraft(parsedBody);
+
+    if ("errorMessage" in draft) {
       return createJsonResponse(
-        { message: WELCOME_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const body = parsedBody;
-    const welcomeMessage = readRequiredText(body.welcomeMessage);
-    const selectionModalTitle = readRequiredText(body.selectionModalTitle);
-    const selectionModalDescription = readRequiredText(
-      body.selectionModalDescription
-    );
-    const selectionModalBenefit = readOptionalText(body.selectionModalBenefit);
-    const linksHeading = readRequiredText(body.linksHeading);
-    const rules = mapPayloadRules(body.rules);
-    const links = mapPayloadLinks(body.links);
-
-    if (
-      !welcomeMessage ||
-      !selectionModalTitle ||
-      !selectionModalDescription ||
-      !linksHeading ||
-      !rules ||
-      !links
-    ) {
-      return createJsonResponse(
-        { message: WELCOME_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const validationMessage = validateWelcomePayload({
-      linksHeading,
-      links,
-      rules,
-      selectionModalDescription,
-      selectionModalTitle,
-      welcomeMessage,
-    });
-
-    if (validationMessage) {
-      return createJsonResponse(
-        { message: validationMessage },
+        { message: draft.errorMessage },
         HTTP_STATUS.badRequest
       );
     }
 
     const result = await modules.tribes.useCases.saveTribeWelcome({
-      linksHeading,
-      links,
-      rules,
-      selectionModalBenefit,
-      selectionModalDescription,
-      selectionModalTitle,
+      ...draft,
       tribeSlug: slug,
-      welcomeMessage,
     });
 
-    switch (result.status) {
-      case TRIBE_WELCOME_SAVE_STATUS.updated:
-        return createJsonResponse(
-          { message: WELCOME_ROUTE_RESPONSE.savedMessage },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_WELCOME_SAVE_STATUS.notFound:
-        return createJsonResponse(
-          { message: WELCOME_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_WELCOME_SAVE_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: WELCOME_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPutResultResponse(result);
   } catch (error) {
     logger.error({
       error,

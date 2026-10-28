@@ -182,6 +182,130 @@ function CourseManagementLink({ tribeSlug }: { tribeSlug: string }) {
   );
 }
 
+type CourseCardProps = {
+  course: TribeCoursesCatalogProps["courses"][number];
+  onCourseClick: (event: MouseEvent<HTMLAnchorElement>, courseId: string) => void;
+  tribeSlug: string;
+};
+
+/**
+ * Renders the cover of a course card, or its initial when it has no cover.
+ *
+ * @param props - Component props.
+ * @param props.course - Course whose cover is shown.
+ * @returns The course cover frame.
+ */
+function CourseCardCover({ course }: Pick<CourseCardProps, "course">) {
+  return (
+    <div className={styles.TribeCoursesCatalog__coverFrame}>
+      {course.coverImageUrl ? (
+        <Image
+          alt=""
+          className={styles.TribeCoursesCatalog__coverImage}
+          fill
+          sizes="(min-width: 64rem) 20rem, 100vw"
+          src={course.coverImageUrl}
+          unoptimized
+        />
+      ) : (
+        <div
+          aria-hidden
+          className={styles.TribeCoursesCatalog__coverFallback}
+        >
+          {course.title.slice(0, 1).toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Card of an accessible course with its lesson count and the viewer progress.
+ *
+ * @param props - Course, in-page click handler and tribe slug.
+ * @returns Course card link.
+ */
+function CourseCard({ course, onCourseClick, tribeSlug }: CourseCardProps) {
+  const lessonCount = countCourseLessons(course);
+  const progressPercent = getCourseProgressPercent(course);
+  const hasProgress =
+    progressPercent > 0 || course.lastViewedLessonId !== null;
+
+  return (
+    <Link
+      className={styles.TribeCoursesCatalog__card}
+      href={buildCourseHref(tribeSlug, course.id)}
+      onClick={(event) => onCourseClick(event, course.id)}
+    >
+      <CourseCardCover course={course} />
+      <div className={styles.TribeCoursesCatalog__cardBody}>
+        <h2 className={styles.TribeCoursesCatalog__cardTitle}>
+          {course.title}
+          {!course.isActive ? (
+            <span
+              className={styles.TribeCoursesCatalog__inactiveBadge}
+            >
+              {CATALOG_COPY.inactiveBadge}
+            </span>
+          ) : null}
+        </h2>
+        {course.description ? (
+          <p className={styles.TribeCoursesCatalog__cardDescription}>
+            {course.description}
+          </p>
+        ) : null}
+        <p className={styles.TribeCoursesCatalog__cardMeta}>
+          {formatLessonCount(lessonCount)}
+        </p>
+        <div
+          aria-label={CATALOG_COPY.progressLabel}
+          aria-valuemax={PERCENT_MAX}
+          aria-valuemin={0}
+          aria-valuenow={progressPercent}
+          className={styles.TribeCoursesCatalog__progressTrack}
+          role={PROGRESSBAR_ROLE}
+        >
+          <span
+            className={styles.TribeCoursesCatalog__progressFill}
+            style={buildProgressFillStyle(progressPercent)}
+          />
+        </div>
+        <p className={styles.TribeCoursesCatalog__progressLabel}>
+          {progressPercent}
+          {CATALOG_COPY.progressSuffix}
+        </p>
+        <span className={styles.TribeCoursesCatalog__cardCta}>
+          {hasProgress
+            ? CATALOG_COPY.continueCta
+            : CATALOG_COPY.startCta}
+          <ArrowRight
+            aria-hidden
+            className={styles.TribeCoursesCatalog__cardCtaIcon}
+          />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * Empty catalog notice.
+ *
+ * @returns Empty state section.
+ */
+function EmptyCatalog() {
+  return (
+    <section className={styles.TribeCoursesCatalog__emptyState}>
+      <h2 className={styles.TribeCoursesCatalog__emptyHeading}>
+        {CATALOG_COPY.emptyHeading}
+      </h2>
+      <p className={styles.TribeCoursesCatalog__emptyDescription}>
+        {CATALOG_COPY.emptyDescription}
+      </p>
+    </section>
+  );
+}
+
 /**
  * Catalog of the tribe courses with the viewer progress. Each card is a real,
  * shareable link to its course.
@@ -228,109 +352,23 @@ export function TribeCoursesCatalog({
       </header>
 
       {courses.length === 0 ? (
-        <section className={styles.TribeCoursesCatalog__emptyState}>
-          <h2 className={styles.TribeCoursesCatalog__emptyHeading}>
-            {CATALOG_COPY.emptyHeading}
-          </h2>
-          <p className={styles.TribeCoursesCatalog__emptyDescription}>
-            {CATALOG_COPY.emptyDescription}
-          </p>
-        </section>
+        <EmptyCatalog />
       ) : (
         <ul className={styles.TribeCoursesCatalog__grid}>
-          {courses.map((course) => {
-            if (
-              course.viewerAccess.status ===
-              COURSE_VIEWER_ACCESS_STATUS.academyRequired
-            ) {
-              return (
-                <li className={styles.TribeCoursesCatalog__cardItem} key={course.id}>
-                  <LockedAcademyCourseCard course={course} tribeSlug={tribeSlug} />
-                </li>
-              );
-            }
-
-            const lessonCount = countCourseLessons(course);
-            const progressPercent = getCourseProgressPercent(course);
-            const hasProgress =
-              progressPercent > 0 || course.lastViewedLessonId !== null;
-
-            return (
-              <li className={styles.TribeCoursesCatalog__cardItem} key={course.id}>
-                <Link
-                  className={styles.TribeCoursesCatalog__card}
-                  href={buildCourseHref(tribeSlug, course.id)}
-                  onClick={(event) => handleCourseClick(event, course.id)}
-                >
-                  <div className={styles.TribeCoursesCatalog__coverFrame}>
-                    {course.coverImageUrl ? (
-                      <Image
-                        alt=""
-                        className={styles.TribeCoursesCatalog__coverImage}
-                        fill
-                        sizes="(min-width: 64rem) 20rem, 100vw"
-                        src={course.coverImageUrl}
-                        unoptimized
-                      />
-                    ) : (
-                      <div
-                        aria-hidden
-                        className={styles.TribeCoursesCatalog__coverFallback}
-                      >
-                        {course.title.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div className={styles.TribeCoursesCatalog__cardBody}>
-                    <h2 className={styles.TribeCoursesCatalog__cardTitle}>
-                      {course.title}
-                      {!course.isActive ? (
-                        <span
-                          className={styles.TribeCoursesCatalog__inactiveBadge}
-                        >
-                          {CATALOG_COPY.inactiveBadge}
-                        </span>
-                      ) : null}
-                    </h2>
-                    {course.description ? (
-                      <p className={styles.TribeCoursesCatalog__cardDescription}>
-                        {course.description}
-                      </p>
-                    ) : null}
-                    <p className={styles.TribeCoursesCatalog__cardMeta}>
-                      {formatLessonCount(lessonCount)}
-                    </p>
-                    <div
-                      aria-label={CATALOG_COPY.progressLabel}
-                      aria-valuemax={PERCENT_MAX}
-                      aria-valuemin={0}
-                      aria-valuenow={progressPercent}
-                      className={styles.TribeCoursesCatalog__progressTrack}
-                      role={PROGRESSBAR_ROLE}
-                    >
-                      <span
-                        className={styles.TribeCoursesCatalog__progressFill}
-                        style={buildProgressFillStyle(progressPercent)}
-                      />
-                    </div>
-                    <p className={styles.TribeCoursesCatalog__progressLabel}>
-                      {progressPercent}
-                      {CATALOG_COPY.progressSuffix}
-                    </p>
-                    <span className={styles.TribeCoursesCatalog__cardCta}>
-                      {hasProgress
-                        ? CATALOG_COPY.continueCta
-                        : CATALOG_COPY.startCta}
-                      <ArrowRight
-                        aria-hidden
-                        className={styles.TribeCoursesCatalog__cardCtaIcon}
-                      />
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
+          {courses.map((course) => (
+            <li className={styles.TribeCoursesCatalog__cardItem} key={course.id}>
+              {course.viewerAccess.status ===
+              COURSE_VIEWER_ACCESS_STATUS.academyRequired ? (
+                <LockedAcademyCourseCard course={course} tribeSlug={tribeSlug} />
+              ) : (
+                <CourseCard
+                  course={course}
+                  onCourseClick={handleCourseClick}
+                  tribeSlug={tribeSlug}
+                />
+              )}
+            </li>
+          ))}
         </ul>
       )}
     </main>

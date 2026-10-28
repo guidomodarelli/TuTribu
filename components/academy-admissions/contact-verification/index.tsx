@@ -1,6 +1,6 @@
 "use client";
 /** Presents controlled applicant verification without owning identity, HTTP, deadlines or operation recovery. @module contact-verification */
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Button, Checkbox, Input, Label, Select } from "@golfo/ui";
 import type { AdmissionChallengeSnapshot } from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -59,44 +59,80 @@ export function contactVerificationAvailability(props: ContactVerificationProps)
   };
 }
 
+/** Field ids prefix and derived facts both verification field groups read beside the props. */
+type VerificationFieldsProps = { props: ContactVerificationProps; fieldId: string; controlsBlocked: boolean };
+
+/** @param props - Replacement state of the verification. @param expired - Whether the current code expired. @returns The hint under the code field when it has no error. */
+function codeHint(props: ContactVerificationProps, expired: boolean): string {
+  if (props.requiresReplacement) return "Para esta nueva presentación, confirmá Reenviar código. La prueba anterior no se reutiliza.";
+  return expired ? "El campo se habilita cuando llegue el código nuevo." : `Ingresá los ${ADMISSION_LIMIT.verificationCodeDigits} números del código recibido.`;
+}
+
+/** @param props - Controlled contact facts, field ids prefix and the phone facts. @returns The contact fields and the send confirmation. */
+function SendFields({ props, fieldId, controlsBlocked, phone, noCountries }: VerificationFieldsProps & { phone: boolean; noCountries: boolean }) {
+  return <>
+  <p className={styles.ContactVerification__description}>Canal configurado: <strong>{MESSAGING_CHANNEL_LABEL[props.channel]}</strong></p>
+  {phone ? <div className={styles.ContactVerification__fields}>
+    <div className={styles.ContactVerification__field}>
+      <Label htmlFor={`${fieldId}-phone`}>Teléfono para este ingreso</Label>
+      <Input id={`${fieldId}-phone`} type="tel" autoComplete="tel" value={props.phone} disabled={controlsBlocked || props.contactLocked} aria-invalid={Boolean(props.fieldErrors.phone)} aria-describedby={`${fieldId}-phone-feedback`} onChange={(event) => props.onPhoneChange(event.target.value)} />
+      <p id={`${fieldId}-phone-feedback`} className={props.fieldErrors.phone ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.phone ?? (props.contactLocked ? "El contacto de esta solicitud ya está fijado." : "Usá el prefijo internacional o elegí el país del teléfono.")}</p>
+    </div>
+    <div className={styles.ContactVerification__field}>
+      <Select value={props.country} disabled={controlsBlocked || props.contactLocked || noCountries} onValueChange={props.onCountryChange} id={`${fieldId}-country`} aria-invalid={Boolean(props.fieldErrors.country)} aria-describedby={`${fieldId}-country-feedback`} label="País del teléfono" options={props.allowedCountries.map((country) => ({ value: country, label: country }))} placeholder="Elegí un país habilitado" />
+      <p id={`${fieldId}-country-feedback`} className={props.fieldErrors.country || noCountries ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.country ?? (noCountries ? "La academia todavía no tiene países habilitados para este teléfono. Consultá a sus responsables." : "Se muestran los países configurados por la academia.")}</p>
+    </div>
+  </div> : <p className={styles.ContactVerification__description}>El código se envía al correo actual de tu cuenta.</p>}
+  <div className={styles.ContactVerification__confirmation}>
+    <Checkbox id={`${fieldId}-confirm`} checked={props.confirmed} disabled={controlsBlocked} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
+    <Label htmlFor={`${fieldId}-confirm`}>Confirmo el contacto y el envío del código para este ingreso.</Label>
+  </div>
+  <p className={styles.ContactVerification__description}>El envío y el reenvío usan los límites de la academia y de tu cuenta. Una respuesta incierta se consulta antes de repetir la operación.</p>
+</>;
+}
+
+/** @param props - Controlled code facts, field ids prefix and the code timing facts. @returns The code field with its expiry and proof notices. */
+function CodeFields({ props, fieldId, controlsBlocked, expired, waiting }: VerificationFieldsProps & { expired: boolean; waiting: boolean }) {
+  return <>
+  <div className={styles.ContactVerification__field}>
+    <Label htmlFor={`${fieldId}-code`}>Código de ingreso</Label>
+    <Input id={`${fieldId}-code`} className={styles.ContactVerification__code} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={ADMISSION_LIMIT.verificationCodeDigits} value={props.verificationCode} disabled={controlsBlocked || expired || props.proofExpired || props.challengeUnavailable || props.requiresReplacement} aria-invalid={Boolean(props.fieldErrors.verificationCode)} aria-describedby={`${fieldId}-code-feedback`} onChange={(event) => props.onCodeChange(event.target.value)} />
+    <p id={`${fieldId}-code-feedback`} className={props.fieldErrors.verificationCode ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.verificationCode ?? codeHint(props, expired)}</p>
+  </div>
+  {/* The expiry is a state of the code, not an input error: a quiet status next to the resend that ends it. */}
+  {expired && !props.requiresReplacement && <p role="status" className={styles.ContactVerification__notice}>{waiting ? "El código venció. Cuando termine la espera, reenviá uno nuevo para seguir." : "El código venció. Reenviá uno nuevo para seguir."}</p>}
+  {props.proofExpired && <p role="status" className={styles.ContactVerification__error}>La prueba venció. Reenviá un código para el mismo contacto antes de continuar.</p>}
+  {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {formatContactCountdown(props.expiresInSeconds)}.</p>}
+</>;
+}
+
+/** @param props - Seconds left before a resend is allowed. @returns When the code can be resent, or nothing when it can already. */
+function ResendCountdown({ resendInSeconds }: { resendInSeconds: number | null }) {
+  return resendInSeconds !== null && resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {formatContactCountdown(resendInSeconds)}.</p>;
+}
+
+/** @param props - Controlled proof state, whether a guided flow owns the buttons, the code fields and resend actions. @returns The proven notice, the guided code entry, or the standalone code form with its own buttons. */
+function CodeEntry({ props, guided, codeFields, resendActions, verifyBlocked }: { props: ContactVerificationProps; guided: boolean; codeFields: ReactNode; resendActions: ReactNode; verifyBlocked: boolean }) {
+  if (props.proofReady) return <p role="status" className={styles.ContactVerification__success}>Código comprobado para este ingreso.</p>;
+  if (guided) return <div className={styles.ContactVerification__form}>{codeFields}<ResendCountdown resendInSeconds={props.resendInSeconds} /></div>;
+  return <form className={styles.ContactVerification__form} onSubmit={(event) => { event.preventDefault(); if (!verifyBlocked) props.onVerify(); }}>
+    {codeFields}
+    <div className={styles.ContactVerification__actions}>
+      <Button type="submit" disabled={verifyBlocked}>{props.busy ? "Comprobando código…" : "Comprobar código"}</Button>
+      {resendActions}
+    </div>
+    <ResendCountdown resendInSeconds={props.resendInSeconds} />
+  </form>;
+}
+
 /** @param props - Current controlled proposal, original challenge and derived blocking state. @returns Explicit accessible actions with private controls excluded from feedback screenshots; rendering and changing fields never send a message. */
 export function ContactVerification(props: ContactVerificationProps) {
   const fieldId = useId(), part = props.part ?? "all", guided = part !== "all";
   const { phone, noCountries, expired, waiting, issueBlocked, verifyBlocked, resendBlocked, smsBlocked, offersSms } = contactVerificationAvailability(props);
   const controlsBlocked = props.busy || props.ready === false;
   const showSend = part !== "verify", showVerify = part !== "send" && Boolean(props.challenge);
-
-  const sendFields = <>
-    <p className={styles.ContactVerification__description}>Canal configurado: <strong>{MESSAGING_CHANNEL_LABEL[props.channel]}</strong></p>
-    {phone ? <div className={styles.ContactVerification__fields}>
-      <div className={styles.ContactVerification__field}>
-        <Label htmlFor={`${fieldId}-phone`}>Teléfono para este ingreso</Label>
-        <Input id={`${fieldId}-phone`} type="tel" autoComplete="tel" value={props.phone} disabled={controlsBlocked || props.contactLocked} aria-invalid={Boolean(props.fieldErrors.phone)} aria-describedby={`${fieldId}-phone-feedback`} onChange={(event) => props.onPhoneChange(event.target.value)} />
-        <p id={`${fieldId}-phone-feedback`} className={props.fieldErrors.phone ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.phone ?? (props.contactLocked ? "El contacto de esta solicitud ya está fijado." : "Usá el prefijo internacional o elegí el país del teléfono.")}</p>
-      </div>
-      <div className={styles.ContactVerification__field}>
-        <Select value={props.country} disabled={controlsBlocked || props.contactLocked || noCountries} onValueChange={props.onCountryChange} id={`${fieldId}-country`} aria-invalid={Boolean(props.fieldErrors.country)} aria-describedby={`${fieldId}-country-feedback`} label="País del teléfono" options={props.allowedCountries.map((country) => ({ value: country, label: country }))} placeholder="Elegí un país habilitado" />
-        <p id={`${fieldId}-country-feedback`} className={props.fieldErrors.country || noCountries ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.country ?? (noCountries ? "La academia todavía no tiene países habilitados para este teléfono. Consultá a sus responsables." : "Se muestran los países configurados por la academia.")}</p>
-      </div>
-    </div> : <p className={styles.ContactVerification__description}>El código se envía al correo actual de tu cuenta.</p>}
-    <div className={styles.ContactVerification__confirmation}>
-      <Checkbox id={`${fieldId}-confirm`} checked={props.confirmed} disabled={controlsBlocked} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
-      <Label htmlFor={`${fieldId}-confirm`}>Confirmo el contacto y el envío del código para este ingreso.</Label>
-    </div>
-    <p className={styles.ContactVerification__description}>El envío y el reenvío usan los límites de la academia y de tu cuenta. Una respuesta incierta se consulta antes de repetir la operación.</p>
-  </>;
-
-  const codeFields = <>
-    <div className={styles.ContactVerification__field}>
-      <Label htmlFor={`${fieldId}-code`}>Código de ingreso</Label>
-      <Input id={`${fieldId}-code`} className={styles.ContactVerification__code} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={ADMISSION_LIMIT.verificationCodeDigits} value={props.verificationCode} disabled={controlsBlocked || expired || props.proofExpired || props.challengeUnavailable || props.requiresReplacement} aria-invalid={Boolean(props.fieldErrors.verificationCode)} aria-describedby={`${fieldId}-code-feedback`} onChange={(event) => props.onCodeChange(event.target.value)} />
-      <p id={`${fieldId}-code-feedback`} className={props.fieldErrors.verificationCode ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.verificationCode ?? (props.requiresReplacement ? "Para esta nueva presentación, confirmá Reenviar código. La prueba anterior no se reutiliza." : expired ? "El campo se habilita cuando llegue el código nuevo." : `Ingresá los ${ADMISSION_LIMIT.verificationCodeDigits} números del código recibido.`)}</p>
-    </div>
-    {/* The expiry is a state of the code, not an input error: a quiet status next to the resend that ends it. */}
-    {expired && !props.requiresReplacement && <p role="status" className={styles.ContactVerification__notice}>{waiting ? "El código venció. Cuando termine la espera, reenviá uno nuevo para seguir." : "El código venció. Reenviá uno nuevo para seguir."}</p>}
-    {props.proofExpired && <p role="status" className={styles.ContactVerification__error}>La prueba venció. Reenviá un código para el mismo contacto antes de continuar.</p>}
-    {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {formatContactCountdown(props.expiresInSeconds)}.</p>}
-  </>;
+  const sendFields = <SendFields props={props} fieldId={fieldId} controlsBlocked={controlsBlocked} phone={phone} noCountries={noCountries} />;
+  const codeFields = <CodeFields props={props} fieldId={fieldId} controlsBlocked={controlsBlocked} expired={expired} waiting={waiting} />;
   const resendActions = <>
     <Button type="button" variant="secondary" disabled={resendBlocked} onClick={() => { if (!resendBlocked) props.onResend(); }}>Reenviar código</Button>
     {offersSms && <Button type="button" variant="secondary" disabled={smsBlocked} onClick={() => { if (!smsBlocked) props.onUseSmsAlternative(); }}>Usar SMS para el mismo teléfono</Button>}
@@ -130,16 +166,7 @@ export function ContactVerification(props: ContactVerificationProps) {
         <div className={styles.ContactVerification__fact}><dt>Estado del envío</dt><dd>{MESSAGING_DELIVERY_STATE_LABEL[props.challenge.deliveryState]}</dd></div>
       </dl>
       <p className={styles.ContactVerification__description}>El estado del envío y la comprobación del código son resultados separados.</p>
-      {props.proofReady ? <p role="status" className={styles.ContactVerification__success}>Código comprobado para este ingreso.</p> : guided
-        ? <div className={styles.ContactVerification__form}>{codeFields}{props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {formatContactCountdown(props.resendInSeconds)}.</p>}</div>
-        : <form className={styles.ContactVerification__form} onSubmit={(event) => { event.preventDefault(); if (!verifyBlocked) props.onVerify(); }}>
-          {codeFields}
-          <div className={styles.ContactVerification__actions}>
-            <Button type="submit" disabled={verifyBlocked}>{props.busy ? "Comprobando código…" : "Comprobar código"}</Button>
-            {resendActions}
-          </div>
-          {props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {formatContactCountdown(props.resendInSeconds)}.</p>}
-        </form>}
+      <CodeEntry props={props} guided={guided} codeFields={codeFields} resendActions={resendActions} verifyBlocked={verifyBlocked} />
     </>}
     {props.feedback && <p role="status" className={styles.ContactVerification__description}>{props.feedback}</p>}
     {props.errorMessage && <p role="alert" className={styles.ContactVerification__error}>{props.errorMessage}</p>}

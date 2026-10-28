@@ -48,7 +48,7 @@ type PostgresError = {
 const CHANNEL_SLUG = {
   emptyFallback: "channel",
   nonAlphanumericPattern: /[^a-z0-9]+/g,
-  trimSeparatorPattern: /^-+|-+$/g,
+  trimSeparatorPattern: /^-|-$/g,
 } as const;
 
 const POSTGRES_ERROR = {
@@ -81,9 +81,21 @@ function mapChannel(row: ChannelRow): TribeChannelResult {
   });
 }
 
-function mapFallbackCreationStatus(
+type FallbackChannelMutationResult = {
+  status:
+    | typeof TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug
+    | typeof TRIBE_CHANNEL_MUTATION_STATUS.forbidden
+    | typeof TRIBE_CHANNEL_MUTATION_STATUS.invalidName
+    | typeof TRIBE_CHANNEL_MUTATION_STATUS.notFound;
+};
+
+/**
+ * @param status - Status reported by a channel creation or update that did not succeed.
+ * @returns The known rejection, or forbidden for any other status.
+ */
+function mapFallbackMutationStatus(
   status: string | null | undefined
-): TribeChannelCreationResult {
+): FallbackChannelMutationResult {
   if (
     status === TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug ||
     status === TRIBE_CHANNEL_MUTATION_STATUS.invalidName ||
@@ -107,25 +119,7 @@ function mapChannelCreation(row: ChannelMutationRow | null): TribeChannelCreatio
     };
   }
 
-  return mapFallbackCreationStatus(row?.status);
-}
-
-function mapFallbackUpdateStatus(
-  status: string | null | undefined
-): TribeChannelUpdateResult {
-  if (
-    status === TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.invalidName ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.notFound
-  ) {
-    return {
-      status,
-    };
-  }
-
-  return {
-    status: TRIBE_CHANNEL_MUTATION_STATUS.forbidden,
-  };
+  return mapFallbackMutationStatus(row?.status);
 }
 
 function mapChannelUpdate(row: ChannelMutationRow | null): TribeChannelUpdateResult {
@@ -136,7 +130,7 @@ function mapChannelUpdate(row: ChannelMutationRow | null): TribeChannelUpdateRes
     };
   }
 
-  return mapFallbackUpdateStatus(row?.status);
+  return mapFallbackMutationStatus(row?.status);
 }
 
 function mapDeletionStatus(row: DeletionStatusRow | null): TribeChannelDeletionResult {
@@ -173,6 +167,176 @@ function isDuplicateChannelSlugError(error: unknown): boolean {
   );
 }
 
+/**
+ * Duplicate slugs race with the insert or update guard; the unique key reports them.
+ * @param error - Error raised by the channel statement.
+ * @returns The duplicate slug rejection; any other error is rethrown.
+ */
+function mapDuplicateChannelSlugError(error: unknown): {
+  status: typeof TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug;
+} {
+  if (isDuplicateChannelSlugError(error)) {
+    return {
+      status: TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug,
+    };
+  }
+
+  throw error;
+}
+
+/**
+ * @param command - Channel to create.
+ * @returns Statement that inserts the channel when the actor manages the tribe and the slug is free.
+ */
+function buildCreateChannelQuery(command: CreateTribeChannelCommand) {
+  return sql`
+    with target_tribe as (
+      select tribes.id
+      from public.tribes
+      where tribes.slug = ${command.tribeSlug}
+      limit 1
+    ),
+    next_sort_order as (
+      select coalesce(max(sort_order), 0) + 10 as value
+      from public.tribe_channels
+      inner join target_tribe
+        on target_tribe.id = tribe_channels.tribe_id
+    ),
+    channel_input as (
+      select ${createChannelSlug(command.name)} as slug
+    ),
+    existing_channel as (
+      select tribe_channels.id
+      from public.tribe_channels
+      inner join target_tribe
+        on target_tribe.id = tribe_channels.tribe_id
+      inner join channel_input
+        on channel_input.slug = tribe_channels.slug
+      limit 1
+    ),
+    inserted_channel as (
+      insert into public.tribe_channels (
+        tribe_id,
+        name,
+        slug,
+        emoji,
+        sort_order,
+        access_scope,
+        created_at,
+        updated_at
+      )
+      select
+        target_tribe.id,
+        ${command.name},
+        channel_input.slug,
+        ${command.emoji},
+        next_sort_order.value,
+        'tribemates',
+        timezone('utc', now()),
+        timezone('utc', now())
+      from target_tribe
+      cross join channel_input
+      cross join next_sort_order
+      where public.can_manage_tribe_channels(target_tribe.id)
+        and not exists (select 1 from existing_channel)
+      returning id, name, slug, emoji, sort_order, access_scope
+    )
+    select
+      case
+        when exists (select 1 from inserted_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.created}
+        when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
+        when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
+        when exists (select 1 from existing_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug}
+        else ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
+      end as status,
+      inserted_channel.id,
+      inserted_channel.name,
+      inserted_channel.slug,
+      inserted_channel.emoji,
+      inserted_channel.sort_order,
+      inserted_channel.access_scope
+    from (select 1) result
+    left join inserted_channel
+      on true
+  `;
+}
+
+/**
+ * @param command - Channel changes.
+ * @returns Statement that updates the channel when the actor manages the tribe and the slug is free.
+ */
+function buildUpdateChannelQuery(command: UpdateTribeChannelCommand) {
+  return sql`
+    with target_tribe as (
+      select tribes.id
+      from public.tribes
+      where tribes.slug = ${command.tribeSlug}
+      limit 1
+    ),
+    target_channel as (
+      select tribe_channels.id
+      from public.tribe_channels
+      inner join target_tribe
+        on target_tribe.id = tribe_channels.tribe_id
+      where tribe_channels.id = ${command.channelId}
+      limit 1
+    ),
+    channel_input as (
+      select ${createChannelSlug(command.name)} as slug
+    ),
+    existing_channel as (
+      select tribe_channels.id
+      from public.tribe_channels
+      inner join target_tribe
+        on target_tribe.id = tribe_channels.tribe_id
+      inner join channel_input
+        on channel_input.slug = tribe_channels.slug
+      where tribe_channels.id <> ${command.channelId}
+      limit 1
+    ),
+    updated_channel as (
+      update public.tribe_channels
+      set
+        name = ${command.name},
+        slug = (select slug from channel_input),
+        emoji = ${command.emoji},
+        sort_order = ${command.sortOrder},
+        updated_at = timezone('utc', now())
+      from target_tribe
+      where tribe_channels.id = ${command.channelId}
+        and tribe_channels.tribe_id = target_tribe.id
+        and public.can_manage_tribe_channels(target_tribe.id)
+        and exists (select 1 from target_channel)
+        and not exists (select 1 from existing_channel)
+      returning
+        tribe_channels.id,
+        tribe_channels.name,
+        tribe_channels.slug,
+        tribe_channels.emoji,
+        tribe_channels.sort_order,
+        tribe_channels.access_scope
+    )
+    select
+      case
+        when exists (select 1 from updated_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.updated}
+        when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
+        when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
+        when not exists (select 1 from target_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
+        when exists (select 1 from existing_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug}
+        else ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
+      end as status,
+      updated_channel.id,
+      updated_channel.name,
+      updated_channel.slug,
+      updated_channel.emoji,
+      updated_channel.sort_order,
+      updated_channel.access_scope
+    from (select 1) result
+    left join updated_channel
+      on true
+  `;
+}
+
 export class PostgresTribeChannelRepository implements TribeChannelRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -202,7 +366,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
         order by tribe_channels.sort_order asc, tribe_channels.name asc
       `);
 
-      return ((result.rows ?? []) as ChannelRow[]).map(mapChannel);
+      return (result.rows as ChannelRow[]).map(mapChannel);
     });
   }
 
@@ -211,88 +375,13 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
   ): Promise<TribeChannelCreationResult> {
     return this.executeWithDatabase(async (database) => {
       try {
-        const result = await database.execute(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${command.tribeSlug}
-            limit 1
-          ),
-          next_sort_order as (
-            select coalesce(max(sort_order), 0) + 10 as value
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-          ),
-          channel_input as (
-            select ${createChannelSlug(command.name)} as slug
-          ),
-          existing_channel as (
-            select tribe_channels.id
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-            inner join channel_input
-              on channel_input.slug = tribe_channels.slug
-            limit 1
-          ),
-          inserted_channel as (
-            insert into public.tribe_channels (
-              tribe_id,
-              name,
-              slug,
-              emoji,
-              sort_order,
-              access_scope,
-              created_at,
-              updated_at
-            )
-            select
-              target_tribe.id,
-              ${command.name},
-              channel_input.slug,
-              ${command.emoji},
-              next_sort_order.value,
-              'tribemates',
-              timezone('utc', now()),
-              timezone('utc', now())
-            from target_tribe
-            cross join channel_input
-            cross join next_sort_order
-            where public.can_manage_tribe_channels(target_tribe.id)
-              and not exists (select 1 from existing_channel)
-            returning id, name, slug, emoji, sort_order, access_scope
-          )
-          select
-            case
-              when exists (select 1 from inserted_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.created}
-              when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-              when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-              when exists (select 1 from existing_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug}
-              else ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-            end as status,
-            inserted_channel.id,
-            inserted_channel.name,
-            inserted_channel.slug,
-            inserted_channel.emoji,
-            inserted_channel.sort_order,
-            inserted_channel.access_scope
-          from (select 1) result
-          left join inserted_channel
-            on true
-        `);
+        const result = await database.execute(buildCreateChannelQuery(command));
 
         return mapChannelCreation(
-          (result.rows?.[0] ?? null) as ChannelMutationRow | null
+          (result.rows[0] ?? null) as ChannelMutationRow | null
         );
       } catch (error) {
-        if (isDuplicateChannelSlugError(error)) {
-          return {
-            status: TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug,
-          };
-        }
-
-        throw error;
+        return mapDuplicateChannelSlugError(error);
       }
     });
   }
@@ -302,87 +391,13 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
   ): Promise<TribeChannelUpdateResult> {
     return this.executeWithDatabase(async (database) => {
       try {
-        const result = await database.execute(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${command.tribeSlug}
-            limit 1
-          ),
-          target_channel as (
-            select tribe_channels.id
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-            where tribe_channels.id = ${command.channelId}
-            limit 1
-          ),
-          channel_input as (
-            select ${createChannelSlug(command.name)} as slug
-          ),
-          existing_channel as (
-            select tribe_channels.id
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-            inner join channel_input
-              on channel_input.slug = tribe_channels.slug
-            where tribe_channels.id <> ${command.channelId}
-            limit 1
-          ),
-          updated_channel as (
-            update public.tribe_channels
-            set
-              name = ${command.name},
-              slug = (select slug from channel_input),
-              emoji = ${command.emoji},
-              sort_order = ${command.sortOrder},
-              updated_at = timezone('utc', now())
-            from target_tribe
-            where tribe_channels.id = ${command.channelId}
-              and tribe_channels.tribe_id = target_tribe.id
-              and public.can_manage_tribe_channels(target_tribe.id)
-              and exists (select 1 from target_channel)
-              and not exists (select 1 from existing_channel)
-            returning
-              tribe_channels.id,
-              tribe_channels.name,
-              tribe_channels.slug,
-              tribe_channels.emoji,
-              tribe_channels.sort_order,
-              tribe_channels.access_scope
-          )
-          select
-            case
-              when exists (select 1 from updated_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.updated}
-              when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-              when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-              when not exists (select 1 from target_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-              when exists (select 1 from existing_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug}
-              else ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-            end as status,
-            updated_channel.id,
-            updated_channel.name,
-            updated_channel.slug,
-            updated_channel.emoji,
-            updated_channel.sort_order,
-            updated_channel.access_scope
-          from (select 1) result
-          left join updated_channel
-            on true
-        `);
+        const result = await database.execute(buildUpdateChannelQuery(command));
 
         return mapChannelUpdate(
-          (result.rows?.[0] ?? null) as ChannelMutationRow | null
+          (result.rows[0] ?? null) as ChannelMutationRow | null
         );
       } catch (error) {
-        if (isDuplicateChannelSlugError(error)) {
-          return {
-            status: TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug,
-          };
-        }
-
-        throw error;
+        return mapDuplicateChannelSlugError(error);
       }
     });
   }
@@ -465,7 +480,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
           end as status
       `);
 
-      return mapDeletionStatus((result.rows?.[0] ?? null) as DeletionStatusRow | null);
+      return mapDeletionStatus((result.rows[0] ?? null) as DeletionStatusRow | null);
     });
   }
 }

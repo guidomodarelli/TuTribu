@@ -1,8 +1,7 @@
 /** Constructs closed private audit facts for the complete admission and messaging resource vocabulary. @module admission-resource-audit-event */
-import type {AdmissionErrorCode} from "../../constants/admission-errors";
 import type {MessagingErrorCode} from "@/src/modules/messaging/domain/errors/messaging-error-code";
 import {ADMISSION_AUDIT_RESOURCE_TYPE} from "../../constants/admission-audit";
-import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
+import {ADMISSION_ERROR_CODE,type AdmissionErrorCode} from "../../constants/admission-errors";
 import {AdmissionOperationError} from "../errors/admission-operation-error";
 import {ADMISSION_RETRY_AUDIT} from "../../constants/admission-decision";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
@@ -68,18 +67,15 @@ export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAudi
 /** Uses the same closed vocabulary after selecting and snapshotting only its allowed fields. */
 export type AdmissionResourceAuditEvent=AdmissionResourceAuditInput;
 
-/** @param unsupported - Compile-time exhaustive resource branch. @returns Never. @throws AdmissionOperationError for an unusable internal resource kind without reflecting its content. */
-function rejectUnsupportedAuditResource(unsupported:never):never{void unsupported;throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);}
-
 /**
  * Selects reconstructible owner facts without spreading commands, provider payloads or exception labels.
- * @param input - Current private actor/resource/operation/version and authoritative clock.
- * @typeParam Input - Owner fact whose additional properties are intentionally discarded.
+ * @param input - Current private actor/resource/operation/version and authoritative clock; additional properties a
+ *   caller's object carries are discarded.
  * @returns A detached event whose metadata is selected by its fixed resource kind.
  * @throws AdmissionOperationError when the internal resource kind is unsupported.
  */
-export function createAdmissionResourceAuditEvent<Input extends AdmissionResourceAuditInput>(input:Input):AdmissionResourceAuditEvent{
-  const current:AdmissionResourceAuditInput=input;
+export function createAdmissionResourceAuditEvent(input:AdmissionResourceAuditInput):AdmissionResourceAuditEvent{
+  const current=input;
   const scope={tribeId:current.tribeId,actorUserId:current.actorUserId,operationId:current.operationId,resourceId:current.resourceId,resourceVersion:current.resourceVersion,rule:current.rule,cause:current.cause,createdAt:new Date(current.createdAt)};
   switch(current.resourceType){
     case ADMISSION_AUDIT_RESOURCE_TYPE.request:{
@@ -110,6 +106,7 @@ export function createAdmissionResourceAuditEvent<Input extends AdmissionResourc
     case ADMISSION_AUDIT_RESOURCE_TYPE.proof:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{fromState:metadata.fromState,toState:metadata.toState,challengeId:metadata.challengeId,requestId:metadata.requestId,verificationEpoch:metadata.verificationEpoch,channel:metadata.channel}};}
     case ADMISSION_AUDIT_RESOURCE_TYPE.membership:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{membershipInstanceId:metadata.membershipInstanceId,fromRole:metadata.fromRole,toRole:metadata.toRole,fromStatus:metadata.fromStatus,toStatus:metadata.toStatus,requestId:metadata.requestId,decisionId:metadata.decisionId}};}
     case ADMISSION_AUDIT_RESOURCE_TYPE.retention:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{owner:metadata.owner,processed:metadata.processed,remaining:metadata.remaining,cutoff:metadata.cutoff,...(metadata.durationMs!==undefined?{durationMs:metadata.durationMs}:{})}};}
-    default:return rejectUnsupportedAuditResource(current);
+    // `switch-exhaustiveness-check` keeps every resource kind handled; an unusable internal kind fails without reflecting its content.
+    default:throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   }
 }

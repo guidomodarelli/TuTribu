@@ -115,8 +115,40 @@ function readPollPayload(value: unknown): UpdateMessagePollPayload | null {
 
   return {
     allowMultipleVotes: candidate.allowMultipleVotes,
-    options: candidate.options as string[],
+    options: candidate.options,
   };
+}
+
+function readMediaDraft(item: unknown): MessageMediaDraftCommand | null {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  const kind = candidate[UPDATE_MESSAGE_MEDIA_FIELD.kind];
+
+  if (kind === MESSAGE_MEDIA_KIND.image) {
+    const assetId = candidate[UPDATE_MESSAGE_MEDIA_FIELD.assetId];
+    const altText = candidate[UPDATE_MESSAGE_MEDIA_FIELD.altText];
+
+    if (typeof assetId !== "string") {
+      return null;
+    }
+
+    return {
+      assetId,
+      kind: MESSAGE_MEDIA_KIND.image,
+      ...(typeof altText === "string" ? { altText } : {}),
+    };
+  }
+
+  if (kind === MESSAGE_MEDIA_KIND.video) {
+    const url = candidate[UPDATE_MESSAGE_MEDIA_FIELD.url];
+
+    return typeof url === "string" ? { kind: MESSAGE_MEDIA_KIND.video, url } : null;
+  }
+
+  return null;
 }
 
 function readMediaPayload(value: unknown): MessageMediaDraftCommand[] | null {
@@ -127,41 +159,13 @@ function readMediaPayload(value: unknown): MessageMediaDraftCommand[] | null {
   const drafts: MessageMediaDraftCommand[] = [];
 
   for (const item of value) {
-    if (!item || typeof item !== "object") {
+    const draft = readMediaDraft(item);
+
+    if (!draft) {
       return null;
     }
 
-    const candidate = item as Record<string, unknown>;
-    const kind = candidate[UPDATE_MESSAGE_MEDIA_FIELD.kind];
-
-    if (kind === MESSAGE_MEDIA_KIND.image) {
-      const assetId = candidate[UPDATE_MESSAGE_MEDIA_FIELD.assetId];
-      const altText = candidate[UPDATE_MESSAGE_MEDIA_FIELD.altText];
-
-      if (typeof assetId !== "string") {
-        return null;
-      }
-
-      drafts.push({
-        assetId,
-        kind: MESSAGE_MEDIA_KIND.image,
-        ...(typeof altText === "string" ? { altText } : {}),
-      });
-      continue;
-    }
-
-    if (kind === MESSAGE_MEDIA_KIND.video) {
-      const url = candidate[UPDATE_MESSAGE_MEDIA_FIELD.url];
-
-      if (typeof url !== "string") {
-        return null;
-      }
-
-      drafts.push({ kind: MESSAGE_MEDIA_KIND.video, url });
-      continue;
-    }
-
-    return null;
+    drafts.push(draft);
   }
 
   return drafts;
@@ -331,6 +335,83 @@ export async function DELETE(
   }
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type UpdateTribeMessageContentResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["updateTribeMessageContent"]>
+>;
+
+function createPatchResultResponse(result: UpdateTribeMessageContentResult, slug: string): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.updated:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          content: result.content,
+          message: UPDATE_MESSAGE_ROUTE_RESPONSE.successMessage,
+          messageId: result.messageId,
+          ...(result.files !== undefined ? { files: result.files } : {}),
+          ...(result.media !== undefined ? { media: result.media } : {}),
+          ...(result.poll !== undefined ? { poll: result.poll } : {}),
+          title: result.title,
+        },
+        HTTP_STATUS.ok
+      );
+    case MESSAGE_MUTATION_STATUS.invalidContent:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidContentMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidImage:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidMedia:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidPoll:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidVideoMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.invalidFile:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.pollHasVotes:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.pollHasVotesMessage },
+        HTTP_STATUS.conflict
+      );
+    case MESSAGE_MUTATION_STATUS.pollMissing:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.pollMissingMessage },
+        HTTP_STATUS.badRequest
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: UPDATE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function PATCH(
   request: Request,
   context: {
@@ -388,74 +469,7 @@ export async function PATCH(
       userId: authenticatedMember.id,
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.updated:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            content: result.content,
-            message: UPDATE_MESSAGE_ROUTE_RESPONSE.successMessage,
-            messageId: result.messageId,
-            ...(result.files !== undefined ? { files: result.files } : {}),
-            ...(result.media !== undefined ? { media: result.media } : {}),
-            ...(result.poll !== undefined ? { poll: result.poll } : {}),
-            title: result.title,
-          },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.invalidContent:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidContentMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidImage:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidMedia:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidPoll:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidVideoMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.invalidFile:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.pollHasVotes:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.pollHasVotesMessage },
-          HTTP_STATUS.conflict
-        );
-      case MESSAGE_MUTATION_STATUS.pollMissing:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.pollMissingMessage },
-          HTTP_STATUS.badRequest
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPatchResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: UPDATE_MESSAGE_ROUTE_LOG.updateFailureMessage,

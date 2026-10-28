@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
@@ -151,13 +151,14 @@ function buildWhatsappUrl(settings: TribeSupportSettings): string {
   return SUPPORT_BUTTON_LINK.baseUrl + normalizedPhoneNumber + messageQuery;
 }
 
-export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
-  const pathname = usePathname() ?? "";
-  const activeTribe = useMemo(
-    () => findActiveTribe(pathname, memberTribes),
-    [pathname, memberTribes]
-  );
-  const activeTribeSlug = activeTribe?.slug ?? null;
+/**
+ * Loads the support settings of the active tribe and keeps them in sync with
+ * the leader's saves. Switching tribes cancels the previous request.
+ * @param activeTribeSlug - Slug of the tribe the viewer is on, or `null`.
+ * @returns Loaded settings, whether the load finished, the dialog state and
+ * the save handler.
+ */
+function useTribeSupportSettings(activeTribeSlug: string | null) {
   const [settings, setSettings] = useState<TribeSupportSettings | null>(null);
   const [isFetched, setIsFetched] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -236,38 +237,113 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     []
   );
 
+  return {
+    handleSavedSettings,
+    isDialogOpen,
+    isFetched,
+    setIsDialogOpen,
+    settings,
+  };
+}
+
+/**
+ * Leader menu entries: open the configured support link or edit it.
+ * @param linkHref - WhatsApp link of the configured support.
+ * @param onConfigure - Opens the configuration dialog.
+ * @returns The dropdown menu items.
+ */
+function buildLeaderSupportMenuItems(
+  linkHref: string,
+  onConfigure: () => void
+): ComponentProps<typeof DropdownMenu>["items"] {
+  return [
+    {
+      href: linkHref,
+      label: SUPPORT_BUTTON_COPY.openLinkLabel,
+      rel: SUPPORT_BUTTON_LINK.newTabRel,
+      target: SUPPORT_BUTTON_LINK.newTabTarget,
+    },
+    {
+      label: SUPPORT_BUTTON_COPY.configureLabel,
+      onSelect: onConfigure,
+    },
+  ];
+}
+
+/**
+ * Only active leaders configure the support button.
+ * @param tribe - Active tribe of the viewer.
+ * @returns Whether the viewer manages the tribe support.
+ */
+function canManageTribeSupport(tribe: MemberTribeListItemResult): boolean {
+  return (
+    tribe.role === SUPPORT_BUTTON_ROLE.leader &&
+    tribe.membershipStatus === SUPPORT_BUTTON_MEMBERSHIP_STATUS.active
+  );
+}
+
+/** Disabled spinner shown to leaders while the support settings load. */
+function TribeSupportLoadingButton() {
+  return (
+    <Button
+      aria-busy
+      aria-label={SUPPORT_BUTTON_COPY.loadingLabel}
+      className={styles.TribeSupportButton}
+      disabled
+      size={SUPPORT_BUTTON_UI.buttonSize}
+      type={SUPPORT_BUTTON_UI.buttonType}
+      variant={SUPPORT_BUTTON_UI.buttonVariant}
+    >
+      <LoaderIcon
+        aria-hidden
+        className={cn(
+          styles.TribeSupportButton__icon,
+          styles["TribeSupportButton__icon--spinning"]
+        )}
+      />
+    </Button>
+  );
+}
+
+/**
+ * WhatsApp link that members use to contact the tribe support.
+ * @param props - Configured support settings.
+ * @returns The support link, opened in a new tab.
+ */
+function TribeMemberSupportLink({ settings }: { settings: TribeSupportSettings }) {
+  return (
+    <a className={MEMBER_SUPPORT_LINK_CLASS_NAME} aria-label={SUPPORT_BUTTON_COPY.triggerLabelMember}
+      href={buildWhatsappUrl(settings)}
+      rel={SUPPORT_BUTTON_LINK.newTabRel}
+      target={SUPPORT_BUTTON_LINK.newTabTarget}
+    >
+      <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
+    </a>
+  );
+}
+
+export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
+  const pathname = usePathname();
+  const activeTribe = useMemo(
+    () => findActiveTribe(pathname, memberTribes),
+    [pathname, memberTribes]
+  );
+  const activeTribeSlug = activeTribe?.slug ?? null;
+  const { handleSavedSettings, isDialogOpen, isFetched, setIsDialogOpen, settings } =
+    useTribeSupportSettings(activeTribeSlug);
+
   if (!activeTribe) {
     return null;
   }
 
-  const canManageSupport =
-    activeTribe.role === SUPPORT_BUTTON_ROLE.leader &&
-    activeTribe.membershipStatus === SUPPORT_BUTTON_MEMBERSHIP_STATUS.active;
+  const canManageSupport = canManageTribeSupport(activeTribe);
 
   if (!isFetched) {
     if (!canManageSupport) {
       return null;
     }
 
-    return (
-      <Button
-        aria-busy
-        aria-label={SUPPORT_BUTTON_COPY.loadingLabel}
-        className={styles.TribeSupportButton}
-        disabled
-        size={SUPPORT_BUTTON_UI.buttonSize}
-        type={SUPPORT_BUTTON_UI.buttonType}
-        variant={SUPPORT_BUTTON_UI.buttonVariant}
-      >
-        <LoaderIcon
-          aria-hidden
-          className={cn(
-            styles.TribeSupportButton__icon,
-            styles["TribeSupportButton__icon--spinning"]
-          )}
-        />
-      </Button>
-    );
+    return <TribeSupportLoadingButton />;
   }
 
   if (!canManageSupport) {
@@ -275,17 +351,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       return null;
     }
 
-    const linkHref = buildWhatsappUrl(settings);
-
-    return (
-      <a className={MEMBER_SUPPORT_LINK_CLASS_NAME} aria-label={SUPPORT_BUTTON_COPY.triggerLabelMember}
-          href={linkHref}
-          rel={SUPPORT_BUTTON_LINK.newTabRel}
-          target={SUPPORT_BUTTON_LINK.newTabTarget}
-        >
-          <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
-        </a>
-    );
+    return <TribeMemberSupportLink settings={settings} />;
   }
 
   if (!settings) {
@@ -318,18 +384,9 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     <>
       <DropdownMenu
         align={SUPPORT_BUTTON_UI.align}
-        items={[
-          {
-            href: linkHref,
-            label: SUPPORT_BUTTON_COPY.openLinkLabel,
-            rel: SUPPORT_BUTTON_LINK.newTabRel,
-            target: SUPPORT_BUTTON_LINK.newTabTarget,
-          },
-          {
-            label: SUPPORT_BUTTON_COPY.configureLabel,
-            onSelect: () => setIsDialogOpen(true),
-          },
-        ]}
+        items={buildLeaderSupportMenuItems(linkHref, () =>
+          setIsDialogOpen(true)
+        )}
         label={SUPPORT_BUTTON_COPY.menuLabel}
         trigger={
           <Button

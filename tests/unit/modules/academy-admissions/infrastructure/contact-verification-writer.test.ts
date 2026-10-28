@@ -49,7 +49,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
         const persisted = (await transaction.execute(sql`select state,version,code_mac,code_envelope_id,failed_attempts from public.contact_verification_challenges where id=${challenge.challengeId}`)).rows[0];
         expect(persisted).toEqual({ state: "verified", version: 2, code_mac: null, code_envelope_id: null, failed_attempts: 0 });
         expect((await transaction.execute(sql`select id from public.verification_code_envelopes where id=${challenge.envelopeId}`)).rows).toEqual([]);
-        const proofs = (await transaction.execute<{ status: string; lifetime_ms: number }>(sql`select status,extract(epoch from (apply_before-verified_at))*1000 as lifetime_ms from public.academy_admission_verification_proofs where challenge_id=${challenge.challengeId}`)).rows;
+        const proofs = (await transaction.execute<{ status: string; lifetime_ms: string }>(sql`select status,extract(epoch from (apply_before-verified_at))*1000 as lifetime_ms from public.academy_admission_verification_proofs where challenge_id=${challenge.challengeId}`)).rows;
         expect(proofs).toHaveLength(1);
         expect(proofs[0].status).toBe("available");
         expect(Number(proofs[0].lifetime_ms)).toBe(900_000);

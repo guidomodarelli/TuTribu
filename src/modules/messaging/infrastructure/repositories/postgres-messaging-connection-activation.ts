@@ -5,10 +5,9 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type {MessagingConnectionActivator,MessagingConnectionActivationInput,MessagingSelectionDependencies,MessagingEffectiveSelection} from "@/src/modules/messaging/domain/repositories/messaging-connection-activation";
 import type {MessagingSecurityConfig} from "../config/messaging-security-config";
-import type {TenantMessagingConnection} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
+import {type TenantMessagingConnection,assessMessagingConnectionActivation} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
 import type {MessagingConnectionVersion,MessagingConnectionCapability} from "@/src/modules/messaging/domain/entities/messaging-connection-version";
 import type {ConnectionDiagnostic} from "@/src/modules/messaging/domain/entities/connection-diagnostic";
-import {assessMessagingConnectionActivation} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
 import {PostgresAdmissionOperationRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import {AdmissionOperationError} from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -30,6 +29,14 @@ import {PostgresMessagingUsageRepository} from "./postgres-messaging-usage-repos
 import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
+/**
+ * Verifies explicit consent at runtime: the input crosses a trust boundary, so its declared `true` is not assumed.
+ * @param input - Intent carrying the explicit confirmation.
+ * @returns Whether the caller actually confirmed.
+ */
+function isExplicitlyConfirmed(input: { confirmed: boolean }): boolean {
+  return input.confirmed;
+}
 /** Each callback retains native actor authority and the existing guarded transaction. */
 export type MessagingActivationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
 /** Only consumed lifecycle fields are read; SQL rows are not schema-revalidated. */
@@ -39,6 +46,23 @@ type CapabilityRow={channel:MessagingConnectionCapability["channel"];state:Messa
 type DiagnosticRow={id:string;leader_user_id:string;channel:ConnectionDiagnostic["channel"];sender_id:string;template_id:string|null;template_language:string|null;outcome:ConnectionDiagnostic["outcome"];validated_at:Date|string|null};
 
 /** Current local evidence gates selection; a changed policy cannot request an untested channel or silently enable settings. */
+/** @param configuration - Senders of the version. @returns The channels the version configures, in fixed order. */
+function configuredChannelsOf(configuration:{emailSenderId:string|null;smsSenderId:string|null;whatsappSenderId:string|null}){
+  return [...(configuration.emailSenderId?[MESSAGING_PUBLIC_CHANNEL.email]:[]),...(configuration.smsSenderId?[MESSAGING_PUBLIC_CHANNEL.sms]:[]),...(configuration.whatsappSenderId?[MESSAGING_PUBLIC_CHANNEL.whatsapp]:[])];
+}
+
+/** @param selected - Currently selected connection row, if any. @returns Its effective selection, or null without a selected version. */
+function effectiveSelection(selected:{id:string;selected_version:number|null}|undefined):MessagingEffectiveSelection|null{
+  return selected?.selected_version?{connectionId:selected.id,connectionVersion:selected.selected_version}:null;
+}
+
+/** @param reason - Unmet activation requirement. @returns The admission error code reported for it. */
+function activationFailureCode(reason:string){
+  if(reason===MESSAGING_CONNECTION_REQUIREMENT.versionConflict)return ADMISSION_ERROR_CODE.connectionConflict;
+  if(reason===MESSAGING_CONNECTION_REQUIREMENT.capabilityRequired)return ADMISSION_ERROR_CODE.missingCapability;
+  return reason===MESSAGING_CONNECTION_REQUIREMENT.countriesRequired?ADMISSION_ERROR_CODE.recipientNotAllowed:ADMISSION_ERROR_CODE.connectionIncomplete;
+}
+
 export class PostgresMessagingConnectionActivation implements MessagingConnectionActivator{
   /** @param execute - Actual native principal. @param readSecurityConfig - Current external security/key availability. @param composeDependencies - Feature-owned dependency adapter bound to this exact transaction. */
   constructor(private readonly execute:MessagingActivationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>,private readonly composeDependencies:(database:RequestDatabase,context:AuthorizedMessagingContext)=>MessagingSelectionDependencies){}
@@ -66,7 +90,7 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
     const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.activateMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}},ledger=this.ledger(context);
     try{
       return await ledger.run(command,messagingConnectionActivationSchema,async(database,ledgerId)=>{
-        if(!input.confirmed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+        if(!isExplicitlyConfirmed(input))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
         const authorized=await this.authorize(database,context);
         if(authorized.current.connectionVersion!==context.connectionVersion||authorized.current.secretRef!==context.secretRef)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
         const connection=(await database.execute<ConnectionRow>(sql`select id,name,provider,contributed_by_user_id,version,state,state_reason,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version,retired_at,created_at,updated_at from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId} for update`)).rows[0];
@@ -79,16 +103,16 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
         const current=await this.authorize(database,context),configuration={emailSenderId:version.email_sender_id,smsSenderId:version.sms_sender_id,whatsappSenderId:version.whatsapp_sender_id,whatsappTemplateId:version.whatsapp_template_id,whatsappTemplateLanguage:version.whatsapp_template_language};
         const model:TenantMessagingConnection={id:connection.id,tribeId:context.tribeId,providerId:connection.provider,leaderUserId:connection.contributed_by_user_id,version:connection.version,state:connection.state,stateReason:connection.state_reason,environment:connection.environment,securityEpoch:connection.security_epoch,isSelected:connection.is_selected,isCandidate:connection.is_candidate,selectedVersion:connection.selected_version,candidateVersion:connection.candidate_version,retiredAt:connection.retired_at?new Date(connection.retired_at):null,createdAt:new Date(connection.created_at),updatedAt:new Date(connection.updated_at)};
         const resource:MessagingConnectionVersion={connectionId:context.connectionId,tribeId:context.tribeId,version:version.version,secretRef:version.secret_ref,environment:version.environment,securityEpoch:version.security_epoch,configuration,credential:{status:version.credential_validation_status,validatedAt:version.credential_validated_at?new Date(version.credential_validated_at):null,isTestMode:version.is_test_mode},capabilities:capabilities.map((capability)=>({channel:capability.channel,state:capability.state,senderId:capability.sender_id,templateId:capability.template_id,templateLanguage:capability.template_language})),retiredAt:version.retired_at?new Date(version.retired_at):null,createdAt:new Date(version.created_at)};
-        const configuredChannels=[...(configuration.emailSenderId?[MESSAGING_PUBLIC_CHANNEL.email]:[]),...(configuration.smsSenderId?[MESSAGING_PUBLIC_CHANNEL.sms]:[]),...(configuration.whatsappSenderId?[MESSAGING_PUBLIC_CHANNEL.whatsapp]:[])];
+        const configuredChannels=configuredChannelsOf(configuration);
         const facts={expectedVersion:input.expectedVersion,currentLeaderUserId:context.actorUserId,environment:current.security.environment,securityEpoch:current.security.securityEpoch,recoveryLocked:current.security.recoveryLocked,requiredChannels:[...new Set([...configuredChannels,...requiredByDependencies])],usagePolicy:usage,diagnostics:diagnostics.map((diagnostic)=>({id:diagnostic.id,tribeId:context.tribeId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,leaderUserId:diagnostic.leader_user_id,channel:diagnostic.channel,senderId:diagnostic.sender_id,templateId:diagnostic.template_id,templateLanguage:diagnostic.template_language,outcome:diagnostic.outcome,validatedAt:diagnostic.validated_at?new Date(diagnostic.validated_at):null}))};
         /** @param now - Current SQL clock after the preceding waits. @returns Nothing when original locked activation evidence is still valid. */
         const requireCurrentEvidence=(now:Date)=>{
           const assessment=assessMessagingConnectionActivation(model,resource,{...facts,now});
-          if(!assessment.allowed)throw new AdmissionOperationError(assessment.reason===MESSAGING_CONNECTION_REQUIREMENT.versionConflict?ADMISSION_ERROR_CODE.connectionConflict:assessment.reason===MESSAGING_CONNECTION_REQUIREMENT.capabilityRequired?ADMISSION_ERROR_CODE.missingCapability:assessment.reason===MESSAGING_CONNECTION_REQUIREMENT.countriesRequired?ADMISSION_ERROR_CODE.recipientNotAllowed:ADMISSION_ERROR_CODE.connectionIncomplete);
+          if(!assessment.allowed)throw new AdmissionOperationError(activationFailureCode(assessment.reason));
         };
         requireCurrentEvidence(current.now);
         const selected=(await database.execute<{id:string;selected_version:number|null;version:number;state:TenantMessagingConnection["state"]}>(sql`select id,selected_version,version,state from public.tenant_messaging_connections where tribe_id=${context.tribeId} and is_selected order by id for update`)).rows[0];
-        const previous:MessagingEffectiveSelection|null=selected?.selected_version?{connectionId:selected.id,connectionVersion:selected.selected_version}:null,next={connectionId:context.connectionId,connectionVersion:context.connectionVersion};
+        const previous=effectiveSelection(selected),next={connectionId:context.connectionId,connectionVersion:context.connectionVersion};
         const previousDeliveries=previous?(await database.execute<{id:string}>(sql`select id from public.message_deliveries where tribe_id=${context.tribeId} and connection_id=${previous.connectionId} and connection_version=${previous.connectionVersion} order by id for update`)).rows:[];
         const policyVersion=await dependencies.replaceSelection(context,previous,next,ledgerId);
         const now=(await this.authorize(database,context)).now,purgeAfter=new Date(now.getTime()+MESSAGING_CONNECTION_REPLACEMENT.purgeLifetimeMs);

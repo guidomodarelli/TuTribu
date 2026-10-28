@@ -28,8 +28,8 @@ export type TribeCalendarFeedIcsFile = {
  */
 function formatRefreshDuration(minutes: number): string {
   return minutes % MINUTES_PER_HOUR === 0
-    ? ISO_DURATION.prefix + minutes / MINUTES_PER_HOUR + ISO_DURATION.hoursSuffix
-    : ISO_DURATION.prefix + minutes + ISO_DURATION.minutesSuffix;
+    ? `${ISO_DURATION.prefix}${minutes / MINUTES_PER_HOUR}${ISO_DURATION.hoursSuffix}`
+    : `${ISO_DURATION.prefix}${minutes}${ISO_DURATION.minutesSuffix}`;
 }
 
 /**

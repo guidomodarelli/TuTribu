@@ -120,7 +120,7 @@ export class PostgresTribeCreationRepository
           select id, name, slug, visibility
           from inserted_tribe
         `);
-        const data = (result.rows?.[0] ?? null) as PostgresTribeRow | null;
+        const data = (result.rows[0] ?? null) as PostgresTribeRow | null;
 
         if (!data) {
           throw new Error(TRIBE_CREATION_ERROR.unavailableCreateMessage);
@@ -145,7 +145,7 @@ export class PostgresTribeCreationRepository
         select public.is_tribe_slug_taken(${slug}) as slug_taken
       `);
 
-      return result.rows?.[0]?.slug_taken === true;
+      return result.rows[0]?.slug_taken === true;
     });
   }
 }

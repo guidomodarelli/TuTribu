@@ -25,7 +25,7 @@ export const ALLOWLIST_IMPORT_EFFECT_SQL = { begin: "savepoint admission_import_
 /** Reports are for human reading; neutralized cells are not an exact reimport source. */
 export const ALLOWLIST_IMPORT_REPORT_HEADER = ["row_number", ...ALLOWLIST_CSV_HEADER, "outcome", "errors", "entry_version"] as const;
 export const ALLOWLIST_IMPORT_REPORT_LINE_END = "\r\n";
-export const ALLOWLIST_IMPORT_REPORT_FORMULA_PATTERN = /^[\s]*[=+\-@＝＋－＠]|^[\t\r\n]/u;
+export const ALLOWLIST_IMPORT_REPORT_FORMULA_PATTERN = /^\s*[=+\-@＝＋－＠]|^[\t\r\n]/u;
 /** Combines a text marker with a retained tab inside the quoted CSV cell. */
 export const ALLOWLIST_IMPORT_REPORT_TEXT_PREFIX = "'\t";
 export const ALLOWLIST_IMPORT_REPORT_OUTCOME_LABEL = { added: "Agregada", unchanged: "Sin cambios", skipped: "Omitida", conflict: "Conflicto", pending: "Pendiente" } as const;

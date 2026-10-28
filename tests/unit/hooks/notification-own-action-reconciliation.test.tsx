@@ -2,14 +2,13 @@
 /** Reproduces a confirmed admission action while its route's private reader is paused. @module notification-own-action-reconciliation-tests */
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
+import { useAdmissionNotificationRefresh, type AdmissionNotificationRefreshOutcome  } from "@/hooks/use-admission-notification-refresh";
 import { useNotificationCenter } from "@/hooks/use-notification-center";
-import type { AdmissionNotificationRefreshOutcome } from "@/hooks/use-admission-notification-refresh";
 import type { NotificationInboxResponse } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 
 const original: NotificationInboxResponse = { notifications: [], unreadCount: 0 };
 const updated: NotificationInboxResponse = { unreadCount: 1, notifications: [{ id: "bc693176-9f18-4149-aa38-8248da1cd756", type: "admission_approved", createdAt: "2026-10-16T12:00:00Z", readAt: null, tribe: { name: "Academia sintética", slug: "test-own-action" }, admission: { requestId: "d8da878d-7c99-421c-baaa-b3793e91028e", audience: "applicant" } }] };
-const readOwn = vi.fn(async (_signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => "refreshed");
+const readOwn = vi.fn<(signal: AbortSignal) => Promise<AdmissionNotificationRefreshOutcome>>(async () => "refreshed");
 const fetchOwn = vi.fn<typeof fetch>();
 beforeEach(() => {
   fetchOwn.mockReset(); readOwn.mockClear(); vi.useFakeTimers(); vi.stubGlobal("fetch", fetchOwn);

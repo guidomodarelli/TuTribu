@@ -7,6 +7,37 @@ import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/error
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_CONNECTION_SLOT } from "@/src/modules/messaging/constants/messaging-connection";
 
+/**
+ * @param restriction - One stored platform restriction entry.
+ * @returns The SMS/WhatsApp country restriction it states, or null for an entry about something else.
+ * @throws MessagingSecretAccessError when a country restriction has no boolean decision.
+ */
+function parsePlatformRestriction(restriction: unknown): MessagingCountryRestriction | null {
+  if (typeof restriction !== "object" || restriction === null) return null;
+  const { country, channel, allowed }: { country?: unknown; channel?: unknown; allowed?: unknown } = restriction;
+  if (typeof country !== "string" || (channel !== "sms" && channel !== "whatsapp")) return null;
+  if (typeof allowed !== "boolean") throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+  return { country, channel, allowed };
+}
+
+/**
+ * @param capabilities - Checked capability rows of the locked resource, in lock order.
+ * @returns Every SMS/WhatsApp country restriction, in stored order.
+ * @throws MessagingSecretAccessError when a capability's restrictions are not a list or a decision is not boolean.
+ */
+function parsePlatformRestrictions(capabilities: readonly { platform_restrictions: unknown }[]): MessagingCountryRestriction[] {
+  const platformRestrictions: MessagingCountryRestriction[] = [];
+  for (const capability of capabilities) {
+    if (!Array.isArray(capability.platform_restrictions)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+    const restrictions: unknown[] = capability.platform_restrictions;
+    for (const restriction of restrictions) {
+      const parsed = parsePlatformRestriction(restriction);
+      if (parsed) platformRestrictions.push(parsed);
+    }
+  }
+  return platformRestrictions;
+}
+
 /** Private SQL collaborator; it never acquires another checkout or initializes a policy. */
 export class PostgresMessagingUsageRepository implements MessagingCountryPolicyRepository, MessagingConnectionCountryPolicyRepository, MessagingApplicantCountryChoicesReader {
   /**
@@ -36,7 +67,8 @@ export class PostgresMessagingUsageRepository implements MessagingCountryPolicyR
     await this.assertAuthorized(tribeId);
     const row = (await this.database.execute<{ tribe_id: string; usage_policy_version: number | null; allowed_countries: string[] | null }>(sql`select tribe_id,usage_policy_version,allowed_countries from public.read_admission_contact_choices(${tribeId},${sessionId})`)).rows[0];
     await this.assertAuthorized(tribeId);
-    if (!row || row.usage_policy_version === null) return null;
+    if (!row) return null;
+    if (row.usage_policy_version === null) return null;
     if (row.tribe_id !== tribeId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
     return { tribeId: row.tribe_id, version: row.usage_policy_version, allowedCountries: [...(row.allowed_countries ?? [])] };
   }
@@ -51,6 +83,26 @@ export class PostgresMessagingUsageRepository implements MessagingCountryPolicyR
   }
 
   /**
+   * Locks the explicit live resource version in its fixed slot and rechecks authority after the wait.
+   * @param tribeId - Exact tenant authorized by the owning callback.
+   * @param scope - Explicit resource identity and fixed internal slot.
+   * @returns Nothing once the resource is locked.
+   * @throws MessagingSecretAccessError when the resource is not current in that slot.
+   */
+  private async lockScopedResource(tribeId: string, scope: MessagingConnectionCountryScope): Promise<void> {
+    // Fail closed even if a caller bypasses the static contract (casts, untyped composition).
+    const slot: string = scope.slot;
+    if (!Number.isInteger(scope.connectionVersion) || scope.connectionVersion <= 0
+      || (slot !== MESSAGING_CONNECTION_SLOT.selected && slot !== MESSAGING_CONNECTION_SLOT.candidate)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+    const currentSlot = scope.slot === MESSAGING_CONNECTION_SLOT.selected
+      ? sql`connection.is_selected and connection.selected_version=${scope.connectionVersion}`
+      : sql`connection.is_candidate and connection.candidate_version=${scope.connectionVersion}`;
+    const resource = (await this.database.execute(sql`select resource.id from public.tenant_messaging_connections connection join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id where connection.id=${scope.connectionId} and connection.tribe_id=${tribeId} and resource.version=${scope.connectionVersion} and ${currentSlot} and connection.retired_at is null and resource.retired_at is null for share of connection,resource`)).rows[0];
+    await this.assertAuthorized(tribeId);
+    if (!resource) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+  }
+
+  /**
    * Holds policy/resource/capability locks for the caller's decision and rechecks authority after waits.
    * @param tribeId - Exact tenant authorized by the owning callback.
    * @param scope - Optional explicit live resource; absence always means the current selected connection.
@@ -59,32 +111,12 @@ export class PostgresMessagingUsageRepository implements MessagingCountryPolicyR
   private async readCountryPolicyScope(tribeId: string, scope?: MessagingConnectionCountryScope): Promise<MessagingCountryPolicy | null> {
     await this.assertAuthorized(tribeId);
     const policy = (await this.database.execute<{ tribe_id: string; version: number; allowed_countries: string[] }>(sql`select tribe_id,version,allowed_countries from public.messaging_usage_policies where tribe_id=${tribeId} for share`)).rows[0];
-    if (scope) {
-      if (!Number.isInteger(scope.connectionVersion) || scope.connectionVersion <= 0
-        || (scope.slot !== MESSAGING_CONNECTION_SLOT.selected && scope.slot !== MESSAGING_CONNECTION_SLOT.candidate)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-      const currentSlot = scope.slot === MESSAGING_CONNECTION_SLOT.selected
-        ? sql`connection.is_selected and connection.selected_version=${scope.connectionVersion}`
-        : sql`connection.is_candidate and connection.candidate_version=${scope.connectionVersion}`;
-      const resource = (await this.database.execute(sql`select resource.id from public.tenant_messaging_connections connection join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id where connection.id=${scope.connectionId} and connection.tribe_id=${tribeId} and resource.version=${scope.connectionVersion} and ${currentSlot} and connection.retired_at is null and resource.retired_at is null for share of connection,resource`)).rows[0];
-      await this.assertAuthorized(tribeId);
-      if (!resource) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-    }
+    if (scope) await this.lockScopedResource(tribeId, scope);
     if (!policy) { await this.assertAuthorized(tribeId); return null; }
     const resourceVersion = scope ? sql`${scope.connectionVersion}` : sql`connection.selected_version`;
     const resourceSelection = scope ? sql`connection.id=${scope.connectionId}` : sql`connection.is_selected`;
     const capabilities = (await this.database.execute<{ platform_restrictions: unknown }>(sql`select capability.platform_restrictions from public.tenant_messaging_connections connection inner join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id and resource.version=${resourceVersion} inner join public.messaging_connection_capabilities capability on capability.connection_id=resource.connection_id and capability.tribe_id=resource.tribe_id and capability.connection_version=resource.version where connection.tribe_id=${tribeId} and ${resourceSelection} and connection.retired_at is null and resource.retired_at is null and capability.checked_at is not null order by connection.id,capability.channel for share of connection,resource,capability`)).rows;
-    const platformRestrictions: MessagingCountryRestriction[] = [];
-    for (const capability of capabilities) {
-      if (!Array.isArray(capability.platform_restrictions)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-      for (const restriction of capability.platform_restrictions) {
-        if (typeof restriction !== "object" || restriction === null) continue;
-        const { country, channel, allowed } = restriction;
-        if (typeof country === "string" && (channel === "sms" || channel === "whatsapp")) {
-          if (typeof allowed !== "boolean") throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-          platformRestrictions.push({ country, channel, allowed });
-        }
-      }
-    }
+    const platformRestrictions = parsePlatformRestrictions(capabilities);
     // Locks/reads can consume a session's remaining lifetime; rows do not freeze time.
     await this.assertAuthorized(tribeId);
     return { tribeId: policy.tribe_id, version: policy.version, allowedCountries: [...policy.allowed_countries], platformRestrictions };

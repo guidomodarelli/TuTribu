@@ -17,7 +17,9 @@ import { PostgresAdmissionNotificationDeliveryAuthority, type AdmissionNotificat
 export async function readCurrentMarkedAdmissionNotificationDelivery(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext, readSecurityConfig: () => Promise<MessagingSecurityConfig>, whileResourceLocked?: AdmissionNotificationLockedResourceWork): Promise<CurrentAdmissionNotificationDelivery> {
     /** @param current - Original native transaction. @param tribeId - Exact existing delivery tenant. @returns Actual private principal and committed live marker, never a caller flag. */
     const authorize = async (current: typeof database, tribeId: string) => {
-      if (tribeId !== context.tribeId || context.operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) return false;
+      // The delivery operation is revalidated at runtime, so it is read as untrusted text.
+      const operation: string = context.operation;
+      if (tribeId !== context.tribeId || operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) return false;
       return Boolean((await current.execute(sql`select delivery.id from public.message_deliveries delivery
         join public.message_delivery_attempts attempt on attempt.delivery_id=delivery.id and attempt.tribe_id=delivery.tribe_id and attempt.connection_id=delivery.connection_id and attempt.connection_version=delivery.connection_version
         join public.messaging_usage_reservations reservation on reservation.id=attempt.reservation_id and reservation.attempt_id=attempt.id and reservation.delivery_id=delivery.id and reservation.tribe_id=delivery.tribe_id

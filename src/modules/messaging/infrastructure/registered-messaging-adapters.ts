@@ -7,7 +7,7 @@ import type {MessagingResourceInspectorFactory} from "@/src/modules/messaging/do
 import type {MessagingConfigurationInspectorFactory} from "@/src/modules/messaging/domain/repositories/messaging-connection-configuration";
 import type {MessageDeliverySender} from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type {VerificationDeliveryPreparation} from "./verification-delivery-preparation";
-import {MessagingProviderRegistry} from "./messaging-provider-registry";
+import type {MessagingProviderRegistry} from "./messaging-provider-registry";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";

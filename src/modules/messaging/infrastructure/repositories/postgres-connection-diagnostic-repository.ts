@@ -21,9 +21,32 @@ import { readMessagingCandidatePreparationState } from "./postgres-messaging-can
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /** Consumes only the identity and result fields necessary to confirm the owned diagnostic. */
+/** @returns The sender the resource assigns to the diagnostic channel. */
+function diagnosticSenderId(resource: { email_sender_id: string | null; sms_sender_id: string | null; whatsapp_sender_id: string | null }, channel: VerificationChallengeScope["channel"]): string | null {
+  if (channel === VERIFICATION_EMAIL_CHANNEL) return resource.email_sender_id;
+  return channel === ADMISSION_PHONE_CHANNEL.sms ? resource.sms_sender_id : resource.whatsapp_sender_id;
+}
+
+/** @returns Whether a WhatsApp diagnostic still uses the configured template; other channels have none. */
+function whatsappTemplateMatches(resource: { whatsapp_template_id: string | null; whatsapp_template_language: string | null }, target: DiagnosticRow): boolean {
+  return target.channel !== ADMISSION_PHONE_CHANNEL.whatsapp || resource.whatsapp_template_id === target.template_id && resource.whatsapp_template_language === target.template_language;
+}
+
+/** @param reason - Why the code was rejected. @returns Expired, attempts exceeded, or invalidated. */
+function rejectedVerificationCode(reason: unknown) {
+  if (reason === VERIFICATION_CHALLENGE_REASON.expired) return MESSAGING_ERROR_CODE.challengeExpired;
+  return reason === VERIFICATION_CHALLENGE_REASON.accountRateLimited || reason === VERIFICATION_CHALLENGE_REASON.attemptsExhausted ? MESSAGING_ERROR_CODE.verificationAttemptsExceeded : MESSAGING_ERROR_CODE.challengeInvalidated;
+}
+
 type DiagnosticRow = { id: string; channel: VerificationChallengeScope["channel"]; sender_id: string; template_id: string | null; template_language: string | null; challenge_id: string; outcome: string };
 /** Keeps the consumed contact country in the private envelope/delivery boundary. */
 type ChallengeRow = { contact_type: "email" | "phone"; normalized_contact: string; channel: VerificationChallengeScope["channel"]; purpose: string; verification_epoch: number | null; delivery_id: string; failed_attempts: number; state: string; is_current: boolean };
+
+/** @param challenge - Diagnostic challenge. @param recipientCountry - Country of its delivery. @returns The challenge contact, or null for a phone without its delivery country. */
+function challengeContact(challenge: ChallengeRow, recipientCountry: string | null): VerificationChallengeScope["contact"] | null {
+  if (challenge.contact_type === ADMISSION_CONTACT_TYPE.email) return { type: ADMISSION_CONTACT_TYPE.email, value: challenge.normalized_contact };
+  return recipientCountry ? { type: ADMISSION_CONTACT_TYPE.phone, value: challenge.normalized_contact, country: recipientCountry } : null;
+}
 
 /** Performs no credential decryption, RPC, global verification or admission-proof transition. */
 export class PostgresConnectionDiagnosticRepository implements ConnectionDiagnosticVerifier {
@@ -46,6 +69,19 @@ export class PostgresConnectionDiagnosticRepository implements ConnectionDiagnos
   }
 
   /**
+   * Fails the diagnostic once its challenge exhausted the allowed attempts.
+   * @param command - Original ledger claim and current sensitive-leader scope.
+   * @param diagnostic - Locked pending diagnostic.
+   * @returns The denial code for the wrong code.
+   */
+  private async recordWrongCode(command: VerifyConnectionDiagnosticCommand, diagnostic: DiagnosticRow) {
+    const failed = (await this.database.execute<{ failed_attempts: number }>(sql`select failed_attempts from public.contact_verification_challenges where id=${diagnostic.challenge_id}`)).rows[0].failed_attempts >= ADMISSION_LIMIT.verificationChallengeFailureCount;
+    if (failed) await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${CONNECTION_DIAGNOSTIC_OUTCOME.failed} where id=${diagnostic.id}`);
+    await this.authorize(command);
+    return failed ? MESSAGING_ERROR_CODE.verificationAttemptsExceeded : MESSAGING_ERROR_CODE.verificationCodeIncorrect;
+  }
+
+  /**
    * Consumes the received code once and records evidence exclusively for the exact configured channel/version.
    * @param command - Original ledger claim and current sensitive-leader scope.
    * @returns A safe minimal diagnostic result without code, credential, destination or admission proof.
@@ -63,29 +99,25 @@ export class PostgresConnectionDiagnosticRepository implements ConnectionDiagnos
     const capability = (await this.database.execute<{ id: string; sender_id: string; template_id: string | null; template_language: string | null; state: string; checked_at: string | null }>(sql`select id,sender_id,template_id,template_language,state,checked_at from public.messaging_connection_capabilities where tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and channel=${target.channel} for update`)).rows[0];
     const resource = (await this.database.execute<{ email_sender_id: string | null; sms_sender_id: string | null; whatsapp_sender_id: string | null; whatsapp_template_id: string | null; whatsapp_template_language: string | null }>(sql`select email_sender_id,sms_sender_id,whatsapp_sender_id,whatsapp_template_id,whatsapp_template_language from public.messaging_connection_versions where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion} for share`)).rows[0];
     if (!capability || !resource || capability.checked_at === null || capability.sender_id !== target.sender_id || capability.template_id !== target.template_id || capability.template_language !== target.template_language) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
-    const senderId = target.channel === VERIFICATION_EMAIL_CHANNEL ? resource.email_sender_id : target.channel === ADMISSION_PHONE_CHANNEL.sms ? resource.sms_sender_id : resource.whatsapp_sender_id;
-    if (senderId !== target.sender_id || target.channel === ADMISSION_PHONE_CHANNEL.whatsapp && (resource.whatsapp_template_id !== target.template_id || resource.whatsapp_template_language !== target.template_language)) return denied(MESSAGING_ERROR_CODE.missingCapability);
+    const senderId = diagnosticSenderId(resource, target.channel);
+    if (senderId !== target.sender_id || !whatsappTemplateMatches(resource, target)) return denied(MESSAGING_ERROR_CODE.missingCapability);
     await this.failureBudget.lockAccount(context.actorUserId);
     const challenge = (await this.database.execute<ChallengeRow>(sql`select contact_type,normalized_contact,channel,purpose,verification_epoch,delivery_id,failed_attempts,state,is_current from public.contact_verification_challenges where id=${target.challenge_id} and user_id=${context.actorUserId} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and security_epoch=${context.securityEpoch} for update`)).rows[0];
     // Resend also holds challenge before diagnostic, including when it uses another channel's capability.
     const diagnostic = (await this.database.execute<DiagnosticRow>(sql`select id,channel,sender_id,template_id,template_language,challenge_id,outcome from public.messaging_connection_diagnostics where id=${command.diagnosticId} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and leader_user_id=${context.actorUserId} for update`)).rows[0];
-    if (!diagnostic || diagnostic.outcome !== CONNECTION_DIAGNOSTIC_OUTCOME.pending || diagnostic.channel !== target.channel || diagnostic.challenge_id !== target.challenge_id || diagnostic.sender_id !== capability.sender_id || diagnostic.template_id !== capability.template_id || diagnostic.template_language !== capability.template_language) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
-    if (!challenge || challenge.purpose !== ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic || challenge.verification_epoch !== null || challenge.channel !== diagnostic.channel) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
+    if (diagnostic?.outcome !== CONNECTION_DIAGNOSTIC_OUTCOME.pending || diagnostic.channel !== target.channel || diagnostic.challenge_id !== target.challenge_id || diagnostic.sender_id !== capability.sender_id || diagnostic.template_id !== capability.template_id || diagnostic.template_language !== capability.template_language) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
+    if (challenge?.purpose !== ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic || challenge.verification_epoch !== null || challenge.channel !== diagnostic.channel) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
     const delivery = (await this.database.execute<{ recipient_country: string | null }>(sql`select recipient_country from public.message_deliveries where id=${challenge.delivery_id} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and source_resource_id=${diagnostic.id} and actor_user_id=${context.actorUserId} and purpose=${ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic}`)).rows[0];
-    if (!delivery || challenge.contact_type === ADMISSION_CONTACT_TYPE.phone && !delivery.recipient_country) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
-    const scope: VerificationChallengeScope = { userId: context.actorUserId, tribeId: context.tribeId, connectionId: context.connectionId, connectionVersion: context.connectionVersion, securityEpoch: context.securityEpoch, purpose: ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic, verificationEpoch: null, channel: diagnostic.channel, contact: challenge.contact_type === ADMISSION_CONTACT_TYPE.email ? { type: ADMISSION_CONTACT_TYPE.email, value: challenge.normalized_contact } : { type: ADMISSION_CONTACT_TYPE.phone, value: challenge.normalized_contact, country: delivery.recipient_country! } };
+    const contact = delivery ? challengeContact(challenge, delivery.recipient_country) : null;
+    if (!contact) return denied(MESSAGING_ERROR_CODE.resourceUnavailable);
+    const scope: VerificationChallengeScope = { userId: context.actorUserId, tribeId: context.tribeId, connectionId: context.connectionId, connectionVersion: context.connectionVersion, securityEpoch: context.securityEpoch, purpose: ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic, verificationEpoch: null, channel: diagnostic.channel, contact };
     await this.authorize(command);
     const verification = await this.verification.validate({ scope, challengeId: diagnostic.challenge_id, operationId: command.ledgerId, code: command.code });
     if (verification.outcome === VERIFICATION_TRANSITION_OUTCOME.denied) {
-      const code = verification.reason === VERIFICATION_CHALLENGE_REASON.expired ? MESSAGING_ERROR_CODE.challengeExpired : verification.reason === VERIFICATION_CHALLENGE_REASON.accountRateLimited || verification.reason === VERIFICATION_CHALLENGE_REASON.attemptsExhausted ? MESSAGING_ERROR_CODE.verificationAttemptsExceeded : MESSAGING_ERROR_CODE.challengeInvalidated;
+      const code = rejectedVerificationCode(verification.reason);
       return denied(code);
     }
-    if (verification.outcome === VERIFICATION_TRANSITION_OUTCOME.wrongCode) {
-      const failed = (await this.database.execute<{ failed_attempts: number }>(sql`select failed_attempts from public.contact_verification_challenges where id=${diagnostic.challenge_id}`)).rows[0].failed_attempts >= ADMISSION_LIMIT.verificationChallengeFailureCount;
-      if (failed) await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${CONNECTION_DIAGNOSTIC_OUTCOME.failed} where id=${diagnostic.id}`);
-      await this.authorize(command);
-      return denied(failed ? MESSAGING_ERROR_CODE.verificationAttemptsExceeded : MESSAGING_ERROR_CODE.verificationCodeIncorrect);
-    }
+    if (verification.outcome === VERIFICATION_TRANSITION_OUTCOME.wrongCode) return denied(await this.recordWrongCode(command, diagnostic));
     if (verification.purpose !== ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic || verification.proofId !== null) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.unexpectedFailure);
     const capabilityState = capability.state === VERIFICATION_CAPABILITY_STATE.unavailable ? VERIFICATION_CAPABILITY_STATE.unavailable : VERIFICATION_CAPABILITY_STATE.prepared;
     await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${CONNECTION_DIAGNOSTIC_OUTCOME.verified},validated_at=${verification.verifiedAt} where id=${diagnostic.id}`);

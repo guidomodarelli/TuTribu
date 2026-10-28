@@ -1,7 +1,6 @@
 /** Proposes current reviewer decisions without writing membership or external effects. @module admission-decision */
 import type { AdmissionRequest } from "./admission-request";
-import type { AdmissionActorFacts, PendingAdmissionReviewFacts } from "../policies/admission-eligibility";
-import { canPerformAdmissionAction, evaluatePendingAdmissionReview } from "../policies/admission-eligibility";
+import { type AdmissionActorFacts, type PendingAdmissionReviewFacts, canPerformAdmissionAction, evaluatePendingAdmissionReview  } from "../policies/admission-eligibility";
 import { ADMISSION_ACTION, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -39,14 +38,7 @@ export function proposeAdmissionDecision(input: {
   // Rejection always needs a reason (FR-101); an approval needs one only as an exception, checked by the review evaluation (FR-099).
   if (!approved && !reason || reason.length > ADMISSION_LIMIT.internalMessageCharacters || external && external.length > ADMISSION_LIMIT.externalMessageCharacters) return deny(ADMISSION_ERROR_CODE.invalidInput);
   if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
-  const contactMatches = request.contact === null ? review.contact === null
-    : review.contact !== null && request.contact.type === review.contact.type && request.contact.value === review.contact.value;
-  const sourceMatches = (request.source === review.request.source.kind || request.source === ADMISSION_REQUEST_SOURCE.legacy && review.request.source.kind === ADMISSION_REQUEST_SOURCE.common)
-    && (review.request.source.kind !== ADMISSION_REQUEST_SOURCE.personal || review.request.source.invitation.requiresAllowlist === request.requiresAllowlist);
-  const proofMatches = (request.proofId ?? null) === (review.request.attachedEvidence?.id ?? null)
-    && (request.evidence.kind !== ADMISSION_EVIDENCE_KIND.local || request.evidence.proofId === request.proofId);
-  const whatsappMatches = (request.whatsappNumber ?? null) === (review.whatsappNumber ?? null);
-  if (review.tribe.id !== request.tribeId || review.request.id !== request.id || review.request.userId !== request.userId || review.request.expiresAt.getTime() !== request.expiresAt.getTime() || approved && (!contactMatches || !sourceMatches || !proofMatches || !whatsappMatches)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
+  if (review.tribe.id !== request.tribeId || review.request.id !== request.id || review.request.userId !== request.userId || review.request.expiresAt.getTime() !== request.expiresAt.getTime() || approved && !reviewMatchesRequest(request, review)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
   if (approved && request.source === ADMISSION_REQUEST_SOURCE.personal && !request.bindingId) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   if (input.decision === ADMISSION_DECISION.approve && !evaluatePendingAdmissionReview({ ...review, reviewer: actor, now: input.now, exceptionReason: reason }).eligible) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   const status = approved ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
@@ -60,4 +52,16 @@ export function proposeAdmissionDecision(input: {
     allowed: true as const, request: { ...request, status, version: request.version + 1, decisionId: decision.id, resolvedAt: new Date(input.now) }, decision,
     membershipEffect: approved ? { role: TRIBE_MEMBER_ROLE.tribemate, status: review.membership?.commercialRecoveryStatus ?? TRIBE_MEMBERSHIP_STATUS.active } : null,
   };
+}
+
+/** @param request - Locked original request. @param review - Current own review facts. @returns Whether contact, source, attached proof and declared group number still match the request. */
+function reviewMatchesRequest(request: AdmissionRequest, review: PendingAdmissionReviewFacts): boolean {
+  const contactMatches = request.contact === null ? review.contact === null
+    : review.contact !== null && request.contact.type === review.contact.type && request.contact.value === review.contact.value;
+  const sourceMatches = (request.source === review.request.source.kind || request.source === ADMISSION_REQUEST_SOURCE.legacy && review.request.source.kind === ADMISSION_REQUEST_SOURCE.common)
+    && (review.request.source.kind !== ADMISSION_REQUEST_SOURCE.personal || review.request.source.invitation.requiresAllowlist === request.requiresAllowlist);
+  const proofMatches = (request.proofId ?? null) === (review.request.attachedEvidence?.id ?? null)
+    && (request.evidence.kind !== ADMISSION_EVIDENCE_KIND.local || request.evidence.proofId === request.proofId);
+  const whatsappMatches = (request.whatsappNumber ?? null) === (review.whatsappNumber ?? null);
+  return contactMatches && sourceMatches && proofMatches && whatsappMatches;
 }

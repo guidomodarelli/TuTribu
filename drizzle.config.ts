@@ -18,7 +18,7 @@ loadEnvConfig(
 function getOptionalEnvironmentValue(name: string): string | undefined {
   const value = process.env[name]?.trim();
 
-  return value ? value : undefined;
+  return value === "" ? undefined : value;
 }
 
 const connectionString =

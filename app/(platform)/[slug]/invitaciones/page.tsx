@@ -21,6 +21,27 @@ const INVITATION_PRICE_STATUS = {
   active: "active",
 } as const;
 
+type TribeInvitationsPageAccess = Awaited<ReturnType<typeof resolveVisibleTribePageAccess>>;
+type TribeSubscriptionPrices = Awaited<
+  ReturnType<TribeInvitationsPageAccess["modules"]["subscriptions"]["useCases"]["listTribeSubscriptionPrices"]>
+>["prices"];
+
+/** Active prices an invitation can link, as the management view shows them. */
+function toAvailablePrices(prices: TribeSubscriptionPrices) {
+  return prices
+    .filter((price) => price.status === INVITATION_PRICE_STATUS.active)
+    .map((price) => ({
+      amountCents: price.amountCents,
+      currency: price.currency,
+      id: price.id,
+      isCurrent: price.isCurrent,
+      mercadoPagoAccountEmail: price.mercadoPagoAccountEmail ?? null,
+      mercadoPagoAccountLabel: price.mercadoPagoAccountLabel ?? null,
+      name: price.name,
+      trial: price.trial,
+    }));
+}
+
 export default async function TribeInvitationsPage({
   params,
 }: {
@@ -93,18 +114,7 @@ export default async function TribeInvitationsPage({
       }),
   ]);
 
-  const availablePrices = (pricesListing?.prices ?? [])
-    .filter((price) => price.status === INVITATION_PRICE_STATUS.active)
-    .map((price) => ({
-      amountCents: price.amountCents,
-      currency: price.currency,
-      id: price.id,
-      isCurrent: price.isCurrent,
-      mercadoPagoAccountEmail: price.mercadoPagoAccountEmail ?? null,
-      mercadoPagoAccountLabel: price.mercadoPagoAccountLabel ?? null,
-      name: price.name,
-      trial: price.trial,
-    }));
+  const availablePrices = toAvailablePrices(pricesListing?.prices ?? []);
   const canManagePrices =
     pricesListing?.viewerPermissions.canManagePrices ?? false;
 

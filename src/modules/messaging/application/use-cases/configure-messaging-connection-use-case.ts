@@ -38,21 +38,36 @@ export class ConfigureMessagingConnectionUseCase{
       if(prepared.configurationVersion!==context.connectionVersion)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.connectionConflict);
       signal.throwIfAborted();
       if(!prepared.changed)return{ok:true as const,value:await this.operations.commit(context,input,null)};
-      const credential=await this.secrets.loadAuthorizedSecret(context);await this.current(context);signal.throwIfAborted();
-      const inspector=this.inspectors.create(context,credential),sender=await inspector.retrieveSender(input.senderId,signal);
-      if(sender.resourceId!==input.senderId||!sender.channels.includes(input.channel)||input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&!sender.canSendWhatsappTemplates)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
-      let template;
-      if(input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp){
-        if(!input.templateId||!input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.invalidInput);
-        await this.current(context);signal.throwIfAborted();template=await inspector.retrieveTemplate(input.templateId,signal);
-        if(template.resourceId!==input.templateId||!template.authenticationApproved||template.language!==input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
-      }
+      const resources=await this.inspectResources(context,input,signal);
       await this.current(context);signal.throwIfAborted();
-      return{ok:true as const,value:await this.operations.commit(context,input,{credential,sender,...(template?{template}:{})})};
+      return{ok:true as const,value:await this.operations.commit(context,input,resources)};
     }catch(error){
-      const known=error instanceof MessagingSecretAccessError||error instanceof MessagingConnectionOperationError||error instanceof MessagingConnectionInspectionError;
-      const code=known?error.code:signal.aborted?MESSAGING_ERROR_CODE.transportTimeout:MESSAGING_ERROR_CODE.unexpectedFailure;
-      return{ok:false as const,failure:messagingFailure(code,{cause:error,...(error instanceof MessagingConnectionOperationError&&error.code===MESSAGING_ERROR_CODE.operationUnresolved&&error.operationId?{operation:{operationId:error.operationId,state:OPERATION_STATE.started}}:{})})};
+      return{ok:false as const,failure:configurationFailure(error,signal)};
     }
   }
+  /** @param context - Current authority. @param input - Original action. @param signal - Native caller cancellation/deadline. @returns The credential and the exact provider resources the change commits. @throws Safe missing capability or invalid input. */
+  private async inspectResources(context:AuthorizedMessagingContext,input:ConfigureMessagingConnectionInput,signal:AbortSignal){
+    const credential=await this.secrets.loadAuthorizedSecret(context);await this.current(context);signal.throwIfAborted();
+    const inspector=this.inspectors.create(context,credential),sender=await inspector.retrieveSender(input.senderId,signal);
+    if(sender.resourceId!==input.senderId||!sender.channels.includes(input.channel)||input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&!sender.canSendWhatsappTemplates)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
+    let template;
+    if(input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp){
+      if(!input.templateId||!input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.invalidInput);
+      await this.current(context);signal.throwIfAborted();template=await inspector.retrieveTemplate(input.templateId,signal);
+      if(template.resourceId!==input.templateId||!template.authenticationApproved||template.language!==input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
+    }
+    return{credential,sender,...(template?{template}:{})};
+  }
+}
+
+/** @param error - Failure of the configuration attempt. @param signal - Native caller cancellation/deadline. @returns The safe failure, keeping the unresolved operation reference. */
+function configurationFailure(error:unknown,signal:AbortSignal){
+  const known=error instanceof MessagingSecretAccessError||error instanceof MessagingConnectionOperationError||error instanceof MessagingConnectionInspectionError;
+  const code=known?error.code:abortedOrUnexpectedCode(signal);
+  return messagingFailure(code,{cause:error,...(error instanceof MessagingConnectionOperationError&&error.code===MESSAGING_ERROR_CODE.operationUnresolved&&error.operationId?{operation:{operationId:error.operationId,state:OPERATION_STATE.started}}:{})});
+}
+
+/** @param signal - Native caller cancellation/deadline. @returns Timeout when the caller aborted, otherwise an unexpected failure. */
+function abortedOrUnexpectedCode(signal:AbortSignal){
+  return signal.aborted?MESSAGING_ERROR_CODE.transportTimeout:MESSAGING_ERROR_CODE.unexpectedFailure;
 }

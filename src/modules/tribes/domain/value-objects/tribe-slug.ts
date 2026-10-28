@@ -92,7 +92,8 @@ export function normalizeTribeSlug(input: string): string {
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    // The previous step leaves no run of dashes, so one dash per edge is enough.
+    .replace(/^-|-$/g, "")
     .replace(/-{2,}/g, "-");
 }
 

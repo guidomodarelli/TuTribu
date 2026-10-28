@@ -139,6 +139,6 @@ export async function listVisibleMonthOccurrences(
   });
 
   return listing.event
-    ? buildTribeEventOccurrences([listing.event], listing.attendances, listing.exceptions, range)
+    ? buildTribeEventOccurrences({ attendances: listing.attendances, events: [listing.event], exceptions: listing.exceptions }, range)
     : [];
 }

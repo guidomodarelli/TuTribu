@@ -91,10 +91,6 @@ export default async function TribeSubscriptionPage({
     notFound();
   });
 
-  if (!access) {
-    notFound();
-  }
-
   const {
     authenticatedMember,
     modules,

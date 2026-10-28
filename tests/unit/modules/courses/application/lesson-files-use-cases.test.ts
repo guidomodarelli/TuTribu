@@ -40,7 +40,7 @@ function createCourseRepositoryDouble(
     deleteCourseModule: vi.fn(),
     deleteLesson: vi.fn(async () => ({
       status: COURSE_MUTATION_STATUS.deleted,
-    })) as unknown as CourseRepository["deleteLesson"],
+    })),
     getEditableTreeByTribeSlug: vi.fn(),
     getTreeByTribeSlug: vi.fn(),
     updateCourseModule: vi.fn(),

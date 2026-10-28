@@ -72,6 +72,8 @@ describe("PostgresTribeEventReminderRepository", () => {
     const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
 
     await repository.listSeriesInRange({ afterEventId: null, limit: 200, rangeEnd, rangeStart });
+
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("returns an empty last page without querying exceptions", async () => {
@@ -113,7 +115,7 @@ describe("PostgresTribeEventReminderRepository", () => {
     const candidatesParam = (enqueueStatement.queryChunks ?? [])
       .map((chunk) =>
         chunk && typeof chunk === "object" && "value" in chunk
-          ? (chunk as { value: unknown }).value
+          ? (chunk).value
           : chunk
       )
       .find((value): value is string => typeof value === "string" && value.startsWith("["));

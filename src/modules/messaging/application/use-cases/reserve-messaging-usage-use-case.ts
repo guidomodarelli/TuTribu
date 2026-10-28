@@ -17,7 +17,9 @@ export class ReserveMessagingUsageUseCase {
    */
   async execute(command: CredentialValidationBudgetCommand): Promise<CredentialValidationBudgetResult> {
     const { context } = command;
-    if (context.authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader
+    // Runtime boundary: a context of another purpose must still be denied, so the purpose is read as untrusted text.
+    const authorizationPurpose: string = context.authorizationPurpose;
+    if (authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader
       || context.operation !== REAUTHENTICATION_OPERATION.validateMessagingConnection
       || context.resourceId !== context.connectionId) return { outcome: "denied", code: MESSAGING_ERROR_CODE.permissionDenied };
     // The budget owner rechecks the live session, leadership and resource under its own locks.

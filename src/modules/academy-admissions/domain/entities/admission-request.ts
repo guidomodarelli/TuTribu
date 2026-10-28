@@ -1,8 +1,7 @@
 /** Models a request independently of membership and proposes immutable local lifecycle transitions. @module admission-request */
 import type { AdmissionContact } from "../value-objects/admission-contact";
 import type { AdmissionPolicy } from "./admission-policy";
-import type { AdmissionActorFacts } from "../policies/admission-eligibility";
-import { canPerformAdmissionAction } from "../policies/admission-eligibility";
+import { type AdmissionActorFacts, canPerformAdmissionAction  } from "../policies/admission-eligibility";
 import { ADMISSION_ACTION, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -28,6 +27,13 @@ export type AdmissionRequest = {
   resolvedAt: Date | null; retryAllowedAt: Date | null;
 };
 
+/** @param input - Fixed source and its invitation references. @returns Whether exactly the reference that source needs is present: none for common, personal for personal, legacy for legacy. */
+function hasValidSourceReference(input: { source: AdmissionRequest["source"]; invitationId?: string; legacyInvitationId?: string }): boolean {
+  if (input.source === ADMISSION_REQUEST_SOURCE.common) return !input.invitationId && !input.legacyInvitationId;
+  if (input.source === ADMISSION_REQUEST_SOURCE.personal) return Boolean(input.invitationId && !input.legacyInvitationId);
+  return Boolean(input.legacyInvitationId && !input.invitationId);
+}
+
 /**
  * Creates a proposal only; the authoritative writer must resolve current eligibility and commit it.
  * @param input - Own normalized contact/evidence, fixed source, current policy and post-lock clock.
@@ -41,8 +47,7 @@ export function createPendingAdmissionRequest(input: {
   whatsappNumber?: string | null;
 }): AdmissionRequest {
   const trustedEvidence = input.evidence.kind === ADMISSION_EVIDENCE_KIND.base || input.evidence.kind === ADMISSION_EVIDENCE_KIND.local;
-  const sourceValid = input.source === ADMISSION_REQUEST_SOURCE.common ? !input.invitationId && !input.legacyInvitationId
-    : input.source === ADMISSION_REQUEST_SOURCE.personal ? Boolean(input.invitationId && !input.legacyInvitationId) : input.source === ADMISSION_REQUEST_SOURCE.legacy && Boolean(input.legacyInvitationId && !input.invitationId);
+  const sourceValid = hasValidSourceReference(input);
   if (!Number.isFinite(input.now.getTime()) || input.policy.tribeId !== input.tribeId || !sourceValid
     || input.message !== null && input.message.length > ADMISSION_LIMIT.internalMessageCharacters
     || !input.contact && input.evidence.kind !== ADMISSION_EVIDENCE_KIND.none

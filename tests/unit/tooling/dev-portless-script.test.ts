@@ -32,7 +32,7 @@ describe("dev portless script", () => {
   beforeAll(async () => {
     const importedModule = await import("../../../scripts/dev-portless.mjs");
 
-    devPortlessScript = importedModule as unknown as DevPortlessScript;
+    devPortlessScript = importedModule;
   });
 
   it("should accept the dev host only when every DNS address is loopback", () => {

@@ -14,7 +14,7 @@ import { tribeEventListQuerySchema } from "@/src/modules/events/infrastructure/a
  * The 43 base64url characters of a 32-byte token.
  */
 const FEED_TOKEN_PATTERN = new RegExp(
-  "^[A-Za-z0-9_-]{" + TRIBE_EVENT_CALENDAR_FEED_TOKEN.encodedLength + "}$"
+  `^[A-Za-z0-9_-]{${TRIBE_EVENT_CALENDAR_FEED_TOKEN.encodedLength}}$`
 );
 
 /**

@@ -609,7 +609,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
           return async (...argumentsList: Parameters<typeof transaction.execute>) => {
             const response = await transaction.execute(...argumentsList);
             const accountRow = response.rows[0];
-            if (delayAccountDelivery && accountRow && accountRow.session_id === fixture.leaderSessionId && typeof accountRow.expires_at === "string") {
+            if (delayAccountDelivery && accountRow?.session_id === fixture.leaderSessionId && typeof accountRow.expires_at === "string") {
               // Delay the real current-account response, independent of how many earlier presence reads exist.
               // Every SQL call and row remains native; this narrow observer introduces only a real server wait.
               delayAccountDelivery = false;

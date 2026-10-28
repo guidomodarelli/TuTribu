@@ -166,7 +166,7 @@ describe("notification routes", () => {
 
       expect(responses.map((response) => response.status)).toEqual([500, 500, 500, 500]);
       expect(responses.map((response) => response.headers.get("Cache-Control"))).toEqual(
-        Array(4).fill("private, no-store")
+        Array.from({ length: 4 }, () => "private, no-store")
       );
       expect(bodies).toEqual([
         { message: "No pudimos cargar tus notificaciones. Intentá de nuevo." },

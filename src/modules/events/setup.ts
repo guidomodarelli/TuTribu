@@ -20,13 +20,11 @@ import type {
   TribeEventCalendarFeedTokenRevokeCommand,
   UpdateTribeEventCommand,
   WithdrawTribeEventProposalCommand,
-} from "@/src/modules/events/application/commands/tribe-event-command";
-import type {
   CreateTribeEventOccurrenceCommentCommand,
   DeleteTribeEventOccurrenceCommentCommand,
   SaveTribeEventPostEventCommand,
   SetTribeEventOccurrenceReactionCommand,
-  TribeEventOccurrenceQuery,
+  TribeEventOccurrenceQuery
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventCommentCreateResult,

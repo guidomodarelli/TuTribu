@@ -13,7 +13,7 @@ import { admissionMaintenanceExternalScope, admissionMaintenanceRun, projectStor
 
 /** @param current - Original row read in the caller's transaction. @param run - Exact original acquisition. @throws AdmissionMessagingMaintenanceError unless that same run may still start work. */
 function assertAdmissionMaintenanceLeaseLive(current: AdmissionMessagingMaintenanceRow | null, run: AdmissionMessagingMaintenanceRun): void {
-  if (!current || current.run_id !== run.runId || current.state !== ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+  if (current?.run_id !== run.runId || current.state !== ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
   if (!current.deadline_live || !current.lease_live || current.deadline_reached) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
 }
 
@@ -21,9 +21,23 @@ function assertAdmissionMaintenanceLeaseLive(current: AdmissionMessagingMaintena
 export type AdmissionMessagingMaintenanceExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 
 /** Observations do not need optional message keyrings, provider clients or a human principal. */
+/** @param lock - Requested row lock. @returns The locking clause of the singleton read. */
+function rowLockClause(lock: "update" | "share" | null) {
+  if (lock === "update") return sql`for update`;
+  return lock === "share" ? sql`for share` : sql``;
+}
+
+/** Original metadata executor and current authority readers; the clock defaults to the host time. */
+export type AdmissionMessagingMaintenanceProgressDependencies = { execute: AdmissionMessagingMaintenanceExecutor; authorize: () => Promise<boolean>; readRecoveryLock: () => Promise<boolean>; readExternalScope: () => Promise<AdmissionMessagingMaintenanceExternalScope | null>; now?: () => number };
+
 export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionMessagingMaintenanceProgress {
-  /** @param execute - Existing guarded privileged executor. @param authorize - Current native backend bearer. @param readRecoveryLock - Key-independent current recovery stop. @param readExternalScope - Local key-independent hosting facts or explicit missing configuration. @param now - Host clock sampled at the actual SQL receipt, before final waits. */
-  constructor(private readonly execute: AdmissionMessagingMaintenanceExecutor, private readonly authorize: () => Promise<boolean>, private readonly readRecoveryLock: () => Promise<boolean>, private readonly readExternalScope: () => Promise<AdmissionMessagingMaintenanceExternalScope | null>, private readonly now: () => number = Date.now) {}
+  private readonly execute: AdmissionMessagingMaintenanceExecutor;
+  private readonly authorize: () => Promise<boolean>;
+  private readonly readRecoveryLock: () => Promise<boolean>;
+  private readonly readExternalScope: () => Promise<AdmissionMessagingMaintenanceExternalScope | null>;
+  private readonly now: () => number;
+  /** @param dependencies - `execute`: Existing guarded privileged executor. `authorize`: Current native backend bearer. `readRecoveryLock`: Key-independent current recovery stop. `readExternalScope`: Local key-independent hosting facts or explicit missing configuration. `now`: Host clock sampled at the actual SQL receipt, before final waits. */
+  constructor({ execute, authorize, readRecoveryLock, readExternalScope, now = Date.now }: AdmissionMessagingMaintenanceProgressDependencies) { this.execute = execute; this.authorize = authorize; this.readRecoveryLock = readRecoveryLock; this.readExternalScope = readExternalScope; this.now = now; }
 
   /** @param expected - Original external scope, when already acquired. @returns Only while live backend authority, restore state and the original scope remain current. */
   private async guard(expected?: AdmissionMessagingMaintenanceExternalScope | null): Promise<void> {
@@ -33,9 +47,16 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
     if (!await this.authorize()) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable);
   }
 
+  /** @param database - Original owner transaction. @param lock - Row lock taken by this same statement. @returns The singleton row, which the same transaction just inserted or updated. @throws AdmissionMessagingMaintenanceError when it is missing. */
+  private async requiredRow(database: RequestDatabase, lock: "update" | "share" | null = null): Promise<AdmissionMessagingMaintenanceRow> {
+    const row = await this.row(database, lock);
+    if (!row) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+    return row;
+  }
+
   /** @param database - Original owner transaction. @param lock - Row lock taken by this same statement, saving a separate locking round trip. @returns Minimal native columns, or genuine absence; no PostgreSQL schema validator is applied. */
   private async row(database: RequestDatabase, lock: "update" | "share" | null = null): Promise<AdmissionMessagingMaintenanceRow | null> {
-    const locking = lock === "update" ? sql`for update` : lock === "share" ? sql`for share` : sql``;
+    const locking = rowLockClause(lock);
     return (await database.execute<AdmissionMessagingMaintenanceRow>(sql`select run_id,version,state,external_environment,external_security_epoch,first_phase,next_phase,
       (extract(epoch from started_at)*${MILLISECONDS_PER_SECOND})::bigint::text as started_milliseconds,
       (extract(epoch from last_successful_at)*${MILLISECONDS_PER_SECOND})::bigint::text as last_successful_milliseconds,
@@ -79,7 +100,7 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
         const inserted = (await database.execute(sql`insert into public.admission_messaging_maintenance_progress(scope,run_id,external_environment,external_security_epoch,phases)
           values (${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope},${runId},${scope?.environment ?? null},${scope?.securityEpoch ?? null},${JSON.stringify(createUnstartedAdmissionMaintenancePhases())}::jsonb)
           on conflict(scope) do nothing returning scope`)).rows.length > 0;
-        let current = (await this.row(database, "update"))!;
+        let current = await this.requiredRow(database, "update");
         let clockObserved = this.now();
         await this.guard(scope);
         const sameScope = sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), scope);
@@ -91,7 +112,7 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
         }
         if (!inserted) {
           await database.execute(sql`update public.admission_messaging_maintenance_progress set version=version+1,run_id=${runId},state=${ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running},external_environment=${scope?.environment ?? null},external_security_epoch=${scope?.securityEpoch ?? null},phases=${JSON.stringify(createUnstartedAdmissionMaintenancePhases())}::jsonb where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`);
-          current = (await this.row(database))!;
+          current = await this.requiredRow(database);
           clockObserved = this.now();
         }
         const health = await this.health(database, current);
@@ -118,7 +139,7 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
       await this.execute(async (database) => {
         const current = await this.row(database, "update");
         await this.guard(run.externalScope);
-        if (!current || current.run_id !== run.runId || !sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), run.externalScope)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+        if (current?.run_id !== run.runId || !sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), run.externalScope)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
         if (starting) assertAdmissionMaintenanceLeaseLive(current, run);
         let phases = sql`phases`, changed = false;
         for (const [index, snapshot] of snapshots.entries()) {
@@ -145,12 +166,12 @@ export class PostgresAdmissionMessagingMaintenanceProgress implements AdmissionM
       return await this.execute(async (database) => {
         let current = await this.row(database, "update");
         await this.guard(run.externalScope);
-        if (!current || current.run_id !== run.runId || !sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), run.externalScope)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
+        if (current?.run_id !== run.runId || !sameAdmissionMaintenanceExternalScope(admissionMaintenanceExternalScope(current), run.externalScope)) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);
         const projected = projectStoredAdmissionMaintenancePhases(phases);
         if (current.state === ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.running) {
           const state = admissionMaintenanceCompleted(projected, deadlineReached) ? ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.completed : ADMISSION_MESSAGING_MAINTENANCE_STORED_STATE.incomplete;
           await database.execute(sql`update public.admission_messaging_maintenance_progress set version=version+1,state=${state},phases=${JSON.stringify(projected)}::jsonb,deadline_reached=deadline_reached or ${deadlineReached},deadline_at=least(deadline_at,started_at+${observationBudgetMilliseconds}*interval '1 millisecond') where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`);
-          current = (await this.row(database))!;
+          current = await this.requiredRow(database);
         } else {
           const identical = (await database.execute<{ identical: boolean }>(sql`select phases=${JSON.stringify(projected)}::jsonb as identical from public.admission_messaging_maintenance_progress where scope=${ADMISSION_MESSAGING_MAINTENANCE_STORAGE.scope}`)).rows[0].identical;
           if (!identical) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved);

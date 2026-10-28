@@ -40,15 +40,10 @@ export function normalizeAdmissionContact(input: {
   const value = input.value.trim();
   const invalid = { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.invalid, reason: ADMISSION_CONTACT_ERROR.invalid } as const;
 
-  if (input.type === ADMISSION_CONTACT_TYPE.email) {
-    const normalizedEmail = value.toLowerCase();
-    return ADMISSION_EMAIL_PATTERN.test(normalizedEmail)
-      ? { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.valid, contact: { type: ADMISSION_CONTACT_TYPE.email, value: normalizedEmail } }
-      : invalid;
-  }
+  if (input.type === ADMISSION_CONTACT_TYPE.email) return normalizeEmailContact(value);
 
   const country = input.country?.trim().toUpperCase();
-  if (country && !isSupportedCountry(country as CountryCode)) return invalid;
+  if (country && !isSupportedCountry(country)) return invalid;
 
   try {
     const phone = parsePhoneNumberWithError(value, { defaultCountry: country as CountryCode | undefined, extract: false });
@@ -64,11 +59,22 @@ export function normalizeAdmissionContact(input: {
       contact: { type: ADMISSION_CONTACT_TYPE.phone, value: phone.number, country: phone.country },
     };
   } catch (error) {
-    if (error instanceof ParseError) {
-      return !country && error.message === ADMISSION_PHONE_PARSE_ERROR.invalidCountry
-        ? { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.invalid, reason: ADMISSION_CONTACT_ERROR.countryRequired }
-        : invalid;
-    }
+    if (error instanceof ParseError) return phoneParseFailure(error, country);
     throw error;
   }
+}
+
+/** @param value - Trimmed proposed address. @returns The lowercased address or a stable failure. */
+function normalizeEmailContact(value: string): AdmissionContactNormalizationResult {
+  const normalizedEmail = value.toLowerCase();
+  return ADMISSION_EMAIL_PATTERN.test(normalizedEmail)
+    ? { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.valid, contact: { type: ADMISSION_CONTACT_TYPE.email, value: normalizedEmail } }
+    : { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.invalid, reason: ADMISSION_CONTACT_ERROR.invalid };
+}
+
+/** @param error - Parser rejection. @param country - Explicit supplied country, if any. @returns Country required when the number needs a country nobody supplied, else a generic failure. */
+function phoneParseFailure(error: ParseError, country: string | undefined): AdmissionContactNormalizationResult {
+  return !country && error.message === ADMISSION_PHONE_PARSE_ERROR.invalidCountry
+    ? { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.invalid, reason: ADMISSION_CONTACT_ERROR.countryRequired }
+    : { status: ADMISSION_CONTACT_NORMALIZATION_STATUS.invalid, reason: ADMISSION_CONTACT_ERROR.invalid };
 }

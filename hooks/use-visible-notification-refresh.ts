@@ -45,7 +45,7 @@ export function useVisibleNotificationRefresh({ enabled, scopeKey, intervalMilli
     /** Stops interval wakeups and cancels only the original read, without declaring its work undone. */
     const pause = () => { if (interval !== undefined) window.clearInterval(interval); interval = undefined; queued = false; controller?.abort(); };
     /** Resumes the original cadence; initial server data does not trigger a duplicate initial fetch. */
-    const start = () => { if (interval === undefined) interval = window.setInterval(() => run(false), intervalMilliseconds); };
+    const start = () => { interval ??= window.setInterval(() => run(false), intervalMilliseconds); };
     /** Reconciles once when the document becomes usable again; background documents issue no reads. */
     const lifecycleChanged = () => { if (visible()) { start(); run(false); } else pause(); };
     request.current = () => run(true);

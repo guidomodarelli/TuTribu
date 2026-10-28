@@ -14,6 +14,22 @@ export type MessagingLifecycleConnectionView={id:string;name:string;version:numb
 /** The route container supplies current resource state, renewed confirmation and every action callback. `acting` marks only the pressed suspension or disconnection. */
 export type MessagingConnectionLifecycleProps={connections:readonly MessagingLifecycleConnectionView[];targetId:string;retiring:boolean;reason:MessagingConnectionSuspensionInput["reason"];confirmed:boolean;busy:boolean;acting?:boolean;canAct:boolean;onTarget:(id:string)=>void;onRetiring:(retiring:boolean)=>void;onReason:(reason:MessagingConnectionSuspensionInput["reason"])=>void;onConfirm:(confirmed:boolean)=>void;onAct:()=>void;message?:{kind:"status"|"alert";text:string}|null};
 
+/** @param connection - A current connection of the tribe. @returns Its role: selected, candidate or both. */
+function connectionRoleLabel(connection:MessagingLifecycleConnectionView):string{
+  if(connection.selected&&connection.candidate)return"Seleccionada y candidata";
+  return connection.selected?"Seleccionada":"Candidata";
+}
+/** @param props - The chosen action and suspension reason. @returns What the chosen action stops and what it keeps. */
+function lifecycleImpactCopy(props:Pick<MessagingConnectionLifecycleProps,"retiring"|"reason">):string{
+  if(props.retiring)return"El servidor comprueba las dependencias vigentes. Para retirar la seleccionada, resolvé la verificación requerida o pausá admisiones y desactivá los avisos externos dependientes. Las pruebas ya aplicadas conservan su procedencia.";
+  return props.reason===MESSAGING_CONNECTION_SECURITY_REASON.suspectedCompromise?"Se detienen los nuevos envíos y las pruebas afectadas de solicitudes pendientes requieren recomprobación. Los miembros admitidos y las invitaciones permanecen.":"Se detienen los nuevos envíos sin depender del proveedor. La selección y los ajustes de admisión permanecen; no se dispensa una verificación requerida.";
+}
+/** @param target - The connection to act on, if any. @param suspendingActive - Whether the action suspends the connection in use. @returns The consent label naming the target and its impact, or nothing without a target. */
+function lifecycleConsentLabel(target:MessagingLifecycleConnectionView|undefined,suspendingActive:boolean):string|null{
+  if(!target)return null;
+  return suspendingActive?IMPACT_COPY.activeSuspensionConsent(target.name):IMPACT_COPY.consent(target.name);
+}
+
 /** @param props - Guarded current metadata and callbacks only. @returns Accessible local safety/retirement confirmation and explicit impact. */
 export function MessagingConnectionLifecycle(props:MessagingConnectionLifecycleProps){
   const instanceId=useId(),targetId=`${instanceId}-target`,actionId=`${instanceId}-action`,reasonId=`${instanceId}-reason`,confirmationId=`${instanceId}-consent`,target=props.connections.find((connection)=>connection.id===props.targetId),selectedName=props.connections.find((connection)=>connection.selected&&connection.id!==target?.id)?.name??null;
@@ -21,17 +37,17 @@ export function MessagingConnectionLifecycle(props:MessagingConnectionLifecycleP
   const suspendingActive=Boolean(target&&!props.retiring&&target.selected&&target.state===MESSAGING_CONNECTION_STATE.active),retiringCandidate=Boolean(target&&props.retiring&&target.candidate&&!target.selected),retiringSelected=Boolean(target&&props.retiring&&target.selected);
   return<section className={styles.MessagingConnectionLifecycle} aria-label="Seguridad y retiro de conexiones"><h2 className={styles.MessagingConnectionLifecycle__title}>Seguridad y retiro</h2><p className={styles.MessagingConnectionLifecycle__note}>Usá estas acciones si sospechás un problema o querés dejar de usar una conexión.</p>
     {props.connections.length===0?<p className={styles.MessagingConnectionLifecycle__help}>No hay conexiones vigentes para gestionar.</p>:<>
-      <div className={styles.MessagingConnectionLifecycle__field}><Select value={props.targetId} disabled={props.busy} onValueChange={props.onTarget} id={targetId} label="Conexión que querés gestionar" options={props.connections.map((connection) => ({ value: connection.id, label: `${connection.name} · ${connection.selected && connection.candidate ? "Seleccionada y candidata" : connection.selected ? "Seleccionada" : "Candidata"} · ${MESSAGING_CONNECTION_LABEL[connection.state]}` }))} /></div>
+      <div className={styles.MessagingConnectionLifecycle__field}><Select value={props.targetId} disabled={props.busy} onValueChange={props.onTarget} id={targetId} label="Conexión que querés gestionar" options={props.connections.map((connection) => ({ value: connection.id, label: `${connection.name} · ${connectionRoleLabel(connection)} · ${MESSAGING_CONNECTION_LABEL[connection.state]}` }))} /></div>
       {target&&<p className={styles.MessagingConnectionLifecycle__help}>Estado actual: {MESSAGING_CONNECTION_LABEL[target.state]}. La acción afecta a esta conexión y todas sus versiones.</p>}
       <div className={styles.MessagingConnectionLifecycle__field}><Select value={props.retiring?MESSAGING_LIFECYCLE_BROWSER_PATH.disconnect:MESSAGING_LIFECYCLE_BROWSER_PATH.suspend} disabled={props.busy} onValueChange={(value)=>props.onRetiring(value===MESSAGING_LIFECYCLE_BROWSER_PATH.disconnect)} id={actionId} label="Acción local" options={MESSAGING_LIFECYCLE_ACTION_OPTIONS} /></div>
       <p className={styles.MessagingConnectionLifecycle__note}>{IMPACT_COPY.difference}</p>
       {!props.retiring&&<div className={styles.MessagingConnectionLifecycle__field}><Select value={props.reason} disabled={props.busy} onValueChange={(value)=>{const reason=Object.values(MESSAGING_CONNECTION_SECURITY_REASON).find((candidate)=>candidate===value);if(reason)props.onReason(reason);}} id={reasonId} label="Motivo de suspensión" options={MESSAGING_LIFECYCLE_REASON_OPTIONS} /></div>}
-      <p className={styles.MessagingConnectionLifecycle__help}>{props.retiring?"El servidor comprueba las dependencias vigentes. Para retirar la seleccionada, resolvé la verificación requerida o pausá admisiones y desactivá los avisos externos dependientes. Las pruebas ya aplicadas conservan su procedencia.":props.reason===MESSAGING_CONNECTION_SECURITY_REASON.suspectedCompromise?"Se detienen los nuevos envíos y las pruebas afectadas de solicitudes pendientes requieren recomprobación. Los miembros admitidos y las invitaciones permanecen.":"Se detienen los nuevos envíos sin depender del proveedor. La selección y los ajustes de admisión permanecen; no se dispensa una verificación requerida."}</p>
+      <p className={styles.MessagingConnectionLifecycle__help}>{lifecycleImpactCopy(props)}</p>
       {suspendingActive&&target&&<p className={styles.MessagingConnectionLifecycle__warning} role="note">{IMPACT_COPY.activeSuspension(target.name)}</p>}
       {retiringSelected&&target&&<p className={styles.MessagingConnectionLifecycle__warning} role="note">{IMPACT_COPY.selectedRetirement(target.name)}</p>}
       {retiringCandidate&&target&&<p className={styles.MessagingConnectionLifecycle__impact}>{IMPACT_COPY.candidateRetirement(target.name,selectedName)}</p>}
       <p className={styles.MessagingConnectionLifecycle__note}>Los mensajes ya aceptados o inciertos pueden continuar y conservan su consumo. Revocar la clave en Zavu es una acción separada.</p>
-      <div className={styles.MessagingConnectionLifecycle__consent}><Checkbox id={confirmationId} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirm(checked===true)} /><Label htmlFor={confirmationId}>{!target?null:suspendingActive?IMPACT_COPY.activeSuspensionConsent(target.name):IMPACT_COPY.consent(target.name)}</Label></div>
+      <div className={styles.MessagingConnectionLifecycle__consent}><Checkbox id={confirmationId} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirm(checked===true)} /><Label htmlFor={confirmationId}>{lifecycleConsentLabel(target,suspendingActive)}</Label></div>
       <div className={styles.MessagingConnectionLifecycle__actions}><Button type="button" variant={props.retiring||suspendingActive?"danger":"primary"} loading={props.acting} disabled={!props.acting&&(props.busy||!props.canAct||!props.confirmed)} onClick={props.onAct}>{props.retiring?"Desconectar conexión":"Suspender conexión"}</Button></div>
     </>}
     {props.message&&<p className={styles.MessagingConnectionLifecycle__feedback} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p>}

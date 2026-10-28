@@ -10,6 +10,12 @@ import { MessagingCryptographyError } from "../encryption/messaging-cryptography
 import { MESSAGING_KEY_MATERIAL_DIAGNOSTIC } from "../../constants/messaging-key-enrollment";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
+/** @returns Code-unit order of the entry keys, so proofs and fingerprints keep a stable order. */
+function compareEntryKeys([left]: readonly [string, unknown], [right]: readonly [string, unknown]): number {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+}
+
 /** Contains only a domain-separated verifier, never exportable key material. */
 type MessagingMacKeyMaterialProof = { key_id: string; verifier: string };
 
@@ -18,7 +24,7 @@ async function createMaterialProofs(config: MessagingSecurityConfig, purpose: Me
   if (config.recoveryLocked) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked);
   if (!config.keyrings[purpose].keys.has(config.keyrings[purpose].activeKeyId)) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyUnavailable);
   const proofs: MessagingMacKeyMaterialProof[] = [];
-  for (const [keyId, key] of [...config.keyrings[purpose].keys].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) {
+  for (const [keyId, key] of [...config.keyrings[purpose].keys].sort(compareEntryKeys)) {
     const bytes = new TextEncoder().encode(JSON.stringify([MESSAGING_KEY_MATERIAL_CONTINUITY.proofDomain, purpose, keyId]));
     const proof = new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, key, bytes));
     proofs.push({ key_id: keyId, verifier: Buffer.from(proof).toString("hex") });

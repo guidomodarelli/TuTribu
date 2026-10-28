@@ -187,7 +187,7 @@ export class CloudflareImagesTribeImageRepository
           tribe_images.cloudflare_image_id
       `);
 
-      return (result.rows?.[0] ?? null) as StoredImageRow | null;
+      return (result.rows[0] ?? null) as StoredImageRow | null;
     }).catch((error: unknown) => {
       const errorCode = readPostgresErrorCode(error);
 
@@ -235,7 +235,7 @@ export class CloudflareImagesTribeImageRepository
         ) as reclaimed_images
       `);
 
-      return (result.rows ?? []) as StoredImageRow[];
+      return result.rows as StoredImageRow[];
     });
 
     if (reclaimedImages.length === 0) {
@@ -332,7 +332,7 @@ export class CloudflareImagesTribeImageRepository
           ) < ${TRIBE_IMAGE_MAX_DRAFTS_PER_TRIBE}
         returning tribe_images.id
       `);
-      const row = (result.rows?.[0] ?? null) as InsertedImageRow | null;
+      const row = (result.rows[0] ?? null) as InsertedImageRow | null;
 
       return row?.id ?? null;
     });

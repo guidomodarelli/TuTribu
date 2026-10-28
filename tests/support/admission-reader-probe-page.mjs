@@ -2,13 +2,23 @@
 import { ADMISSION_READER_PROBE as PROBE } from "./constants/admission-reader-probe.mjs";
 
 /**
+ * @param {string} markupVariant - Registered synthetic markup variant.
+ * @param {boolean} seededMarker - Whether the region starts with the hidden seeded marker.
+ * @returns {string} The region's initial text before the button handler updates it.
+ */
+function initialStatusFor(markupVariant, seededMarker) {
+  if (seededMarker) return PROBE.initialStatusMarker;
+  return markupVariant === PROBE.markupVariants.empty ? "" : PROBE.initialStatusText;
+}
+
+/**
  * @param {{title:string,focus:string,status:string,markupVariant:string}} item - Server-generated synthetic case, never a caller-selected message.
  * @returns {string} A persistent polite/atomic region updated only by the page's actual button handler.
  */
 export function renderAdmissionReaderProbePage(item) {
   if (!Object.values(PROBE.markupVariants).includes(item.markupVariant)) throw new Error("AdmissionReaderProbePage.render failed: unsupported_markup_variant");
   const seededMarker = item.markupVariant === PROBE.markupVariants.seededMarker;
-  const initialStatus = seededMarker ? PROBE.initialStatusMarker : item.markupVariant === PROBE.markupVariants.empty ? "" : PROBE.initialStatusText;
+  const initialStatus = initialStatusFor(item.markupVariant, seededMarker);
   const statusRole = item.markupVariant === PROBE.markupVariants.politeParagraph ? "" : ' role="status"';
   const updateStatus = item.markupVariant === PROBE.markupVariants.empty
     ? `status.textContent=${JSON.stringify(item.status)};`

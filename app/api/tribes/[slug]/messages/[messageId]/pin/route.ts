@@ -34,6 +34,55 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
   return Response.json(body, { status });
 }
 
+type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+type ToggleMessagePinResult = Awaited<
+  ReturnType<RequestModules["messages"]["useCases"]["toggleMessagePin"]>
+>;
+
+function createPostResultResponse(result: ToggleMessagePinResult, slug: string): Response {
+  switch (result.status) {
+    case MESSAGE_MUTATION_STATUS.pinned:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          isPinned: true,
+          message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.pinnedMessage,
+          pinnedAt: result.pinnedAt,
+        },
+        HTTP_STATUS.ok
+      );
+    case MESSAGE_MUTATION_STATUS.unpinned:
+      revalidateTribeRoundCache(slug);
+
+      return createJsonResponse(
+        {
+          isPinned: false,
+          message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unpinnedMessage,
+          pinnedAt: null,
+        },
+        HTTP_STATUS.ok
+      );
+    case MESSAGE_MUTATION_STATUS.pinLimitReached:
+      return createJsonResponse(
+        { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.limitReachedMessage },
+        HTTP_STATUS.conflict
+      );
+    case MESSAGE_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    case MESSAGE_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
+      );
+  }
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -74,46 +123,7 @@ export async function POST(
       userId: authenticatedMember.id,
     });
 
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.pinned:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            isPinned: true,
-            message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.pinnedMessage,
-            pinnedAt: result.pinnedAt,
-          },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.unpinned:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          {
-            isPinned: false,
-            message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unpinnedMessage,
-            pinnedAt: null,
-          },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.pinLimitReached:
-        return createJsonResponse(
-          { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.limitReachedMessage },
-          HTTP_STATUS.conflict
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
+    return createPostResultResponse(result, slug);
   } catch (error) {
     logger.error({
       message: TOGGLE_MESSAGE_PIN_ROUTE_LOG.toggleFailureMessage,

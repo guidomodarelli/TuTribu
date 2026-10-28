@@ -5,7 +5,7 @@ import type { AdmissionNotificationProducerResult } from "@/src/modules/notifica
 import type { MessagingSecretRetentionResult } from "../../domain/repositories/messaging-secret-retention";
 import type { MessageDispatchObservedRunResult } from "../../application/results/message-dispatch-observation-result";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
-import type { AdmissionMessagingMaintenanceMetric, AdmissionMessagingMaintenanceMetricKey, AdmissionMessagingMaintenancePhase, AdmissionMessagingMaintenancePhaseOutput, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenanceRuntime, AdmissionMessagingMaintenanceWork } from "../../domain/repositories/admission-messaging-maintenance";
+import type { AdmissionMessagingMaintenanceMetric, AdmissionMessagingMaintenanceMetricKey, AdmissionMessagingMaintenancePhaseOutput, AdmissionMessagingMaintenancePhaseRequest, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenanceRuntime, AdmissionMessagingMaintenanceWork } from "../../domain/repositories/admission-messaging-maintenance";
 import { AdmissionMessagingMaintenanceError } from "../../domain/errors/admission-messaging-maintenance-error";
 import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
 import { AdmissionExpirationError } from "@/src/modules/academy-admissions/domain/errors/admission-expiration-error";
@@ -38,6 +38,14 @@ function completed(metrics: readonly AdmissionMessagingMaintenanceMetric[], hasR
   return { status: ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.completed, reason: null, metrics, hasRemainingWork };
 }
 
+/** @param reason - Classified own maintenance failure. @returns Not run at the deadline, missing configuration, a known authority failure, or an unresolved effect. */
+function maintenanceErrorStatus(reason: AdmissionMessagingMaintenanceError["reason"]): AdmissionMessagingMaintenancePhaseOutput["status"] {
+  if (reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached) return ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notRun;
+  if (reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable) return ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notConfigured;
+  if (reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable || reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.recoveryLocked) return ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.failed;
+  return ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.unresolved;
+}
+
 /** Uses only own original owner entrypoints; provider lookup and sending remain outside every SQL transaction. */
 export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessagingMaintenanceWork {
   /**
@@ -52,7 +60,7 @@ export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessa
   /** @param error - Actual own failure, without forwarding raw exception text. @returns A closed configuration, authority or uncertain-phase result; a generic failure never proves rollback. */
   private failed(error: unknown): AdmissionMessagingMaintenancePhaseOutput {
     if (error instanceof AdmissionMessagingMaintenanceError) {
-      const status = error.reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached ? ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notRun : error.reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable ? ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notConfigured : error.reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable || error.reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.recoveryLocked ? ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.failed : ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.unresolved;
+      const status = maintenanceErrorStatus(error.reason);
       return { status, reason: error.reason, metrics: [], hasRemainingWork: true };
     }
     if (error instanceof MessagingCryptographyError) return { status: ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notConfigured, reason: ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable, metrics: [], hasRemainingWork: true };
@@ -86,8 +94,8 @@ export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessa
     return completed(metrics, result.quotaDeferred > 0 || result.unresolved > 0 || result.unknown > 0 || result.claimed > 0);
   }
 
-  /** @param phase - Fixed actual owner. @param deadlineAtMilliseconds - Original shared host deadline. @param signal - The same original cancellation. @param run - Original acquired scope, rechecked before every owner transaction. @param phaseDeadlineAtMilliseconds - Soft deadline for starting new owner steps, never later than the hard deadline. @returns Confirmed own counters and explicit omitted/uncertain work without retrying a phase. */
-  async runPhase(phase: AdmissionMessagingMaintenancePhase, deadlineAtMilliseconds: number, signal: AbortSignal, run: AdmissionMessagingMaintenanceRun, phaseDeadlineAtMilliseconds: number = deadlineAtMilliseconds): Promise<AdmissionMessagingMaintenancePhaseOutput> {
+  /** @param request - phase: fixed actual owner; deadlineAtMilliseconds: original shared host deadline; signal: the same original cancellation; run: original acquired scope, rechecked before every owner transaction; phaseDeadlineAtMilliseconds: soft deadline for starting new owner steps, never later than the hard deadline. @returns Confirmed own counters and explicit omitted/uncertain work without retrying a phase. */
+  async runPhase({ phase, deadlineAtMilliseconds, signal, run, phaseDeadlineAtMilliseconds = deadlineAtMilliseconds }: AdmissionMessagingMaintenancePhaseRequest): Promise<AdmissionMessagingMaintenancePhaseOutput> {
     try {
       if (signal.aborted || this.runtime.now() >= deadlineAtMilliseconds) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
       if (phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch) await this.readSecurityConfig();

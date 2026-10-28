@@ -2,8 +2,7 @@
 /** Exercises both real tribe DELETE orders against private rotation and observes native waits. @module messaging-protection-key-rotation-deletion-tests */
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import type { AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
+import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase  } from "@/tests/support/academy-admission-database";
 import { prepareMessagingProtectionKeyRotation } from "@/tests/support/messaging-protection-key-rotation-fixture";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { buildMessagingProtectionKeyRotationModule } from "@/src/modules/messaging/setup";

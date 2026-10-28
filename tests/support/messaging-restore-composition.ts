@@ -39,7 +39,7 @@ export function composeMessagingRestoreOwnersForPrincipal(database: MessagingRes
     accounts, request,
     activation: new PostgresMessagingConnectionActivation(execute, readSecurityConfig, (transaction) => new PostgresMessagingSelectionDependencies(transaction, readAdmissionEmailLifecycleDependency)),
     disconnection: new PostgresMessagingConnectionDisconnection(execute, readSecurityConfig, (transaction) => new PostgresMessagingLifecycleDependencies(transaction, readAdmissionEmailLifecycleDependency)),
-    secrets: new PostgresEncryptedSecretStore((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), accounts, readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader),
+    secrets: new PostgresEncryptedSecretStore({ executeWithDatabase: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), accounts, readSecurityConfig, purpose: MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader }),
   };
 }
 

@@ -12,7 +12,7 @@ type QueryResult<Value> = { ok: true; value: Value } | { ok: false; failure: Adm
 export type AdmissionQueryServices = {
   overview: { execute(query: { slug: string; requestId: string }): Promise<QueryResult<unknown>> };
   resolveTribe: { execute(query: { slug: string; requestId: string }): Promise<QueryResult<{ tribeId: string }>> };
-  own: { getOwn(query: { tribeId: string; requestId: string; admissionRequestId?: string }): Promise<QueryResult<unknown | null>> };
+  own: { getOwn(query: { tribeId: string; requestId: string; admissionRequestId?: string }): Promise<QueryResult<unknown>> };
 };
 type AdmissionTribeRouteContext = { params: Promise<{ slug: string }> };
 

@@ -66,7 +66,7 @@ export function planAdmissionNotificationPreferenceChange(context: AdmissionNoti
   const currentPreference = resolveAdmissionNotificationPreference(context, storedPreference);
   if (currentPreference.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected) return currentPreference;
   if (change.expectedVersion !== currentPreference.preference.version) return { status: ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected, reason: ADMISSION_NOTIFICATION_PREFERENCE_REJECTION.versionConflict };
-  if (storedPreference && storedPreference.mode === change.mode) return { status: ADMISSION_NOTIFICATION_PREFERENCE_STATUS.unchanged, preference: projectStoredPreference(storedPreference) };
+  if (storedPreference?.mode === change.mode) return { status: ADMISSION_NOTIFICATION_PREFERENCE_STATUS.unchanged, preference: projectStoredPreference(storedPreference) };
   return {
     status: ADMISSION_NOTIFICATION_PREFERENCE_STATUS.changed,
     preference: {

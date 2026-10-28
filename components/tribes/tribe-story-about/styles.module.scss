@@ -180,7 +180,7 @@ $tribe-story-about-fact-count: 6;
     text-decoration-color: color-mix(in oklab, var(--primary) 45%, transparent);
     text-underline-offset: 0.15em;
     width: fit-content;
-    word-break: break-word;
+    overflow-wrap: anywhere;
 
     @include motion.interactive(color, text-decoration-color);
 
@@ -216,7 +216,6 @@ $tribe-story-about-fact-count: 6;
 
   &__visuallyHidden {
     border: 0;
-    clip: rect(0 0 0 0);
     clip-path: inset(50%);
     height: 1px;
     margin: -1px;

@@ -46,6 +46,10 @@ function readFirstSearchParamValue(
 }
 
 function resolveErrorMessage(errorCode: string | null): string | null {
+  if (errorCode === null) {
+    return null;
+  }
+
   switch (errorCode) {
     case CREATE_TRIBE_STATUS.invalidName:
       return CREATE_TRIBE_ERROR_MESSAGE[CREATE_TRIBE_STATUS.invalidName];
@@ -60,6 +64,50 @@ function resolveErrorMessage(errorCode: string | null): string | null {
     default:
       return null;
   }
+}
+
+type CreateTribePanelProps = {
+  errorCode: string | null;
+  searchParams: CreateTribeSearchParams;
+};
+
+/**
+ * Create-tribe form panel, prefilled from the redirect of a failed native
+ * submission.
+ */
+function CreateTribePanel({ errorCode, searchParams: resolvedSearchParams }: CreateTribePanelProps) {
+  return (
+    <main className={styles.CreateTribePage}>
+      <section className={styles.CreateTribePage__panel}>
+        <header className={styles.CreateTribePage__header}>
+          <p className={styles.CreateTribePage__eyebrow}>Nueva tribu</p>
+          <h1 className={styles.CreateTribePage__title}>Crear una tribu</h1>
+          <p className={styles.CreateTribePage__description}>
+            Define el nombre y el slug inicial. La tribu se creara como privada
+            y tu cuenta quedara como líder desde el primer momento.
+          </p>
+        </header>
+        <div className={styles.CreateTribePage__content}>
+          <CreateTribeFormContainer
+            errorField={resolveCreateTribeErrorField(errorCode)}
+            errorMessage={resolveErrorMessage(errorCode)}
+            initialName={
+              readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.tribes.name]) ??
+              ""
+            }
+            initialSlug={
+              readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.tribes.slug]) ??
+              ""
+            }
+            submitPath={ROUTES.api.tribes}
+            suggestedSlug={readFirstSearchParamValue(
+              resolvedSearchParams[QUERY_PARAMS.tribes.suggestedSlug]
+            )}
+          />
+        </div>
+      </section>
+    </main>
+  );
 }
 
 export default async function CreateTribePage({
@@ -123,35 +171,9 @@ export default async function CreateTribePage({
   }
 
   return (
-    <main className={styles.CreateTribePage}>
-      <section className={styles.CreateTribePage__panel}>
-        <header className={styles.CreateTribePage__header}>
-          <p className={styles.CreateTribePage__eyebrow}>Nueva tribu</p>
-          <h1 className={styles.CreateTribePage__title}>Crear una tribu</h1>
-          <p className={styles.CreateTribePage__description}>
-            Define el nombre y el slug inicial. La tribu se creara como privada
-            y tu cuenta quedara como líder desde el primer momento.
-          </p>
-        </header>
-        <div className={styles.CreateTribePage__content}>
-          <CreateTribeFormContainer
-            errorField={resolveCreateTribeErrorField(errorCode)}
-            errorMessage={resolveErrorMessage(errorCode)}
-            initialName={
-              readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.tribes.name]) ??
-              ""
-            }
-            initialSlug={
-              readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.tribes.slug]) ??
-              ""
-            }
-            submitPath={ROUTES.api.tribes}
-            suggestedSlug={readFirstSearchParamValue(
-              resolvedSearchParams[QUERY_PARAMS.tribes.suggestedSlug]
-            )}
-          />
-        </div>
-      </section>
-    </main>
+    <CreateTribePanel
+      errorCode={errorCode}
+      searchParams={resolvedSearchParams}
+    />
   );
 }

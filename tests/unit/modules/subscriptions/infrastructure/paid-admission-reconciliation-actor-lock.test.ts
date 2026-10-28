@@ -39,7 +39,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete pa
           reconciliation = (async () => {
             if (entrypoint === "member") {
               const unexpected = async () => { throw new Error("Paid actor lifetime scenario unexpectedly invoked a provider mutation"); };
-              const repository = new PostgresTribeMemberSubscriptionRepository((run) => observedDatabase.withContext(own, run), unexpected, unexpected, async () => "authorized", unexpected, unexpected, unexpected, createPaidAdmissionResolutionWriter, randomUUID());
+              const repository = new PostgresTribeMemberSubscriptionRepository({ executeWithDatabase: (run) => observedDatabase.withContext(own, run), createMercadoPagoPreapprovalSubscription: unexpected, getMercadoPagoPreapprovalDetails: unexpected, getMercadoPagoPreapprovalStatus: async () => "authorized", updateMercadoPagoPreapprovalStatus: unexpected, updateMercadoPagoPreapprovalBackUrl: unexpected, refreshMercadoPagoAccessToken: unexpected, createAdmissionResolution: createPaidAdmissionResolutionWriter, requestId: randomUUID() });
               expect(await repository.handleWebhook({ eventId: randomUUID(), resourceId: scenario.providerId, topic: "subscription_preapproval" })).toMatchObject({ status: "processed" });
             } else {
               const repository = createSubscriptionMembershipReconciliationRepository(observedDatabase, own, "authorized");

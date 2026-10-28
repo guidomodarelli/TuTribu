@@ -31,7 +31,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging isolatio
         const firstEntered = Promise.withResolvers<void>(), releaseFirst = Promise.withResolvers<void>();
         const firstProviderId = randomUUID(), secondProviderId = randomUUID(), observed: string[] = [];
         const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: async (request) => {
-          const senderId = request.headers.get("Zavu-Sender"), fixture = senderId === first.emailSenderId ? first : senderId === second.emailSenderId ? second : null;
+          const senderId = request.headers.get("Zavu-Sender"), fixture = [first, second].find((candidate) => candidate.emailSenderId === senderId) ?? null;
           if (!fixture) throw new Error("Expected the original synthetic tenant sender");
           expect(fixture.transactions).toBe(0);
           expect(request.headers.get("Authorization") === `Bearer ${fixture.credential}`).toBe(true);
@@ -79,10 +79,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging isolatio
         await transaction.execute(sql`update public.messaging_connection_capabilities set state='unprepared',tested_at=null where tribe_id=${fixture.scope.tribeId} and connection_id=${fixture.scope.connectionId} and connection_version=${fixture.scope.connectionVersion} and channel=${fixture.scope.channel}`);
       });
       const holderPid = await held.promise;
-      const repository = new PostgresMessageDeliveryRepository(fixture.execute, async (transaction, operation) => {
+      const repository = new PostgresMessageDeliveryRepository({ execute: fixture.execute, authorizeMaintenance: async (transaction, operation) => {
         if (operation === MESSAGE_STORAGE_OPERATION.authorize) started.resolve((await transaction.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`)).rows[0].pid);
         return true;
-      }, async () => fixture.config);
+      }, readSecurityConfig: async () => fixture.config });
       let credentialReads = 0;
       const secrets = { loadAuthorizedSecret: async (context: Parameters<typeof fixture.secrets.loadAuthorizedSecret>[0]) => { credentialReads += 1; return fixture.secrets.loadAuthorizedSecret(context); } };
       const transport = createAdmissionProviderTransport([]), deferred: Promise<void>[] = [], diagnostics: MessagingDispatchDiagnostic[] = [];

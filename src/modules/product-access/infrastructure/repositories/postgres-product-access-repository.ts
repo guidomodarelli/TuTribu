@@ -12,7 +12,7 @@
  * @module postgres-product-access-repository
  */
 
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import {
   ACCESS_GRANT_SOURCE_TYPE,
@@ -121,9 +121,9 @@ function mapSettings(row: SettingsRow): AcademySettings {
     accessModel: row.access_model,
     admissionEnabled: row.admission_enabled,
     benefits: readBenefits(row.benefits),
-    configVersion: Number(row.config_version),
+    configVersion: row.config_version,
     description: row.description,
-    offerVersion: Number(row.offer_version),
+    offerVersion: row.offer_version,
     salesEnabled: row.sales_enabled,
     title: row.title,
   };
@@ -144,7 +144,7 @@ async function lockActiveLeader(
     limit 1
   `);
   const tribeId =
-    (tribeResult.rows?.[0] as { tribe_id: string } | undefined)?.tribe_id ?? null;
+    (tribeResult.rows[0] as { tribe_id: string } | undefined)?.tribe_id ?? null;
 
   if (!tribeId) {
     return { actorUserId: null, isLeader: false, tribeId: null };
@@ -159,7 +159,7 @@ async function lockActiveLeader(
       and tribe_members.user_id = public.current_app_user_id()
     for share of tribe_members
   `);
-  const membership = (membershipResult.rows?.[0] ?? null) as {
+  const membership = (membershipResult.rows[0] ?? null) as {
     actor_user_id: string;
     is_leader: boolean | null;
   } | null;
@@ -171,45 +171,136 @@ async function lockActiveLeader(
   };
 }
 
-export class PostgresProductAccessRepository implements ProductAccessRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
-
-  async activateAcademy(command: ActivateAcademyCommand): Promise<ActivateAcademyResult> {
-    return this.executeWithDatabase(async (database) => {
-      // The definer function checks the active leader, locks the tribe and the
-      // memberships, preserves every current member and writes the audit, all
-      // in this transaction.
-      const result = await database.execute(sql`
-        select public.academy_activate_by_leader(
-          ${command.tribeSlug},
-          ${command.expectedConfigVersion}
-        ) as status
+/**
+ * Share-locks the recipient's membership (a concurrent block or removal waits
+ * for the grant or is seen by it: moderation always prevails) and checks it
+ * can receive a bonus.
+ *
+ * @param database - Transaction of the grant.
+ * @param tribeId - Tribe of the grant.
+ * @param command - Grant command with the recipient.
+ * @returns Whether the recipient is verified, or the status that rejects it.
+ */
+async function checkBonusRecipient(
+  database: RequestDatabase,
+  tribeId: string,
+  command: GrantAcademyBonusCommand
+): Promise<
+  | { isVerified: boolean }
+  | { status: "not_found" | "recipient_not_eligible" | "recipient_not_verified" }
+> {
+  const recipientResult = await database.execute(sql`
+        select
+          tribe_members.status,
+          public.is_member_verified_for_academy(${tribeId}, tribe_members.user_id) as is_verified
+        from public.tribe_members
+        where tribe_members.tribe_id = ${tribeId}
+          and tribe_members.user_id = ${command.recipientUserId}
+        limit 1
+        for share of tribe_members
       `);
-      const status = (result.rows?.[0] as { status: string } | undefined)?.status;
+  const recipient = (recipientResult.rows[0] ?? null) as {
+    is_verified: boolean | null;
+    status: string;
+  } | null;
 
-      if (status === "forbidden" || status === "not_found") {
-        return { status };
-      }
-
-      const tribeResult = await database.execute(sql`
-        select tribes.id from public.tribes where tribes.slug = ${command.tribeSlug} limit 1
-      `);
-      const tribeId = (tribeResult.rows?.[0] as { id: string }).id;
-      const settings = await this.readSettingsInTransaction(database, tribeId);
-
-      if (status === "activated" || status === "already_academy") {
-        return { settings, status };
-      }
-
-      return { settings, status: "conflict" };
-    });
+  if (!recipient) {
+    // Unknown ids and members of other tribes look the same.
+    return { status: "not_found" };
   }
 
-  async readOwnAccessSnapshot({
-    tribeSlug,
-  }: TribeSlugQuery): Promise<OwnAcademyAccessSnapshot | null> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+  if (recipient.status !== "active" && recipient.status !== "muted") {
+    return { status: "recipient_not_eligible" };
+  }
+
+  if (recipient.is_verified !== true && !command.allowUnverifiedRecipient) {
+    return { status: "recipient_not_verified" };
+  }
+
+  return { isVerified: recipient.is_verified === true };
+}
+
+/**
+ * Reads the bonus already granted with the same idempotency key, if any.
+ *
+ * @param database - Transaction of the grant.
+ * @param tribeId - Tribe of the grant.
+ * @param sourceKey - Source key derived from the idempotency key.
+ * @returns The earlier grant with its recipient, or `null`.
+ */
+async function readBonusReplay(
+  database: RequestDatabase,
+  tribeId: string,
+  sourceKey: string
+): Promise<(GrantJsonRow & { user_id: string }) | null> {
+  const replayResult = await database.execute(sql`
+        select id, user_id, starts_at, ends_at, revoked_at, source_type
+        from public.member_access_grants
+        where tribe_id = ${tribeId}
+          and product_key = ${PRODUCT_KEY.academy}
+          and source_type = ${ACCESS_GRANT_SOURCE_TYPE.manualBonus}
+          and source_key = ${sourceKey}
+        limit 1
+      `);
+
+  return (replayResult.rows[0] ?? null) as (GrantJsonRow & {
+    user_id: string;
+  }) | null;
+}
+
+/**
+ * Revokes the live bonus a new grant replaces and audits it.
+ *
+ * @param database - Transaction of the grant.
+ * @param input - Leader, grant command, replaced grant, and tribe.
+ * @returns Whether the replaced bonus was found and revoked.
+ */
+async function revokeReplacedBonus(
+  database: RequestDatabase,
+  input: {
+    actorUserId: string;
+    command: GrantAcademyBonusCommand;
+    replacesGrantId: string;
+    tribeId: string;
+  }
+): Promise<boolean> {
+  const { actorUserId, command, replacesGrantId, tribeId } = input;
+  const replaced = await database.execute(sql`
+          update public.member_access_grants
+          set revoked_at = now(), revoked_by = ${actorUserId}
+          where id = ${replacesGrantId}
+            and tribe_id = ${tribeId}
+            and user_id = ${command.recipientUserId}
+            and source_type = ${ACCESS_GRANT_SOURCE_TYPE.manualBonus}
+            and revoked_at is null
+          returning id
+        `);
+
+  if (replaced.rows.length === 0) {
+    return false;
+  }
+
+  await recordAcademyAuditEvent(database, {
+    action: ACADEMY_AUDIT_ACTION.bonusRevoked,
+    actorUserId,
+    correlationId: command.correlationId,
+    entityId: replacesGrantId,
+    entityType: ACADEMY_AUDIT_ENTITY.grant,
+    fromState: GRANTED_STATE,
+    reason: command.reason,
+    subjectUserId: command.recipientUserId,
+    toState: REVOKED_STATE,
+    tribeId,
+  });
+
+  return true;
+}
+
+/**
+ * Reads the viewer's academy access snapshot: settings, membership, grants, and whether the offer can be bought.
+ */
+function buildOwnAccessSnapshotStatement(tribeSlug: string): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -274,8 +365,147 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
               and member_access_grants.user_id = public.current_app_user_id()
               and member_access_grants.product_key = ${PRODUCT_KEY.academy}
           ) as grants
+      `;
+}
+
+type AcademyMembersPageQuery = {
+  isLeader: boolean;
+  offset: number;
+  pageSize: number;
+  searchPattern: string | null;
+  tribeId: string;
+};
+
+/**
+ * Leader-only grants column of the academy members page, with its order and page.
+ */
+function buildAcademyMembersPageTail({
+  isLeader,
+  offset,
+  pageSize,
+  tribeId,
+}: AcademyMembersPageQuery): SQL {
+  return sql`          case when ${isLeader} then (
+            select coalesce(
+              jsonb_agg(
+                jsonb_build_object(
+                  'ends_at', member_access_grants.ends_at,
+                  'id', member_access_grants.id,
+                  'note', (
+                    select academy_audit_events.reason
+                    from public.academy_audit_events
+                    where academy_audit_events.tribe_id = member_access_grants.tribe_id
+                      and academy_audit_events.entity_type = ${ACADEMY_AUDIT_ENTITY.grant}
+                      and academy_audit_events.entity_id = member_access_grants.id::text
+                      and academy_audit_events.action = ${ACADEMY_AUDIT_ACTION.bonusGranted}
+                    order by academy_audit_events.created_at desc
+                    limit 1
+                  ),
+                  'revoked_at', member_access_grants.revoked_at,
+                  'source_type', member_access_grants.source_type,
+                  'starts_at', member_access_grants.starts_at
+                )
+                order by member_access_grants.starts_at desc
+              ),
+              '[]'::jsonb
+            )
+            from public.member_access_grants
+            where member_access_grants.tribe_id = ${tribeId}
+              and member_access_grants.user_id = members.user_id
+              and member_access_grants.product_key = ${PRODUCT_KEY.academy}
+          ) else '[]'::jsonb end as grants
+        from members
+        order by
+          case members.role when 'leader' then 1 when 'guardian' then 2 else 3 end,
+          members.display_name asc,
+          members.user_id asc
+        limit ${pageSize}
+        offset ${offset}
+      `;
+}
+
+/**
+ * Reads one page of academy members with their verification, access, renewal, and (for leaders) grants.
+ */
+function buildAcademyMembersPageStatement(query: AcademyMembersPageQuery): SQL {
+  const { searchPattern, tribeId } = query;
+
+  return sql`
+        with members as (
+          select
+            tribe_members.user_id,
+            tribe_members.role,
+            tribe_members.status,
+            coalesce("user".name, '') as display_name
+          from public.tribe_members
+          inner join public."user"
+            on "user".id = tribe_members.user_id
+          where tribe_members.tribe_id = ${tribeId}
+            and tribe_members.status in ('active', 'muted', 'blocked')
+            and (${searchPattern}::text is null or "user".name ilike ${searchPattern})
+        )
+        select
+          members.*,
+          count(*) over () as total_count,
+          public.is_member_verified_for_academy(${tribeId}, members.user_id) as is_verified,
+          public.has_active_product_grant(${tribeId}, members.user_id, ${PRODUCT_KEY.academy}) as has_academy_access,
+          (
+            select tribe_member_subscriptions.status
+            from public.tribe_member_subscriptions
+            where tribe_member_subscriptions.tribe_id = ${tribeId}
+              and tribe_member_subscriptions.user_id = members.user_id
+              and tribe_member_subscriptions.product_key = ${PRODUCT_KEY.academy}
+              and tribe_member_subscriptions.status in (
+                ${ACADEMY_RENEWAL_LIVE_STATUS.active},
+                ${ACADEMY_RENEWAL_LIVE_STATUS.pending},
+                ${ACADEMY_RENEWAL_LIVE_STATUS.paused}
+              )
+            order by tribe_member_subscriptions.created_at desc
+            limit 1
+          ) as renewal_status,
+`.append(buildAcademyMembersPageTail(query));
+}
+
+export class PostgresProductAccessRepository implements ProductAccessRepository {
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  async activateAcademy(command: ActivateAcademyCommand): Promise<ActivateAcademyResult> {
+    return this.executeWithDatabase(async (database) => {
+      // The definer function checks the active leader, locks the tribe and the
+      // memberships, preserves every current member and writes the audit, all
+      // in this transaction.
+      const result = await database.execute(sql`
+        select public.academy_activate_by_leader(
+          ${command.tribeSlug},
+          ${command.expectedConfigVersion}
+        ) as status
       `);
-      const row = (result.rows?.[0] ?? null) as {
+      const status = (result.rows[0] as { status: string } | undefined)?.status;
+
+      if (status === "forbidden" || status === "not_found") {
+        return { status };
+      }
+
+      const tribeResult = await database.execute(sql`
+        select tribes.id from public.tribes where tribes.slug = ${command.tribeSlug} limit 1
+      `);
+      const tribeId = (tribeResult.rows[0] as { id: string }).id;
+      const settings = await this.readSettingsInTransaction(database, tribeId);
+
+      if (status === "activated" || status === "already_academy") {
+        return { settings, status };
+      }
+
+      return { settings, status: "conflict" };
+    });
+  }
+
+  async readOwnAccessSnapshot({
+    tribeSlug,
+  }: TribeSlugQuery): Promise<OwnAcademyAccessSnapshot | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(buildOwnAccessSnapshotStatement(tribeSlug));
+      const row = (result.rows[0] ?? null) as {
         access_model: TribeAccessModel;
         admission_enabled: boolean;
         first_activated_at: string | Date | null;
@@ -325,7 +555,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         select offer.*,public.academy_offer_requires_admission_request(${tribeSlug}) as admission_requires_request
         from public.tribe_academy_public_offer(${tribeSlug}) offer
       `);
-      const row = (result.rows?.[0] ?? null) as {
+      const row = (result.rows[0] ?? null) as {
         admission_enabled: boolean;
         admission_requires_request: boolean;
         benefits: unknown;
@@ -348,11 +578,11 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         admissionRequiresRequest: row.admission_requires_request,
         benefits: readBenefits(row.benefits),
         description: row.description,
-        offerVersion: Number(row.offer_version),
+        offerVersion: row.offer_version,
         price:
           row.price_amount_cents !== null && row.price_currency && row.price_frequency
             ? {
-                amountCents: Number(row.price_amount_cents),
+                amountCents: row.price_amount_cents,
                 currency: row.price_currency,
                 frequency: row.price_frequency,
               }
@@ -383,7 +613,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
           and public.can_manage_tribe_settings(tribes.id)
         limit 1
       `);
-      const row = (result.rows?.[0] ?? null) as SettingsRow | null;
+      const row = (result.rows[0] ?? null) as SettingsRow | null;
 
       return row ? mapSettings(row) : null;
     });
@@ -435,7 +665,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         union all
         select * from updated
       `);
-      const row = (result.rows?.[0] ?? null) as SettingsRow | null;
+      const row = (result.rows[0] ?? null) as SettingsRow | null;
 
       if (!row) {
         const current = await this.readSettingsInTransaction(database, actor.tribeId);
@@ -493,7 +723,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
           and tribe_academy_settings.access_model = ${TRIBE_ACCESS_MODEL.academy}
         returning *
       `);
-      const row = (result.rows?.[0] ?? null) as SettingsRow | null;
+      const row = (result.rows[0] ?? null) as SettingsRow | null;
 
       if (!row) {
         return {
@@ -537,49 +767,14 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         return { status: "not_academy" };
       }
 
-      // Lock the recipient membership too: a concurrent block or removal waits
-      // for this grant or is seen by it (moderation always prevails).
-      const recipientResult = await database.execute(sql`
-        select
-          tribe_members.status,
-          public.is_member_verified_for_academy(${actor.tribeId}, tribe_members.user_id) as is_verified
-        from public.tribe_members
-        where tribe_members.tribe_id = ${actor.tribeId}
-          and tribe_members.user_id = ${command.recipientUserId}
-        limit 1
-        for share of tribe_members
-      `);
-      const recipient = (recipientResult.rows?.[0] ?? null) as {
-        is_verified: boolean | null;
-        status: string;
-      } | null;
+      const recipient = await checkBonusRecipient(database, actor.tribeId, command);
 
-      if (!recipient) {
-        // Unknown ids and members of other tribes look the same.
-        return { status: "not_found" };
-      }
-
-      if (recipient.status !== "active" && recipient.status !== "muted") {
-        return { status: "recipient_not_eligible" };
-      }
-
-      if (recipient.is_verified !== true && !command.allowUnverifiedRecipient) {
-        return { status: "recipient_not_verified" };
+      if ("status" in recipient) {
+        return recipient;
       }
 
       const sourceKey = `${BONUS_SOURCE_KEY_PREFIX}${command.idempotencyKey}`;
-      const replayResult = await database.execute(sql`
-        select id, user_id, starts_at, ends_at, revoked_at, source_type
-        from public.member_access_grants
-        where tribe_id = ${actor.tribeId}
-          and product_key = ${PRODUCT_KEY.academy}
-          and source_type = ${ACCESS_GRANT_SOURCE_TYPE.manualBonus}
-          and source_key = ${sourceKey}
-        limit 1
-      `);
-      const replay = (replayResult.rows?.[0] ?? null) as (GrantJsonRow & {
-        user_id: string;
-      }) | null;
+      const replay = await readBonusReplay(database, actor.tribeId, sourceKey);
 
       if (replay) {
         return replay.user_id === command.recipientUserId
@@ -595,34 +790,16 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
           : { status: "idempotency_conflict" };
       }
 
-      if (command.replacesGrantId) {
-        const replaced = await database.execute(sql`
-          update public.member_access_grants
-          set revoked_at = now(), revoked_by = ${actor.actorUserId}
-          where id = ${command.replacesGrantId}
-            and tribe_id = ${actor.tribeId}
-            and user_id = ${command.recipientUserId}
-            and source_type = ${ACCESS_GRANT_SOURCE_TYPE.manualBonus}
-            and revoked_at is null
-          returning id
-        `);
-
-        if ((replaced.rows ?? []).length === 0) {
-          return { status: "replaced_grant_not_found" };
-        }
-
-        await recordAcademyAuditEvent(database, {
-          action: ACADEMY_AUDIT_ACTION.bonusRevoked,
+      if (
+        command.replacesGrantId &&
+        !(await revokeReplacedBonus(database, {
           actorUserId: actor.actorUserId,
-          correlationId: command.correlationId,
-          entityId: command.replacesGrantId,
-          entityType: ACADEMY_AUDIT_ENTITY.grant,
-          fromState: GRANTED_STATE,
-          reason: command.reason,
-          subjectUserId: command.recipientUserId,
-          toState: REVOKED_STATE,
+          command,
+          replacesGrantId: command.replacesGrantId,
           tribeId: actor.tribeId,
-        });
+        }))
+      ) {
+        return { status: "replaced_grant_not_found" };
       }
 
       const inserted = await insertAcademyGrantWithEnrollment(database, {
@@ -644,8 +821,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         fromState: null,
         reason: command.reason,
         subjectUserId: command.recipientUserId,
-        toState:
-          recipient.is_verified === true ? GRANTED_STATE : UNVERIFIED_EXCEPTION_STATE,
+        toState: recipient.isVerified ? GRANTED_STATE : UNVERIFIED_EXCEPTION_STATE,
         tribeId: actor.tribeId,
       });
 
@@ -656,7 +832,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
       `);
 
       return {
-        grant: mapGrant(grantResult.rows?.[0] as GrantJsonRow),
+        grant: mapGrant(grantResult.rows[0] as GrantJsonRow),
         hasActiveRenewal: await this.hasLiveAcademyRenewal(
           database,
           actor.tribeId,
@@ -702,7 +878,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
           exists (select 1 from target_grant) as found,
           exists (select 1 from revoked) as revoked
       `);
-      const row = (result.rows?.[0] ?? null) as {
+      const row = (result.rows[0] ?? null) as {
         found: boolean;
         revoked: boolean;
         user_id: string | null;
@@ -747,7 +923,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         where tribes.slug = ${query.tribeSlug}
         limit 1
       `);
-      const viewer = (viewerResult.rows?.[0] ?? null) as {
+      const viewer = (viewerResult.rows[0] ?? null) as {
         tribe_id: string;
         viewer_role: "guardian" | "leader" | null;
       } | null;
@@ -765,77 +941,14 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         ? `%${query.search.replace(/[\\%_]/g, (character) => `\\${character}`)}%`
         : null;
       const offset = (query.page - 1) * query.pageSize;
-      const result = await database.execute(sql`
-        with members as (
-          select
-            tribe_members.user_id,
-            tribe_members.role,
-            tribe_members.status,
-            coalesce("user".name, '') as display_name
-          from public.tribe_members
-          inner join public."user"
-            on "user".id = tribe_members.user_id
-          where tribe_members.tribe_id = ${viewer.tribe_id}
-            and tribe_members.status in ('active', 'muted', 'blocked')
-            and (${searchPattern}::text is null or "user".name ilike ${searchPattern})
-        )
-        select
-          members.*,
-          count(*) over () as total_count,
-          public.is_member_verified_for_academy(${viewer.tribe_id}, members.user_id) as is_verified,
-          public.has_active_product_grant(${viewer.tribe_id}, members.user_id, ${PRODUCT_KEY.academy}) as has_academy_access,
-          (
-            select tribe_member_subscriptions.status
-            from public.tribe_member_subscriptions
-            where tribe_member_subscriptions.tribe_id = ${viewer.tribe_id}
-              and tribe_member_subscriptions.user_id = members.user_id
-              and tribe_member_subscriptions.product_key = ${PRODUCT_KEY.academy}
-              and tribe_member_subscriptions.status in (
-                ${ACADEMY_RENEWAL_LIVE_STATUS.active},
-                ${ACADEMY_RENEWAL_LIVE_STATUS.pending},
-                ${ACADEMY_RENEWAL_LIVE_STATUS.paused}
-              )
-            order by tribe_member_subscriptions.created_at desc
-            limit 1
-          ) as renewal_status,
-          case when ${isLeader} then (
-            select coalesce(
-              jsonb_agg(
-                jsonb_build_object(
-                  'ends_at', member_access_grants.ends_at,
-                  'id', member_access_grants.id,
-                  'note', (
-                    select academy_audit_events.reason
-                    from public.academy_audit_events
-                    where academy_audit_events.tribe_id = member_access_grants.tribe_id
-                      and academy_audit_events.entity_type = ${ACADEMY_AUDIT_ENTITY.grant}
-                      and academy_audit_events.entity_id = member_access_grants.id::text
-                      and academy_audit_events.action = ${ACADEMY_AUDIT_ACTION.bonusGranted}
-                    order by academy_audit_events.created_at desc
-                    limit 1
-                  ),
-                  'revoked_at', member_access_grants.revoked_at,
-                  'source_type', member_access_grants.source_type,
-                  'starts_at', member_access_grants.starts_at
-                )
-                order by member_access_grants.starts_at desc
-              ),
-              '[]'::jsonb
-            )
-            from public.member_access_grants
-            where member_access_grants.tribe_id = ${viewer.tribe_id}
-              and member_access_grants.user_id = members.user_id
-              and member_access_grants.product_key = ${PRODUCT_KEY.academy}
-          ) else '[]'::jsonb end as grants
-        from members
-        order by
-          case members.role when 'leader' then 1 when 'guardian' then 2 else 3 end,
-          members.display_name asc,
-          members.user_id asc
-        limit ${query.pageSize}
-        offset ${offset}
-      `);
-      const rows = (result.rows ?? []) as Array<{
+      const result = await database.execute(buildAcademyMembersPageStatement({
+        isLeader,
+        offset,
+        pageSize: query.pageSize,
+        searchPattern,
+        tribeId: viewer.tribe_id,
+      }));
+      const rows = result.rows as Array<{
         display_name: string;
         grants: Array<GrantJsonRow & { note: string | null }> | null;
         has_academy_access: boolean | null;
@@ -892,7 +1005,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         on tribe_academy_settings.tribe_id = target.tribe_id
     `);
 
-    return mapSettings(result.rows?.[0] as SettingsRow);
+    return mapSettings(result.rows[0] as SettingsRow);
   }
 
   private async hasLiveAcademyRenewal(
@@ -912,7 +1025,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
       ) as has_active_renewal
     `);
 
-    return (result.rows?.[0] as { has_active_renewal: boolean } | undefined)
+    return (result.rows[0] as { has_active_renewal: boolean } | undefined)
       ?.has_active_renewal === true;
   }
 }

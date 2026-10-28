@@ -25,6 +25,38 @@ function canReadTribeWelcome(membershipStatus: string | null): boolean {
   );
 }
 
+type TribeWelcomePageAccess = Awaited<ReturnType<typeof resolveVisibleTribePageAccess>>;
+
+/**
+ * Welcome links the viewer already chose; `null` when they could not be read,
+ * so the selection modal stays closed.
+ */
+async function loadViewerSelections(
+  { authenticatedMember, logger, modules, tribe }: Pick<
+    TribeWelcomePageAccess,
+    "authenticatedMember" | "logger" | "modules" | "tribe"
+  >,
+  slug: string
+) {
+  return modules.tribes.useCases
+    .listCurrentMemberTribeWelcomeSelections({
+      tribeSlug: tribe.slug,
+    })
+    .catch((error: unknown) => {
+      logger.error({
+        error,
+        message: TRIBE_WELCOME_PAGE.resolveWelcomeSelectionsFailureMessage,
+        metadata: {
+          slug,
+          viewerId: authenticatedMember.id,
+        },
+      });
+
+      return null;
+    })
+    .then((selections) => selections ?? null);
+}
+
 export default async function TribeWelcomePage({
   params,
 }: {
@@ -80,23 +112,7 @@ export default async function TribeWelcomePage({
   const shouldResolveViewerSelections =
     canRecordWelcomeSelection && !canEdit && hasActiveWelcomeLinks;
   const viewerSelections = shouldResolveViewerSelections
-    ? await modules.tribes.useCases
-        .listCurrentMemberTribeWelcomeSelections({
-          tribeSlug: tribe.slug,
-        })
-        .catch((error: unknown) => {
-          logger.error({
-            error,
-            message: TRIBE_WELCOME_PAGE.resolveWelcomeSelectionsFailureMessage,
-            metadata: {
-              slug,
-              viewerId: authenticatedMember.id,
-            },
-          });
-
-          return null;
-        })
-        .then((selections) => selections ?? null)
+    ? await loadViewerSelections({ authenticatedMember, logger, modules, tribe }, slug)
     : null;
   const viewerSelectionsAreUnavailable = viewerSelections === null;
   const shouldOpenSelectionModal =

@@ -3,7 +3,7 @@ import { PostgresMessageMutationRepository } from "@/src/modules/messages/infras
 
 describe("PostgresMessageMutationRepository", () => {
   it("creates messages with a title and an active-member write guard", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           author_id: "member-1",
@@ -861,7 +861,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("creates replies with the returned reply view model", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           reply_author_id: "member-1",
@@ -904,7 +904,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("updates the message created_at through the leader-guarded statement", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           message_created_at: "2026-04-01T10:00:00.000Z",
@@ -930,7 +930,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns not_found when the message does not exist", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           message_created_at: null,
@@ -953,7 +953,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns forbidden when the viewer cannot edit the message created_at", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (..._args: unknown[]) => { return ({
       rows: [
         {
           message_created_at: null,

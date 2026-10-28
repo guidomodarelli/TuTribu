@@ -556,7 +556,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
  * @returns After the flow fits its panel once the step slide settles.
  */
 async function expectGuidedFlowFits(page: Page, label: string): Promise<void> {
-  await page.waitForFunction((name) => { const form = document.querySelector(`form[aria-label="${name}"]`); return form !== null && form.scrollWidth <= form.clientWidth + 1; }, label, { timeout: 10_000 });
+  await page.waitForFunction((name) => { const form = document.querySelector(`form[aria-label="${CSS.escape(name)}"]`); return form !== null && form.scrollWidth <= form.clientWidth + 1; }, label, { timeout: 10_000 });
 }
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy settings browser", () => {
   it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should stop the chained activation on memberships blocked by payment and clear it once each one is decided in $engine", async ({ engine, browserType }) => {
@@ -616,7 +616,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
                 const resolution = page.waitForResponse((result) => result.request().method() === "POST" && new URL(result.url()).pathname.endsWith("/resolution"));
                 await row.getByRole("button", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.submit, exact: true }).click();
                 expect((await resolution).status()).toBe(200);
-                if (remaining > 0) await page.waitForFunction(({ label, count }) => document.querySelectorAll(`ul[aria-label="${label}"] > li`).length === count, { label: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, count: remaining });
+                if (remaining > 0) await page.waitForFunction(({ label, count }) => document.querySelectorAll(`ul[aria-label="${CSS.escape(label)}"] > li`).length === count, { label: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, count: remaining });
               };
               /** Desktop decides both unknown histories (the canonical and the crossed pair); mobile retires the remaining guardian. */
               if (desktop) {
@@ -668,7 +668,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               if (await page.locator(rulesSelector).count()) await page.locator(`${rulesSelector} [aria-busy="false"]`).first().waitFor({ timeout: 90_000 });
               for (const width of [390, 1280]) {
                 await page.setViewportSize({ width, height: 900 });
-                await page.waitForTimeout(300);
+                await page.waitForFunction((expectedWidth) => new Promise<boolean>((resolve) => { requestAnimationFrame(() => { requestAnimationFrame(() => { resolve(innerWidth === expectedWidth); }); }); }), width);
                 expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
                 await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-${name}.png`), fullPage: true });
               }

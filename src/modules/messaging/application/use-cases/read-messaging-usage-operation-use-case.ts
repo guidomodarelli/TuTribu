@@ -23,8 +23,8 @@ export class ReadMessagingUsageOperationUseCase {
       const authorize = async () => {
         const facts = await this.authorization.getCurrentLeadership(query.tribeId, account.userId);
         const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-        if (!current || current.userId !== account.userId || current.session.id !== account.session.id || !Number.isFinite(now.getTime()) || !Number.isFinite(current.session.expiresAt.getTime()) || now >= current.session.expiresAt) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
-        if (!facts || facts.tribeId !== query.tribeId || facts.leaderUserId !== account.userId || facts.membership?.userId !== account.userId || facts.membership.role !== TRIBE_MEMBER_ROLE.leader || facts.membership.status !== TRIBE_MEMBERSHIP_STATUS.active) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.permissionDenied);
+        if (current?.userId !== account.userId || current.session.id !== account.session.id || !Number.isFinite(now.getTime()) || !Number.isFinite(current.session.expiresAt.getTime()) || now >= current.session.expiresAt) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
+        if (facts?.tribeId !== query.tribeId || facts.leaderUserId !== account.userId || facts.membership?.userId !== account.userId || facts.membership.role !== TRIBE_MEMBER_ROLE.leader || facts.membership.status !== TRIBE_MEMBERSHIP_STATUS.active) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.permissionDenied);
       };
       await authorize();
       const value = await this.reader.read({ actorUserId: account.userId, sessionId: account.session.id, tribeId: query.tribeId, requestId: query.requestId }, query.operationId);

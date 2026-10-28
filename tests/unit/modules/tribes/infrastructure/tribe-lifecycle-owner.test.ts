@@ -27,7 +27,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
       let loseResponse = false;
       const execute = async <Result>(_context: TribeLifecycleContext, run: (transaction: RequestDatabase) => Promise<Result>) => {
         const result = await database.withContext(fixture.own, run);
-        if (loseResponse && result && typeof result === "object" && "state" in result && result.state === "completed") { loseResponse = false; throw new Error("Synthetic tribe lifecycle reply lost after commit"); }
+        if (loseResponse && typeof result === "object" && result !== null && "state" in result && result.state === "completed") { loseResponse = false; throw new Error("Synthetic tribe lifecycle reply lost after commit"); }
         return result;
       };
       const lifecycle = new ManageTribeLifecycleUseCases(accounts, new PostgresTribeLifecycleRepository(execute, async () => fixture.config, createAdmissionScopeClosureWriter));

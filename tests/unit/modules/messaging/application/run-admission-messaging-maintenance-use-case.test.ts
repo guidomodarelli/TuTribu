@@ -3,11 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { RunAdmissionMessagingMaintenanceUseCase } from "@/src/modules/messaging/application/use-cases/run-admission-messaging-maintenance-use-case";
-import { createUnstartedAdmissionMaintenancePhases } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
+import { createUnstartedAdmissionMaintenancePhases, admissionMaintenanceMadeProgress  } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
 import type { AdmissionMessagingMaintenanceHealth, AdmissionMessagingMaintenancePhaseOutput, AdmissionMessagingMaintenanceProgress, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenanceWork } from "@/src/modules/messaging/domain/repositories/admission-messaging-maintenance";
 import { ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS, ADMISSION_MESSAGING_MAINTENANCE_PHASES, ADMISSION_MESSAGING_MAINTENANCE_PHASE } from "@/src/modules/messaging/constants/admission-messaging-maintenance";
 import { ADMISSION_MESSAGING_MAINTENANCE_TEST_BUDGET_MS, ADMISSION_MESSAGING_MAINTENANCE_TEST_METRIC_BY_PHASE } from "@/tests/support/constants/admission-messaging-maintenance";
-import { admissionMaintenanceMadeProgress } from "@/src/modules/messaging/application/use-cases/admission-messaging-maintenance-state";
 import { AdmissionMessagingMaintenanceError } from "@/src/modules/messaging/domain/errors/admission-messaging-maintenance-error";
 
 /** @returns Own in-memory effect/observation ports; no framework, SDK, database library or timer is mocked. */
@@ -15,7 +14,7 @@ function fixture() {
   const runId = randomUUID(), now = Date.now();
   const health: AdmissionMessagingMaintenanceHealth = { available: true, observedAtMilliseconds: now, lastSuccessfulRunAtMilliseconds: null, oldestQueuedAtMilliseconds: null, queueAgeMilliseconds: null };
   const run: AdmissionMessagingMaintenanceRun = { runId, startedAtMilliseconds: now, firstPhaseIndex: 0, externalScope: { environment: "synthetic-maintenance", securityEpoch: randomUUID() }, health };
-  const work = { runPhase: vi.fn<AdmissionMessagingMaintenanceWork["runPhase"]>().mockImplementation(async (phase) => ({ status: "completed", reason: null, metrics: [{ key: ADMISSION_MESSAGING_MAINTENANCE_TEST_METRIC_BY_PHASE[phase], value: 1 }], hasRemainingWork: false })) };
+  const work = { runPhase: vi.fn<AdmissionMessagingMaintenanceWork["runPhase"]>().mockImplementation(async ({ phase }) => ({ status: "completed", reason: null, metrics: [{ key: ADMISSION_MESSAGING_MAINTENANCE_TEST_METRIC_BY_PHASE[phase], value: 1 }], hasRemainingWork: false })) };
   const progress = {
     begin: vi.fn<AdmissionMessagingMaintenanceProgress["begin"]>().mockImplementation(async () => ({ acquired: true, run })),
     recordPhase: vi.fn<AdmissionMessagingMaintenanceProgress["recordPhase"]>().mockResolvedValue(undefined),
@@ -29,7 +28,7 @@ describe("fixed bounded admission messaging maintenance", () => {
   it("should compose and record every fixed independent phase without erasing its distinct confirmed metrics", async () => {
     const test = fixture(), result = await test.useCase.execute();
     expect(result).toMatchObject({ runId: test.runId, newRunStarted: true, status: "completed", observation: "recorded", deadlineReached: false });
-    expect(test.work.runPhase.mock.calls.map(([phase]) => phase)).toEqual(ADMISSION_MESSAGING_MAINTENANCE_PHASES);
+    expect(test.work.runPhase.mock.calls.map(([{ phase }]) => phase)).toEqual(ADMISSION_MESSAGING_MAINTENANCE_PHASES);
     expect(result.phases.map((phase) => phase.metrics)).toEqual(ADMISSION_MESSAGING_MAINTENANCE_PHASES.map((phase) => [{ key: ADMISSION_MESSAGING_MAINTENANCE_TEST_METRIC_BY_PHASE[phase], value: 1 }]));
     // One start, then each settled phase shares its commit with the next start, then the last settlement alone.
     expect(test.progress.recordPhase).toHaveBeenCalledTimes(ADMISSION_MESSAGING_MAINTENANCE_PHASES.length + 1);
@@ -41,21 +40,21 @@ describe("fixed bounded admission messaging maintenance", () => {
   it("should give each phase a fair soft deadline that lets time unused by quick phases flow to later ones", async () => {
     const test = fixture(), result = await test.useCase.execute();
     expect(result.status).toBe("completed");
-    const calls = test.work.runPhase.mock.calls;
+    const calls = test.work.runPhase.mock.calls.map(([request]) => request);
     for (const [index, call] of calls.entries()) {
-      expect(call[4]).toBeLessThan(call[1]);
-      if (index > 0) expect(call[4]!).toBeGreaterThanOrEqual(calls[index - 1][4]!);
+      expect(call.phaseDeadlineAtMilliseconds).toBeLessThan(call.deadlineAtMilliseconds);
+      if (index > 0) expect(call.phaseDeadlineAtMilliseconds!).toBeGreaterThanOrEqual(calls[index - 1].phaseDeadlineAtMilliseconds!);
     }
     // With quick phases, the last one may use almost all the time left before the finish reserve.
-    expect(calls.at(-1)![1] - calls.at(-1)![4]!).toBeLessThanOrEqual(5_000);
+    expect(calls.at(-1)!.deadlineAtMilliseconds - calls.at(-1)!.phaseDeadlineAtMilliseconds!).toBeLessThanOrEqual(5_000);
   });
 
   it("should stop a slow phase at its soft deadline so later phases still run in the same invocation", async () => {
     const test = fixture(), original = test.work.runPhase.getMockImplementation()!;
-    test.work.runPhase.mockImplementation(async (phase, deadline, signal, run, phaseDeadline) => {
-      if (phase !== ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications) return original(phase, deadline, signal, run, phaseDeadline);
+    test.work.runPhase.mockImplementation(async (request) => {
+      if (request.phase !== ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications) return original(request);
       // A cooperative owner that always has more work stops at its own soft deadline.
-      while (Date.now() < phaseDeadline!) await new Promise((resolve) => setTimeout(resolve, 1));
+      while (Date.now() < request.phaseDeadlineAtMilliseconds!) await new Promise((resolve) => setTimeout(resolve, 1));
       return { status: "deferred", reason: "deadline_reached", metrics: [{ key: "collected_notification_sources", value: 3 }], hasRemainingWork: true };
     });
     const result = await new RunAdmissionMessagingMaintenanceUseCase(test.work, test.progress, test.runtime, ADMISSION_MESSAGING_MAINTENANCE_TEST_BUDGET_MS * 3).execute();
@@ -80,9 +79,9 @@ describe("fixed bounded admission messaging maintenance", () => {
 
   it("should not treat missing configuration or uncertainty as budget-only progress", async () => {
     const test = fixture(), original = test.work.runPhase.getMockImplementation()!;
-    test.work.runPhase.mockImplementation(async (phase, deadline, signal, run) => phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch ? { status: "not_configured", reason: "configuration_unavailable", metrics: [], hasRemainingWork: true } : original(phase, deadline, signal, run));
+    test.work.runPhase.mockImplementation(async (request) => request.phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch ? { status: "not_configured", reason: "configuration_unavailable", metrics: [], hasRemainingWork: true } : original(request));
     expect(admissionMaintenanceMadeProgress(await test.useCase.execute())).toBe(false);
-    test.work.runPhase.mockImplementation(async (phase, deadline, signal, run) => phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch ? { status: "unresolved", reason: "operation_unresolved", metrics: [], hasRemainingWork: true } : original(phase, deadline, signal, run));
+    test.work.runPhase.mockImplementation(async (request) => request.phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch ? { status: "unresolved", reason: "operation_unresolved", metrics: [], hasRemainingWork: true } : original(request));
     expect(admissionMaintenanceMadeProgress(await test.useCase.execute())).toBe(false);
   });
 
@@ -90,7 +89,7 @@ describe("fixed bounded admission messaging maintenance", () => {
     const test = fixture(), position = ADMISSION_MESSAGING_MAINTENANCE_PHASES.length - 1;
     test.progress.begin.mockResolvedValue({ acquired: true, run: { ...test.run, firstPhaseIndex: position } });
     expect((await test.useCase.execute()).status).toBe("completed");
-    expect(test.work.runPhase.mock.calls.map(([phase]) => phase)).toEqual([...ADMISSION_MESSAGING_MAINTENANCE_PHASES.slice(position), ...ADMISSION_MESSAGING_MAINTENANCE_PHASES.slice(0, position)]);
+    expect(test.work.runPhase.mock.calls.map(([{ phase }]) => phase)).toEqual([...ADMISSION_MESSAGING_MAINTENANCE_PHASES.slice(position), ...ADMISSION_MESSAGING_MAINTENANCE_PHASES.slice(0, position)]);
   });
 
   it("should preserve earlier confirmed work and continue independent owners after one phase becomes unresolved", async () => {
@@ -107,7 +106,7 @@ describe("fixed bounded admission messaging maintenance", () => {
 
   it("should expose missing external configuration while preserving the completed internal phases", async () => {
     const test = fixture(), original = test.work.runPhase.getMockImplementation()!;
-    test.work.runPhase.mockImplementation(async (phase, deadline, signal, run) => phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch ? { status: "not_configured", reason: "configuration_unavailable", metrics: [], hasRemainingWork: true } : original(phase, deadline, signal, run));
+    test.work.runPhase.mockImplementation(async (request) => request.phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch ? { status: "not_configured", reason: "configuration_unavailable", metrics: [], hasRemainingWork: true } : original(request));
     const result = await test.useCase.execute();
     expect(result.status).toBe("incomplete");
     expect(result.phases.find((phase) => phase.phase === ADMISSION_MESSAGING_MAINTENANCE_PHASE.dispatch)).toMatchObject({ status: "not_configured", metrics: [], hasRemainingWork: true });
@@ -134,7 +133,7 @@ describe("fixed bounded admission messaging maintenance", () => {
     expect(result).toMatchObject({ status: "incomplete", deadlineReached: true, observation: "pending" });
     expect(result.phases[0]).toMatchObject({ status: "unresolved", reason: "deadline_reached" });
     expect(test.work.runPhase).toHaveBeenCalledTimes(1);
-    expect(test.work.runPhase.mock.calls[0][2].aborted).toBe(true);
+    expect(test.work.runPhase.mock.calls[0][0].signal.aborted).toBe(true);
     settle({ status: "completed", reason: null, metrics: [{ key: "expired_requests", value: 1 }], hasRemainingWork: false });
     await Promise.all(test.deferred);
     expect(test.work.runPhase).toHaveBeenCalledTimes(1);

@@ -99,23 +99,10 @@ function validatePolicyConfiguration(
   requiresReadiness: boolean,
 ): AdmissionPolicyConfigurationResult {
   const warnings: ConfigurationWarning[] = [];
-  const failure = (reason: (typeof ADMISSION_POLICY_CONFIGURATION_ERROR)[keyof typeof ADMISSION_POLICY_CONFIGURATION_ERROR]): AdmissionPolicyConfigurationResult => ({ valid: false, reason, warnings });
-  if (facts.tribeId !== policy.tribeId || (facts.usagePolicy && facts.usagePolicy.tribeId !== policy.tribeId)) {
-    return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.scopeMismatch);
-  }
-  if (facts.lockedContactType && facts.lockedContactType !== policy.contactType) {
-    return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.contactTypeLocked);
-  }
+  const failure = (reason: ConfigurationError): AdmissionPolicyConfigurationResult => ({ valid: false, reason, warnings });
+  const structuralError = structuralConfigurationError(policy, facts, requiresReadiness);
+  if (structuralError) return failure(structuralError);
   const isPhone = policy.contactType === ADMISSION_CONTACT_TYPE.phone;
-  if (isPhone && policy.mode === ADMISSION_POLICY_MODE.allowlist && !policy.requiresAdditionalVerification) {
-    return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.phoneAllowlistVerificationRequired);
-  }
-  if (policy.allowSmsAlternative && (!isPhone || policy.phoneChannel !== ADMISSION_PHONE_CHANNEL.whatsapp || !policy.requiresAdditionalVerification)) {
-    return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.smsAlternativeInvalid);
-  }
-  if (requiresReadiness && policy.allowSmsAlternative && !facts.smsAlternativePrepared) {
-    return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.smsAlternativeUnavailable);
-  }
   if (!policy.requiresAdditionalVerification) {
     if (isPhone) warnings.push(ADMISSION_POLICY_CONFIGURATION_WARNING.phoneInvitationsUnavailable);
     return { valid: true, warnings };
@@ -123,15 +110,32 @@ function validatePolicyConfiguration(
   if (!requiresReadiness) return { valid: true, warnings };
   if (!facts.channelPrepared) return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.verificationUnavailable);
   if (!facts.verificationQuotaPositive) return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.verificationQuotaUnavailable);
-  if (isPhone) {
-    if (!policy.phoneChannel) return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.phoneChannelRequired);
-    if (!facts.usagePolicy?.allowedCountries.length) return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.countriesNotConfigured);
-    const hasPermittedCountry = facts.usagePolicy.allowedCountries.some((country) =>
-      !facts.usagePolicy?.platformRestrictions.some((restriction) => restriction.country === country && restriction.channel === policy.phoneChannel && !restriction.allowed),
-    );
-    if (!hasPermittedCountry) return failure(ADMISSION_POLICY_CONFIGURATION_ERROR.countriesRestricted);
-  }
-  return { valid: true, warnings };
+  const phoneError = isPhone ? phoneReadinessError(policy, facts) : null;
+  return phoneError ? failure(phoneError) : { valid: true, warnings };
+}
+
+type ConfigurationError = (typeof ADMISSION_POLICY_CONFIGURATION_ERROR)[keyof typeof ADMISSION_POLICY_CONFIGURATION_ERROR];
+
+/** @returns The scope, locked contact, phone-list or SMS-alternative incompatibility, or `null`. */
+function structuralConfigurationError(policy: AdmissionPolicyConfiguration, facts: AdmissionPolicyConfigurationFacts, requiresReadiness: boolean): ConfigurationError | null {
+  if (facts.tribeId !== policy.tribeId || (facts.usagePolicy && facts.usagePolicy.tribeId !== policy.tribeId)) return ADMISSION_POLICY_CONFIGURATION_ERROR.scopeMismatch;
+  if (facts.lockedContactType && facts.lockedContactType !== policy.contactType) return ADMISSION_POLICY_CONFIGURATION_ERROR.contactTypeLocked;
+  const isPhone = policy.contactType === ADMISSION_CONTACT_TYPE.phone;
+  if (isPhone && policy.mode === ADMISSION_POLICY_MODE.allowlist && !policy.requiresAdditionalVerification) return ADMISSION_POLICY_CONFIGURATION_ERROR.phoneAllowlistVerificationRequired;
+  if (policy.allowSmsAlternative && (!isPhone || policy.phoneChannel !== ADMISSION_PHONE_CHANNEL.whatsapp || !policy.requiresAdditionalVerification)) return ADMISSION_POLICY_CONFIGURATION_ERROR.smsAlternativeInvalid;
+  if (requiresReadiness && policy.allowSmsAlternative && !facts.smsAlternativePrepared) return ADMISSION_POLICY_CONFIGURATION_ERROR.smsAlternativeUnavailable;
+  return null;
+}
+
+/** @returns The missing phone channel, unconfigured countries or fully restricted countries, or `null` when phone verification can run. */
+function phoneReadinessError(policy: AdmissionPolicyConfiguration, facts: AdmissionPolicyConfigurationFacts): ConfigurationError | null {
+  if (!policy.phoneChannel) return ADMISSION_POLICY_CONFIGURATION_ERROR.phoneChannelRequired;
+  if (!facts.usagePolicy?.allowedCountries.length) return ADMISSION_POLICY_CONFIGURATION_ERROR.countriesNotConfigured;
+  const restrictions = facts.usagePolicy.platformRestrictions;
+  const hasPermittedCountry = facts.usagePolicy.allowedCountries.some((country) =>
+    !restrictions.some((restriction) => restriction.country === country && restriction.channel === policy.phoneChannel && !restriction.allowed),
+  );
+  return hasPermittedCountry ? null : ADMISSION_POLICY_CONFIGURATION_ERROR.countriesRestricted;
 }
 
 /**
@@ -161,7 +165,7 @@ export type AdmissionPolicyRulesPatch = Omit<AdmissionPolicyPatch, "messagingCon
 export function selectAdmissionPolicyRules(patch: AdmissionPolicyRulesPatch): AdmissionPolicyRulesPatch {
   const rules: Record<string, unknown> = {};
   for (const field of ADMISSION_POLICY_RULE_FIELDS) if (field in patch) rules[field] = patch[field];
-  return rules as AdmissionPolicyRulesPatch;
+  return rules;
 }
 export type AdmissionPolicyChangeResult =
   | { outcome: "conflict" }

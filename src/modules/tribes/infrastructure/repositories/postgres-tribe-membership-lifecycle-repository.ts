@@ -25,6 +25,24 @@ export type AdmissionMembershipLifecycleFactory = (database: RequestDatabase) =>
 /** Consumes only membership facts needed for authorization and state transitions. */
 type MemberRow = { id: string; user_id: string; role: string; status: string; status_reason: string };
 
+/** @param input - Locked rows, the explicit target, the native actor, and whether the actor leaves. @returns Whether a leaver owns a recoverable membership, or a sole active leader acts on another member. */
+function isLifecycleActionAllowed(input: { actorUserId: string; leaving: boolean; members: MemberRow[]; target: MemberRow | undefined }): boolean {
+  const { actorUserId, leaving, members, target } = input;
+  if (leaving) {
+    if (target?.user_id !== actorUserId) return false;
+    return target.status === TRIBE_MEMBERSHIP_STATUS.active || target.status === TRIBE_MEMBERSHIP_STATUS.muted || target.status === TRIBE_MEMBERSHIP_STATUS.blocked && target.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked || target.status === TRIBE_MEMBERSHIP_STATUS.removed && target.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive;
+  }
+  const actor = members.find((member) => member.user_id === actorUserId);
+  const leaders = members.filter((member) => member.role === TRIBE_MEMBER_ROLE.leader && member.status === TRIBE_MEMBERSHIP_STATUS.active);
+  return actor?.role === TRIBE_MEMBER_ROLE.leader && actor.status === TRIBE_MEMBERSHIP_STATUS.active && leaders.length === 1 && leaders[0].user_id === actorUserId;
+}
+
+/** @param leaving - Whether the member leaves on their own. @param action - Explicit lifecycle action. @returns The admission membership event the change emits. */
+function resolveLifecycleEvent(leaving: boolean, action: TribeMembershipLifecycleInput["action"]) {
+  if (leaving) return ADMISSION_MEMBERSHIP_LIFECYCLE_EVENT.left;
+  return action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.block ? ADMISSION_MEMBERSHIP_LIFECYCLE_EVENT.conductBlocked : ADMISSION_MEMBERSHIP_LIFECYCLE_EVENT.removed;
+}
+
 /** Preserves CAS, revocation, terminal request effects and replay without lifting a nonrecoverable restriction. */
 export class PostgresTribeMembershipLifecycleRepository implements TribeMembershipLifecycleWriter {
   /** @param execute - Native actor transaction executor. @param security - Original operation fingerprint configuration. @param admission - Admission owner on the existing transaction. */
@@ -74,16 +92,9 @@ export class PostgresTribeMembershipLifecycleRepository implements TribeMembersh
       return await ledger.run(command, tribeMembershipLifecycleResultSchema, async (database): Promise<TribeMembershipLifecycleResult> => {
         await this.authorizeIdentity(database, context);
         const members = (await database.execute<MemberRow>(sql`select id,user_id,role,status,status_reason from public.tribe_members where tribe_id=${context.tribeId} and (id=${input.memberId} or user_id=${context.actorUserId} or role=${TRIBE_MEMBER_ROLE.leader}) order by user_id for update`)).rows;
-        const target = members.find((member) => member.id === input.memberId), actor = members.find((member) => member.user_id === context.actorUserId);
+        const target = members.find((member) => member.id === input.memberId);
         const leaving = input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.leave;
-        if (leaving) {
-          if (!target || target.user_id !== context.actorUserId) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.permissionDenied };
-          const recoverable = target.status === TRIBE_MEMBERSHIP_STATUS.active || target.status === TRIBE_MEMBERSHIP_STATUS.muted || target.status === TRIBE_MEMBERSHIP_STATUS.blocked && target.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked || target.status === TRIBE_MEMBERSHIP_STATUS.removed && target.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive;
-          if (!recoverable) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.permissionDenied };
-        } else {
-          const leaders = members.filter((member) => member.role === TRIBE_MEMBER_ROLE.leader && member.status === TRIBE_MEMBERSHIP_STATUS.active);
-          if (!actor || actor.role !== TRIBE_MEMBER_ROLE.leader || actor.status !== TRIBE_MEMBERSHIP_STATUS.active || leaders.length !== 1 || leaders[0].user_id !== context.actorUserId) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.permissionDenied };
-        }
+        if (!isLifecycleActionAllowed({ actorUserId: context.actorUserId, leaving, members, target })) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.permissionDenied };
         if (!target) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.resourceUnavailable };
         if (target.role === TRIBE_MEMBER_ROLE.leader) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.permissionDenied };
         if (target.status !== input.expectedStatus) return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.denied, code: TRIBE_MEMBERSHIP_LIFECYCLE_ERROR.membershipConflict };
@@ -91,7 +102,7 @@ export class PostgresTribeMembershipLifecycleRepository implements TribeMembersh
         if (leaving) await database.execute(sql`delete from public.tribe_members where id=${target.id} and tribe_id=${context.tribeId} and user_id=${target.user_id}`);
         else await database.execute(sql`update public.tribe_members set status=${status},status_reason=${input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.block ? TRIBE_MEMBERSHIP_STATUS_REASON.conductBlocked : TRIBE_MEMBERSHIP_STATUS_REASON.none} where id=${target.id} and tribe_id=${context.tribeId} and user_id=${target.user_id}`);
         const reconcile = new ReconcileAdmissionMembershipUseCase(this.admission(database));
-        await reconcile.execute({ tribeId: context.tribeId, userId: target.user_id, memberId: target.id, kind: leaving ? ADMISSION_MEMBERSHIP_LIFECYCLE_EVENT.left : input.action === TRIBE_MEMBERSHIP_LIFECYCLE_ACTION.block ? ADMISSION_MEMBERSHIP_LIFECYCLE_EVENT.conductBlocked : ADMISSION_MEMBERSHIP_LIFECYCLE_EVENT.removed });
+        await reconcile.execute({ tribeId: context.tribeId, userId: target.user_id, memberId: target.id, kind: resolveLifecycleEvent(leaving, input.action) });
         await this.authorizeIdentity(database, context);
         return { outcome: TRIBE_MEMBERSHIP_LIFECYCLE_OUTCOME.changed, memberId: target.id, action: input.action, status, deleted: leaving };
       });

@@ -196,7 +196,7 @@ async function revokeExpectedMemberFeedToken(
     select feed_precondition.precondition_holds
     from feed_precondition
   `);
-  const row = ((result.rows ?? [])[0] as FeedTokenPreconditionRow | undefined) ?? null;
+  const row = (result.rows[0] as FeedTokenPreconditionRow | undefined) ?? null;
 
   return row?.precondition_holds === true;
 }
@@ -256,7 +256,7 @@ async function revokeExpectedMemberFeedTokenIfReadable(
     from feed_access
     cross join feed_precondition
   `);
-  const row = ((result.rows ?? [])[0] as FeedTokenRotationRow | undefined) ?? null;
+  const row = (result.rows[0] as FeedTokenRotationRow | undefined) ?? null;
 
   if (row?.can_read !== true) {
     return FEED_TOKEN_ROTATION_OUTCOME.forbidden;
@@ -268,41 +268,9 @@ async function revokeExpectedMemberFeedTokenIfReadable(
 }
 
 /**
- * Reads, in ONE statement (one snapshot), the feed series that fit both
- * budgets together with their complete set of still-valid exceptions:
- *
- * 1. `candidate_series`: every series of the requested types with at least
- *    one effective occurrence overlapping the window: a slot of its cadence
- *    that is neither cancelled nor moved (checked in SQL, since nothing
- *    expands the series before the budgets) or a date moved into it, in
- *    feed order (most recent first). A series whose slots in the window are
- *    all excepted would only add an EXDATE or an out-of-window override. No row limit: a limit
- *    applied before the budgets could hide later series that still fit.
- * 2. `valid_exceptions`: the exceptions whose original start is still a
- *    slot of the current schedule (`is_tribe_event_series_occurrence`, the
- *    SQL mirror of the domain rule `buildTribeEventCalendarResult` applies).
- *    Stale rows kept after a schedule edit never count nor travel.
- * 3. `budget_walk`: greedy walk over the candidates in feed order. A series
- *    is kept when its valid exceptions and its components (1 + valid moved
- *    dates) fit what remains of both budgets; otherwise it is skipped and
- *    the walk goes on. It stops when the component budget is exhausted or
- *    no candidate remains. Costs are read from arrays by position, so every
- *    step is O(1) and the walk is linear in the candidates of the tribe.
- *
- * Reading series and exceptions in the same statement guarantees that a
- * concurrent exception change is seen together with the `calendar_sequence`
- * and `updated_at` it bumped, never paired with the previous ones.
- *
- * `feed_access` repeats, in that same snapshot, the token and access guard of
- * `readAccessibleTribe`: the token is still active (same id and hash, not
- * revoked) and its owner can read the tribe. Under READ COMMITTED every
- * statement takes a new snapshot, so a revocation or a block committed after
- * the earlier check is seen here without locking the token row. When the
- * guard fails the statement returns no row at all (the caller answers as for
- * an invalid token); when it passes it returns at least one row, so an empty
- * feed of a member with access stays distinguishable.
+ * Token guard, candidate series, and valid exception CTEs of the feed snapshot.
  */
-function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalendarFeedQuery) {
+function buildFeedSnapshotSourceCtes(tribeId: string, query: ReadTribeEventCalendarFeedQuery): SQL {
   return sql`
     with recursive feed_access as materialized (
       select tribes.name as tribe_name
@@ -347,7 +315,14 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
           candidate_series.recurrence_until
         )
     ),
-    series_costs as (
+`;
+}
+
+/**
+ * CTEs that walk the series newest first while they fit the exception and component budgets.
+ */
+function buildFeedSnapshotBudgetCtes(query: ReadTribeEventCalendarFeedQuery): SQL {
+  return sql`    series_costs as (
       select
         candidate_series.feed_position,
         count(valid_exceptions.event_id) as exception_count,
@@ -397,7 +372,14 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
       where budget_walk.feed_position < cardinality(cost_arrays.exception_counts)
         and budget_walk.remaining_components > 0
     )
-    select
+`;
+}
+
+/**
+ * Selected series with their exceptions, one row even when none fits.
+ */
+function buildFeedSnapshotSelect(): SQL {
+  return sql`    select
       feed_access.tribe_name as feed_tribe_name,
       selected_series.*
     from feed_access
@@ -420,6 +402,47 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
       on true
     order by selected_series.feed_position
   `;
+}
+
+/**
+ * Reads, in ONE statement (one snapshot), the feed series that fit both
+ * budgets together with their complete set of still-valid exceptions:
+ *
+ * 1. `candidate_series`: every series of the requested types with at least
+ *    one effective occurrence overlapping the window: a slot of its cadence
+ *    that is neither cancelled nor moved (checked in SQL, since nothing
+ *    expands the series before the budgets) or a date moved into it, in
+ *    feed order (most recent first). A series whose slots in the window are
+ *    all excepted would only add an EXDATE or an out-of-window override. No row limit: a limit
+ *    applied before the budgets could hide later series that still fit.
+ * 2. `valid_exceptions`: the exceptions whose original start is still a
+ *    slot of the current schedule (`is_tribe_event_series_occurrence`, the
+ *    SQL mirror of the domain rule `buildTribeEventCalendarResult` applies).
+ *    Stale rows kept after a schedule edit never count nor travel.
+ * 3. `budget_walk`: greedy walk over the candidates in feed order. A series
+ *    is kept when its valid exceptions and its components (1 + valid moved
+ *    dates) fit what remains of both budgets; otherwise it is skipped and
+ *    the walk goes on. It stops when the component budget is exhausted or
+ *    no candidate remains. Costs are read from arrays by position, so every
+ *    step is O(1) and the walk is linear in the candidates of the tribe.
+ *
+ * Reading series and exceptions in the same statement guarantees that a
+ * concurrent exception change is seen together with the `calendar_sequence`
+ * and `updated_at` it bumped, never paired with the previous ones.
+ *
+ * `feed_access` repeats, in that same snapshot, the token and access guard of
+ * `readAccessibleTribe`: the token is still active (same id and hash, not
+ * revoked) and its owner can read the tribe. Under READ COMMITTED every
+ * statement takes a new snapshot, so a revocation or a block committed after
+ * the earlier check is seen here without locking the token row. When the
+ * guard fails the statement returns no row at all (the caller answers as for
+ * an invalid token); when it passes it returns at least one row, so an empty
+ * feed of a member with access stays distinguishable.
+ */
+function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalendarFeedQuery): SQL {
+  return buildFeedSnapshotSourceCtes(tribeId, query)
+    .append(buildFeedSnapshotBudgetCtes(query))
+    .append(buildFeedSnapshotSelect());
 }
 
 function mapSubscription(row: SubscriptionRow): TribeEventCalendarFeedSubscription {
@@ -462,7 +485,7 @@ async function readTokenAccess(
     limit 1
   `);
 
-  return ((result.rows ?? [])[0] as TokenAccessRow | undefined) ?? null;
+  return (result.rows[0] as TokenAccessRow | undefined) ?? null;
 }
 
 /**
@@ -553,7 +576,7 @@ export class PostgresTribeEventCalendarFeedTokenRepository
         values (public.current_app_user_id(), ${access.tribe_id}, ${tokenHash})
         returning id, created_at, last_used_at
       `);
-      const row = ((inserted.rows ?? [])[0] as SubscriptionRow | undefined) ?? null;
+      const row = (inserted.rows[0] as SubscriptionRow | undefined) ?? null;
 
       return row
         ? {
@@ -628,7 +651,7 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
         select token_id, user_id, tribe_id, token_hash
         from public.resolve_event_calendar_feed_token(${tokenHash})
       `);
-      const row = ((result.rows ?? [])[0] as ResolvedTokenRow | undefined) ?? null;
+      const row = (result.rows[0] as ResolvedTokenRow | undefined) ?? null;
 
       return row
         ? {
@@ -667,7 +690,7 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
       `);
 
       const feedResult = await database.execute(buildFeedSnapshotStatement(tribe.id, query));
-      const snapshotRows = (feedResult.rows ?? []) as FeedSnapshotRow[];
+      const snapshotRows = feedResult.rows as FeedSnapshotRow[];
       const [accessRow] = snapshotRows;
 
       // No row: the token was revoked or its owner lost access after the
@@ -683,7 +706,7 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
           seriesRows.flatMap((row) => row.exceptions ?? [])
         ),
         series: seriesRows.map((row) => ({
-          calendarSequence: Number(row.calendar_sequence),
+          calendarSequence: row.calendar_sequence,
           event: mapTribeEvent(row),
           updatedAt: mapDateValue(row.updated_at),
         })),
@@ -714,6 +737,6 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
       limit 1
     `);
 
-    return ((result.rows ?? [])[0] as FeedTribeRow | undefined) ?? null;
+    return (result.rows[0] as FeedTribeRow | undefined) ?? null;
   }
 }

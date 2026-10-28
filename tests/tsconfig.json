@@ -1,0 +1,5 @@
+{
+  "//": "Tests are excluded from the root tsconfig.json; tools that use each file's nearest tsconfig (oxlint's type-aware rules, editors) need this one to type them.",
+  "extends": "../tsconfig.test.json",
+  "include": ["**/*.ts", "**/*.tsx"]
+}

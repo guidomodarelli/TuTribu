@@ -55,7 +55,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("private produc
   it.each([{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }])("should omit codes and credential controls from real widget captures on $name at $width", async ({ engine, width }) => {
     const widget = await readFile(join(process.cwd(), "node_modules/@beezping/widget/dist/index.global.js"), "utf8");
     const captures: Array<string | null> = [];
-    const server = createServer(async (request, response) => {
+    const server = createServer((request, response) => { void (async () => {
       if (request.method === "POST") {
         const chunks: Buffer[] = [];
         for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -71,7 +71,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("private produc
         response.setHeader("content-type", "text/html; charset=utf-8");
         response.end(`<!doctype html><html lang="es"><head><style>body{font:16px sans-serif;margin:24px;background:white;color:black}input{display:block;font:24px monospace;min-height:36px}section{max-width:600px}button{margin:4px}</style></head><body><main><h1>Control privado del producto</h1>${productMarkup(request.url?.slice(1) ?? "")}</main><script src="/widget.js"></script><script>Beezping.initBeezping({endpoint:'/feedback',projectName:'tutribu',identity:{name:'Reporte de ejemplo',email:'reporter@example.test'},forceShow:true,enableScreenshot:true,captureDiagnostics:false,locale:'es',position:'bottom-right'});</script></body></html>`);
       }
-    });
+    })(); });
     server.listen(0, "127.0.0.1"); await once(server, "listening");
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Private widget capture failed: owned server unavailable");

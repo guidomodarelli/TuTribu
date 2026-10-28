@@ -227,14 +227,14 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
         createdBy: query.params[11] as string,
       });
       options.beforeFeedbackInsert?.(command, feedbackRows);
-      const existingFeedbackRow = feedbackRows.find(
+      const hasExistingFeedbackRow = feedbackRows.some(
         (feedbackRow) =>
           feedbackRow.project_name === command.projectName &&
           feedbackRow.created_by === command.createdBy &&
           feedbackRow.client_id === command.clientId
       );
 
-      if (existingFeedbackRow) {
+      if (hasExistingFeedbackRow) {
         if (!query.sql.includes("on conflict")) {
           isTransactionAborted = true;
 

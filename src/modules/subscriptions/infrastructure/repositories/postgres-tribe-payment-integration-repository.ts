@@ -4,7 +4,7 @@
  * @module postgres-tribe-payment-integration-repository
  */
 
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
@@ -90,22 +90,11 @@ function mapAccountLabelUpdateResult(
   return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
 }
 
-export class PostgresTribePaymentIntegrationRepository
-  implements TribePaymentIntegrationRepository
-{
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
-
-  /**
-   * Upserts the current leader Mercado Pago integration for a tribe.
-   *
-   * @param command - OAuth token payload and tribe identity.
-   * @returns Integration mutation result.
-   */
-  async connect(
-    command: ConnectTribePaymentIntegrationCommand
-  ): Promise<TribePaymentIntegrationResult> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+/**
+ * Target tribe and the update of a stored integration without provider account.
+ */
+function buildAnonymousIntegrationUpdateCtes(command: ConnectTribePaymentIntegrationCommand): SQL {
+  return sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -133,7 +122,14 @@ export class PostgresTribePaymentIntegrationRepository
             )
           returning id
         ),
-        upserted_integration as (
+`;
+}
+
+/**
+ * Upsert of the integration by provider account, with the final status.
+ */
+function buildIntegrationUpsertCte(command: ConnectTribePaymentIntegrationCommand): SQL {
+  return sql`        upserted_integration as (
           insert into public.tribe_payment_integrations (
             tribe_id,
             provider,
@@ -194,10 +190,36 @@ export class PostgresTribePaymentIntegrationRepository
             when not exists (select 1 from target_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
             else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
           end as status
-      `);
+      `;
+}
+
+/**
+ * Stores the Mercado Pago tokens of a tribe the viewer manages, reporting why it could not otherwise.
+ */
+function buildConnectPaymentIntegrationStatement(command: ConnectTribePaymentIntegrationCommand): SQL {
+  return buildAnonymousIntegrationUpdateCtes(command)
+    .append(buildIntegrationUpsertCte(command));
+}
+
+export class PostgresTribePaymentIntegrationRepository
+  implements TribePaymentIntegrationRepository
+{
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  /**
+   * Upserts the current leader Mercado Pago integration for a tribe.
+   *
+   * @param command - OAuth token payload and tribe identity.
+   * @returns Integration mutation result.
+   */
+  async connect(
+    command: ConnectTribePaymentIntegrationCommand
+  ): Promise<TribePaymentIntegrationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(buildConnectPaymentIntegrationStatement(command));
 
       return mapIntegrationResult(
-        (result.rows?.[0] ?? null) as IntegrationMutationRow | null
+        (result.rows[0] ?? null) as IntegrationMutationRow | null
       );
     });
   }
@@ -253,7 +275,7 @@ export class PostgresTribePaymentIntegrationRepository
       `);
 
       return mapAccountLabelUpdateResult(
-        (result.rows?.[0] ?? null) as IntegrationMutationRow | null
+        (result.rows[0] ?? null) as IntegrationMutationRow | null
       );
     });
   }

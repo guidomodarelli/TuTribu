@@ -170,7 +170,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
         expect((await transaction.execute(sql`select status,invalidated_at from public.academy_admission_verification_proofs where id=${fixture.proofId}`)).rows).toEqual([{ status: "applied", invalidated_at: null }]);
         expect((await transaction.execute(sql`select resource_id from public.academy_admission_audit_events where resource_id=${fixture.proofId} and event_type='proof_invalidated'`)).rows).toEqual([]);
       });
-      for (const _replay of [false, true]) {
+      for (let replay = 0; replay < 2; replay += 1) {
         await database.withContext(fixture.own, async (transaction) => {
           await transaction.execute(sql`select id from public.tribes where id=${fixture.challenge.scope.tribeId} for update`);
           await transaction.execute(sql`select public.close_academy_admission_scope(${fixture.challenge.scope.tribeId},'academy_unavailable')`);

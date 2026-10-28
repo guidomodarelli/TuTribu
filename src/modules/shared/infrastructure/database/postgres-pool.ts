@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Pool } from "pg";
+import { Pool, type ClientBase, type PoolConfig } from "pg";
 
 import { attachPostgresPoolMetrics } from "@/src/modules/shared/infrastructure/database/postgres-pool-metrics";
 import { normalizePostgresSslMode } from "@/src/modules/shared/infrastructure/database/postgres-ssl-mode";
@@ -57,6 +57,15 @@ type CreatePostgresPoolInput = {
   maximumConnections?: number;
 };
 
+/**
+ * Pool configuration whose `onConnect` hook is asynchronous: pg-pool awaits it
+ * and discards the client when it rejects, while `@types/pg` still types the
+ * hook as returning `void`.
+ */
+type AsyncConnectPoolConfig = Omit<PoolConfig, "onConnect"> & {
+  onConnect: (client: ClientBase) => Promise<void>;
+};
+
 type PostgresErrorLike = {
   code?: unknown;
   severity?: unknown;
@@ -102,7 +111,7 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
     operation: input.operation,
     requestId: POSTGRES_POOL_LOG_REQUEST_ID,
   });
-  const pool = new Pool({
+  const configuration: AsyncConnectPoolConfig = {
     ...POSTGRES_POOL_CONFIGURATION,
     max: maximumConnections,
     connectionString: normalizePostgresSslMode(input.connectionString),
@@ -121,7 +130,8 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
         throw error;
       }
     },
-  });
+  };
+  const pool = new Pool(configuration);
 
   pool.on("error", (error: unknown) => {
     const metadata = getPostgresErrorMetadata(error);

@@ -11,13 +11,11 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { AdmissionMessagingCountryChoicesReader } from "../verification/messaging-country-choices-reader";
 import { PostgresMessagingUsageRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository";
-import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
-import { ADMISSION_PHONE_CHANNEL } from "../../constants/admission-policy";
+import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS  } from "../../constants/admission-contact";
+import { ADMISSION_PHONE_CHANNEL, ADMISSION_POLICY_MODE  } from "../../constants/admission-policy";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
-import { ADMISSION_POLICY_MODE } from "../../constants/admission-policy";
 import { ADMISSION_SOURCE_KIND } from "../../constants/admission-eligibility";
 import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
-import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "../../constants/admission-contact";
 import type { AdmissionSubmissionFacts, AdmissionMembershipFacts } from "../../domain/policies/admission-eligibility";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { createDefaultAdmissionPolicy, type AdmissionPolicy } from "../../domain/entities/admission-policy";
@@ -26,6 +24,12 @@ import { createDefaultAdmissionPolicy, type AdmissionPolicy } from "../../domain
 type OverviewAccountScope = Pick<AdmissionCommandScope, "userId" | "sessionId">;
 type PublicOverviewRow = { tribe_id: string; slug: string; name: string; control_activated: boolean; evaluator_enabled: boolean; mode: "manual_review" | "allowlist" | null; contact_type: "email" | "phone" | null; requires_additional_verification: boolean | null; requires_whatsapp_number: boolean | null; is_open: boolean | null; policy_version: number | null };
 /** Own list facts from the restricted helper: booleans about the own email, never another account's id or an entry id. */
+/** @param own - Own list facts. @param actorUserId - Current applicant. @returns A foreign owner marker, the applicant when it owns the binding, or `null`. */
+function allowlistBoundUserId(own: Pick<OwnAllowlistFactsRow, "entry_bound_to_other" | "binding_owned_by_actor">, actorUserId: string): string | null {
+  if (own.entry_bound_to_other) return FOREIGN_CONTACT_OWNER;
+  return own.binding_owned_by_actor ? actorUserId : null;
+}
+
 type OwnAllowlistFactsRow = { tribe_id: string; policy_version: number; mode: "manual_review" | "allowlist"; contact_type: "email" | "phone"; is_open: boolean; allow_common_exceptions: boolean; requires_additional_verification: boolean; requires_whatsapp_number: boolean; activated_at: Date | string | null; normalized_email: string; entry_exists: boolean; entry_enabled: boolean; entry_bound_to_other: boolean; binding_exists: boolean; binding_owned_by_actor: boolean };
 /** Stands for another account that holds the own email's binding; it never equals a real user id, so the evaluator treats it as foreign. */
 const FOREIGN_CONTACT_OWNER = "foreign-contact-owner";
@@ -57,7 +61,7 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
   private async readVerificationChoices(database: RequestDatabase, scope: OverviewAccountScope, row: PublicOverviewRow): Promise<AdmissionOverviewFacts["verification"]> {
     if (!row.requires_additional_verification) return undefined;
     const policy = (await database.execute<ContactChoicePolicyRow>(sql`select policy_version as version,contact_type as "contactType",requires_additional_verification as "requiresAdditionalVerification",phone_channel as "phoneChannel",allow_sms_alternative as "allowSmsAlternative" from public.read_admission_contact_choices(${row.tribe_id},${scope.sessionId})`)).rows[0];
-    if (!policy || policy.version !== row.policy_version || policy.contactType !== row.contact_type || !policy.requiresAdditionalVerification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
+    if (policy?.version !== row.policy_version || policy.contactType !== row.contact_type || !policy.requiresAdditionalVerification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
     if (policy.contactType === ADMISSION_CONTACT_TYPE.email) return { channel: MESSAGING_PUBLIC_CHANNEL.email, allowedCountries: [] };
     if (!policy.phoneChannel) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     const countries = await new AdmissionMessagingCountryChoicesReader(new PostgresMessagingUsageRepository(database, async (current, tribeId) => { if (current !== database || tribeId !== row.tribe_id) return false; await this.authorize(current, scope); return true; })).readForApplicant(row.tribe_id, scope.sessionId);
@@ -75,7 +79,7 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
   private async readAllowlistEligibility(database: RequestDatabase, scope: OverviewAccountScope, row: PublicOverviewRow, recoveryLocked: boolean): Promise<AdmissionSubmissionFacts | undefined> {
     if (row.mode !== ADMISSION_POLICY_MODE.allowlist || row.contact_type !== ADMISSION_CONTACT_TYPE.email || row.requires_additional_verification !== false || !row.is_open) return undefined;
     const own = (await database.execute<OwnAllowlistFactsRow>(sql`select * from public.read_own_admission_allowlist_facts(${row.tribe_id},${scope.sessionId})`)).rows[0];
-    if (!own || own.policy_version !== row.policy_version || own.mode !== row.mode || own.contact_type !== row.contact_type || own.requires_additional_verification || own.allow_common_exceptions) return undefined;
+    if (own?.policy_version !== row.policy_version || own.mode !== row.mode || own.contact_type !== row.contact_type || own.requires_additional_verification || own.allow_common_exceptions) return undefined;
     const account = await new PostgresAuthenticatedAccountProvider(async () => scope, (_identity, run) => run(database)).getAuthenticatedAccount();
     if (!account) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     const contact = normalizeAdmissionContact({ type: ADMISSION_CONTACT_TYPE.email, value: account.normalizedEmail });
@@ -89,7 +93,7 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
     return { now, tribe: { id: row.tribe_id, isAcademy: true, controlActivated: row.control_activated, evaluatorEnabled: row.evaluator_enabled, recoveryLocked }, policy,
       account: { userId: account.userId, normalizedEmail: account.normalizedEmail, googleAccount: account.googleAccount }, source: { kind: ADMISSION_SOURCE_KIND.common }, contact: contact.contact,
       baseEvidence: evidence ? { userId: evidence.userId, accountId: evidence.accountId, subject: evidence.subject, normalizedEmail: evidence.normalizedEmail, authority: evidence.classification, invalidated: evidence.invalidatedAt !== null } : null,
-      allowlistEntry: own.entry_exists ? { tribeId: row.tribe_id, contact: contact.contact, enabled: own.entry_enabled, boundUserId: own.entry_bound_to_other ? FOREIGN_CONTACT_OWNER : own.binding_owned_by_actor ? account.userId : null } : null,
+      allowlistEntry: own.entry_exists ? { tribeId: row.tribe_id, contact: contact.contact, enabled: own.entry_enabled, boundUserId: allowlistBoundUserId(own, account.userId) } : null,
       contactBinding: own.binding_exists ? { ownerUserId, contact: contact.contact } : null, membership, localProof: null, currentConnection: null };
   }
 

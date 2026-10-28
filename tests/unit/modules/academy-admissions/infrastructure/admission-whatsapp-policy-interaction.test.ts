@@ -42,7 +42,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             let nextIdentity = 0, previous = "";
             /** @returns The publicly labelled checkbox and its label group, without reading private page data. */
             const control = () => {
-              const caption = Array.from(document.querySelectorAll("label")).find((element) => element.textContent?.trim() === label);
+              const caption = Array.from(document.querySelectorAll("label")).find((element) => element.textContent.trim() === label);
               return { caption, element: caption ? document.getElementById(caption.htmlFor) : null };
             };
             /** @param kind - Native event or mutation. @param event - Optional actual pointer event. @returns Nothing; stores bounded structural observations only. */
@@ -66,6 +66,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             new MutationObserver(() => record("mutation")).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-checked", "disabled", "aria-busy"] });
             (window as unknown as { declaredWhatsappPolicyEvents: object[] }).declaredWhatsappPolicyEvents = records;
           }, { label: ADMISSION_WHATSAPP_COPY.policyLabel, maximumEvents: OBSERVATION.maximumEvents });
+          // The page clock keeps running in real time; it only lets each trial skip the settle window.
+          await page.clock.install();
           await bindAdmissionBatchBrowserSession(context, fixture.leader, origin, secret);
           const url = `${origin}/${fixture.slug}/${ADMISSION_POLICY_SETTINGS_SEGMENT}`;
           const motionPreference = profile.reducedMotion;
@@ -85,7 +87,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
               let actionError = false;
               try { await setVisibleCheckboxChecked(checkbox, wanted, VALIDATION.actionTimeoutMs); } catch { actionError = true; }
               const immediate = await checkbox.isChecked();
-              await page.waitForTimeout(OBSERVATION.settleObservationMs);
+              // Fires every timer the page schedules within the window at once, instead of waiting for it in real time.
+              await page.clock.runFor(OBSERVATION.settleObservationMs);
               const settled = await checkbox.isChecked();
               const trial = { motionPreference, loadIndex, trialIndex, before, wanted, immediate, settled, actionError };
               trials.push(trial); if (settled !== wanted) { lost.push(trial); break; }

@@ -18,15 +18,15 @@ describe("allowlist entry configuration", () => {
   });
 
   it("should reject invalid contact or name before creating an entry", () => {
-    expect(() => createAllowlistEntry({ ...identity, contact: { type: "phone", value: "+5491155501234", country: "US" }, source: "manual" })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
-    expect(() => createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, displayName: "a".repeat(101), source: "manual" })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => createAllowlistEntry({ ...identity, contact: { type: "phone", value: "+5491155501234", country: "US" }, source: "manual" })).toThrow(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, displayName: "a".repeat(101), source: "manual" })).toThrow(expect.objectContaining({ code: "invalid_input" }));
     expect(createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, displayName: " ", source: "manual" }).displayName).toBeNull();
   });
 
   it("should require the import origin when a server-owned CSV entry is created", () => {
-    expect(() => createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, source: "csv" })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, source: "csv" })).toThrow(expect.objectContaining({ code: "invalid_input" }));
     expect(createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, source: "csv", importId: "synthetic-import" })).toMatchObject({ version: 1, source: "csv", importId: "synthetic-import" });
-    expect(() => createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, source: "manual", importId: "synthetic-import" })).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+    expect(() => createAllowlistEntry({ ...identity, contact: { type: "email", value: "valid@example.test" }, source: "manual", importId: "synthetic-import" })).toThrow(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("should increment once when name and status change together without changing contact or origin", () => {

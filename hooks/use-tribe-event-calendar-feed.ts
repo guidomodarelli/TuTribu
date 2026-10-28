@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { toast, copyTextToClipboard } from "@golfo/ui";
 
 import {
@@ -75,29 +75,17 @@ function toRequestError(message: string | null, fallback: string): Error {
 }
 
 /**
- * Client state of the personal calendar subscription: loads whether a link
- * exists (on demand, with an AbortController so a stale load never
- * overwrites a newer one), generates or regenerates it (the plain link lives
- * only in this state and disappears on `reset`), revokes it, and copies it
- * with the WebKit-safe clipboard fallback. Mutations update the local state
- * from the response and never refresh the route; a ref guards against double
- * submits, and a dialog session counter drops mutation results that arrive
- * after `reset` so a forgotten link never comes back.
+ * Whether a link exists, the plain link of this dialog session, and the
+ * session counter that drops results arriving after `reset`.
  *
- * @param input - Tribe of the calendar.
- * @returns State and callbacks for the presentational dialog.
+ * @param tribeSlug - Tribe of the calendar.
+ * @returns Load state, plain link, the load, the reset and the session ref.
  */
-export function useTribeEventCalendarFeed({
-  tribeSlug,
-}: {
-  tribeSlug: string;
-}): TribeEventCalendarFeed {
+function useCalendarFeedSubscription(tribeSlug: string) {
   const [loadState, setLoadState] = useState<TribeEventCalendarFeedLoadState>({
     status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.idle,
   });
   const [feedUrl, setFeedUrl] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isSubmittingRef = useRef(false);
   const loadControllerRef = useRef<AbortController | null>(null);
   // Bumped on `reset`: a mutation started in a previous dialog session must
   // not write its result into the current one.
@@ -141,6 +129,27 @@ export function useTribeEventCalendarFeed({
         setLoadState({ message: COPY.loadFailure, status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.error });
       });
   };
+
+  const reset = () => {
+    dialogSessionRef.current += 1;
+    loadControllerRef.current?.abort();
+    setFeedUrl(null);
+    setLoadState({ status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.idle });
+  };
+
+  return { loadState, setLoadState, feedUrl, setFeedUrl, dialogSessionRef, loadSubscription, reset };
+}
+type CalendarFeedSubscription = ReturnType<typeof useCalendarFeedSubscription>;
+
+/**
+ * Duplicate-submit guard and toast lifecycle of the link mutations.
+ *
+ * @param dialogSessionRef - Current dialog session.
+ * @returns The submitting flag and the mutation runner.
+ */
+function useCalendarFeedMutationRunner(dialogSessionRef: RefObject<number>) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   /**
    * Shared guard and `toast.promise` lifecycle of both mutations. The request
@@ -205,6 +214,25 @@ export function useTribeEventCalendarFeed({
     }
   };
 
+  return { isSubmitting, runMutation };
+}
+
+/**
+ * Generates, regenerates and revokes the link, sending the subscription on
+ * screen as the precondition.
+ *
+ * @param tribeSlug - Tribe of the calendar.
+ * @param subscription - Load state, its setters and the reload.
+ * @param runMutation - Mutation runner.
+ * @returns The generate and revoke actions.
+ */
+function useCalendarFeedLinkActions(
+  tribeSlug: string,
+  subscription: CalendarFeedSubscription,
+  runMutation: ReturnType<typeof useCalendarFeedMutationRunner>["runMutation"]
+) {
+  const { loadState, setLoadState, setFeedUrl, loadSubscription } = subscription;
+
   /**
    * Id of the subscription on screen (null: none), the precondition both
    * mutations send.
@@ -268,6 +296,32 @@ export function useTribeEventCalendarFeed({
     );
   };
 
+  return { generateLink, revokeLink };
+}
+
+/**
+ * Client state of the personal calendar subscription: loads whether a link
+ * exists (on demand, with an AbortController so a stale load never
+ * overwrites a newer one), generates or regenerates it (the plain link lives
+ * only in this state and disappears on `reset`), revokes it, and copies it
+ * with the WebKit-safe clipboard fallback. Mutations update the local state
+ * from the response and never refresh the route; a ref guards against double
+ * submits, and a dialog session counter drops mutation results that arrive
+ * after `reset` so a forgotten link never comes back.
+ *
+ * @param input - Tribe of the calendar.
+ * @returns State and callbacks for the presentational dialog.
+ */
+export function useTribeEventCalendarFeed({
+  tribeSlug,
+}: {
+  tribeSlug: string;
+}): TribeEventCalendarFeed {
+  const subscription = useCalendarFeedSubscription(tribeSlug);
+  const { isSubmitting, runMutation } = useCalendarFeedMutationRunner(subscription.dialogSessionRef);
+  const { generateLink, revokeLink } = useCalendarFeedLinkActions(tribeSlug, subscription, runMutation);
+  const { feedUrl, loadState, loadSubscription, reset } = subscription;
+
   const copyFeedUrl = async () => {
     if (!feedUrl) {
       return;
@@ -278,13 +332,6 @@ export function useTribeEventCalendarFeed({
     } else {
       toast.error(COPY.copyFailure);
     }
-  };
-
-  const reset = () => {
-    dialogSessionRef.current += 1;
-    loadControllerRef.current?.abort();
-    setFeedUrl(null);
-    setLoadState({ status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.idle });
   };
 
   return {

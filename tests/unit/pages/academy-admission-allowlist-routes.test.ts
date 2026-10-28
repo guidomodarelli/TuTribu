@@ -2,8 +2,7 @@
 /** Exercises real list HTTP validation and public DTO binding with doubles only of owning use cases. @module academy-admission-allowlist-route-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { createAllowlistHandlers } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-handlers";
-import type { AllowlistServices } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-handlers";
+import { createAllowlistHandlers, type AllowlistServices  } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-handlers";
 
 /** @returns Own HTTP ports and actual boundary handlers without replacing framework/platform libraries. */
 function fixture() {

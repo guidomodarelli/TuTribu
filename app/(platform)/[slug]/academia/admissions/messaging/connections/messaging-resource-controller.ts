@@ -5,8 +5,7 @@ import type {MessagingConfigurationConnection} from "@/src/modules/messaging/app
 import type {MessagingResourcePageResult} from "@/src/modules/messaging/application/results/messaging-resource-page-result";
 import type {MessagingResourcesBrowserClient} from "@/src/modules/messaging/application/ports/messaging-resources-browser-client";
 import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
-import type {MessagingChannelDraft,MessagingChannelFieldErrors} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
-import {validateMessagingChannelDraft} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
+import {type MessagingChannelDraft,type MessagingChannelFieldErrors,validateMessagingChannelDraft} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MESSAGING_RESOURCE_KIND} from "@/src/modules/messaging/constants/messaging-resources";
 import {MESSAGING_RESOURCE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
@@ -22,6 +21,12 @@ type ResourceControllerOptions={
   feedback:(message:{kind:"status"|"alert";text:string}|null)=>void;
   conflict:()=>void;
 };
+
+/** @param senderKind - Whether senders are read. @param more - Whether a continuation page is read. @returns The list read shown in progress. */
+function resourceReadingFor(senderKind:boolean,more:boolean):MessagingResourceReading{
+  if(senderKind)return more?"moreSenders":"senders";
+  return more?"moreTemplates":"templates";
+}
 
 /** @param options - Current immutable scope and route-owned action coordination. @returns Draft, bounded pages and explicit callbacks; scope changes never fetch or select a resource automatically. */
 export function useMessagingResourceController(options:ResourceControllerOptions){
@@ -47,7 +52,7 @@ export function useMessagingResourceController(options:ResourceControllerOptions
     const previous=kind===MESSAGING_RESOURCE_KIND.senders?senders:templates,cursor=more?previous.nextCursor:undefined;
     if(more&&!cursor||readingRef.current)return;
     const senderKind=kind===MESSAGING_RESOURCE_KIND.senders,apply=(page:Pick<MessagingResourcePageResult,"items"|"nextCursor">,list:MessagingResourceListState)=>update(senderKind?{senders:page,sendersList:list}:{templates:page,templatesList:list});
-    readingRef.current=true;setReading(senderKind?(more?"moreSenders":"senders"):(more?"moreTemplates":"templates"));
+    readingRef.current=true;setReading(resourceReadingFor(senderKind,more));
     try{
       await options.observe((signal)=>options.client.read({slug:options.slug,connectionId:candidate.id,configurationVersion:candidate.configurationVersion,kind,...(cursor?{cursor}:{})},signal),(outcome)=>{
         // The outcome stays beside its list: an empty result explains itself under the select, a failure keeps its retry there.

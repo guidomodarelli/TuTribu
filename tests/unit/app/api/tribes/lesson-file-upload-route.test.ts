@@ -104,7 +104,7 @@ describe("Lesson file upload reservation route", () => {
 
   it("rejects NaN as fileSizeBytes with 400 before reaching the use case", async () => {
     const response = await POST(
-      buildJsonRequest({ ...VALID_DECLARATION, fileSizeBytes: NaN }),
+      buildJsonRequest({ ...VALID_DECLARATION, fileSizeBytes: Number.NaN }),
       buildRouteContext()
     );
 

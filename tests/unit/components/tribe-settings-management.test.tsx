@@ -4,10 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { toast } from "@golfo/ui";
 
 import { TribeSettingsManagement } from "@/components/tribes/tribe-settings-management";
+import type * as GolfoUiModule from "@golfo/ui";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("@golfo/ui", async () => ({
-  ...await vi.importActual<typeof import("@golfo/ui")>("@golfo/ui"),
+  ...await vi.importActual<typeof GolfoUiModule>("@golfo/ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

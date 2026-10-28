@@ -42,7 +42,7 @@ export class PostgresTribeIdentityRepository
         where tribes.slug = ${tribeSlug}
         limit 1
       `);
-      const row = (result.rows?.[0] ?? null) as IdentityRow | null;
+      const row = (result.rows[0] ?? null) as IdentityRow | null;
 
       return row ? { coverUrl: row.cover_url, logoUrl: row.logo_url } : null;
     });
@@ -66,7 +66,7 @@ export class PostgresTribeIdentityRepository
           ${coverUrl}
         ) as applied
       `);
-      const row = (result.rows?.[0] ?? null) as IdentitySaveRow | null;
+      const row = (result.rows[0] ?? null) as IdentitySaveRow | null;
 
       if (!row?.applied) {
         return { identity: null, status: TRIBE_IMAGE_SAVE_STATUS.forbidden };

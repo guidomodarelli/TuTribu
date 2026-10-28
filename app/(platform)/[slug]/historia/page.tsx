@@ -165,117 +165,131 @@ async function joinTribeFreeAction({
   return { status: TRIBE_FREE_JOIN_FORM_STATUS.forbidden };
 }
 
-export default async function TribeHistoryPage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
-  const { slug } = await params;
-  const access = await resolveTribePageAccess({
-    // The public story stays visible to basic academy members.
-    allowWithoutCommunityAccess: true,
-    operation: TRIBE_STORY_PAGE.operation,
-    slug,
-  }).catch(() => {
-    notFound();
-  });
+type TribeStoryPageAccess = Awaited<ReturnType<typeof resolveTribePageAccess>>;
+type TribeStoryAccessResult = TribeStoryPageAccess["result"];
+type HiddenTribeStoryAccess = Extract<
+  TribeStoryAccessResult,
+  { status: typeof TRIBE_PAGE_ACCESS_STATUS.hidden }
+>;
+type VisibleTribeStoryAccess = Exclude<TribeStoryAccessResult, HiddenTribeStoryAccess>;
 
-  if (!access) {
-    notFound();
-  }
-
-  const { authenticatedMember, logger, modules, result } = access;
-
-  if (result.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-    const canRecoverViaOpenJoin =
-      result.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
-      STORY_OFFER_BLOCKED_REASONS.has(result.blockedReason);
-    const isOfferCandidate =
-      result.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
-      result.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden ||
-      canRecoverViaOpenJoin;
-
-    if (!isOfferCandidate) {
-      notFound();
-    }
-
-    const isAnonymousVisitor = !authenticatedMember;
-    const [story, stats] = await (isAnonymousVisitor
-      ? getCachedPublicTribeStoryAbout(slug).then(
-          (snapshot) => [snapshot.story, snapshot.stats] as const
-        )
-      : Promise.all([
-          modules.tribes.useCases.getTribeStory({ tribeSlug: slug }),
-          modules.tribes.useCases.getTribeStoryStats({ tribeSlug: slug }),
-        ])
-    ).catch((error: unknown) => {
+/**
+ * Live paid offer of the tribe for its public about; a failure to read it is
+ * logged and treated as no offer.
+ */
+async function loadStoryOfferPrice(access: TribeStoryPageAccess, slug: string) {
+  const { authenticatedMember, logger, modules } = access;
+  const offer = await modules.subscriptions.useCases
+    .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
+    .catch((error: unknown) => {
       logger.error({
         error,
-        message: TRIBE_STORY_PAGE.resolveStoryFailureMessage,
+        message: TRIBE_STORY_PAGE.resolveOfferFailureMessage,
         metadata: {
           slug,
           viewerId: authenticatedMember?.id ?? null,
         },
       });
-      notFound();
+
+      return null;
     });
 
-    // The definer reads only return rows when the visitor may see the about
-    // (member, live paid offer, or free open join). No stats means hidden.
-    if (!stats) {
-      notFound();
-    }
+  return offer?.status === TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available
+    ? {
+        amountCents: offer.price.amountCents,
+        currency: offer.price.currency,
+      }
+    : null;
+}
 
-    const offer = await modules.subscriptions.useCases
-      .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
-      .catch((error: unknown) => {
-        logger.error({
-          error,
-          message: TRIBE_STORY_PAGE.resolveOfferFailureMessage,
-          metadata: {
-            slug,
-            viewerId: authenticatedMember?.id ?? null,
-          },
-        });
+/**
+ * Story for a visitor who cannot open the tribe: the public about with its
+ * paid offer or free open join, or a 404 when neither applies.
+ */
+async function renderHiddenTribeStory(
+  access: TribeStoryPageAccess,
+  result: HiddenTribeStoryAccess,
+  slug: string
+) {
+  const { authenticatedMember, logger, modules } = access;
 
-        return null;
-      });
-    const offerPrice =
-      offer &&
-      offer.status === TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available
-        ? {
-            amountCents: offer.price.amountCents,
-            currency: offer.price.currency,
-          }
-        : null;
+  const canRecoverViaOpenJoin =
+    result.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
+    STORY_OFFER_BLOCKED_REASONS.has(result.blockedReason);
+  const isOfferCandidate =
+    result.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
+    result.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden ||
+    canRecoverViaOpenJoin;
 
-    if (!offerPrice && !stats.openFreeJoinAvailable) {
-      notFound();
-    }
-
-    const freeJoinAction =
-      !isAnonymousVisitor && stats.openFreeJoinAvailable
-        ? joinTribeFreeAction.bind(null, { slug })
-        : undefined;
-    const joinHref = isAnonymousVisitor
-      ? buildStorySignInRedirect(slug)
-      : ROUTES.tribes.bySlug(slug);
-
-    return (
-      <main className={styles.TribeStoryPage}>
-        <TribeStoryAbout
-          freeJoinAction={freeJoinAction}
-          joinHref={freeJoinAction ? undefined : joinHref}
-          offerPrice={offerPrice}
-          stats={stats}
-          story={story}
-          tribeName={stats.name}
-        />
-      </main>
-    );
+  if (!isOfferCandidate) {
+    notFound();
   }
+
+  const isAnonymousVisitor = !authenticatedMember;
+  const [story, stats] = await (isAnonymousVisitor
+    ? getCachedPublicTribeStoryAbout(slug).then(
+        (snapshot) => [snapshot.story, snapshot.stats] as const
+      )
+    : Promise.all([
+        modules.tribes.useCases.getTribeStory({ tribeSlug: slug }),
+        modules.tribes.useCases.getTribeStoryStats({ tribeSlug: slug }),
+      ])
+  ).catch((error: unknown) => {
+    logger.error({
+      error,
+      message: TRIBE_STORY_PAGE.resolveStoryFailureMessage,
+      metadata: {
+        slug,
+        viewerId: authenticatedMember?.id ?? null,
+      },
+    });
+    notFound();
+  });
+
+  // The definer reads only return rows when the visitor may see the about
+  // (member, live paid offer, or free open join). No stats means hidden.
+  if (!stats) {
+    notFound();
+  }
+
+  const offerPrice = await loadStoryOfferPrice(access, slug);
+
+  if (!offerPrice && !stats.openFreeJoinAvailable) {
+    notFound();
+  }
+
+  const freeJoinAction =
+    !isAnonymousVisitor && stats.openFreeJoinAvailable
+      ? joinTribeFreeAction.bind(null, { slug })
+      : undefined;
+  const joinHref = isAnonymousVisitor
+    ? buildStorySignInRedirect(slug)
+    : ROUTES.tribes.bySlug(slug);
+
+  return (
+    <main className={styles.TribeStoryPage}>
+      <TribeStoryAbout
+        freeJoinAction={freeJoinAction}
+        joinHref={freeJoinAction ? undefined : joinHref}
+        offerPrice={offerPrice}
+        stats={stats}
+        story={story}
+        tribeName={stats.name}
+      />
+    </main>
+  );
+}
+
+/**
+ * Story for a member who can read it: the management view for the active
+ * leader, the about otherwise.
+ */
+async function renderMemberTribeStory(
+  access: TribeStoryPageAccess,
+  result: VisibleTribeStoryAccess,
+  slug: string
+) {
+  const { authenticatedMember, logger, modules } = access;
 
   if (!authenticatedMember) {
     notFound();
@@ -336,4 +350,28 @@ export default async function TribeHistoryPage({
       )}
     </main>
   );
+}
+
+export default async function TribeHistoryPage({
+  params,
+}: {
+  params: Promise<{
+    slug: string;
+  }>;
+}) {
+  const { slug } = await params;
+  const access = await resolveTribePageAccess({
+    // The public story stays visible to basic academy members.
+    allowWithoutCommunityAccess: true,
+    operation: TRIBE_STORY_PAGE.operation,
+    slug,
+  }).catch(() => {
+    notFound();
+  });
+
+  if (access.result.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
+    return renderHiddenTribeStory(access, access.result, slug);
+  }
+
+  return renderMemberTribeStory(access, access.result, slug);
 }

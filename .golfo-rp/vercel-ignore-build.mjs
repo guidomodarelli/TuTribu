@@ -45,22 +45,30 @@ function isReleaseMetadataCommit() {
   return changed.status === GIT_DIFF_CHANGED_STATUS;
 }
 
-let delegated = false;
-try {
-  if (existsSync(RELEASE_METADATA_FILE)) {
-    const metadata = JSON.parse(readFileSync(RELEASE_METADATA_FILE, 'utf8'));
-    const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
-    delegated = metadata.execution === 'ci' && metadata.version === manifest.version && isReleaseMetadataCommit();
+/**
+ * Decides the exit code of the Vercel ignore step without terminating the process abruptly.
+ * @returns {number} `0` skips the deployment; any other code lets the original gate decide.
+ */
+function resolveIgnoreBuildExitCode() {
+  let delegated = false;
+  try {
+    if (existsSync(RELEASE_METADATA_FILE)) {
+      const metadata = JSON.parse(readFileSync(RELEASE_METADATA_FILE, 'utf8'));
+      const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+      delegated = metadata.execution === 'ci' && metadata.version === manifest.version && isReleaseMetadataCommit();
+    }
+  } catch {
+    console.error('No se pudo leer la metadata del release; se omite el despliegue automático.');
+    return 0;
   }
-} catch {
-  console.error('No se pudo leer la metadata del release; se omite el despliegue automático.');
-  process.exit(0);
+  if (delegated) {
+    console.log('El release está en CI; producción espera a que pasen los checks.');
+    return 0;
+  }
+  const originalIgnoreCommand = "bash scripts/ignore-build.sh";
+  return originalIgnoreCommand
+    ? spawnSync(originalIgnoreCommand, { shell: true, stdio: 'inherit', windowsHide: true }).status ?? 0
+    : 1;
 }
-if (delegated) {
-  console.log('El release está en CI; producción espera a que pasen los checks.');
-  process.exit(0);
-}
-const originalIgnoreCommand = "bash scripts/ignore-build.sh";
-process.exitCode = originalIgnoreCommand
-  ? spawnSync(originalIgnoreCommand, { shell: true, stdio: 'inherit', windowsHide: true }).status ?? 0
-  : 1;
+
+process.exitCode = resolveIgnoreBuildExitCode();

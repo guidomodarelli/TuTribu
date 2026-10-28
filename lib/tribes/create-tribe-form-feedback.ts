@@ -46,6 +46,10 @@ export type CreateTribeFormValues = {
 export function resolveCreateTribeErrorField(
   errorCode: string | null
 ): CreateTribeFormErrorField | null {
+  if (errorCode === null) {
+    return null;
+  }
+
   switch (errorCode) {
     case CREATE_TRIBE_STATUS.invalidName:
       return CREATE_TRIBE_FORM_ERROR_FIELD.name;

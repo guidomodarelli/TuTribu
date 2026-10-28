@@ -108,6 +108,48 @@ function buildMetricRowKey(
   ].join(INVITATION_METRICS_ROW_KEY.separator);
 }
 
+/** Conversion of each invitation, grouped by its Mercado Pago account. */
+function InvitationMetricsTable({
+  metrics,
+}: {
+  metrics: readonly TribeInvitationConversionMetricResult[];
+}) {
+  return (
+    <Table className={styles.TribeInvitationMetricsPage__table}>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Canal</TableHead>
+          <TableHead>Campaña</TableHead>
+          <TableHead>Referente</TableHead>
+          <TableHead>Inscripciones</TableHead>
+          <TableHead>Pagas activas</TableHead>
+          <TableHead>Ingresos estimados</TableHead>
+          <TableHead>Cuenta MP</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {metrics.map((metric) => (
+          <TableRow key={buildMetricRowKey(metric)}>
+            <TableCell>{formatChannel(metric.channel)}</TableCell>
+            <TableCell>
+              {metric.campaignName ??
+                INVITATION_METRICS_PAGE_COPY.campaignFallback}
+            </TableCell>
+            <TableCell>
+              {metric.referrerHandle ??
+                INVITATION_METRICS_PAGE_COPY.referrerFallback}
+            </TableCell>
+            <TableCell>{metric.signups}</TableCell>
+            <TableCell>{metric.paidActive}</TableCell>
+            <TableCell>{formatRevenue(metric.revenueCents)}</TableCell>
+            <TableCell>{formatMercadoPagoAccount(metric)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 export default async function TribeInvitationMetricsPage({
   params,
 }: {
@@ -169,38 +211,7 @@ export default async function TribeInvitationMetricsPage({
         </p>
       </header>
       {metrics.length > 0 ? (
-        <Table className={styles.TribeInvitationMetricsPage__table}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Canal</TableHead>
-              <TableHead>Campaña</TableHead>
-              <TableHead>Referente</TableHead>
-              <TableHead>Inscripciones</TableHead>
-              <TableHead>Pagas activas</TableHead>
-              <TableHead>Ingresos estimados</TableHead>
-              <TableHead>Cuenta MP</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {metrics.map((metric) => (
-              <TableRow key={buildMetricRowKey(metric)}>
-                <TableCell>{formatChannel(metric.channel)}</TableCell>
-                <TableCell>
-                  {metric.campaignName ??
-                    INVITATION_METRICS_PAGE_COPY.campaignFallback}
-                </TableCell>
-                <TableCell>
-                  {metric.referrerHandle ??
-                    INVITATION_METRICS_PAGE_COPY.referrerFallback}
-                </TableCell>
-                <TableCell>{metric.signups}</TableCell>
-                <TableCell>{metric.paidActive}</TableCell>
-                <TableCell>{formatRevenue(metric.revenueCents)}</TableCell>
-                <TableCell>{formatMercadoPagoAccount(metric)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <InvitationMetricsTable metrics={metrics} />
       ) : (
         <p className={styles.TribeInvitationMetricsPage__empty}>
           {INVITATION_METRICS_PAGE_COPY.emptyState}

@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership r
       await database.withContext(fixture.own,async(transaction)=>{await transaction.execute(sql`update public.tribe_members set status='removed',status_reason='subscription_inactive' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`);await transaction.execute(sql`update public.tribe_member_subscriptions set status='canceled' where id=${fixture.subscriptionId}`);});
       const admissionRequestId=await seedPendingPaidAdmission(database,fixture);
       const failingFactory:PaidAdmissionResolutionFactory=(transaction)=>({resolvePaidMembership:async(scope)=>{await createPaidAdmissionResolutionWriter(transaction).resolvePaidMembership(scope);throw new Error("Synthetic payment/admission co-commit failure");}});
-      await expect(createSubscriptionMembershipReconciliationRepository(database,fixture.own,"authorized",failingFactory).reconcileProviderSubscribers({priceId:fixture.priceId,tribeSlug:fixture.slug,source:TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton})).rejects.toThrow();
+      await expect(createSubscriptionMembershipReconciliationRepository(database,fixture.own,"authorized",failingFactory).reconcileProviderSubscribers({priceId:fixture.priceId,tribeSlug:fixture.slug,source:TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton})).rejects.toThrow("Synthetic payment/admission co-commit failure");
       await database.withContext(fixture.own,async(transaction)=>{
         expect((await transaction.execute(sql`select status,status_reason from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`)).rows).toEqual([{status:"removed",status_reason:"subscription_inactive"}]);
         expect((await transaction.execute(sql`select status,version from public.academy_admission_requests where id=${admissionRequestId}`)).rows).toEqual([{status:"pending",version:1}]);
@@ -102,7 +102,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership r
       });
       const unexpected=async()=>{throw new Error("Paid admission hook unexpectedly invoked a provider mutation");};
       if(entrypoint==="member"){
-        const repository=new PostgresTribeMemberSubscriptionRepository((callback)=>database.withContext(fixture.own,callback),unexpected,unexpected,async()=>"authorized",unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+        const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:(callback)=>database.withContext(fixture.own,callback),createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:async()=>"authorized",updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
         expect(await repository.handleWebhook({eventId:randomUUID(),resourceId:fixture.providerId,topic:"subscription_preapproval"})).toMatchObject({status:"processed"});
       }else{
         const repository=createSubscriptionMembershipReconciliationRepository(database,fixture.own,"authorized");
@@ -131,7 +131,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership r
       });
       const unexpected=async()=>{throw new Error("Paid provenance test unexpectedly invoked a provider mutation");};
       if(entrypoint==="member") {
-        const repository=new PostgresTribeMemberSubscriptionRepository((callback)=>database.withContext(fixture.own,callback),unexpected,unexpected,async()=>"authorized",unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+        const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:(callback)=>database.withContext(fixture.own,callback),createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:async()=>"authorized",updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
         expect(await repository.handleWebhook({eventId:randomUUID(),resourceId:fixture.providerId,topic:"subscription_preapproval"})).toMatchObject({status:"processed"});
       } else {
         const repository=createSubscriptionMembershipReconciliationRepository(database,fixture.own,"authorized");
@@ -208,7 +208,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership r
         await database.withContext(fixture.own,async(transaction)=>transaction.execute(sql`update public.tribe_member_subscriptions set status='paused',updated_at=clock_timestamp() where id=${fixture.subscriptionId}`));
         return "authorized";
       };
-      const repository=new PostgresTribeMemberSubscriptionRepository((callback)=>database.withContext(fixture.own,callback),unexpected,unexpected,providerRead,unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+      const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:(callback)=>database.withContext(fixture.own,callback),createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:providerRead,updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
       expect(await repository.handleWebhook({eventId:randomUUID(),resourceId:fixture.providerId,topic:"subscription_preapproval"})).toMatchObject({status:"processed"});
       expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select status from public.tribe_member_subscriptions where id=${fixture.subscriptionId}`)).rows)).toEqual([{status:"active"}]);
     });
@@ -258,7 +258,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership r
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await seedSubscriptionMembershipReconciliation(database,"membership","muted");
       const unexpected=async()=>{throw new Error("Reconciliation test unexpectedly invoked a provider mutation");};
-      const repository=new PostgresTribeMemberSubscriptionRepository((callback)=>database.withContext({userId:fixture.userId,email:null},callback),unexpected,unexpected,async()=>"authorized",unexpected,unexpected,unexpected,createPaidAdmissionResolutionWriter,randomUUID());
+      const repository=new PostgresTribeMemberSubscriptionRepository({executeWithDatabase:(callback)=>database.withContext({userId:fixture.userId,email:null},callback),createMercadoPagoPreapprovalSubscription:unexpected,getMercadoPagoPreapprovalDetails:unexpected,getMercadoPagoPreapprovalStatus:async()=>"authorized",updateMercadoPagoPreapprovalStatus:unexpected,updateMercadoPagoPreapprovalBackUrl:unexpected,refreshMercadoPagoAccessToken:unexpected,createAdmissionResolution:createPaidAdmissionResolutionWriter,requestId:randomUUID()});
       expect(await repository.reconcileCurrentMemberSubscription({tribeSlug:fixture.slug})).toMatchObject({status:"active"});
       expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select role,status,status_reason from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`)).rows)).toEqual([{role:"tribemate",status:"muted",status_reason:"none"}]);
     });

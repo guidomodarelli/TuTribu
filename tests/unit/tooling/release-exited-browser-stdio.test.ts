@@ -53,7 +53,7 @@ async function spawnParentLeavingDescendant(): Promise<ObservedParent> {
   });
   const closed = new Promise<void>((resolve) => parent.once("close", () => resolve()));
   const descendantPid = await new Promise<number>((resolve) => {
-    parent.stdout?.once("data", (chunk: Buffer) => resolve(Number(chunk.toString().trim())));
+    parent.stdout.once("data", (chunk: Buffer) => resolve(Number(chunk.toString().trim())));
   });
   descendantPids.push(descendantPid);
   await new Promise((resolve) => parent.once("exit", resolve));

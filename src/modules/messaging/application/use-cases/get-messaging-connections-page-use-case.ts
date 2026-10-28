@@ -11,6 +11,14 @@ import type {ReadNotificationDeliveryCatalogUseCase} from "./read-notification-d
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import type {MessagingProviderCatalogReader} from "../ports/messaging-provider-catalog-reader";
 
+type NotificationCatalogRead=Awaited<ReturnType<ReadNotificationDeliveryCatalogUseCase["execute"]>>;
+
+/** @param catalog - Leader's notification catalog read. @returns Its page, or its safe localized failure. */
+function projectNotificationCatalog(catalog:NotificationCatalogRead){
+  if(catalog.ok)return{status:"ready" as const,value:catalog.value};
+  return{status:"failed" as const,code:catalog.failure.code,message:MESSAGING_ERROR_MESSAGE[catalog.failure.code]};
+}
+
 /** Configuration owns audience and usage metadata; this reader never loads a key or duplicates its request. */
 export class GetMessagingConnectionsPageUseCase{
   /** @param accounts - Native current viewer. @param readers - Canonical routing, one authorized configuration read and actual static provider metadata. @param clock - Current time after awaited reads. */
@@ -21,14 +29,24 @@ export class GetMessagingConnectionsPageUseCase{
       const first=await this.accounts.getAuthenticatedAccount();if(!first||!isAuthenticatedSessionLive(first.session.expiresAt,this.clock()))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
       const tribe=await this.readers.resolveTribe.execute(query);if(!tribe.ok)return{ok:false as const,failure:messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code)=>code===tribe.failure.code)??MESSAGING_ERROR_CODE.unexpectedFailure,{cause:tribe.failure})};
       const result=await this.readers.configuration.execute({tribeId:tribe.value.tribeId,requestId:query.requestId});if(!result.ok)return result;
-      const catalog=result.value.audience===TRIBE_MEMBER_ROLE.leader&&this.readers.catalog?await this.readers.catalog.execute({tribeId:tribe.value.tribeId,requestId:query.requestId,cursor:null}):undefined;
-      if(catalog&&!catalog.ok&&(catalog.failure.code===MESSAGING_ERROR_CODE.permissionDenied||catalog.failure.code===MESSAGING_ERROR_CODE.authenticationRequired))return{ok:false as const,failure:catalog.failure};
-      const notificationCatalog=catalog?catalog.ok?{status:"ready" as const,value:catalog.value}:{status:"failed" as const,code:catalog.failure.code,message:MESSAGING_ERROR_MESSAGE[catalog.failure.code]}:undefined;
-      const current=await this.accounts.getAuthenticatedAccount(),now=this.clock();if(!current||current.userId!==first.userId||current.session.id!==first.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,now))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
+      const catalog=await this.readLeaderCatalog(result.value.audience,{tribeId:tribe.value.tribeId,requestId:query.requestId});
+      if(catalog&&!catalog.ok&&isAuthorityFailure(catalog.failure.code))return{ok:false as const,failure:catalog.failure};
+      const notificationCatalog=catalog?projectNotificationCatalog(catalog):undefined;
+      const current=await this.accounts.getAuthenticatedAccount(),now=this.clock();if(current?.userId !== first.userId||current.session.id!==first.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,now))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
       const providerCatalog=result.value.audience===TRIBE_MEMBER_ROLE.leader?this.readers.providers.read():undefined;
       const parsed=messagingConnectionsPageStateSchema.safeParse({kind:"ready",slug:query.slug,tribeId:tribe.value.tribeId,viewerId:current.userId,renderedAt:now.toISOString(),configuration:result.value,...(notificationCatalog?{notificationCatalog}:{}),...(providerCatalog?{providerCatalog}:{})});
       if(!parsed.success)return{ok:false as const,failure:messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable,{cause:parsed.error})};
       return{ok:true as const,value:parsed.data};
     }catch(error){return{ok:false as const,failure:messagingFailure(error instanceof MessagingConnectionOperationError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure,{cause:error})};}
   }
+  /** @param audience - Configuration audience of the viewer. @param scope - Own tribe and correlation. @returns The first notification catalog page for a leader when the reader is configured, otherwise nothing. */
+  private async readLeaderCatalog(audience:string,scope:{tribeId:string;requestId:string}){
+    if(audience!==TRIBE_MEMBER_ROLE.leader||!this.readers.catalog)return undefined;
+    return this.readers.catalog.execute({...scope,cursor:null});
+  }
+}
+
+/** @param code - Catalog failure code. @returns Whether the failure revokes the whole page instead of only the catalog. */
+function isAuthorityFailure(code:string):boolean{
+  return code===MESSAGING_ERROR_CODE.permissionDenied||code===MESSAGING_ERROR_CODE.authenticationRequired;
 }

@@ -2,7 +2,7 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool, PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 import {
   createPostgresPool,
@@ -79,6 +79,26 @@ function createRequestDatabase(client: PoolClient) {
 
 export type RequestDatabase = ReturnType<typeof createRequestDatabase>;
 
+/**
+ * Releases a checked-out client at most once, on success, failure, or connection death.
+ *
+ * @param client - Client checked out from the pool.
+ * @returns `release` (idempotent, also the client `error` listener) and whether it already ran.
+ */
+function createIdempotentClientRelease(client: PoolClient) {
+  let wasClientReleased = false;
+  const release = (error?: Error) => {
+    if (wasClientReleased) {
+      return;
+    }
+
+    wasClientReleased = true;
+    client.release(error);
+  };
+
+  return { isReleased: () => wasClientReleased, release };
+}
+
 function getDatabasePool(
   usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request
 ) {
@@ -133,21 +153,10 @@ export async function runWithGuardedTransaction<T>(
   prepare?: (database: RequestDatabase) => Promise<void>
 ): Promise<T> {
   const client = await pool.connect();
-  let wasClientReleased = false;
-  const releaseClient = (error?: Error) => {
-    if (wasClientReleased) {
-      return;
-    }
-
-    wasClientReleased = true;
-    client.release(error);
-  };
-  const handleCheckedOutClientError = (error: Error) => {
-    releaseClient(error);
-  };
+  const clientRelease = createIdempotentClientRelease(client);
 
   try {
-    client.on("error", handleCheckedOutClientError);
+    client.on("error", clientRelease.release);
     await client.query(GUARDED_TRANSACTION_BEGIN);
 
     const database = createRequestDatabase(client);
@@ -160,14 +169,14 @@ export async function runWithGuardedTransaction<T>(
     await client.query(DATABASE_TRANSACTION.commit);
     return result;
   } catch (error) {
-    if (!wasClientReleased) {
+    if (!clientRelease.isReleased()) {
       await client.query(DATABASE_TRANSACTION.rollback);
     }
 
     throw error;
   } finally {
-    client.removeListener("error", handleCheckedOutClientError);
-    releaseClient();
+    client.removeListener("error", clientRelease.release);
+    clientRelease.release();
   }
 }
 
@@ -188,25 +197,14 @@ export async function runWithGuardedStatement<T>(
   runStatement: (database: RequestDatabase) => Promise<T>
 ): Promise<T> {
   const client = await pool.connect();
-  let wasClientReleased = false;
-  const releaseClient = (error?: Error) => {
-    if (wasClientReleased) {
-      return;
-    }
-
-    wasClientReleased = true;
-    client.release(error);
-  };
-  const handleCheckedOutClientError = (error: Error) => {
-    releaseClient(error);
-  };
+  const clientRelease = createIdempotentClientRelease(client);
 
   try {
-    client.on("error", handleCheckedOutClientError);
+    client.on("error", clientRelease.release);
     return await runStatement(createRequestDatabase(client));
   } finally {
-    client.removeListener("error", handleCheckedOutClientError);
-    releaseClient();
+    client.removeListener("error", clientRelease.release);
+    clientRelease.release();
   }
 }
 

@@ -17,7 +17,7 @@ async function prepareMarkedDelivery(database: AcademyAdmissionTestDatabase) {
   if (issued.state !== "completed" || issued.result.outcome !== "issued") throw new Error("Synthetic maintenance issue did not complete");
   const original = issued.result;
   const { code } = await recoverTestVerificationCode(database, fixture, original.challengeId);
-  const repository = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async () => true, async () => fixture.config);
+  const repository = new PostgresMessageDeliveryRepository({ execute: (actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), authorizeMaintenance: async () => true, readSecurityConfig: async () => fixture.config });
   const claim = (await repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
   const marker = await repository.authorize(claim, randomUUID());
   if (marker.outcome !== "authorized") throw new Error("Synthetic maintenance marker did not complete");

@@ -319,6 +319,128 @@ type IdentityImageFieldProps = {
   variant: IdentityImageVariant;
 };
 
+type IdentityImagePreviewProps = {
+  brokenPreviewLabel: string;
+  emptyPreviewLabel: string;
+  isLogo: boolean;
+  onPreviewError: (failedUrl: string) => void;
+  previewAlt: string;
+  previewState: PreviewState;
+  trimmedUrl: string;
+};
+
+/**
+ * Live preview of an identity image, or a placeholder when the URL is empty
+ * or the image failed to load.
+ */
+function IdentityImagePreview({
+  brokenPreviewLabel,
+  emptyPreviewLabel,
+  isLogo,
+  onPreviewError,
+  previewAlt,
+  previewState,
+  trimmedUrl,
+}: IdentityImagePreviewProps) {
+  return (
+    <PresenceSwap
+      className={styles.TribeSettingsManagement__previewSwap}
+      presenceKey={previewState}
+    >
+      {previewState === PREVIEW_STATE.image ? (
+        <Image
+          alt={previewAlt}
+          className={styles.TribeSettingsManagement__previewImage}
+          onError={() => {
+            onPreviewError(trimmedUrl);
+          }}
+          src={trimmedUrl}
+          unoptimized
+          {...(isLogo
+            ? { height: LOGO_PREVIEW_SIZE, width: LOGO_PREVIEW_SIZE }
+            : { fill: true, sizes: COVER_PREVIEW_SIZES })}
+        />
+      ) : (
+        <span className={styles.TribeSettingsManagement__previewEmpty}>
+          {previewState === PREVIEW_STATE.broken ? (
+            <ImageOffIcon
+              aria-hidden
+              className={styles.TribeSettingsManagement__previewEmptyIcon}
+            />
+          ) : (
+            <ImageIcon
+              aria-hidden
+              className={styles.TribeSettingsManagement__previewEmptyIcon}
+            />
+          )}
+          <span className={styles.TribeSettingsManagement__previewEmptyLabel}>
+            {previewState === PREVIEW_STATE.broken
+              ? brokenPreviewLabel
+              : emptyPreviewLabel}
+          </span>
+        </span>
+      )}
+    </PresenceSwap>
+  );
+}
+
+/** Validation error of an identity image URL, or the upload size note. */
+function IdentityImageFeedback({
+  errorId,
+  isInvalid,
+}: {
+  errorId: string;
+  isInvalid: boolean;
+}) {
+  return (
+    <PresenceSwap
+      className={styles.TribeSettingsManagement__fieldFeedback}
+      presenceKey={isInvalid ? FIELD_FEEDBACK_KEY.error : FIELD_FEEDBACK_KEY.note}
+    >
+      {isInvalid ? (
+        <p
+          className={styles.TribeSettingsManagement__fieldError}
+          id={errorId}
+          role="alert"
+        >
+          {TRIBE_SETTINGS_COPY.invalidUrl}
+        </p>
+      ) : (
+        <p className={styles.TribeSettingsManagement__fieldNote}>
+          {TRIBE_SETTINGS_COPY.uploadLimitHint(UPLOAD_MAX_MEGABYTES)}
+        </p>
+      )}
+    </PresenceSwap>
+  );
+}
+
+/** Label and hint of an identity image field. */
+function IdentityImageFieldHeading({
+  hint,
+  hintId,
+  inputId,
+  label,
+}: {
+  hint: string;
+  hintId: string;
+  inputId: string;
+  label: string;
+}) {
+  return (
+    <div className={styles.TribeSettingsManagement__fieldHeading}>
+      <label
+        className={styles.TribeSettingsManagement__fieldLabel}
+        htmlFor={inputId}
+      >
+        {label}
+      </label>
+      <p className={styles.TribeSettingsManagement__fieldHelper} id={hintId}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
 /**
  * One identity image (logo or cover): live preview, URL input, upload button
  * and the validation message rendered next to the input.
@@ -350,17 +472,12 @@ function IdentityImageField({
 
   return (
     <div className={styles.TribeSettingsManagement__field}>
-      <div className={styles.TribeSettingsManagement__fieldHeading}>
-        <label
-          className={styles.TribeSettingsManagement__fieldLabel}
-          htmlFor={inputId}
-        >
-          {label}
-        </label>
-        <p className={styles.TribeSettingsManagement__fieldHelper} id={hintId}>
-          {hint}
-        </p>
-      </div>
+      <IdentityImageFieldHeading
+        hint={hint}
+        hintId={hintId}
+        inputId={inputId}
+        label={label}
+      />
       <div
         className={cn(
           styles.TribeSettingsManagement__fieldBody,
@@ -374,44 +491,15 @@ function IdentityImageField({
               : styles.TribeSettingsManagement__coverPreview
           }
         >
-          <PresenceSwap
-            className={styles.TribeSettingsManagement__previewSwap}
-            presenceKey={previewState}
-          >
-            {previewState === PREVIEW_STATE.image ? (
-              <Image
-                alt={previewAlt}
-                className={styles.TribeSettingsManagement__previewImage}
-                onError={() => {
-                  onPreviewError(trimmedUrl);
-                }}
-                src={trimmedUrl}
-                unoptimized
-                {...(isLogo
-                  ? { height: LOGO_PREVIEW_SIZE, width: LOGO_PREVIEW_SIZE }
-                  : { fill: true, sizes: COVER_PREVIEW_SIZES })}
-              />
-            ) : (
-              <span className={styles.TribeSettingsManagement__previewEmpty}>
-                {previewState === PREVIEW_STATE.broken ? (
-                  <ImageOffIcon
-                    aria-hidden
-                    className={styles.TribeSettingsManagement__previewEmptyIcon}
-                  />
-                ) : (
-                  <ImageIcon
-                    aria-hidden
-                    className={styles.TribeSettingsManagement__previewEmptyIcon}
-                  />
-                )}
-                <span className={styles.TribeSettingsManagement__previewEmptyLabel}>
-                  {previewState === PREVIEW_STATE.broken
-                    ? brokenPreviewLabel
-                    : emptyPreviewLabel}
-                </span>
-              </span>
-            )}
-          </PresenceSwap>
+          <IdentityImagePreview
+            brokenPreviewLabel={brokenPreviewLabel}
+            emptyPreviewLabel={emptyPreviewLabel}
+            isLogo={isLogo}
+            onPreviewError={onPreviewError}
+            previewAlt={previewAlt}
+            previewState={previewState}
+            trimmedUrl={trimmedUrl}
+          />
         </div>
         <div className={styles.TribeSettingsManagement__fieldControls}>
           <Input
@@ -429,24 +517,7 @@ function IdentityImageField({
             isUploading={isUploading}
             onFileSelected={onFileSelected}
           />
-          <PresenceSwap
-            className={styles.TribeSettingsManagement__fieldFeedback}
-            presenceKey={isInvalid ? FIELD_FEEDBACK_KEY.error : FIELD_FEEDBACK_KEY.note}
-          >
-            {isInvalid ? (
-              <p
-                className={styles.TribeSettingsManagement__fieldError}
-                id={errorId}
-                role="alert"
-              >
-                {TRIBE_SETTINGS_COPY.invalidUrl}
-              </p>
-            ) : (
-              <p className={styles.TribeSettingsManagement__fieldNote}>
-                {TRIBE_SETTINGS_COPY.uploadLimitHint(UPLOAD_MAX_MEGABYTES)}
-              </p>
-            )}
-          </PresenceSwap>
+          <IdentityImageFeedback errorId={errorId} isInvalid={isInvalid} />
         </div>
       </div>
     </div>
@@ -454,28 +525,15 @@ function IdentityImageField({
 }
 
 /**
- * Leader-only tribe settings: the visual identity (logo and cover) that the
- * app chrome, the story page and the shareable card all read.
+ * Uploads identity images, one per target at a time, after checking their
+ * type and size.
+ * @param tribeSlug - Tribe slug.
+ * @returns Targets being uploaded and the upload handler.
  */
-export function TribeSettingsManagement({
-  identity,
-  tribeSlug,
-}: TribeSettingsManagementProps) {
-  const [logoUrl, setLogoUrl] = useState(identity?.logoUrl ?? "");
-  const [coverUrl, setCoverUrl] = useState(identity?.coverUrl ?? "");
-  const [isLogoInvalid, setIsLogoInvalid] = useState(false);
-  const [isCoverInvalid, setIsCoverInvalid] = useState(false);
-  const [brokenLogoUrl, setBrokenLogoUrl] = useState<string | null>(null);
-  const [brokenCoverUrl, setBrokenCoverUrl] = useState<string | null>(null);
+function useIdentityImageUploads(tribeSlug: string) {
   const [uploadingTargets, setUploadingTargets] = useState<
     ReadonlySet<string>
   >(() => new Set());
-  const [isSaving, setIsSaving] = useState(false);
-  const identityHeadingId = useId();
-  const trimmedLogoUrl = logoUrl.trim();
-  const trimmedCoverUrl = coverUrl.trim();
-  const isUploadingLogo = uploadingTargets.has(UPLOAD_TARGET.logo);
-  const isUploadingCover = uploadingTargets.has(UPLOAD_TARGET.cover);
 
   const setUploadingTarget = (target: string, isUploading: boolean) => {
     setUploadingTargets((currentTargets) => {
@@ -529,7 +587,33 @@ export function TribeSettingsManagement({
       setUploadingTarget(target, false);
     }
   };
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+
+  return { handleImageFileUpload, uploadingTargets };
+}
+
+type IdentitySubmitOptions = {
+  setIsCoverInvalid: (isInvalid: boolean) => void;
+  setIsLogoInvalid: (isInvalid: boolean) => void;
+  tribeSlug: string;
+  trimmedCoverUrl: string;
+  trimmedLogoUrl: string;
+};
+
+/**
+ * Validates and saves the identity URLs, one save at a time.
+ * @param options - Tribe, trimmed URLs and the invalid flag setters.
+ * @returns The saving state and the submit handler.
+ */
+function useIdentitySubmit({
+  setIsCoverInvalid,
+  setIsLogoInvalid,
+  tribeSlug,
+  trimmedCoverUrl,
+  trimmedLogoUrl,
+}: IdentitySubmitOptions) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (isSaving) {
@@ -569,16 +653,134 @@ export function TribeSettingsManagement({
     }
   };
 
+  return { handleSubmit, isSaving };
+}
+
+/** Title and description of the settings page. */
+function TribeSettingsHeader() {
+  return (
+    <header className={styles.TribeSettingsManagement__header}>
+      <h1 className={styles.TribeSettingsManagement__title}>
+        {TRIBE_SETTINGS_COPY.title}
+      </h1>
+      <p className={styles.TribeSettingsManagement__description}>
+        {TRIBE_SETTINGS_COPY.description}
+      </p>
+    </header>
+  );
+}
+
+/** Save button of the settings form. */
+function TribeSettingsSaveAction({
+  disabled,
+  isSaving,
+}: {
+  disabled: boolean;
+  isSaving: boolean;
+}) {
+  return (
+    <div className={styles.TribeSettingsManagement__actions}>
+      <Button
+        aria-busy={isSaving || undefined}
+        className={styles.TribeSettingsManagement__saveButton}
+        disabled={disabled}
+        type={SETTINGS_REQUEST.submitButtonType}
+      >
+        {isSaving
+          ? TRIBE_SETTINGS_COPY.savingButton
+          : TRIBE_SETTINGS_COPY.saveButton}
+      </Button>
+    </div>
+  );
+}
+
+/** Copy of each identity image field. */
+const IDENTITY_IMAGE_FIELD_COPY = {
+  cover: {
+    brokenPreviewLabel: TRIBE_SETTINGS_COPY.coverPreviewError,
+    emptyPreviewLabel: TRIBE_SETTINGS_COPY.coverEmpty,
+    hint: TRIBE_SETTINGS_COPY.coverHint,
+    label: TRIBE_SETTINGS_COPY.coverLabel,
+    previewAlt: TRIBE_SETTINGS_COPY.coverAlt,
+  },
+  logo: {
+    brokenPreviewLabel: TRIBE_SETTINGS_COPY.logoPreviewError,
+    emptyPreviewLabel: TRIBE_SETTINGS_COPY.logoEmpty,
+    hint: TRIBE_SETTINGS_COPY.logoHint,
+    label: TRIBE_SETTINGS_COPY.logoLabel,
+    previewAlt: TRIBE_SETTINGS_COPY.logoAlt,
+  },
+} as const;
+
+/**
+ * Draft of one identity image URL with its validation flag and the last URL
+ * whose preview failed to load.
+ * @param initialUrl - Saved URL.
+ * @returns The draft, its trimmed form and its setters.
+ */
+function useIdentityImageDraft(initialUrl: string) {
+  const [url, setUrl] = useState(initialUrl);
+  const [isInvalid, setIsInvalid] = useState(false);
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+
+  /** Replaces the URL (typed or uploaded) and clears its stale error. */
+  const applyUrl = (nextUrl: string) => {
+    setUrl(nextUrl);
+    setIsInvalid(false);
+  };
+
+  return {
+    applyUrl,
+    brokenUrl,
+    isInvalid,
+    setBrokenUrl,
+    setIsInvalid,
+    trimmedUrl: url.trim(),
+    url,
+  };
+}
+
+/** Heading and description of the identity section. */
+function IdentitySectionIntro({ headingId }: { headingId: string }) {
+  return (
+    <div className={styles.TribeSettingsManagement__sectionIntro}>
+      <h2
+        className={styles.TribeSettingsManagement__sectionTitle}
+        id={headingId}
+      >
+        {TRIBE_SETTINGS_COPY.identityHeading}
+      </h2>
+      <p className={styles.TribeSettingsManagement__sectionDescription}>
+        {TRIBE_SETTINGS_COPY.identityDescription}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Leader-only tribe settings: the visual identity (logo and cover) that the
+ * app chrome, the story page and the shareable card all read.
+ */
+export function TribeSettingsManagement({
+  identity,
+  tribeSlug,
+}: TribeSettingsManagementProps) {
+  const logo = useIdentityImageDraft(identity?.logoUrl ?? "");
+  const cover = useIdentityImageDraft(identity?.coverUrl ?? "");
+  const { handleImageFileUpload, uploadingTargets } =
+    useIdentityImageUploads(tribeSlug);
+  const { handleSubmit, isSaving } = useIdentitySubmit({
+    setIsCoverInvalid: cover.setIsInvalid,
+    setIsLogoInvalid: logo.setIsInvalid,
+    tribeSlug,
+    trimmedCoverUrl: cover.trimmedUrl,
+    trimmedLogoUrl: logo.trimmedUrl,
+  });
+  const identityHeadingId = useId();
+
   return (
     <section className={styles.TribeSettingsManagement}>
-      <header className={styles.TribeSettingsManagement__header}>
-        <h1 className={styles.TribeSettingsManagement__title}>
-          {TRIBE_SETTINGS_COPY.title}
-        </h1>
-        <p className={styles.TribeSettingsManagement__description}>
-          {TRIBE_SETTINGS_COPY.description}
-        </p>
-      </header>
+      <TribeSettingsHeader />
 
       <form
         className={styles.TribeSettingsManagement__form}
@@ -590,88 +792,50 @@ export function TribeSettingsManagement({
           aria-labelledby={identityHeadingId}
           className={styles.TribeSettingsManagement__section}
         >
-          <div className={styles.TribeSettingsManagement__sectionIntro}>
-            <h2
-              className={styles.TribeSettingsManagement__sectionTitle}
-              id={identityHeadingId}
-            >
-              {TRIBE_SETTINGS_COPY.identityHeading}
-            </h2>
-            <p className={styles.TribeSettingsManagement__sectionDescription}>
-              {TRIBE_SETTINGS_COPY.identityDescription}
-            </p>
-          </div>
+          <IdentitySectionIntro headingId={identityHeadingId} />
 
           <div className={styles.TribeSettingsManagement__sectionFields}>
             <IdentityImageField
-              brokenPreviewLabel={TRIBE_SETTINGS_COPY.logoPreviewError}
-              emptyPreviewLabel={TRIBE_SETTINGS_COPY.logoEmpty}
-              hint={TRIBE_SETTINGS_COPY.logoHint}
-              isInvalid={isLogoInvalid}
-              isPreviewBroken={brokenLogoUrl === trimmedLogoUrl}
-              isUploading={isUploadingLogo}
-              label={TRIBE_SETTINGS_COPY.logoLabel}
+              {...IDENTITY_IMAGE_FIELD_COPY.logo}
+              isInvalid={logo.isInvalid}
+              isPreviewBroken={logo.brokenUrl === logo.trimmedUrl}
+              isUploading={uploadingTargets.has(UPLOAD_TARGET.logo)}
               onFileSelected={(imageFile) => {
                 void handleImageFileUpload(
                   UPLOAD_TARGET.logo,
                   imageFile,
-                  (deliveryUrl) => {
-                    setLogoUrl(deliveryUrl);
-                    setIsLogoInvalid(false);
-                  }
+                  logo.applyUrl
                 );
               }}
-              onPreviewError={setBrokenLogoUrl}
-              onUrlChange={(nextUrl) => {
-                setLogoUrl(nextUrl);
-                setIsLogoInvalid(false);
-              }}
-              previewAlt={TRIBE_SETTINGS_COPY.logoAlt}
-              url={logoUrl}
+              onPreviewError={logo.setBrokenUrl}
+              onUrlChange={logo.applyUrl}
+              url={logo.url}
               variant={UPLOAD_TARGET.logo}
             />
             <IdentityImageField
-              brokenPreviewLabel={TRIBE_SETTINGS_COPY.coverPreviewError}
-              emptyPreviewLabel={TRIBE_SETTINGS_COPY.coverEmpty}
-              hint={TRIBE_SETTINGS_COPY.coverHint}
-              isInvalid={isCoverInvalid}
-              isPreviewBroken={brokenCoverUrl === trimmedCoverUrl}
-              isUploading={isUploadingCover}
-              label={TRIBE_SETTINGS_COPY.coverLabel}
+              {...IDENTITY_IMAGE_FIELD_COPY.cover}
+              isInvalid={cover.isInvalid}
+              isPreviewBroken={cover.brokenUrl === cover.trimmedUrl}
+              isUploading={uploadingTargets.has(UPLOAD_TARGET.cover)}
               onFileSelected={(imageFile) => {
                 void handleImageFileUpload(
                   UPLOAD_TARGET.cover,
                   imageFile,
-                  (deliveryUrl) => {
-                    setCoverUrl(deliveryUrl);
-                    setIsCoverInvalid(false);
-                  }
+                  cover.applyUrl
                 );
               }}
-              onPreviewError={setBrokenCoverUrl}
-              onUrlChange={(nextUrl) => {
-                setCoverUrl(nextUrl);
-                setIsCoverInvalid(false);
-              }}
-              previewAlt={TRIBE_SETTINGS_COPY.coverAlt}
-              url={coverUrl}
+              onPreviewError={cover.setBrokenUrl}
+              onUrlChange={cover.applyUrl}
+              url={cover.url}
               variant={UPLOAD_TARGET.cover}
             />
           </div>
         </section>
 
-        <div className={styles.TribeSettingsManagement__actions}>
-          <Button
-            aria-busy={isSaving || undefined}
-            className={styles.TribeSettingsManagement__saveButton}
-            disabled={isSaving || uploadingTargets.size > 0}
-            type={SETTINGS_REQUEST.submitButtonType}
-          >
-            {isSaving
-              ? TRIBE_SETTINGS_COPY.savingButton
-              : TRIBE_SETTINGS_COPY.saveButton}
-          </Button>
-        </div>
+        <TribeSettingsSaveAction
+          disabled={isSaving || uploadingTargets.size > 0}
+          isSaving={isSaving}
+        />
       </form>
     </section>
   );

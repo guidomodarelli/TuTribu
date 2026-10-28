@@ -63,7 +63,7 @@ class MockJsonResponse {
 
 function buildJsonRequest(
   body: Record<string, string | number> = {},
-  headers: HeadersInit = {}
+  headers: Record<string, string> = {}
 ): Request {
   return {
     headers: new Headers({

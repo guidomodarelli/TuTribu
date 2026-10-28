@@ -5,8 +5,6 @@ import type { AdmissionContactType } from "../../domain/value-objects/admission-
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
-import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { presentAllowlistImport } from "../results/allowlist-import-result";
 
@@ -27,7 +25,6 @@ export class ImportAllowlistUseCases {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageAllowlist, sensitiveOperation: REAUTHENTICATION_OPERATION.previewAllowlistImport });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
-      if (!input.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const rows = this.inputReader.parse(input.csvText);
       return { ok: true as const, value: await this.repository.preview({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, expectedPolicyVersion: input.expectedPolicyVersion, contactType: input.contactType, csvText: input.csvText, rows }) };
     } catch (error) { return admissionOperationFailure(error); }
@@ -46,7 +43,6 @@ export class ImportAllowlistUseCases {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageAllowlist, resource: { kind: ADMISSION_RESOURCE_KIND.allowlistImport, id: input.importId }, sensitiveOperation: REAUTHENTICATION_OPERATION.confirmAllowlistImport });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
-      if (!input.confirmed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       return { ok: true as const, value: await this.repository.confirm({ context: authority.context, importId: input.importId, operationId: input.operationId, confirmed: input.confirmed, expectedVersion: input.expectedVersion, selectedRows: input.selectedRows }) };
     } catch (error) { return admissionOperationFailure(error); }
   }

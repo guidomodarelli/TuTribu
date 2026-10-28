@@ -17,8 +17,10 @@ type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 const storedReferenceSchema = z.strictObject({ viewerId: z.string().min(1), slug: z.string().min(1), draft: z.strictObject({ draftId: z.uuid(), fileName: allowlistImportDraftSchema.shape.fileName }).nullable(), importId: z.uuid().nullable(), selection: allowlistImportSelectionSchema, pending: allowlistImportBrowserIntentSchema.nullable(), unresolved: z.array(allowlistImportConfirmationIntentSchema) });
 /** @param viewerId - Native current viewer. @param slug - Current academy. @returns A private scoped storage key. */
 function key(viewerId: string, slug: string): string { return `${ALLOWLIST_IMPORT_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`; }
-/** @param viewerId - Native viewer to restore. @param slug - Current academy. @param storage - Metadata persistence boundary. @param files - Own large-data store. @param signal - Hydration cancellation. @returns Guarded proposals/references; a missing local file never discards its unresolved original. */
-export async function readAllowlistImport(viewerId: string, slug: string, storage: StoragePort = window.sessionStorage, files: AllowlistImportDraftStore = allowlistImportDraftStore, signal = new AbortController().signal): Promise<StoredAllowlistImport | null> {
+/** Restore boundaries: metadata persistence (`storage`), own large-data store (`files`) and hydration cancellation (`signal`). */
+export type AllowlistImportRestorePorts = { storage?: StoragePort; files?: AllowlistImportDraftStore; signal?: AbortSignal };
+/** @param viewerId - Native viewer to restore. @param slug - Current academy. @param ports - Storage, file store and cancellation; browser defaults when absent. @returns Guarded proposals/references; a missing local file never discards its unresolved original. */
+export async function readAllowlistImport(viewerId: string, slug: string, { storage = window.sessionStorage, files = allowlistImportDraftStore, signal = new AbortController().signal }: AllowlistImportRestorePorts = {}): Promise<StoredAllowlistImport | null> {
   const raw = storage.getItem(key(viewerId, slug));
   if (!raw) return null;
   let value: unknown;

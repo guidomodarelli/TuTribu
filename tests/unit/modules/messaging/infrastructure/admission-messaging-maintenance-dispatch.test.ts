@@ -31,7 +31,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native full admiss
       const scope = { environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch };
       const retained: Promise<void>[] = [];
       const runtime: AdmissionMessagingMaintenanceRuntime = { now: Date.now, createId: randomUUID, defer: (work) => { retained.push(work); }, report: () => undefined };
-      const progress = new PostgresAdmissionMessagingMaintenanceProgress((run) => database.withContext({ userId: null, email: null }, run), authorize, async () => false, async () => scope);
+      const progress = new PostgresAdmissionMessagingMaintenanceProgress({ execute: (run) => database.withContext({ userId: null, email: null }, run), authorize, readRecoveryLock: async () => false, readExternalScope: async () => scope });
       const currentDeliveryId = firstDeliveryId;
       // A previous incomplete invocation advances one genuine native turn. No stored
       // clock, lease, phase index, production limit or business effect is rewritten.

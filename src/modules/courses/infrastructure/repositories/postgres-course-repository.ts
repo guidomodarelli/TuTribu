@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import type {
   CourseCreationResult,
@@ -261,9 +261,9 @@ function mapCourseUpdateResult(
   };
 }
 
-function mapCourseDeletionResult(
+function mapDeletionResult(
   row: MutationStatusOnlyRow | null
-): CourseDeletionResult {
+): CourseDeletionResult | CourseModuleDeletionResult | LessonDeletionResult {
   if (
     row?.status === COURSE_MUTATION_STATUS.deleted ||
     row?.status === COURSE_MUTATION_STATUS.notFound
@@ -310,19 +310,6 @@ function mapModuleUpdateResult(
   };
 }
 
-function mapModuleDeletionResult(
-  row: MutationStatusOnlyRow | null
-): CourseModuleDeletionResult {
-  if (
-    row?.status === COURSE_MUTATION_STATUS.deleted ||
-    row?.status === COURSE_MUTATION_STATUS.notFound
-  ) {
-    return { status: row.status };
-  }
-
-  return { status: COURSE_MUTATION_STATUS.forbidden };
-}
-
 function mapLessonCreationResult(
   row: LessonMutationRow | null,
   files: LessonFile[] = []
@@ -361,22 +348,8 @@ function mapLessonUpdateResult(
   };
 }
 
-function mapLessonDeletionResult(
-  row: MutationStatusOnlyRow | null
-): LessonDeletionResult {
-  if (
-    row?.status === COURSE_MUTATION_STATUS.deleted ||
-    row?.status === COURSE_MUTATION_STATUS.notFound
-  ) {
-    return { status: row.status };
-  }
-
-  return { status: COURSE_MUTATION_STATUS.forbidden };
-}
-
 function buildCourseTree(rows: CourseTreeRow[]): CourseTreeResult {
   const courseMap = new Map<string, CourseWithModulesResult>();
-  const courseOrder: string[] = [];
   const moduleMap = new Map<string, CourseModuleWithLessonsResult>();
 
   for (const row of rows) {
@@ -407,7 +380,6 @@ function buildCourseTree(rows: CourseTreeRow[]): CourseTreeResult {
         },
       };
       courseMap.set(row.course_id, course);
-      courseOrder.push(row.course_id);
     }
 
     if (!row.module_id) {
@@ -450,11 +422,408 @@ function buildCourseTree(rows: CourseTreeRow[]): CourseTreeResult {
   }
 
   return {
-    courses: courseOrder.map((courseId) => courseMap.get(courseId)!),
+    courses: Array.from(courseMap.values()),
     viewerPermissions: {
       canManageCourses: Boolean(rows[0]?.can_manage_courses),
     },
   };
+}
+
+/**
+ * Inserts a lesson into a module of the tribe when the viewer can manage its courses, reporting why it did not otherwise.
+ */
+function buildCreateLessonStatement(command: CreateLessonRepositoryCommand): SQL {
+  return sql`
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
+            limit 1
+          ),
+          target_module as (
+            select course_modules.id
+            from public.course_modules
+            inner join target_tribe
+              on target_tribe.id = course_modules.tribe_id
+            where course_modules.id = ${command.courseModuleId}
+            limit 1
+          ),
+          inserted_lesson as (
+            insert into public.course_lessons (
+              course_module_id,
+              tribe_id,
+              title,
+              video_provider,
+              external_video_id,
+              description,
+              sort_order,
+              is_active,
+              created_at,
+              updated_at
+            )
+            select
+              target_module.id,
+              target_tribe.id,
+              ${command.title},
+              ${command.videoProvider},
+              ${command.externalVideoId},
+              ${command.description},
+              ${command.sortOrder},
+              true,
+              timezone('utc', now()),
+              timezone('utc', now())
+            from target_module, target_tribe
+            where public.can_manage_tribe_courses(target_tribe.id)
+            returning id, tribe_id, course_module_id, title, video_provider, external_video_id, description, sort_order, is_active
+          )
+          select
+            case
+              when exists (select 1 from inserted_lesson) then ${COURSE_MUTATION_STATUS.created}
+              when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
+              when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
+              else ${COURSE_MUTATION_STATUS.forbidden}
+            end as status,
+            inserted_lesson.id,
+            inserted_lesson.tribe_id,
+            inserted_lesson.course_module_id,
+            inserted_lesson.title,
+            inserted_lesson.video_provider,
+            inserted_lesson.external_video_id,
+            inserted_lesson.description,
+            inserted_lesson.sort_order,
+            inserted_lesson.is_active
+          from (select 1) result
+          left join inserted_lesson
+            on true
+        `;
+}
+
+/**
+ * Updates a lesson of the tribe when the viewer can manage its courses, reporting why it did not otherwise.
+ */
+function buildUpdateLessonStatement(command: UpdateLessonRepositoryCommand): SQL {
+  return sql`
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
+            limit 1
+          ),
+          target_module as (
+            select course_modules.id
+            from public.course_modules
+            inner join target_tribe
+              on target_tribe.id = course_modules.tribe_id
+            where course_modules.id = ${command.courseModuleId}
+            limit 1
+          ),
+          target_lesson as (
+            select course_lessons.id
+            from public.course_lessons
+            inner join target_tribe
+              on target_tribe.id = course_lessons.tribe_id
+            where course_lessons.id = ${command.lessonId}
+            limit 1
+          ),
+          updated_lesson as (
+            update public.course_lessons
+            set
+              course_module_id = ${command.courseModuleId},
+              title = ${command.title},
+              video_provider = ${command.videoProvider},
+              external_video_id = ${command.externalVideoId},
+              description = ${command.description},
+              sort_order = ${command.sortOrder},
+              is_active = ${command.isActive},
+              updated_at = timezone('utc', now())
+            from target_tribe, target_module
+            where course_lessons.id = ${command.lessonId}
+              and course_lessons.tribe_id = target_tribe.id
+              and target_module.id = ${command.courseModuleId}
+              and public.can_manage_tribe_courses(target_tribe.id)
+            returning course_lessons.id, course_lessons.tribe_id, course_lessons.course_module_id, course_lessons.title, course_lessons.video_provider, course_lessons.external_video_id, course_lessons.description, course_lessons.sort_order, course_lessons.is_active
+          )
+          select
+            case
+              when exists (select 1 from updated_lesson) then ${COURSE_MUTATION_STATUS.updated}
+              when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
+              when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
+              when not exists (select 1 from target_lesson) then ${COURSE_MUTATION_STATUS.notFound}
+              else ${COURSE_MUTATION_STATUS.forbidden}
+            end as status,
+            updated_lesson.id,
+            updated_lesson.tribe_id,
+            updated_lesson.course_module_id,
+            updated_lesson.title,
+            updated_lesson.video_provider,
+            updated_lesson.external_video_id,
+            updated_lesson.description,
+            updated_lesson.sort_order,
+            updated_lesson.is_active
+          from (select 1) result
+          left join updated_lesson
+            on true
+        `;
+}
+
+/**
+ * Tribe, viewer, membership, and readable course CTEs of the course tree.
+ */
+function buildCourseTreeScopeCtes(tribeSlug: string, includeInactive: boolean): SQL {
+  return sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        ),
+        viewer as (
+          select nullif(public.current_app_user_id(), '') as user_id
+        ),
+        viewer_permissions as (
+          select coalesce(public.can_manage_tribe_courses((select id from target_tribe)), false) as can_manage_courses
+        ),
+        membership as (
+          select
+            tribe_members.created_at as joined_at,
+            member_product_enrollments.first_activated_at as academy_activated_at
+          from public.tribe_members
+          inner join target_tribe
+            on target_tribe.id = tribe_members.tribe_id
+          left join public.member_product_enrollments
+            on member_product_enrollments.tribe_id = tribe_members.tribe_id
+            and member_product_enrollments.user_id = tribe_members.user_id
+            and member_product_enrollments.product_key = ${COURSE_ACCESS_REQUIREMENT.academy}
+          where tribe_members.user_id = (select user_id from viewer)
+            and tribe_members.status in ('active', 'muted')
+          limit 1
+        ),
+        course_rows as (
+          -- The runtime role bypasses RLS: only readable memberships (or the
+          -- course manager) see the catalog, and course content is resolved
+          -- per course with can_read_course_content (academy requirement).
+          select
+            courses.id,
+            courses.title,
+            courses.description,
+            courses.cover_image_url,
+            courses.sort_order,
+            courses.is_active,
+            courses.access_requirement,
+            courses.created_at,
+            public.can_read_course_content(courses.id) as content_accessible,
+            (
+              courses.access_requirement = ${COURSE_ACCESS_REQUIREMENT.academy}
+              and public.tribe_uses_academy_access(courses.tribe_id)
+            ) as drips_from_academy_activation
+          from public.courses
+          inner join target_tribe
+            on target_tribe.id = courses.tribe_id
+          where (${includeInactive} or courses.is_active = true)
+            and (
+              public.can_read_tribe_courses(target_tribe.id)
+              or (select can_manage_courses from viewer_permissions)
+            )
+        ),
+`;
+}
+
+/**
+ * Module CTEs of the course tree, with the drip lock of each module.
+ */
+function buildCourseTreeModuleCtes(includeInactive: boolean): SQL {
+  return sql`        module_origin as (
+          -- Drip origin: academy courses start at the first academy activation,
+          -- basic courses at the membership creation. Modules of a course whose
+          -- content the viewer cannot read are never selected.
+          select
+            course_modules.id,
+            course_modules.course_id,
+            course_modules.title,
+            course_modules.sort_order,
+            course_modules.unlock_after_days,
+            course_modules.is_active,
+            course_modules.created_at,
+            case
+              when course_rows.drips_from_academy_activation
+                then (select academy_activated_at from membership)
+              else (select joined_at from membership)
+            end as drip_origin
+          from public.course_modules
+          inner join course_rows
+            on course_rows.id = course_modules.course_id
+            and course_rows.content_accessible = true
+          where ${includeInactive} or course_modules.is_active = true
+        ),
+        module_rows as (
+          select
+            module_origin.id,
+            module_origin.course_id,
+            module_origin.title,
+            module_origin.sort_order,
+            module_origin.unlock_after_days,
+            module_origin.is_active,
+            module_origin.created_at,
+            case
+              when (select can_manage_courses from viewer_permissions) then false
+              when module_origin.unlock_after_days is null then false
+              when module_origin.drip_origin is null then true
+              when module_origin.drip_origin
+                + make_interval(days => module_origin.unlock_after_days)
+                <= timezone('utc', now()) then false
+              else true
+            end as is_locked,
+            case
+              when module_origin.unlock_after_days is null then null
+              when module_origin.drip_origin is null then null
+              else to_char(
+                (module_origin.drip_origin
+                  + make_interval(days => module_origin.unlock_after_days)) at time zone 'utc',
+                'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+              )
+            end as unlocks_at
+          from module_origin
+        ),
+`;
+}
+
+/**
+ * Lesson and own progress CTEs of the course tree.
+ */
+function buildCourseTreeLessonCtes(includeInactive: boolean): SQL {
+  return sql`        lesson_rows as (
+          select
+            course_lessons.id,
+            course_lessons.course_module_id,
+            course_lessons.title,
+            course_lessons.video_provider,
+            course_lessons.external_video_id,
+            course_lessons.description,
+            course_lessons.sort_order,
+            course_lessons.is_active,
+            course_lessons.created_at
+          from public.course_lessons
+          inner join target_tribe
+            on target_tribe.id = course_lessons.tribe_id
+          where ${includeInactive} or course_lessons.is_active = true
+        ),
+        viewer_completions as (
+          select course_lesson_completions.lesson_id
+          from public.course_lesson_completions
+          inner join target_tribe
+            on target_tribe.id = course_lesson_completions.tribe_id
+          where course_lesson_completions.user_id = (select user_id from viewer)
+        ),
+        viewer_last_viewed as (
+          select
+            course_last_viewed_lessons.course_id,
+            course_last_viewed_lessons.lesson_id
+          from public.course_last_viewed_lessons
+          inner join course_rows
+            on course_rows.id = course_last_viewed_lessons.course_id
+            and course_rows.content_accessible = true
+          where course_last_viewed_lessons.user_id = (select user_id from viewer)
+        ),
+        viewer_course_progress as (
+          -- Own progress summary stays readable after access ends (only a
+          -- count, never lesson content).
+          select
+            course_modules.course_id,
+            count(*)::int as completed_lesson_count
+          from public.course_lesson_completions
+          inner join public.course_lessons
+            on course_lessons.id = course_lesson_completions.lesson_id
+          inner join public.course_modules
+            on course_modules.id = course_lessons.course_module_id
+          inner join target_tribe
+            on target_tribe.id = course_lesson_completions.tribe_id
+          where course_lesson_completions.user_id = (select user_id from viewer)
+          group by course_modules.course_id
+        )
+`;
+}
+
+/**
+ * Final projection of the course tree, ordered by course, module, and lesson.
+ */
+function buildCourseTreeSelect(includeInactive: boolean): SQL {
+  return sql`        select
+          viewer_permissions.can_manage_courses,
+          course_rows.id                 as course_id,
+          course_rows.title              as course_title,
+          course_rows.description        as course_description,
+          course_rows.cover_image_url    as course_cover_image_url,
+          course_rows.sort_order         as course_sort_order,
+          course_rows.is_active          as course_is_active,
+          course_rows.access_requirement as course_access_requirement,
+          course_rows.content_accessible as course_content_accessible,
+          coalesce(viewer_course_progress.completed_lesson_count, 0) as course_completed_lesson_count,
+          viewer_last_viewed.lesson_id   as course_last_viewed_lesson_id,
+          module_rows.id                 as module_id,
+          module_rows.course_id          as module_course_id,
+          module_rows.title              as module_title,
+          module_rows.sort_order         as module_sort_order,
+          module_rows.unlock_after_days  as module_unlock_after_days,
+          module_rows.is_active          as module_is_active,
+          module_rows.is_locked          as module_is_locked,
+          module_rows.unlocks_at         as module_unlocks_at,
+          lesson_rows.id                  as lesson_id,
+          lesson_rows.course_module_id    as lesson_course_module_id,
+          lesson_rows.title               as lesson_title,
+          lesson_rows.video_provider      as lesson_video_provider,
+          lesson_rows.external_video_id   as lesson_external_video_id,
+          lesson_rows.description         as lesson_description,
+          lesson_rows.sort_order          as lesson_sort_order,
+          lesson_rows.is_active           as lesson_is_active,
+          (viewer_completions.lesson_id is not null) as lesson_completed,
+          coalesce(lesson_files.lesson_files, '[]'::jsonb) as lesson_files
+        from viewer_permissions
+        left join course_rows
+          on true
+        left join viewer_last_viewed
+          on viewer_last_viewed.course_id = course_rows.id
+        left join viewer_course_progress
+          on viewer_course_progress.course_id = course_rows.id
+        left join module_rows
+          on module_rows.course_id = course_rows.id
+        left join lesson_rows
+          on lesson_rows.course_module_id = module_rows.id
+          and (module_rows.is_locked = false or ${includeInactive})
+        left join viewer_completions
+          on viewer_completions.lesson_id = lesson_rows.id
+        left join lateral (
+          select jsonb_agg(
+            jsonb_build_object(
+              'file_name', file_assets.file_name,
+              'file_size_bytes', file_assets.file_size_bytes,
+              'id', file_assets.id,
+              'mime_type', file_assets.mime_type,
+              'sort_order', file_assets.sort_order
+            )
+            order by file_assets.sort_order asc, file_assets.created_at asc
+          ) as lesson_files
+          from public.course_lesson_files file_assets
+          where file_assets.lesson_id = lesson_rows.id
+            and file_assets.status = 'attached'
+        ) lesson_files on true
+        order by
+          course_rows.sort_order asc nulls last,
+          course_rows.created_at asc nulls last,
+          module_rows.sort_order asc nulls last,
+          module_rows.created_at asc nulls last,
+          lesson_rows.sort_order asc nulls last,
+          lesson_rows.created_at asc nulls last
+      `;
+}
+
+/**
+ * Reads the course tree of a tribe visible to the viewer, one row per course, module, and lesson.
+ */
+function buildCourseTreeStatement(tribeSlug: string, includeInactive: boolean): SQL {
+  return buildCourseTreeScopeCtes(tribeSlug, includeInactive)
+    .append(buildCourseTreeModuleCtes(includeInactive))
+    .append(buildCourseTreeLessonCtes(includeInactive))
+    .append(buildCourseTreeSelect(includeInactive));
 }
 
 export class PostgresCourseRepository implements CourseRepository {
@@ -524,7 +893,7 @@ export class PostgresCourseRepository implements CourseRepository {
       `);
 
       return mapCourseCreationResult(
-        (result.rows?.[0] ?? null) as CourseMutationRow | null
+        (result.rows[0] ?? null) as CourseMutationRow | null
       );
     });
   }
@@ -582,7 +951,7 @@ export class PostgresCourseRepository implements CourseRepository {
       `);
 
       return mapCourseUpdateResult(
-        (result.rows?.[0] ?? null) as CourseMutationRow | null
+        (result.rows[0] ?? null) as CourseMutationRow | null
       );
     });
   }
@@ -620,8 +989,8 @@ export class PostgresCourseRepository implements CourseRepository {
           end as status
       `);
 
-      return mapCourseDeletionResult(
-        (result.rows?.[0] ?? null) as MutationStatusOnlyRow | null
+      return mapDeletionResult(
+        (result.rows[0] ?? null) as MutationStatusOnlyRow | null
       );
     });
   }
@@ -688,7 +1057,7 @@ export class PostgresCourseRepository implements CourseRepository {
       `);
 
       return mapModuleCreationResult(
-        (result.rows?.[0] ?? null) as CourseModuleMutationRow | null
+        (result.rows[0] ?? null) as CourseModuleMutationRow | null
       );
     });
   }
@@ -745,7 +1114,7 @@ export class PostgresCourseRepository implements CourseRepository {
       `);
 
       return mapModuleUpdateResult(
-        (result.rows?.[0] ?? null) as CourseModuleMutationRow | null
+        (result.rows[0] ?? null) as CourseModuleMutationRow | null
       );
     });
   }
@@ -785,8 +1154,8 @@ export class PostgresCourseRepository implements CourseRepository {
           end as status
       `);
 
-      return mapModuleDeletionResult(
-        (result.rows?.[0] ?? null) as MutationStatusOnlyRow | null
+      return mapDeletionResult(
+        (result.rows[0] ?? null) as MutationStatusOnlyRow | null
       );
     });
   }
@@ -796,70 +1165,8 @@ export class PostgresCourseRepository implements CourseRepository {
   ): Promise<LessonCreationResult> {
     try {
       return await this.executeWithDatabase(async (database) => {
-        const result = await database.execute(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${command.tribeSlug}
-            limit 1
-          ),
-          target_module as (
-            select course_modules.id
-            from public.course_modules
-            inner join target_tribe
-              on target_tribe.id = course_modules.tribe_id
-            where course_modules.id = ${command.courseModuleId}
-            limit 1
-          ),
-          inserted_lesson as (
-            insert into public.course_lessons (
-              course_module_id,
-              tribe_id,
-              title,
-              video_provider,
-              external_video_id,
-              description,
-              sort_order,
-              is_active,
-              created_at,
-              updated_at
-            )
-            select
-              target_module.id,
-              target_tribe.id,
-              ${command.title},
-              ${command.videoProvider},
-              ${command.externalVideoId},
-              ${command.description},
-              ${command.sortOrder},
-              true,
-              timezone('utc', now()),
-              timezone('utc', now())
-            from target_module, target_tribe
-            where public.can_manage_tribe_courses(target_tribe.id)
-            returning id, tribe_id, course_module_id, title, video_provider, external_video_id, description, sort_order, is_active
-          )
-          select
-            case
-              when exists (select 1 from inserted_lesson) then ${COURSE_MUTATION_STATUS.created}
-              when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
-              when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
-              else ${COURSE_MUTATION_STATUS.forbidden}
-            end as status,
-            inserted_lesson.id,
-            inserted_lesson.tribe_id,
-            inserted_lesson.course_module_id,
-            inserted_lesson.title,
-            inserted_lesson.video_provider,
-            inserted_lesson.external_video_id,
-            inserted_lesson.description,
-            inserted_lesson.sort_order,
-            inserted_lesson.is_active
-          from (select 1) result
-          left join inserted_lesson
-            on true
-        `);
-        const lessonRow = (result.rows?.[0] ?? null) as
+        const result = await database.execute(buildCreateLessonStatement(command));
+        const lessonRow = (result.rows[0] ?? null) as
           | (LessonMutationRow & { tribe_id: string | null })
           | null;
         let attachedFiles: LessonFile[] = [];
@@ -893,69 +1200,8 @@ export class PostgresCourseRepository implements CourseRepository {
   ): Promise<LessonUpdateResult> {
     try {
       return await this.executeWithDatabase(async (database) => {
-        const result = await database.execute(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${command.tribeSlug}
-            limit 1
-          ),
-          target_module as (
-            select course_modules.id
-            from public.course_modules
-            inner join target_tribe
-              on target_tribe.id = course_modules.tribe_id
-            where course_modules.id = ${command.courseModuleId}
-            limit 1
-          ),
-          target_lesson as (
-            select course_lessons.id
-            from public.course_lessons
-            inner join target_tribe
-              on target_tribe.id = course_lessons.tribe_id
-            where course_lessons.id = ${command.lessonId}
-            limit 1
-          ),
-          updated_lesson as (
-            update public.course_lessons
-            set
-              course_module_id = ${command.courseModuleId},
-              title = ${command.title},
-              video_provider = ${command.videoProvider},
-              external_video_id = ${command.externalVideoId},
-              description = ${command.description},
-              sort_order = ${command.sortOrder},
-              is_active = ${command.isActive},
-              updated_at = timezone('utc', now())
-            from target_tribe, target_module
-            where course_lessons.id = ${command.lessonId}
-              and course_lessons.tribe_id = target_tribe.id
-              and target_module.id = ${command.courseModuleId}
-              and public.can_manage_tribe_courses(target_tribe.id)
-            returning course_lessons.id, course_lessons.tribe_id, course_lessons.course_module_id, course_lessons.title, course_lessons.video_provider, course_lessons.external_video_id, course_lessons.description, course_lessons.sort_order, course_lessons.is_active
-          )
-          select
-            case
-              when exists (select 1 from updated_lesson) then ${COURSE_MUTATION_STATUS.updated}
-              when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
-              when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
-              when not exists (select 1 from target_lesson) then ${COURSE_MUTATION_STATUS.notFound}
-              else ${COURSE_MUTATION_STATUS.forbidden}
-            end as status,
-            updated_lesson.id,
-            updated_lesson.tribe_id,
-            updated_lesson.course_module_id,
-            updated_lesson.title,
-            updated_lesson.video_provider,
-            updated_lesson.external_video_id,
-            updated_lesson.description,
-            updated_lesson.sort_order,
-            updated_lesson.is_active
-          from (select 1) result
-          left join updated_lesson
-            on true
-        `);
-        const lessonRow = (result.rows?.[0] ?? null) as
+        const result = await database.execute(buildUpdateLessonStatement(command));
+        const lessonRow = (result.rows[0] ?? null) as
           | (LessonMutationRow & { tribe_id: string | null })
           | null;
         let attachedFiles: LessonFile[] | undefined = undefined;
@@ -1069,7 +1315,7 @@ export class PostgresCourseRepository implements CourseRepository {
       from updated_files
     `);
     const attachedFiles =
-      ((attachedFilesResult.rows?.[0] ?? null) as AttachedLessonFilesRow | null)
+      ((attachedFilesResult.rows[0] ?? null) as AttachedLessonFilesRow | null)
         ?.lesson_files ?? [];
 
     if (attachedFiles.length !== command.files.length) {
@@ -1114,8 +1360,8 @@ export class PostgresCourseRepository implements CourseRepository {
           end as status
       `);
 
-      return mapLessonDeletionResult(
-        (result.rows?.[0] ?? null) as MutationStatusOnlyRow | null
+      return mapDeletionResult(
+        (result.rows[0] ?? null) as MutationStatusOnlyRow | null
       );
     });
   }
@@ -1181,7 +1427,7 @@ export class PostgresCourseRepository implements CourseRepository {
           end as status,
           exists (select 1 from mutated) as mutated
       `);
-      const row = (result.rows?.[0] ?? null) as MutationStatusOnlyRow | null;
+      const row = (result.rows[0] ?? null) as MutationStatusOnlyRow | null;
 
       if (
         row?.status === COURSE_ENGAGEMENT_STATUS.completed ||
@@ -1257,7 +1503,7 @@ export class PostgresCourseRepository implements CourseRepository {
             else ${COURSE_MUTATION_STATUS.forbidden}
           end as status
       `);
-      const row = (result.rows?.[0] ?? null) as MutationStatusOnlyRow | null;
+      const row = (result.rows[0] ?? null) as MutationStatusOnlyRow | null;
 
       if (
         row?.status === COURSE_ENGAGEMENT_STATUS.recorded ||
@@ -1278,230 +1524,8 @@ export class PostgresCourseRepository implements CourseRepository {
     tribeSlug: string;
   }): Promise<CourseTreeResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${tribeSlug}
-          limit 1
-        ),
-        viewer as (
-          select nullif(public.current_app_user_id(), '') as user_id
-        ),
-        viewer_permissions as (
-          select coalesce(public.can_manage_tribe_courses((select id from target_tribe)), false) as can_manage_courses
-        ),
-        membership as (
-          select
-            tribe_members.created_at as joined_at,
-            member_product_enrollments.first_activated_at as academy_activated_at
-          from public.tribe_members
-          inner join target_tribe
-            on target_tribe.id = tribe_members.tribe_id
-          left join public.member_product_enrollments
-            on member_product_enrollments.tribe_id = tribe_members.tribe_id
-            and member_product_enrollments.user_id = tribe_members.user_id
-            and member_product_enrollments.product_key = ${COURSE_ACCESS_REQUIREMENT.academy}
-          where tribe_members.user_id = (select user_id from viewer)
-            and tribe_members.status in ('active', 'muted')
-          limit 1
-        ),
-        course_rows as (
-          -- The runtime role bypasses RLS: only readable memberships (or the
-          -- course manager) see the catalog, and course content is resolved
-          -- per course with can_read_course_content (academy requirement).
-          select
-            courses.id,
-            courses.title,
-            courses.description,
-            courses.cover_image_url,
-            courses.sort_order,
-            courses.is_active,
-            courses.access_requirement,
-            courses.created_at,
-            public.can_read_course_content(courses.id) as content_accessible,
-            (
-              courses.access_requirement = ${COURSE_ACCESS_REQUIREMENT.academy}
-              and public.tribe_uses_academy_access(courses.tribe_id)
-            ) as drips_from_academy_activation
-          from public.courses
-          inner join target_tribe
-            on target_tribe.id = courses.tribe_id
-          where (${includeInactive} or courses.is_active = true)
-            and (
-              public.can_read_tribe_courses(target_tribe.id)
-              or (select can_manage_courses from viewer_permissions)
-            )
-        ),
-        module_origin as (
-          -- Drip origin: academy courses start at the first academy activation,
-          -- basic courses at the membership creation. Modules of a course whose
-          -- content the viewer cannot read are never selected.
-          select
-            course_modules.id,
-            course_modules.course_id,
-            course_modules.title,
-            course_modules.sort_order,
-            course_modules.unlock_after_days,
-            course_modules.is_active,
-            course_modules.created_at,
-            case
-              when course_rows.drips_from_academy_activation
-                then (select academy_activated_at from membership)
-              else (select joined_at from membership)
-            end as drip_origin
-          from public.course_modules
-          inner join course_rows
-            on course_rows.id = course_modules.course_id
-            and course_rows.content_accessible = true
-          where ${includeInactive} or course_modules.is_active = true
-        ),
-        module_rows as (
-          select
-            module_origin.id,
-            module_origin.course_id,
-            module_origin.title,
-            module_origin.sort_order,
-            module_origin.unlock_after_days,
-            module_origin.is_active,
-            module_origin.created_at,
-            case
-              when (select can_manage_courses from viewer_permissions) then false
-              when module_origin.unlock_after_days is null then false
-              when module_origin.drip_origin is null then true
-              when module_origin.drip_origin
-                + make_interval(days => module_origin.unlock_after_days)
-                <= timezone('utc', now()) then false
-              else true
-            end as is_locked,
-            case
-              when module_origin.unlock_after_days is null then null
-              when module_origin.drip_origin is null then null
-              else to_char(
-                (module_origin.drip_origin
-                  + make_interval(days => module_origin.unlock_after_days)) at time zone 'utc',
-                'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-              )
-            end as unlocks_at
-          from module_origin
-        ),
-        lesson_rows as (
-          select
-            course_lessons.id,
-            course_lessons.course_module_id,
-            course_lessons.title,
-            course_lessons.video_provider,
-            course_lessons.external_video_id,
-            course_lessons.description,
-            course_lessons.sort_order,
-            course_lessons.is_active,
-            course_lessons.created_at
-          from public.course_lessons
-          inner join target_tribe
-            on target_tribe.id = course_lessons.tribe_id
-          where ${includeInactive} or course_lessons.is_active = true
-        ),
-        viewer_completions as (
-          select course_lesson_completions.lesson_id
-          from public.course_lesson_completions
-          inner join target_tribe
-            on target_tribe.id = course_lesson_completions.tribe_id
-          where course_lesson_completions.user_id = (select user_id from viewer)
-        ),
-        viewer_last_viewed as (
-          select
-            course_last_viewed_lessons.course_id,
-            course_last_viewed_lessons.lesson_id
-          from public.course_last_viewed_lessons
-          inner join course_rows
-            on course_rows.id = course_last_viewed_lessons.course_id
-            and course_rows.content_accessible = true
-          where course_last_viewed_lessons.user_id = (select user_id from viewer)
-        ),
-        viewer_course_progress as (
-          -- Own progress summary stays readable after access ends (only a
-          -- count, never lesson content).
-          select
-            course_modules.course_id,
-            count(*)::int as completed_lesson_count
-          from public.course_lesson_completions
-          inner join public.course_lessons
-            on course_lessons.id = course_lesson_completions.lesson_id
-          inner join public.course_modules
-            on course_modules.id = course_lessons.course_module_id
-          inner join target_tribe
-            on target_tribe.id = course_lesson_completions.tribe_id
-          where course_lesson_completions.user_id = (select user_id from viewer)
-          group by course_modules.course_id
-        )
-        select
-          viewer_permissions.can_manage_courses,
-          course_rows.id                 as course_id,
-          course_rows.title              as course_title,
-          course_rows.description        as course_description,
-          course_rows.cover_image_url    as course_cover_image_url,
-          course_rows.sort_order         as course_sort_order,
-          course_rows.is_active          as course_is_active,
-          course_rows.access_requirement as course_access_requirement,
-          course_rows.content_accessible as course_content_accessible,
-          coalesce(viewer_course_progress.completed_lesson_count, 0) as course_completed_lesson_count,
-          viewer_last_viewed.lesson_id   as course_last_viewed_lesson_id,
-          module_rows.id                 as module_id,
-          module_rows.course_id          as module_course_id,
-          module_rows.title              as module_title,
-          module_rows.sort_order         as module_sort_order,
-          module_rows.unlock_after_days  as module_unlock_after_days,
-          module_rows.is_active          as module_is_active,
-          module_rows.is_locked          as module_is_locked,
-          module_rows.unlocks_at         as module_unlocks_at,
-          lesson_rows.id                  as lesson_id,
-          lesson_rows.course_module_id    as lesson_course_module_id,
-          lesson_rows.title               as lesson_title,
-          lesson_rows.video_provider      as lesson_video_provider,
-          lesson_rows.external_video_id   as lesson_external_video_id,
-          lesson_rows.description         as lesson_description,
-          lesson_rows.sort_order          as lesson_sort_order,
-          lesson_rows.is_active           as lesson_is_active,
-          (viewer_completions.lesson_id is not null) as lesson_completed,
-          coalesce(lesson_files.lesson_files, '[]'::jsonb) as lesson_files
-        from viewer_permissions
-        left join course_rows
-          on true
-        left join viewer_last_viewed
-          on viewer_last_viewed.course_id = course_rows.id
-        left join viewer_course_progress
-          on viewer_course_progress.course_id = course_rows.id
-        left join module_rows
-          on module_rows.course_id = course_rows.id
-        left join lesson_rows
-          on lesson_rows.course_module_id = module_rows.id
-          and (module_rows.is_locked = false or ${includeInactive})
-        left join viewer_completions
-          on viewer_completions.lesson_id = lesson_rows.id
-        left join lateral (
-          select jsonb_agg(
-            jsonb_build_object(
-              'file_name', file_assets.file_name,
-              'file_size_bytes', file_assets.file_size_bytes,
-              'id', file_assets.id,
-              'mime_type', file_assets.mime_type,
-              'sort_order', file_assets.sort_order
-            )
-            order by file_assets.sort_order asc, file_assets.created_at asc
-          ) as lesson_files
-          from public.course_lesson_files file_assets
-          where file_assets.lesson_id = lesson_rows.id
-            and file_assets.status = 'attached'
-        ) lesson_files on true
-        order by
-          course_rows.sort_order asc nulls last,
-          course_rows.created_at asc nulls last,
-          module_rows.sort_order asc nulls last,
-          module_rows.created_at asc nulls last,
-          lesson_rows.sort_order asc nulls last,
-          lesson_rows.created_at asc nulls last
-      `);
-      const rows = (result.rows ?? []) as CourseTreeRow[];
+      const result = await database.execute(buildCourseTreeStatement(tribeSlug, includeInactive));
+      const rows = result.rows as CourseTreeRow[];
 
       return buildCourseTree(rows);
     });

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { after } from "next/server";
-import { Pool } from "pg";
+import type { Pool } from "pg";
 
 import { refreshMemberProfileImage } from "@/src/modules/auth/application/use-cases/refresh-member-profile-image-use-case";
 import { GoogleProfilePictureProvider } from "@/src/modules/auth/infrastructure/profile/google-profile-picture-provider";

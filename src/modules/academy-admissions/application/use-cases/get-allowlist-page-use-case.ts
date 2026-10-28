@@ -29,7 +29,7 @@ export class GetAllowlistPageUseCase {
       const page = await this.readers.allowlist.list({ ...scope, ...query.filters });
       if (!page.ok) return page;
       const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const { cursor, ...filters } = query.filters;
       return { ok: true as const, value: allowlistPageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: tribe.value.tribeId, viewerId: current.userId, renderedAt: now.toISOString(), contactType: policy.value.policy?.contactType ?? null, page: page.value, query: { ...filters, ...(cursor ? { cursor: [cursor.createdAt, cursor.id].join(ALLOWLIST_CURSOR_SEPARATOR) } : {}) } }) };
     } catch (error) { return admissionOperationFailure(error); }

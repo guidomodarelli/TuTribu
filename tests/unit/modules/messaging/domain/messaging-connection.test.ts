@@ -1,8 +1,7 @@
 /** Exercises connection preparation, immutable versions and exact local diagnostic activation without a provider. @module messaging-connection-tests */
 import { describe, expect, it } from "vitest";
 import { createDefaultMessagingConnection, assessMessagingConnectionActivation, suspendMessagingConnection } from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
-import { prepareMessagingConnectionVersion } from "@/src/modules/messaging/domain/entities/messaging-connection-version";
-import type { MessagingConnectionVersion } from "@/src/modules/messaging/domain/entities/messaging-connection-version";
+import { prepareMessagingConnectionVersion, type MessagingConnectionVersion  } from "@/src/modules/messaging/domain/entities/messaging-connection-version";
 import type { ConnectionDiagnostic } from "@/src/modules/messaging/domain/entities/connection-diagnostic";
 
 /** @returns Server-owned current candidate, prepared version and exact locally verified email diagnostic. */
@@ -84,7 +83,7 @@ describe("messaging connection lifecycle", () => {
     expect(edited).toMatchObject({ changed: true, version: { version: 2, configuration: { emailSenderId: "another" }, credential: { status: "not_validated", validatedAt: null, isTestMode: null }, capabilities: [] } });
     expect(fixture.version.configuration.emailSenderId).toBe("email-sender");
     expect(fixture.version.version).toBe(1);
-    expect(() => prepareMessagingConnectionVersion(fixture.version, { ...fixture.version.configuration, emailSenderId: "another" }, fixture.version.secretRef, fixture.facts.now)).toThrowError(expect.objectContaining({ code: "secret_version_required" }));
+    expect(() => prepareMessagingConnectionVersion(fixture.version, { ...fixture.version.configuration, emailSenderId: "another" }, fixture.version.secretRef, fixture.facts.now)).toThrow(expect.objectContaining({ code: "secret_version_required" }));
   });
 
   it("should preserve occupied selection and version while suspending immediately for a new leader", () => {

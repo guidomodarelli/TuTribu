@@ -8,11 +8,15 @@ function getSqlText(statement: unknown): string {
         return chunk;
       }
 
+      if (chunk && typeof chunk === "object" && "queryChunks" in chunk) {
+        return getSqlText(chunk);
+      }
+
       if (
         chunk &&
         typeof chunk === "object" &&
         "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
+        Array.isArray((chunk).value)
       ) {
         return (chunk as { value: string[] }).value.join("");
       }

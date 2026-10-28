@@ -185,8 +185,8 @@ describe("listVisibleTribeMembers", () => {
       viewerCanViewMemberEmails: true,
     });
 
-    expect(results.every((member) => member.joinedViaFreeInvitation === false)).toBe(
-      true
+    expect(results.map((member) => member.joinedViaFreeInvitation)).toEqual(
+      results.map(() => false)
     );
   });
 
