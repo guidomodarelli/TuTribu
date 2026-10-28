@@ -9,7 +9,6 @@
   width: 100%;
   max-width: none;
   margin-inline: 0;
-  padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 2rem) 0;
 
   &__layout {
     display: grid;
@@ -26,7 +25,6 @@
     display: grid;
     gap: 1.25rem;
     align-content: start;
-    padding-bottom: clamp(1rem, 3vw, 2rem);
 
     @media (min-width: 64rem) {
       position: sticky;
@@ -369,7 +367,6 @@
     display: grid;
     gap: 1rem;
     align-content: start;
-    padding-bottom: clamp(1rem, 3vw, 2rem);
   }
 
   &__playerFrame {

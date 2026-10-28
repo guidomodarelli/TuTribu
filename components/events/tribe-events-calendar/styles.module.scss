@@ -30,7 +30,6 @@ $tribe-events-calendar-view-duration: 220ms;
   width: 100%;
   max-width: none;
   margin-inline: 0;
-  padding: clamp(1rem, 3vw, 2rem);
 
   & [data-slot="table-container"] {
     width: 100%;

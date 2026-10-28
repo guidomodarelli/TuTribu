@@ -7,7 +7,6 @@
   // Admission pages use the full content width; forms and paragraphs keep their own readable measures.
   width: 100%;
   min-width: 0;
-  padding: clamp(1rem, 3vw, 2rem);
   overflow-wrap: anywhere;
 
   &__header {

@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Todas las páginas de la tribu (Fogón, Academia, Gestionar academia, Canales, Suscripción, Cursos, Eventos, Admisiones y las demás) y sus pantallas de carga tienen el mismo margen interior: ya no quedan pegadas al borde ni con margen doble según la sección.
+
 ## [1.10.1] - 2026-10-28
 
 ### Changed
