@@ -1,9 +1,19 @@
 /** Guards only the owned public history DTO, never PostgreSQL rows or provider payloads. @module admission-review-history-schemas */
 import { z } from "zod";
-import type { AdmissionReviewHistoryPageDto } from "../application/results/admission-review-history-result";
+import type { AdmissionReviewHistoryActorKind, AdmissionReviewHistoryEventKind } from "../domain/entities/admission-review-history-event";
+import type { AdmissionRequest } from "../domain/entities/admission-request";
 import { ADMISSION_REQUEST_STATUS } from "./admission-request";
 import { ADMISSION_QUERY_LIMIT } from "./admission-public-contract";
 import { ADMISSION_REVIEW_HISTORY_ACTOR, ADMISSION_REVIEW_HISTORY_EVENT } from "./admission-review-history";
+
+/** Public dates are display instants; the continuation keeps its independent original precision. */
+export type AdmissionReviewHistoryItemDto = {
+  id: string; eventType: AdmissionReviewHistoryEventKind;
+  fromStatus: AdmissionRequest["status"] | null; toStatus: AdmissionRequest["status"] | null;
+  resourceVersion: number | null; actorKind: AdmissionReviewHistoryActorKind; createdAt: string;
+};
+/** The enclosing scope prevents a page from silently becoming general tribe history. */
+export type AdmissionReviewHistoryPageDto = { tribeId: string; admissionRequestId: string; items: AdmissionReviewHistoryItemDto[]; nextCursor: string | null };
 
 /** Explicit public facts exclude actor identifiers, arbitrary causes and metadata. */
 export const admissionReviewHistoryItemSchema = z.strictObject({

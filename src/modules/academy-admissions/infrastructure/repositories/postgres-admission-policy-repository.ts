@@ -6,9 +6,8 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 import type { AuthorizedAdmissionContext } from "../../domain/repositories/admission-authorization-reader";
 import type { AdmissionPolicyCommandWriter, AdmissionPolicyInitializationIntent, AdmissionPolicyUpdateIntent, AdmissionPolicyActivationIntent, AdmissionPolicyPauseIntent, AdmissionPolicyMutationResult, AdmissionPolicyPreparationReader } from "../../domain/repositories/admission-policy-management";
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "../../domain/entities/admission-operation";
-import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, selectAdmissionPolicyRules, type AdmissionPolicy, type AdmissionPolicyPatch, type AdmissionPolicyRulesPatch, type AdmissionPolicyConfigurationFacts } from "../../domain/entities/admission-policy";
+import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, requiresAdmissionPolicyReadiness, selectAdmissionPolicyRules, type AdmissionPolicy, type AdmissionPolicyPatch, type AdmissionPolicyRulesPatch, type AdmissionPolicyConfigurationFacts } from "../../domain/entities/admission-policy";
 import { proposeAdmissionPolicyActivation, type AdmissionPolicyActivationReason } from "../../domain/policies/admission-policy-activation";
-import { requiresAdmissionPolicyReadiness } from "../../domain/policies/admission-policy-readiness";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { AdmissionPolicyRequirementError } from "../../domain/errors/admission-policy-requirement-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
