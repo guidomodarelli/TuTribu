@@ -1,0 +1,16 @@
+@use "../../styles/a11y";
+
+// Label that looks like an outline button; the real control is the visually hidden file input.
+.TribeImageUploadButton {
+  width: 100%;
+  cursor: pointer;
+
+  &[data-disabled] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  &__input {
+    @include a11y.visually-hidden;
+  }
+}

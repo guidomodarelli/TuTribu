@@ -1,6 +1,5 @@
 @use "../../../src/styles/motion";
 @use "../../styles/management-page";
-@use "../../styles/a11y";
 
 @include motion.define-keyframes;
 
@@ -99,23 +98,11 @@
   }
 
   &__uploadButton {
-    width: 100%;
-    cursor: pointer;
-
-    &[data-disabled] {
-      opacity: 0.6;
-      pointer-events: none;
-    }
-
     // The real control is the visually hidden file input: mirror its keyboard focus.
     &:has(input:focus-visible) {
       outline: 2px solid var(--ring);
       outline-offset: 2px;
     }
-  }
-
-  &__uploadInput {
-    @include a11y.visually-hidden;
   }
 
   &__logoPreview {

@@ -182,6 +182,7 @@ components/<scope>/<component>/
 ```
 
   - Keep imports pointing to the component folder path so resolution uses `index.tsx`.
+  - A component with no styles of its own (it renders the UI kit or elements its parent styles through `className`) omits `styles.module.scss`; never add empty or no-op rules just to have the file.
 
 ### Navigation links
 

@@ -297,7 +297,6 @@ type PostEventFormActionsProps = Pick<TribeEventPostEventFormDialogProps, "isSav
 function PostEventFormActions({ isSaving, onClose }: PostEventFormActionsProps) {
   return (
     <TribeEventFormActions
-      className={styles.TribeEventPostEventFormDialog__actions}
       isSaving={isSaving}
       onClose={onClose}
       savingLabel={COPY.submittingButton}

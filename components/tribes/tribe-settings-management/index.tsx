@@ -464,7 +464,6 @@ function IdentityImageField({
           <TribeImageUploadButton
             aria-busy={isUploading || undefined}
             className={styles.TribeSettingsManagement__uploadButton}
-            inputClassName={styles.TribeSettingsManagement__uploadInput}
             isUploading={isUploading}
             onFileSelected={onFileSelected}
           />

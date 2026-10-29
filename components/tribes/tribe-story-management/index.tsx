@@ -1396,7 +1396,6 @@ function StoryMediaUrlField({
         {!isVideoItem ? (
           <TribeImageUploadButton
             className={styles.TribeStoryManagement__uploadButton}
-            inputClassName={styles.TribeStoryManagement__uploadInput}
             isUploading={uploads.uploadingTargets.has(mediaItem.clientId)}
             onFileSelected={(imageFile) => {
               void uploads.handleImageFileUpload(

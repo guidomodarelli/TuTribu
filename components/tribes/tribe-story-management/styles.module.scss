@@ -309,14 +309,6 @@
     min-width: 0;
   }
 
-  &__uploadButton {
-    @include management-page.upload-button;
-  }
-
-  &__uploadInput {
-    @include a11y.visually-hidden;
-  }
-
   &__addMedia {
     justify-self: start;
     width: 100%;

@@ -63,8 +63,4 @@
   &__error {
     @include events.inline-error;
   }
-
-  &__actions {
-    @include events.dialog-actions;
-  }
 }

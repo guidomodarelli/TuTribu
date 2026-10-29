@@ -1,5 +1,6 @@
 import { UploadIcon } from "lucide-react";
-import { buttonClassName } from "@golfo/ui";
+import { buttonClassName, cn } from "@golfo/ui";
+import styles from "./styles.module.scss";
 
 const TRIBE_IMAGE_UPLOAD_BUTTON_COPY = {
   uploadButton: "Subir imagen",
@@ -11,10 +12,8 @@ const IMAGE_ACCEPT_TYPES = "image/*";
 type TribeImageUploadButtonProps = {
   /** Announces the upload in progress, for hosts that expose it. */
   "aria-busy"?: boolean;
-  /** Class of the button-looking label. */
-  className: string;
-  /** Class that visually hides the real file input. */
-  inputClassName: string;
+  /** Extra class of the button-looking label, for layout owned by the host. */
+  className?: string;
   isUploading: boolean;
   onFileSelected: (imageFile: File | undefined) => void;
 };
@@ -24,19 +23,21 @@ type TribeImageUploadButtonProps = {
  * looks like every other button while staying keyboard and screen-reader
  * accessible. The input is cleared after each pick, so choosing the same file
  * again still fires.
- * @param props - Classes, upload state and the file handler.
+ * @param props - Host class, upload state and the file handler.
  * @returns The upload control.
  */
 export function TribeImageUploadButton({
   "aria-busy": ariaBusy,
   className,
-  inputClassName,
   isUploading,
   onFileSelected,
 }: TribeImageUploadButtonProps) {
   return (
     <label
-      className={buttonClassName({ variant: "secondary", className })}
+      className={buttonClassName({
+        variant: "secondary",
+        className: cn(styles.TribeImageUploadButton, className),
+      })}
       aria-busy={ariaBusy}
       data-disabled={isUploading ? true : undefined}
     >
@@ -46,7 +47,7 @@ export function TribeImageUploadButton({
         : TRIBE_IMAGE_UPLOAD_BUTTON_COPY.uploadButton}
       <input
         accept={IMAGE_ACCEPT_TYPES}
-        className={inputClassName}
+        className={styles.TribeImageUploadButton__input}
         disabled={isUploading}
         onChange={(event) => {
           const [selectedFile] = event.target.files ?? [];

@@ -1,4 +1,5 @@
-import { Button } from "@golfo/ui";
+import { Button, cn } from "@golfo/ui";
+import styles from "./styles.module.scss";
 
 const TRIBE_EVENT_FORM_ACTIONS_COPY = {
   cancelButton: "Cancelar",
@@ -11,8 +12,8 @@ const BUTTON_ATTRIBUTE = {
 } as const;
 
 type TribeEventFormActionsProps = {
-  /** Class of the action row, owned by the dialog. */
-  className: string;
+  /** Extra class of the action row, for spacing owned by the dialog. */
+  className?: string;
   isSaving: boolean;
   onClose: () => void;
   /** Label of the submit button while the form is being saved. */
@@ -34,7 +35,7 @@ export function TribeEventFormActions({
   submitLabel,
 }: TribeEventFormActionsProps) {
   return (
-    <div className={className}>
+    <div className={cn(styles.TribeEventFormActions, className)}>
       <Button
         type={BUTTON_ATTRIBUTE.typeButton}
         variant={BUTTON_ATTRIBUTE.variantGhost}
