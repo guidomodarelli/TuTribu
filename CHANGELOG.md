@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.10.4] - 2026-10-29
+
 ### Changed
 
 - Las páginas cargan menos código de animaciones, por lo que abren un poco más rápido.
