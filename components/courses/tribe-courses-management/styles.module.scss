@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../courses";
 
 @include motion.define-keyframes;
 
@@ -29,26 +30,11 @@
   }
 
   &__backLink {
-    @include motion.interactive(color);
-
     display: inline-block;
-    border-radius: calc(var(--radius-md) - 2px);
-    color: var(--muted-foreground);
     font-size: 0.875rem;
     margin-top: 0.25rem;
-    text-decoration: none;
-    text-underline-offset: 0.2rem;
 
-    &:hover {
-      color: var(--foreground);
-      text-decoration: underline;
-    }
-
-    &:focus-visible {
-      color: var(--foreground);
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
+    @include courses.back-link;
   }
 
   &__emptyState {
@@ -167,12 +153,7 @@
   &__pendingBadge {
     @include motion.pop;
 
-    font-size: 0.6875rem;
-    font-weight: 500;
-    padding: 0.125rem 0.5rem;
-    border-radius: 999rem;
-    background-color: color-mix(in oklab, var(--muted) 60%, transparent);
-    color: var(--muted-foreground);
+    @include courses.status-pill(color-mix(in oklab, var(--muted) 60%, transparent));
   }
 
   &__form {
@@ -267,12 +248,7 @@
     @include motion.interactive(background-color, color);
 
     flex-shrink: 0;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    padding: 0.125rem 0.5rem;
-    border-radius: 999rem;
-    background-color: color-mix(in oklab, var(--muted) 60%, transparent);
-    color: var(--muted-foreground);
+    @include courses.status-pill(color-mix(in oklab, var(--muted) 60%, transparent));
 
     &--ready {
       background-color: color-mix(in oklab, var(--primary) 14%, transparent);

@@ -7,10 +7,7 @@
  * @module orphan-image-cleanup-route
  */
 
-import { createMaintenanceModules } from "@/src/modules/setup";
-import { isAuthorizedCronRequest } from "@/src/modules/shared/infrastructure/http/cron-authorization";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { CRON_SWEEP_RESPONSE_STATUS, handleCronSweepRoute } from "../cron-sweep-route";
 
 const IMAGE_CLEANUP_ROUTE_LOG = {
   completedMessage: "Orphan image cleanup sweep completed",
@@ -19,32 +16,6 @@ const IMAGE_CLEANUP_ROUTE_LOG = {
   operation: "cleanup-orphan-message-images",
 } as const;
 
-const IMAGE_CLEANUP_ROUTE_RESPONSE = {
-  ok: "ok",
-  unauthorized: "unauthorized",
-  unexpected: "error",
-} as const;
-
-const HTTP_STATUS = {
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-/**
- * Creates a JSON response with an explicit status.
- *
- * @param body - JSON body.
- * @param status - HTTP status.
- * @returns JSON response.
- */
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
-
 /**
  * Runs one orphan-image cleanup sweep on a cron schedule.
  *
@@ -52,49 +23,17 @@ function createJsonResponse(
  * @returns JSON response with the sweep counters or a safe failure status.
  */
 export async function GET(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
-    return createJsonResponse(
-      { status: IMAGE_CLEANUP_ROUTE_RESPONSE.unauthorized },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleCronSweepRoute(request, IMAGE_CLEANUP_ROUTE_LOG, async (modules) => {
+    const summary = await modules.messages.useCases.cleanupOrphanMessageImages();
+    const tribeImagesSummary = await modules.tribes.useCases.cleanupOrphanTribeImages();
 
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: IMAGE_CLEANUP_ROUTE_LOG.feature,
-    operation: IMAGE_CLEANUP_ROUTE_LOG.operation,
-    requestId,
-  });
-
-  try {
-    const modules = await createMaintenanceModules({ requestId });
-    const summary =
-      await modules.messages.useCases.cleanupOrphanMessageImages();
-    const tribeImagesSummary =
-      await modules.tribes.useCases.cleanupOrphanTribeImages();
-
-    logger.info({
-      message: IMAGE_CLEANUP_ROUTE_LOG.completedMessage,
-      metadata: { ...summary, tribeImages: tribeImagesSummary },
-    });
-
-    return createJsonResponse(
-      {
-        status: IMAGE_CLEANUP_ROUTE_RESPONSE.ok,
+    return {
+      body: {
+        status: CRON_SWEEP_RESPONSE_STATUS.ok,
         ...summary,
         tribeImages: tribeImagesSummary,
       },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      message: IMAGE_CLEANUP_ROUTE_LOG.failureMessage,
-      error,
-    });
-
-    return createJsonResponse(
-      { status: IMAGE_CLEANUP_ROUTE_RESPONSE.unexpected },
-      HTTP_STATUS.serverError
-    );
-  }
+      metadata: { ...summary, tribeImages: tribeImagesSummary },
+    };
+  });
 }

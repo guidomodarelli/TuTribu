@@ -6,17 +6,16 @@
  * @module academy-checkout-route
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import {
+  handleAcademyRoute,
+  type AcademyTribeRouteContext,
+} from "@/app/api/tribes/[slug]/academy-route-scope";
 import { academyCheckoutDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import { ACADEMY_ROUTE_COPY } from "@/src/modules/product-access/constants/academy-route-copy";
 import {
   ACADEMY_HTTP_STATUS,
   ACADEMY_ROUTE_MESSAGE,
   createAcademyJsonResponse,
-  createAcademyPublicResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
-  readAcademyJsonBody,
 } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import {
   academyCheckoutBodySchema,
@@ -41,71 +40,43 @@ const CHECKOUT_FAILURE_RESPONSE = {
   sales_closed: { message: ACADEMY_ROUTE_COPY.salesClosed, status: ACADEMY_HTTP_STATUS.conflict },
 } as const;
 
-export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
-
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  const body = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "body",
-    schema: academyCheckoutBodySchema,
-    value: await readAcademyJsonBody(request),
-  });
-
-  if (!body.isValid) {
-    return body.response;
-  }
-
-  try {
-    const result = await scope.modules.subscriptions.useCases.startAcademySubscription({
-      acceptedOfferVersion: body.data.acceptedOfferVersion,
-      correlationId: scope.requestId,
-      tribeSlug: params.data.slug,
-    });
-
-    if (result.status === "redirect") {
-      return createAcademyPublicResponse({
-        body: { checkoutUrl: result.checkoutUrl },
-        logger: scope.logger,
-        metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-        schema: academyCheckoutDtoSchema,
-        status: ACADEMY_HTTP_STATUS.ok,
+export async function POST(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Academy checkout failed",
+      operation: OPERATION,
+      schemas: { body: academyCheckoutBodySchema, params: academyTribeParamsSchema },
+    },
+    async ({ body, logger, modules, params, requestId, respond }) => {
+      const result = await modules.subscriptions.useCases.startAcademySubscription({
+        acceptedOfferVersion: body.acceptedOfferVersion,
+        correlationId: requestId,
+        tribeSlug: params.slug,
       });
+
+      if (result.status === "redirect") {
+        return respond(
+          { checkoutUrl: result.checkoutUrl },
+          academyCheckoutDtoSchema,
+          ACADEMY_HTTP_STATUS.ok
+        );
+      }
+
+      const failure = CHECKOUT_FAILURE_RESPONSE[result.status];
+
+      if (result.status === "provider_unavailable" || result.status === "checkout_unresolved") {
+        logger.warn({
+          message: "Academy checkout provider unavailable",
+          metadata: { requestId, tribeSlug: params.slug, checkoutStatus: result.status },
+        });
+      }
+
+      return createAcademyJsonResponse(
+        { message: failure.message, status: result.status },
+        failure.status
+      );
     }
-
-    const failure = CHECKOUT_FAILURE_RESPONSE[result.status];
-
-    if (result.status === "provider_unavailable" || result.status === "checkout_unresolved") {
-      scope.logger.warn({
-        message: "Academy checkout provider unavailable",
-        metadata: { requestId: scope.requestId, tribeSlug: params.data.slug, checkoutStatus: result.status },
-      });
-    }
-
-    return createAcademyJsonResponse(
-      { message: failure.message, status: result.status },
-      failure.status
-    );
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Academy checkout failed",
-      metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-    });
-  }
+  );
 }

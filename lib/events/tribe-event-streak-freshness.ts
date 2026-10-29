@@ -1,5 +1,5 @@
 import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-attendance-streak-dto";
-import { planFreshnessReadRetry } from "@/lib/events/tribe-event-read-retry";
+import { planFreshnessReadRetry, settleFailedFreshnessRead } from "@/lib/events/tribe-event-read-retry";
 
 /**
  * Pure state machine that decides when the calendar reads the viewer streak
@@ -307,16 +307,11 @@ function settleRead(
         };
   }
 
-  const retry = planFreshnessReadRetry(state.failedReadRetryCount);
-
-  if (retry === null) {
-    return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
-  }
-
-  return {
-    commands: [{ delayMs: retry.delayMs, type: STREAK_FRESHNESS_COMMAND.scheduleRead }],
-    state: { ...settledState, failedReadRetryCount: retry.retryCount },
-  };
+  return settleFailedFreshnessRead(
+    settledState,
+    state.failedReadRetryCount,
+    STREAK_FRESHNESS_COMMAND.scheduleRead
+  );
 }
 
 /**

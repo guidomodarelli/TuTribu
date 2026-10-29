@@ -5,9 +5,14 @@
  */
 
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { createProviderSyncFailureResponse } from "../../provider-sync-route-responses";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG = {
   failureMessage: "Tribe subscriber diagnostics reconciliation failed",
@@ -26,76 +31,33 @@ const SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE = {
     "No pudimos actualizar el diagnóstico. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
-} as const;
-
-/**
- * Creates a JSON response with an explicit status.
- *
- * @param body - JSON body.
- * @param status - HTTP status.
- * @returns JSON response.
- */
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
-
 type ReconcileTribeSubscriberDiagnosticsResult = Awaited<
   ReturnType<RequestModules["subscriptions"]["useCases"]["reconcileTribeSubscriberDiagnostics"]>
 >;
 
 function createPostResultResponse(result: ReconcileTribeSubscriberDiagnosticsResult): Response {
-  switch (result.status) {
-    case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
-      return createJsonResponse(
-        {
-          diagnostics: result.diagnostics,
-          message:
-            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-              .successMessage,
-          verifiedCount: result.verifiedCount,
-        },
-        HTTP_STATUS.ok
-      );
-    case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-    case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
-      return createJsonResponse(
-        {
-          message:
-            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-              .missingIntegrationMessage,
-        },
-        HTTP_STATUS.serviceUnavailable
-      );
-    case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createJsonResponse(
-        {
-          message:
-            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-              .notFoundMessage,
-        },
-        HTTP_STATUS.notFound
-      );
-    case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-    default:
-      return createJsonResponse(
-        {
-          message:
-            SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-              .forbiddenMessage,
-        },
-        HTTP_STATUS.forbidden
-      );
+  if (result.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.verified) {
+    return createRouteJsonResponse(
+      {
+        diagnostics: result.diagnostics,
+        message:
+          SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
+            .successMessage,
+        verifiedCount: result.verifiedCount,
+      },
+      HTTP_STATUS.ok
+    );
   }
+
+  return createProviderSyncFailureResponse(result.status, SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE);
 }
+
+const MEMBER_ROUTE_SCOPE = {
+  feature: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.feature,
+  operation: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.operation,
+  unauthorizedMessage: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE.unauthorizedMessage,
+  withRequestId: true,
+} as const;
 
 /**
  * Reconciles aggregate subscriber diagnostics with Mercado Pago.
@@ -106,57 +68,25 @@ function createPostResultResponse(result: ReconcileTribeSubscriberDiagnosticsRes
  */
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.feature,
-    operation: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      {
-        message:
-          SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-            .unauthorizedMessage,
-      },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.failureMessage,
+      metadata: { slug },
+      responseMessage: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const result =
+        await modules.subscriptions.useCases.reconcileTribeSubscriberDiagnostics({
+          tribeSlug: slug,
+        });
 
-  try {
-    const result =
-      await modules.subscriptions.useCases.reconcileTribeSubscriberDiagnostics({
-        tribeSlug: slug,
-      });
-
-    return createPostResultResponse(result);
-  } catch (error) {
-    logger.error({
-      message: SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_LOG.failureMessage,
-      error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      {
-        message:
-          SUBSCRIBER_DIAGNOSTICS_RECONCILIATION_ROUTE_RESPONSE
-            .unexpectedMessage,
-      },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPostResultResponse(result);
+    }
+  );
 }

@@ -17,6 +17,7 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { CreateTribeFormContainer } from "./create-tribe-form-container";
 import styles from "./page.module.scss";
+import { readFirstSearchParamValue } from "@/app/search-params";
 
 const CREATE_TRIBE_PAGE_LOG = {
   feature: "tribes",
@@ -28,22 +29,6 @@ const CREATE_TRIBE_PAGE_LOG = {
 type CreateTribeSearchParams = {
   [key: string]: string | string[] | undefined;
 };
-
-function readFirstSearchParamValue(
-  searchParamValue: string | string[] | undefined
-): string | null {
-  if (typeof searchParamValue === "string") {
-    return searchParamValue;
-  }
-
-  if (Array.isArray(searchParamValue)) {
-    const firstStringValue = searchParamValue.find((value) => value.trim().length > 0);
-
-    return firstStringValue ?? null;
-  }
-
-  return null;
-}
 
 function resolveErrorMessage(errorCode: string | null): string | null {
   if (errorCode === null) {

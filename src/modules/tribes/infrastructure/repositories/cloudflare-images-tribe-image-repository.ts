@@ -13,6 +13,10 @@ import type {
   TribeImageUploadResult,
 } from "@/src/modules/tribes/domain/repositories/tribe-image-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {
+  POSTGRES_ERROR_CODE,
+  readPostgresErrorCode,
+} from "@/src/modules/shared/infrastructure/database/postgres-error";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -70,29 +74,6 @@ const TRIBE_IMAGE_STATUS_DRAFT = "draft";
 const TRIBE_IMAGE_MAX_DRAFTS_PER_TRIBE = 20;
 
 const TRIBE_IMAGE_CLEANUP_BATCH_SIZE = 50;
-
-const POSTGRES_ERROR_CODE = {
-  insufficientPrivilege: "42501",
-  undefinedTable: "42P01",
-} as const;
-
-function readPostgresErrorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") {
-    return undefined;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-
-  if (postgresError.code) {
-    return postgresError.code;
-  }
-
-  return postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-    ? (postgresError.cause as { code?: string }).code
-    : undefined;
-}
 
 export class CloudflareImagesTribeImageRepository
   implements TribeImageRepository

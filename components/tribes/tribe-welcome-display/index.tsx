@@ -1,17 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { ArrowUpRightIcon, LoaderCircleIcon } from "lucide-react";
-import { toast } from "@golfo/ui";
 
 import type {
   TribeWelcomeLinkResult,
   TribeWelcomeResult,
   TribeWelcomeRuleResult,
 } from "@/src/modules/tribes/application/results/tribe-welcome-result";
-import {
-  TRIBE_WELCOME_LINK_TYPE,
-} from "@/src/modules/tribes/constants/tribe-welcome";
+import { useTribeWelcomeLinkSelection } from "@/hooks/use-tribe-welcome-link-selection";
+import { getTribeWelcomeLinkHref } from "@/lib/tribes/tribe-welcome-link-href";
 import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_DISPLAY_COPY = {
@@ -19,15 +16,6 @@ const TRIBE_WELCOME_DISPLAY_COPY = {
   benefitEyebrow: "Beneficio por seleccionar una opción",
   defaultHeading: "Bienvenido/a",
   eyebrow: "Antes de empezar",
-  fallbackError:
-    "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
-} as const;
-
-const WHATSAPP_LINK = {
-  baseUrl: "https://wa.me/",
-  messageQueryName: "text",
-  querySeparator: "?",
-  valueSeparator: "=",
 } as const;
 
 const TRIBE_WELCOME_DISPLAY_ATTRIBUTES = {
@@ -37,21 +25,6 @@ const TRIBE_WELCOME_DISPLAY_ATTRIBUTES = {
   linksTitleId: "tribe-welcome-links-title",
   noreferrerRel: "noreferrer",
 } as const;
-
-const SELECTION_REQUEST = {
-  apiPrefix: "/api/tribes/",
-  contentTypeHeader: "Content-Type",
-  jsonContentType: "application/json",
-  postMethod: "POST",
-  selectionsSegment: "/welcome/selections",
-} as const;
-
-const SELECTION_WINDOW_OPEN = {
-  blankUrl: "about:blank",
-  target: "_blank",
-} as const;
-
-const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
 
 type TribeWelcomeDisplayProps = {
   action?: React.ReactNode;
@@ -67,47 +40,6 @@ function getActiveLinks(links: TribeWelcomeLinkResult[]) {
   return links.filter((link) => link.isActive);
 }
 
-function buildWhatsappUrl(link: TribeWelcomeLinkResult): string | null {
-  if (
-    link.type !== TRIBE_WELCOME_LINK_TYPE.whatsappButton ||
-    !link.phoneNumber
-  ) {
-    return null;
-  }
-
-  const normalizedPhoneNumber = link.phoneNumber.replace(
-    PHONE_NUMBER_NON_DIGIT_PATTERN,
-    ""
-  );
-  const messageQuery = link.message
-    ? WHATSAPP_LINK.querySeparator +
-      WHATSAPP_LINK.messageQueryName +
-      WHATSAPP_LINK.valueSeparator +
-      encodeURIComponent(link.message)
-    : "";
-
-  return WHATSAPP_LINK.baseUrl + normalizedPhoneNumber + messageQuery;
-}
-
-function getLinkHref(link: TribeWelcomeLinkResult): string | null {
-  return link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton
-    ? buildWhatsappUrl(link)
-    : link.url;
-}
-
-function openDestinationWindow(): Window | null {
-  const openedWindow = window.open(
-    SELECTION_WINDOW_OPEN.blankUrl,
-    SELECTION_WINDOW_OPEN.target
-  );
-
-  if (openedWindow) {
-    openedWindow.opener = null;
-  }
-
-  return openedWindow;
-}
-
 /**
  * Records the member selection of a welcome resource, one at a time, before
  * opening its destination in a pre-opened window.
@@ -115,61 +47,17 @@ function openDestinationWindow(): Window | null {
  * @returns The id of the link being recorded and the selection handler.
  */
 function useWelcomeSelection(tribeSlug: string | undefined) {
-  const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
-  const pendingSelectionRef = useRef(false);
+  const { pendingLinkId, selectLink } = useTribeWelcomeLinkSelection();
 
   const handleSelect = async (
     link: TribeWelcomeLinkResult,
     href: string
   ): Promise<void> => {
-    if (!tribeSlug || pendingSelectionRef.current) {
+    if (!tribeSlug) {
       return;
     }
 
-    const destinationWindow = openDestinationWindow();
-
-    pendingSelectionRef.current = true;
-    setPendingLinkId(link.id);
-
-    try {
-      const response = await fetch(
-        SELECTION_REQUEST.apiPrefix +
-          encodeURIComponent(tribeSlug) +
-          SELECTION_REQUEST.selectionsSegment,
-        {
-          body: JSON.stringify({ welcomeLinkId: link.id }),
-          headers: {
-            [SELECTION_REQUEST.contentTypeHeader]:
-              SELECTION_REQUEST.jsonContentType,
-          },
-          method: SELECTION_REQUEST.postMethod,
-        }
-      );
-
-      if (!response.ok) {
-        const errorPayload = (await response.json().catch(() => null)) as {
-          message?: string;
-        } | null;
-
-        toast.error(
-          errorPayload?.message || TRIBE_WELCOME_DISPLAY_COPY.fallbackError
-        );
-        destinationWindow?.close();
-        return;
-      }
-
-      if (destinationWindow) {
-        destinationWindow.location.href = href;
-      } else {
-        window.location.assign(href);
-      }
-    } catch {
-      destinationWindow?.close();
-      toast.error(TRIBE_WELCOME_DISPLAY_COPY.fallbackError);
-    } finally {
-      pendingSelectionRef.current = false;
-      setPendingLinkId(null);
-    }
+    await selectLink({ href, link, tribeSlug });
   };
 
   return { handleSelect, pendingLinkId };
@@ -336,7 +224,7 @@ export function TribeWelcomeDisplay({
           </h2>
           <ul className={styles.TribeWelcomeDisplay__linkList}>
             {activeLinks.map((link) => {
-              const href = getLinkHref(link);
+              const href = getTribeWelcomeLinkHref(link);
 
               return href ? (
                 <li

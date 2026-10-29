@@ -333,6 +333,44 @@ async function cleanupPreparedLessonFiles({
   );
 }
 
+/**
+ * Validates the title, description and video shared by lesson creation and update.
+ *
+ * @param command - Raw lesson content.
+ * @returns The normalized title and parsed video, or the rejection to return.
+ */
+function validateLessonContent(command: {
+  description: string;
+  externalVideoUrl: string;
+  title: string;
+}):
+  | { isValid: true; title: string; video: ParsedExternalVideo }
+  | {
+      isValid: false;
+      rejection: {
+        status:
+          | typeof COURSE_MUTATION_STATUS.invalidInput
+          | typeof COURSE_MUTATION_STATUS.invalidVideoUrl;
+      };
+    } {
+  const title = normalizeText(command.title);
+
+  if (!isValidLessonTitle(title)) {
+    return { isValid: false, rejection: { status: COURSE_MUTATION_STATUS.invalidInput } };
+  }
+
+  if (!isValidLessonDescription(command.description)) {
+    return { isValid: false, rejection: { status: COURSE_MUTATION_STATUS.invalidInput } };
+  }
+
+  const parsedVideo = safeParseVideo(command.externalVideoUrl);
+  if (parsedVideo.kind !== PARSED_VIDEO_KIND.ok) {
+    return { isValid: false, rejection: { status: COURSE_MUTATION_STATUS.invalidVideoUrl } };
+  }
+
+  return { isValid: true, title, video: parsedVideo.value };
+}
+
 export function createLesson({
   courseRepository,
   lessonFileRepository,
@@ -340,20 +378,13 @@ export function createLesson({
   return async (
     command: CreateLessonCommand
   ): Promise<LessonCreationResult> => {
-    const title = normalizeText(command.title);
+    const lessonContent = validateLessonContent(command);
 
-    if (!isValidLessonTitle(title)) {
-      return { status: COURSE_MUTATION_STATUS.invalidInput };
+    if (!lessonContent.isValid) {
+      return lessonContent.rejection;
     }
 
-    if (!isValidLessonDescription(command.description)) {
-      return { status: COURSE_MUTATION_STATUS.invalidInput };
-    }
-
-    const parsedVideo = safeParseVideo(command.externalVideoUrl);
-    if (parsedVideo.kind !== PARSED_VIDEO_KIND.ok) {
-      return { status: COURSE_MUTATION_STATUS.invalidVideoUrl };
-    }
+    const { title, video } = lessonContent;
 
     const normalizedFiles = normalizeLessonFileDrafts(command.files);
 
@@ -392,12 +423,12 @@ export function createLesson({
       const result = await courseRepository.createLesson({
         courseModuleId: normalizeText(command.courseModuleId),
         description: normalizeOptionalText(command.description),
-        externalVideoId: parsedVideo.value.externalId,
+        externalVideoId: video.externalId,
         ...(files.length > 0 ? { files } : {}),
         sortOrder: command.sortOrder,
         title,
         tribeSlug,
-        videoProvider: parsedVideo.value.provider,
+        videoProvider: video.provider,
       });
 
       if (result.status !== COURSE_MUTATION_STATUS.created) {
@@ -430,20 +461,13 @@ export function updateLesson({
   return async (
     command: UpdateLessonCommand
   ): Promise<LessonUpdateResult> => {
-    const title = normalizeText(command.title);
+    const lessonContent = validateLessonContent(command);
 
-    if (!isValidLessonTitle(title)) {
-      return { status: COURSE_MUTATION_STATUS.invalidInput };
+    if (!lessonContent.isValid) {
+      return lessonContent.rejection;
     }
 
-    if (!isValidLessonDescription(command.description)) {
-      return { status: COURSE_MUTATION_STATUS.invalidInput };
-    }
-
-    const parsedVideo = safeParseVideo(command.externalVideoUrl);
-    if (parsedVideo.kind !== PARSED_VIDEO_KIND.ok) {
-      return { status: COURSE_MUTATION_STATUS.invalidVideoUrl };
-    }
+    const { title, video } = lessonContent;
 
     const normalizedFiles =
       command.files === undefined
@@ -485,14 +509,14 @@ export function updateLesson({
     const result = await courseRepository.updateLesson({
       courseModuleId: normalizeText(command.courseModuleId),
       description: normalizeOptionalText(command.description),
-      externalVideoId: parsedVideo.value.externalId,
+      externalVideoId: video.externalId,
       ...(files !== undefined ? { files } : {}),
       isActive: command.isActive,
       lessonId,
       sortOrder: command.sortOrder,
       title,
       tribeSlug,
-      videoProvider: parsedVideo.value.provider,
+      videoProvider: video.provider,
     });
 
     if (

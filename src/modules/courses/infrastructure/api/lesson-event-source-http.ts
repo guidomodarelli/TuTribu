@@ -1,11 +1,14 @@
 import type { z } from "zod";
 
 import { LESSON_EVENT_SOURCE_INPUT_ISSUE } from "@/src/modules/courses/infrastructure/api/lesson-event-source-request-schemas";
-import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import {
-  summarizeValidationIssues,
-  type ValidationIssueSummary,
-} from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
+  parsePublicDto,
+  parseRouteRequestParts,
+  type RouteInputPart,
+  type RouteInputRejection,
+} from "@/src/modules/shared/infrastructure/http/route-input";
+import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 /**
  * HTTP wiring of the "Convertir en lección" routes: safe Spanish copy, the
@@ -46,11 +49,6 @@ const LESSON_EVENT_SOURCE_LOG = {
   inputRejectedMessage: "Lesson conversion route input rejected",
 } as const;
 
-const LESSON_EVENT_SOURCE_INPUT_PART = {
-  body: "body",
-  params: "params",
-} as const;
-
 export function createLessonEventSourceJsonResponse(
   body: { message: string },
   status: number
@@ -58,35 +56,28 @@ export function createLessonEventSourceJsonResponse(
   return Response.json(body, { status });
 }
 
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    // Unparseable JSON is expected client input, rejected by the schema.
-    return undefined;
-  }
-}
-
 function rejectInput(
   logger: ServerLogger,
-  part: string,
-  issues: ValidationIssueSummary[],
-  firstMessage: string | undefined
-): Response {
+  part: RouteInputPart,
+  error: z.ZodError
+): RouteInputRejection {
   logger.warn({
     message: LESSON_EVENT_SOURCE_LOG.inputRejectedMessage,
-    metadata: { issues, part },
+    metadata: { issues: summarizeValidationIssues(error.issues), part },
   });
 
-  return createLessonEventSourceJsonResponse(
-    {
-      message:
-        firstMessage === LESSON_EVENT_SOURCE_INPUT_ISSUE.invalidLesson
-          ? LESSON_EVENT_SOURCE_RESPONSE.invalidLessonMessage
-          : LESSON_EVENT_SOURCE_RESPONSE.notFoundMessage,
-    },
-    LESSON_EVENT_SOURCE_HTTP_STATUS.badRequest
-  );
+  return {
+    isValid: false,
+    response: createLessonEventSourceJsonResponse(
+      {
+        message:
+          error.issues[0]?.message === LESSON_EVENT_SOURCE_INPUT_ISSUE.invalidLesson
+            ? LESSON_EVENT_SOURCE_RESPONSE.invalidLessonMessage
+            : LESSON_EVENT_SOURCE_RESPONSE.notFoundMessage,
+      },
+      LESSON_EVENT_SOURCE_HTTP_STATUS.badRequest
+    ),
+  };
 }
 
 /**
@@ -103,39 +94,16 @@ export async function parseLessonEventSourceInput<TParams, TBody = undefined>(in
 }): Promise<
   { body: TBody; isValid: true; params: TParams } | { isValid: false; response: Response }
 > {
-  const params = input.paramsSchema.safeParse(await input.params);
+  const parsed = await parseRouteRequestParts({
+    params: input.params,
+    reject: (part, error) => rejectInput(input.logger, part, error),
+    request: input.request,
+    schemas: { body: input.bodySchema, params: input.paramsSchema },
+  });
 
-  if (!params.success) {
-    return {
-      isValid: false,
-      response: rejectInput(
-        input.logger,
-        LESSON_EVENT_SOURCE_INPUT_PART.params,
-        summarizeValidationIssues(params.error.issues),
-        params.error.issues[0]?.message
-      ),
-    };
-  }
-
-  if (!input.bodySchema) {
-    return { body: undefined as TBody, isValid: true, params: params.data };
-  }
-
-  const body = input.bodySchema.safeParse(await readJsonBody(input.request));
-
-  if (!body.success) {
-    return {
-      isValid: false,
-      response: rejectInput(
-        input.logger,
-        LESSON_EVENT_SOURCE_INPUT_PART.body,
-        summarizeValidationIssues(body.error.issues),
-        body.error.issues[0]?.message
-      ),
-    };
-  }
-
-  return { body: body.data, isValid: true, params: params.data };
+  return parsed.isValid
+    ? { body: parsed.body, isValid: true, params: parsed.params }
+    : parsed;
 }
 
 /**
@@ -150,18 +118,16 @@ export function createLessonEventSourcePublicResponse<TDto>(input: {
   schema: z.ZodType<TDto>;
   status: number;
 }): Response {
-  const parsed = input.schema.safeParse(input.body);
+  const parsed = parsePublicDto({
+    body: input.body,
+    logMessage: LESSON_EVENT_SOURCE_LOG.dtoRejectedMessage,
+    logger: input.logger,
+    metadata: input.metadata,
+    reason: LESSON_EVENT_SOURCE_LOG.dtoRejectedReason,
+    schema: input.schema,
+  });
 
   if (!parsed.success) {
-    input.logger.error({
-      message: LESSON_EVENT_SOURCE_LOG.dtoRejectedMessage,
-      metadata: {
-        ...input.metadata,
-        issues: summarizeValidationIssues(parsed.error.issues),
-        reason: LESSON_EVENT_SOURCE_LOG.dtoRejectedReason,
-      },
-    });
-
     return createLessonEventSourceJsonResponse(
       { message: input.failureMessage },
       LESSON_EVENT_SOURCE_HTTP_STATUS.serverError

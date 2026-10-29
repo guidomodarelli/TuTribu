@@ -1,0 +1,14 @@
+// Typography shared by the component CSS Modules.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/typography";
+//   .Block__title { @include typography.display-title(clamp(2rem, 6vw, 3rem), 1.1); }
+
+// Page title in the display face; each module sets its own fluid size, line height and color.
+@mixin display-title($font-size, $line-height) {
+  margin: 0;
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-size: $font-size;
+  font-weight: 500;
+  line-height: $line-height;
+}

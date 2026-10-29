@@ -1718,25 +1718,52 @@ function removeDeletedPrice(
 function createPriceLifecycleHandlers(options: PriceRowActionOptions) {
   const { applyPriceMutationResponse, isSelectedAccountMismatch, setPendingAction, tribeSlug } = options;
 
-  const handleMakeCurrent = async (price: TribeSubscriptionPriceResult) => {
+  /**
+   * Lifecycle changes only apply to prices of the selected payment account.
+   *
+   * @param price - Price to change.
+   * @returns Whether the price can be changed; otherwise the mismatch is reported.
+   */
+  const canChangePrice = (price: TribeSubscriptionPriceResult) => {
     if (isSelectedAccountMismatch(price)) {
       toast.error(PRICE_MANAGEMENT_COPY.accountMismatchMessage);
 
+      return false;
+    }
+
+    return true;
+  };
+  /**
+   * Sends a lifecycle request and applies the price the API returns, if any.
+   *
+   * @param endpoint - Price endpoint.
+   * @param method - HTTP method.
+   * @returns The API answer.
+   */
+  const submitLifecycleRequest = async (endpoint: string, method: string) => {
+    const response = await submitPriceRequest(endpoint, method);
+
+    if (response.price) {
+      applyPriceMutationResponse(response.price);
+    }
+
+    return response;
+  };
+
+  const handleMakeCurrent = async (price: TribeSubscriptionPriceResult) => {
+    if (!canChangePrice(price)) {
       return;
     }
 
     setPendingAction(price.id);
 
     try {
-      const response = await submitPriceRequest(
+      const response = await submitLifecycleRequest(
         buildPriceEndpoint(tribeSlug, price.id) +
           PRICE_MANAGEMENT_ROUTE.makeCurrentSegment,
         PRICE_MANAGEMENT_REQUEST.postMethod
       );
 
-      if (response.price) {
-        applyPriceMutationResponse(response.price);
-      }
       options.setIsFreeJoinCurrent(false);
 
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.makeCurrentButton);
@@ -1753,23 +1780,18 @@ function createPriceLifecycleHandlers(options: PriceRowActionOptions) {
    * @returns Promise resolved after the request completes.
    */
   const handleDeletePrice = async (price: TribeSubscriptionPriceResult) => {
-    if (isSelectedAccountMismatch(price)) {
-      toast.error(PRICE_MANAGEMENT_COPY.accountMismatchMessage);
-
+    if (!canChangePrice(price)) {
       return;
     }
 
     setPendingAction(price.id);
 
     try {
-      const response = await submitPriceRequest(
+      const response = await submitLifecycleRequest(
         buildPriceEndpoint(tribeSlug, price.id),
         PRICE_MANAGEMENT_REQUEST.deleteMethod
       );
 
-      if (response.price) {
-        applyPriceMutationResponse(response.price);
-      }
       removeDeletedPrice(options.setPriceItems, response.deletedPriceId);
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.removeButton);
     } catch (error) {

@@ -1,13 +1,13 @@
-import { openTribeEventPostEventRouteScope } from "@/app/api/tribes/[slug]/events/post-event-route-scope";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import { tribeEventCommentRouteParamsSchema } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-post-event-request-schemas";
 import { tribeEventEmptyQuerySchema } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
-import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
+import { createStatusMessageResponse } from "@/app/api/member-route-scope";
+import { handleTribeEventRoute, openTribeEventPostEventScope } from "../../tribe-event-route";
 
 const COMMENT_ROUTE_LOG = {
   deleteFailureMessage: "Tribe event occurrence comment deletion failed",
@@ -27,64 +27,47 @@ type TribeEventCommentRouteContext = {
  * answers 404, which the client treats as already gone.
  */
 export async function DELETE(request: Request, context: TribeEventCommentRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, {
-    operation: COMMENT_ROUTE_LOG.operation,
-    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
-  });
-
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const { logger, member, modules } = scope;
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+  return handleTribeEventRoute(
     request,
-    schemas: { params: tribeEventCommentRouteParamsSchema, query: tribeEventEmptyQuerySchema },
-  });
+    context,
+    {
+      failure: {
+        logMessage: COMMENT_ROUTE_LOG.deleteFailureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
+      },
+      openScope: openTribeEventPostEventScope(
+        COMMENT_ROUTE_LOG.operation,
+        TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage
+      ),
+      readLogMetadata: ({ params }) => ({ commentId: params.commentId, slug: params.slug }),
+      schemas: { params: tribeEventCommentRouteParamsSchema, query: tribeEventEmptyQuerySchema },
+    },
+    async ({ modules, params }) => {
+      const result = await modules.events.useCases.deleteTribeEventOccurrenceComment({
+        commentId: params.commentId,
+        tribeSlug: params.slug,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
-
-  const { commentId, slug } = input.params;
-  const logMetadata = { commentId, slug, viewerId: member.id };
-
-  try {
-    const result = await modules.events.useCases.deleteTribeEventOccurrenceComment({
-      commentId,
-      tribeSlug: slug,
-    });
-
-    switch (result.status) {
-      case TRIBE_EVENT_MUTATION_STATUS.commentDeleted:
+      if (result.status === TRIBE_EVENT_MUTATION_STATUS.commentDeleted) {
         return createJsonResponse(
           { message: TRIBE_EVENT_ROUTE_RESPONSE.commentDeletedMessage },
           TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
         );
-      case TRIBE_EVENT_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: TRIBE_EVENT_ROUTE_RESPONSE.commentNotFoundMessage },
-          TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-        );
-      case TRIBE_EVENT_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage },
-          TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
-        );
-    }
-  } catch (error) {
-    logger.error({
-      error,
-      message: COMMENT_ROUTE_LOG.deleteFailureMessage,
-      metadata: logMetadata,
-    });
+      }
 
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+      return createStatusMessageResponse(
+        result.status,
+        {
+          [TRIBE_EVENT_MUTATION_STATUS.notFound]: {
+            message: TRIBE_EVENT_ROUTE_RESPONSE.commentNotFoundMessage,
+            status: TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound,
+          },
+        },
+        {
+          message: TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage,
+          status: TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden,
+        }
+      );
+    }
+  );
 }

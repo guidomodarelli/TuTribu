@@ -38,3 +38,40 @@ export function planFreshnessReadRetry(retryCount: number): FreshnessReadRetry |
 
   return delayMs === undefined ? null : { delayMs, retryCount: retryCount + 1 };
 }
+
+/** Transition of a freshness state machine after a failed read. */
+export type FailedFreshnessReadTransition<TState, TScheduleReadType> = {
+  /** The retry to schedule; empty once the backoff ran out. */
+  commands: Array<{ delayMs: number; type: TScheduleReadType }>;
+  state: TState;
+};
+
+/**
+ * Settles a failed freshness read: schedules the next retry of the chain, or
+ * resets the failed count once the retries run out so a later chain starts
+ * from the first delay.
+ *
+ * @param settledState - State with the read already marked as finished.
+ * @param failedReadRetryCount - Retries the current chain already scheduled.
+ * @param scheduleReadType - Command type of the state machine that schedules a read.
+ * @returns The state with the updated count and the retry command, if any.
+ */
+export function settleFailedFreshnessRead<
+  TState extends { failedReadRetryCount: number },
+  TScheduleReadType,
+>(
+  settledState: TState,
+  failedReadRetryCount: number,
+  scheduleReadType: TScheduleReadType
+): FailedFreshnessReadTransition<TState, TScheduleReadType> {
+  const retry = planFreshnessReadRetry(failedReadRetryCount);
+
+  if (retry === null) {
+    return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
+  }
+
+  return {
+    commands: [{ delayMs: retry.delayMs, type: scheduleReadType }],
+    state: { ...settledState, failedReadRetryCount: retry.retryCount },
+  };
+}

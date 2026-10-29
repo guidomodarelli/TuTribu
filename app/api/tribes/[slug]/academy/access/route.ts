@@ -4,64 +4,41 @@
  * @module academy-access-route
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import {
+  createAcademyNotFoundResponse,
+  handleAcademyRoute,
+  type AcademyTribeRouteContext,
+} from "@/app/api/tribes/[slug]/academy-route-scope";
 import { toAcademyAccessStatusDto } from "@/src/modules/product-access/application/results/academy-dto-mappers";
 import { academyAccessStatusDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
-import {
-  ACADEMY_HTTP_STATUS,
-  ACADEMY_ROUTE_MESSAGE,
-  createAcademyJsonResponse,
-  createAcademyPublicResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
-} from "@/src/modules/product-access/infrastructure/api/academy-route-http";
+import { ACADEMY_HTTP_STATUS } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import { academyTribeParamsSchema } from "@/src/modules/product-access/infrastructure/api/academy-request-schemas";
 
 const OPERATION = "academy-access";
 
-export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
+export async function GET(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Academy access read failed",
+      operation: OPERATION,
+      schemas: { params: academyTribeParamsSchema },
+    },
+    async ({ modules, params, respond }) => {
+      const result = await modules.productAccess.useCases.getOwnAcademyAccess({
+        tribeSlug: params.slug,
+      });
 
-  if (!scope.isOpen) {
-    return scope.response;
-  }
+      if (result.status === "not_found") {
+        return createAcademyNotFoundResponse();
+      }
 
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  try {
-    const result = await scope.modules.productAccess.useCases.getOwnAcademyAccess({
-      tribeSlug: params.data.slug,
-    });
-
-    if (result.status === "not_found") {
-      return createAcademyJsonResponse(
-        { message: ACADEMY_ROUTE_MESSAGE.notFound },
-        ACADEMY_HTTP_STATUS.notFound
+      return respond(
+        toAcademyAccessStatusDto(result.access, result.accessModel),
+        academyAccessStatusDtoSchema,
+        ACADEMY_HTTP_STATUS.ok
       );
     }
-
-    return createAcademyPublicResponse({
-      body: toAcademyAccessStatusDto(result.access, result.accessModel),
-      logger: scope.logger,
-      metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-      schema: academyAccessStatusDtoSchema,
-      status: ACADEMY_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Academy access read failed",
-      metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-    });
-  }
+  );
 }

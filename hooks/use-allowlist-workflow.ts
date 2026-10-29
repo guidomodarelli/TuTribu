@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
 import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
+import { authorizeInitialViewer } from "@/hooks/verify-initial-viewer";
 import type { AllowlistPageState, AllowlistBrowserQuery } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
 import type { AllowlistBrowserClient, AllowlistBrowserResult  } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistDraft, AllowlistBrowserIntent } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
@@ -64,14 +65,7 @@ function useAllowlistCore(state: AllowlistState) {
     catch { setErrorMessage(COPY.storage); setReady(false); return false; }
   }, [currentDraftRef, currentPendingRef, initial, setDraft, setErrorMessage, setPending, setReady]);
   /** Native account checks surround private responses; a changed account hides every prior contact and continuation. */
-  const authorize = useCallback(async (signal: AbortSignal, scope: number) => {
-    if (!initial || !live(signal, scope)) return false;
-    const viewer = await client.viewer(signal);
-    if (!live(signal, scope)) return false;
-    if (viewer.status === "aborted") return false;
-    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { setPrivateVisible(false); setReady(false); setConfirmed(false); setPhase(PHASE.changedViewer); setErrorMessage(COPY.account); return false; }
-    return true;
-  }, [client, initial, live, setConfirmed, setErrorMessage, setPhase, setPrivateVisible, setReady]);
+  const authorize = useCallback((signal: AbortSignal, scope: number) => authorizeInitialViewer({ client, initial, live, onViewerChanged: () => { setPrivateVisible(false); setReady(false); setConfirmed(false); setPhase(PHASE.changedViewer); setErrorMessage(COPY.account); } }, signal, scope), [client, initial, live, setConfirmed, setErrorMessage, setPhase, setPrivateVisible, setReady]);
   /** Updates one current entry only; historical operation versions never replace newer metadata. */
   const mergeEntry = useCallback((entry: AllowlistEntryResult) => {
     setPage((current) => mergeAllowlistEntryIntoPage(current, entry, query));

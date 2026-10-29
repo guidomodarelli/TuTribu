@@ -54,7 +54,7 @@ export async function findMercadoPagoSubscriptionCheckoutByReference(input: Merc
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.recoverSubscriptionCheckout;
   const url = new URL(`${MERCADO_PAGO_URL.preapproval}/search`);
   url.searchParams.set("q", input.externalReference);
-  const init = { headers: { [MERCADO_PAGO_HTTP.authorizationHeader]: MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken }, method: MERCADO_PAGO_HTTP.getMethod };
+  const init = buildMercadoPagoReadRequest(input.accessToken);
   const response = await fetchMercadoPago(operation, url.toString(), init, input.traceContext);
   const body = await readMercadoPagoResponse<{ paging?: { total?: number }; results?: MercadoPagoPreapprovalResponse[] }>(operation, response, input.traceContext);
   const matches = (body.results ?? []).filter((subscription) => subscription.external_reference === input.externalReference);
@@ -667,6 +667,300 @@ async function readMercadoPagoResponse<T>(
 }
 
 /**
+ * Builds an authenticated Mercado Pago read request.
+ *
+ * @param accessToken - Seller account token.
+ * @returns Fetch options for a GET request.
+ */
+function buildMercadoPagoReadRequest(accessToken: string): RequestInit {
+  return {
+    headers: {
+      [MERCADO_PAGO_HTTP.authorizationHeader]:
+        MERCADO_PAGO_HTTP.bearerPrefix + accessToken,
+    },
+    method: MERCADO_PAGO_HTTP.getMethod,
+  };
+}
+
+/**
+ * Builds an authenticated Mercado Pago request with a JSON body.
+ *
+ * @param input - Seller account token, payload, HTTP method and optional idempotency key.
+ * @returns Fetch options for the write request.
+ */
+function buildMercadoPagoJsonRequest(input: {
+  accessToken: string;
+  body: Record<string, unknown>;
+  idempotencyKey?: string;
+  method: string;
+}): RequestInit {
+  return {
+    body: JSON.stringify(input.body),
+    headers: {
+      [MERCADO_PAGO_HTTP.authorizationHeader]:
+        MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+      [MERCADO_PAGO_HTTP.contentTypeHeader]:
+        MERCADO_PAGO_HTTP.jsonContentType,
+      ...(input.idempotencyKey === undefined
+        ? {}
+        : { [MERCADO_PAGO_HTTP.idempotencyHeader]: input.idempotencyKey }),
+    },
+    method: input.method,
+  };
+}
+
+/**
+ * Parses a provider resource that may legitimately not exist.
+ *
+ * @param operation - Stable operation name used by server logs.
+ * @param response - Fetch response returned by Mercado Pago.
+ * @param trace - Trace context and provider identifiers logged on not found.
+ * @returns Parsed JSON body, or null when Mercado Pago answers 404.
+ * @throws When Mercado Pago returns any other non-successful response.
+ */
+async function readMercadoPagoResponseOrNull<T>(
+  operation: string,
+  response: HttpResponse,
+  trace: {
+    preapprovalId?: string;
+    providerPlanId?: string;
+    traceContext?: PaymentOperationTraceContext;
+  }
+): Promise<T | null> {
+  if (response.status === HTTP_STATUS_NOT_FOUND) {
+    logMercadoPagoOperationResult({
+      metadata: {
+        status: response.status,
+      },
+      operation,
+      preapprovalId: trace.preapprovalId,
+      providerPlanId: trace.providerPlanId,
+      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
+      traceContext: trace.traceContext,
+    });
+
+    return null;
+  }
+
+  return readMercadoPagoResponse<T>(operation, response, trace.traceContext);
+}
+
+/**
+ * Reads a preapproval by identifier, tolerating its absence.
+ *
+ * @param operation - Stable operation name used by server logs.
+ * @param input - Provider subscription identifier and account token.
+ * @returns Provider body and HTTP status, or null when the preapproval does not exist.
+ */
+async function fetchMercadoPagoPreapproval(
+  operation: string,
+  input: MercadoPagoPreapprovalStatusInput
+): Promise<{ body: MercadoPagoPreapprovalResponse; httpStatus: HttpResponse["status"] } | null> {
+  const response = await fetchMercadoPago(
+    operation,
+    `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
+    buildMercadoPagoReadRequest(input.accessToken),
+    input.traceContext
+  );
+  const body = await readMercadoPagoResponseOrNull<MercadoPagoPreapprovalResponse>(
+    operation,
+    response,
+    { preapprovalId: input.preapprovalId, traceContext: input.traceContext }
+  );
+
+  return body ? { body, httpStatus: response.status } : null;
+}
+
+/**
+ * Reads a preapproval plan by identifier, tolerating its absence.
+ *
+ * @param operation - Stable operation name used by server logs.
+ * @param input - Provider plan identifier and account token.
+ * @returns Provider body and HTTP status, or null when the plan does not exist.
+ */
+async function fetchMercadoPagoPreapprovalPlan(
+  operation: string,
+  input: MercadoPagoPreapprovalPlanInput
+): Promise<{ body: MercadoPagoPreapprovalPlanResponse; httpStatus: HttpResponse["status"] } | null> {
+  const response = await fetchMercadoPago(
+    operation,
+    `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
+    buildMercadoPagoReadRequest(input.accessToken),
+    input.traceContext
+  );
+  const body = await readMercadoPagoResponseOrNull<MercadoPagoPreapprovalPlanResponse>(
+    operation,
+    response,
+    { providerPlanId: input.preapprovalPlanId, traceContext: input.traceContext }
+  );
+
+  return body ? { body, httpStatus: response.status } : null;
+}
+
+/**
+ * Logs a successful provider read or write that reports a resource status.
+ *
+ * @param input - Operation, provider identifiers, provider status and HTTP status.
+ * @returns Nothing.
+ */
+function logMercadoPagoProviderStatus(input: {
+  httpStatus: HttpResponse["status"];
+  operation: string;
+  preapprovalId?: string;
+  providerPlanId?: string | null;
+  providerStatus: string;
+  traceContext?: PaymentOperationTraceContext;
+}): void {
+  logMercadoPagoOperationResult({
+    metadata: {
+      providerStatus: input.providerStatus,
+      status: input.httpStatus,
+    },
+    operation: input.operation,
+    preapprovalId: input.preapprovalId,
+    providerPlanId: input.providerPlanId,
+    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
+    traceContext: input.traceContext,
+  });
+}
+
+/**
+ * Returns the status of a preapproval response, which Mercado Pago must always include.
+ *
+ * @param body - Provider preapproval response body.
+ * @param trace - Operation and identifiers logged when the status is missing.
+ * @returns Provider status value.
+ * @throws When Mercado Pago omits the preapproval status.
+ */
+function requireMercadoPagoPreapprovalStatus(
+  body: MercadoPagoPreapprovalResponse,
+  trace: {
+    operation: string;
+    preapprovalId: string;
+    traceContext?: PaymentOperationTraceContext;
+  }
+): string {
+  if (!body.status) {
+    logMercadoPagoOperationResult({
+      level: SERVER_LOG_LEVEL.error,
+      operation: trace.operation,
+      preapprovalId: trace.preapprovalId,
+      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
+      traceContext: trace.traceContext,
+    });
+
+    throw new Error(
+      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
+    );
+  }
+
+  return body.status;
+}
+
+/**
+ * Validates and logs the status Mercado Pago reports for a preapproval.
+ *
+ * @param body - Provider preapproval response body.
+ * @param trace - Operation, preapproval identifier and HTTP status.
+ * @returns Provider status value.
+ * @throws When Mercado Pago omits the preapproval status.
+ */
+function confirmMercadoPagoPreapprovalStatus(
+  body: MercadoPagoPreapprovalResponse,
+  trace: {
+    httpStatus: HttpResponse["status"];
+    operation: string;
+    preapprovalId: string;
+    traceContext?: PaymentOperationTraceContext;
+  }
+): string {
+  const providerStatus = requireMercadoPagoPreapprovalStatus(body, trace);
+
+  logMercadoPagoProviderStatus({ ...trace, providerStatus });
+
+  return providerStatus;
+}
+
+/**
+ * Normalizes a single preapproval plan response and logs its provider status.
+ *
+ * @param body - Provider plan response body.
+ * @param input - Operation, requested plan identifier and HTTP status.
+ * @returns Normalized provider plan result.
+ * @throws When Mercado Pago omits the required plan status.
+ */
+function mapAndLogMercadoPagoPreapprovalPlan(
+  body: MercadoPagoPreapprovalPlanResponse,
+  input: {
+    httpStatus: HttpResponse["status"];
+    operation: string;
+    preapprovalPlanId: string;
+    traceContext?: PaymentOperationTraceContext;
+  }
+): MercadoPagoPreapprovalPlanResult {
+  const providerPlan = mapMercadoPagoPreapprovalPlanResponse(
+    body,
+    input.preapprovalPlanId
+  );
+
+  logMercadoPagoProviderStatus({
+    httpStatus: input.httpStatus,
+    operation: input.operation,
+    providerPlanId: providerPlan.id,
+    providerStatus: providerPlan.status,
+    traceContext: input.traceContext,
+  });
+
+  return providerPlan;
+}
+
+/**
+ * Requests Mercado Pago account tokens with the application credentials.
+ *
+ * @param operation - Stable operation name used by server logs.
+ * @param buildGrant - Builds the OAuth grant fields, read after the client credentials.
+ * @param missingAccessTokenMessage - Error raised when the provider omits the access token.
+ * @returns Token payload required to persist the integration.
+ */
+async function requestMercadoPagoOAuthToken(
+  operation: string,
+  buildGrant: () => Record<string, string>,
+  missingAccessTokenMessage: string
+): Promise<MercadoPagoOAuthTokenResult> {
+  const response = await fetch(MERCADO_PAGO_URL.oauthToken, {
+    body: JSON.stringify({
+      client_id: readRequiredMercadoPagoEnvironment(MERCADO_PAGO_ENV.clientId),
+      client_secret: readRequiredMercadoPagoEnvironment(
+        MERCADO_PAGO_ENV.clientSecret
+      ),
+      ...buildGrant(),
+    }),
+    headers: {
+      [MERCADO_PAGO_HTTP.contentTypeHeader]: MERCADO_PAGO_HTTP.jsonContentType,
+    },
+    method: MERCADO_PAGO_HTTP.postMethod,
+  });
+  const body = await readMercadoPagoResponse<MercadoPagoOAuthResponse>(
+    operation,
+    response
+  );
+
+  if (!body.access_token) {
+    throw new Error(missingAccessTokenMessage);
+  }
+
+  return {
+    accessToken: body.access_token,
+    expiresIn: typeof body.expires_in === "number" ? body.expires_in : null,
+    providerAccountId:
+      body.user_id === undefined || body.user_id === null
+        ? null
+        : String(body.user_id),
+    refreshToken: body.refresh_token ?? null,
+  };
+}
+
+/**
  * Builds the OAuth authorization URL for a tribe connection request.
  *
  * @param state - Opaque state value that binds callback handling to a tribe.
@@ -699,41 +993,16 @@ export function buildMercadoPagoAuthorizationUrl(state: string): string {
 export async function exchangeMercadoPagoAuthorizationCode(
   code: string
 ): Promise<MercadoPagoOAuthTokenResult> {
-  const operation = MERCADO_PAGO_PAYMENT_OPERATION.exchangeOAuthCode;
-  const response = await fetch(MERCADO_PAGO_URL.oauthToken, {
-    body: JSON.stringify({
-      client_id: readRequiredMercadoPagoEnvironment(MERCADO_PAGO_ENV.clientId),
-      client_secret: readRequiredMercadoPagoEnvironment(
-        MERCADO_PAGO_ENV.clientSecret
-      ),
+  return requestMercadoPagoOAuthToken(
+    MERCADO_PAGO_PAYMENT_OPERATION.exchangeOAuthCode,
+    () => ({
       code,
       grant_type: "authorization_code",
       redirect_uri:
         resolvePublicAppBaseUrl() + "/api/mercado-pago/oauth/callback",
     }),
-    headers: {
-      [MERCADO_PAGO_HTTP.contentTypeHeader]: MERCADO_PAGO_HTTP.jsonContentType,
-    },
-    method: MERCADO_PAGO_HTTP.postMethod,
-  });
-  const body = await readMercadoPagoResponse<MercadoPagoOAuthResponse>(
-    operation,
-    response
+    "Mercado Pago OAuth response did not include access_token"
   );
-
-  if (!body.access_token) {
-    throw new Error("Mercado Pago OAuth response did not include access_token");
-  }
-
-  return {
-    accessToken: body.access_token,
-    expiresIn: typeof body.expires_in === "number" ? body.expires_in : null,
-    providerAccountId:
-      body.user_id === undefined || body.user_id === null
-        ? null
-        : String(body.user_id),
-    refreshToken: body.refresh_token ?? null,
-  };
 }
 
 /**
@@ -745,39 +1014,14 @@ export async function exchangeMercadoPagoAuthorizationCode(
 export async function refreshMercadoPagoAccessToken(
   refreshToken: string
 ): Promise<MercadoPagoOAuthTokenResult> {
-  const operation = MERCADO_PAGO_PAYMENT_OPERATION.refreshAccessToken;
-  const response = await fetch(MERCADO_PAGO_URL.oauthToken, {
-    body: JSON.stringify({
-      client_id: readRequiredMercadoPagoEnvironment(MERCADO_PAGO_ENV.clientId),
-      client_secret: readRequiredMercadoPagoEnvironment(
-        MERCADO_PAGO_ENV.clientSecret
-      ),
+  return requestMercadoPagoOAuthToken(
+    MERCADO_PAGO_PAYMENT_OPERATION.refreshAccessToken,
+    () => ({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     }),
-    headers: {
-      [MERCADO_PAGO_HTTP.contentTypeHeader]: MERCADO_PAGO_HTTP.jsonContentType,
-    },
-    method: MERCADO_PAGO_HTTP.postMethod,
-  });
-  const body = await readMercadoPagoResponse<MercadoPagoOAuthResponse>(
-    operation,
-    response
+    "Mercado Pago refresh response did not include access_token"
   );
-
-  if (!body.access_token) {
-    throw new Error("Mercado Pago refresh response did not include access_token");
-  }
-
-  return {
-    accessToken: body.access_token,
-    expiresIn: typeof body.expires_in === "number" ? body.expires_in : null,
-    providerAccountId:
-      body.user_id === undefined || body.user_id === null
-        ? null
-        : String(body.user_id),
-    refreshToken: body.refresh_token ?? null,
-  };
 }
 
 /**
@@ -793,8 +1037,9 @@ export async function createMercadoPagoPreapprovalPlan(
   const response = await fetchMercadoPago(
     operation,
     MERCADO_PAGO_URL.preapprovalPlan,
-    {
-      body: JSON.stringify({
+    buildMercadoPagoJsonRequest({
+      accessToken: input.accessToken,
+      body: {
         auto_recurring: {
           currency_id: input.currency,
           frequency: 1,
@@ -805,16 +1050,10 @@ export async function createMercadoPagoPreapprovalPlan(
         back_url: input.backUrl,
         external_reference: input.externalReference,
         reason: input.reason,
-      }),
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-        [MERCADO_PAGO_HTTP.contentTypeHeader]:
-          MERCADO_PAGO_HTTP.jsonContentType,
-        [MERCADO_PAGO_HTTP.idempotencyHeader]: input.idempotencyKey,
       },
+      idempotencyKey: input.idempotencyKey,
       method: MERCADO_PAGO_HTTP.postMethod,
-    },
+    }),
     input.traceContext
   );
   const body = await readMercadoPagoResponse<MercadoPagoPlanResponse>(
@@ -860,8 +1099,9 @@ export async function updateMercadoPagoPreapprovalPlan(
   const response = await fetchMercadoPago(
     operation,
     `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
-    {
-      body: JSON.stringify({
+    buildMercadoPagoJsonRequest({
+      accessToken: input.accessToken,
+      body: {
         auto_recurring: {
           currency_id: input.currency,
           frequency: 1,
@@ -876,15 +1116,9 @@ export async function updateMercadoPagoPreapprovalPlan(
         external_reference: input.externalReference,
         reason: input.reason,
         status: input.status,
-      }),
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-        [MERCADO_PAGO_HTTP.contentTypeHeader]:
-          MERCADO_PAGO_HTTP.jsonContentType,
       },
       method: MERCADO_PAGO_HTTP.putMethod,
-    },
+    }),
     input.traceContext
   );
   const body = await readMercadoPagoResponse<MercadoPagoPreapprovalPlanResponse>(
@@ -893,23 +1127,12 @@ export async function updateMercadoPagoPreapprovalPlan(
     input.traceContext
   );
 
-  const providerPlan = mapMercadoPagoPreapprovalPlanResponse(
-    body,
-    input.preapprovalPlanId
-  );
-
-  logMercadoPagoOperationResult({
-    metadata: {
-      providerStatus: providerPlan.status,
-      status: response.status,
-    },
+  return mapAndLogMercadoPagoPreapprovalPlan(body, {
+    httpStatus: response.status,
     operation,
-    providerPlanId: providerPlan.id,
-    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
+    preapprovalPlanId: input.preapprovalPlanId,
     traceContext: input.traceContext,
   });
-
-  return providerPlan;
 }
 
 /**
@@ -922,56 +1145,20 @@ export async function getMercadoPagoPreapprovalPlan(
   input: MercadoPagoPreapprovalPlanInput
 ): Promise<MercadoPagoPreapprovalPlanResult | null> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.getPreapprovalPlan;
-  const response = await fetchMercadoPago(
-    operation,
-    `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
-    {
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-      },
-      method: MERCADO_PAGO_HTTP.getMethod,
-    },
-    input.traceContext
-  );
+  const providerPlanResponse = await fetchMercadoPagoPreapprovalPlan(operation, input);
 
-  if (response.status === HTTP_STATUS_NOT_FOUND) {
-    logMercadoPagoOperationResult({
-      metadata: {
-        status: response.status,
-      },
-      operation,
-      providerPlanId: input.preapprovalPlanId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
-      traceContext: input.traceContext,
-    });
-
+  if (!providerPlanResponse) {
     return null;
   }
 
-  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalPlanResponse>(
-    operation,
-    response,
-    input.traceContext
-  );
+  const { body, httpStatus } = providerPlanResponse;
 
-  const providerPlan = mapMercadoPagoPreapprovalPlanResponse(
-    body,
-    input.preapprovalPlanId
-  );
-
-  logMercadoPagoOperationResult({
-    metadata: {
-      providerStatus: providerPlan.status,
-      status: response.status,
-    },
+  return mapAndLogMercadoPagoPreapprovalPlan(body, {
+    httpStatus: httpStatus,
     operation,
-    providerPlanId: providerPlan.id,
-    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
+    preapprovalPlanId: input.preapprovalPlanId,
     traceContext: input.traceContext,
   });
-
-  return providerPlan;
 }
 
 /**
@@ -991,13 +1178,7 @@ export async function searchMercadoPagoPreapprovalPlans(
   const response = await fetchMercadoPago(
     operation,
     searchUrl.toString(),
-    {
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-      },
-      method: MERCADO_PAGO_HTTP.getMethod,
-    },
+    buildMercadoPagoReadRequest(input.accessToken),
     input.traceContext
   );
   const body =
@@ -1034,38 +1215,13 @@ export async function getMercadoPagoPreapprovalPlanStatus(
   input: MercadoPagoPreapprovalPlanStatusInput
 ): Promise<string | null> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.getPreapprovalPlanStatus;
-  const response = await fetchMercadoPago(
-    operation,
-    `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
-    {
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-      },
-      method: MERCADO_PAGO_HTTP.getMethod,
-    },
-    input.traceContext
-  );
+  const providerPlanResponse = await fetchMercadoPagoPreapprovalPlan(operation, input);
 
-  if (response.status === HTTP_STATUS_NOT_FOUND) {
-    logMercadoPagoOperationResult({
-      metadata: {
-        status: response.status,
-      },
-      operation,
-      providerPlanId: input.preapprovalPlanId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
-      traceContext: input.traceContext,
-    });
-
+  if (!providerPlanResponse) {
     return null;
   }
 
-  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalPlanResponse>(
-    operation,
-    response,
-    input.traceContext
-  );
+  const { body, httpStatus } = providerPlanResponse;
 
   if (!body.status) {
     logMercadoPagoOperationResult({
@@ -1081,14 +1237,11 @@ export async function getMercadoPagoPreapprovalPlanStatus(
     );
   }
 
-  logMercadoPagoOperationResult({
-    metadata: {
-      providerStatus: body.status,
-      status: response.status,
-    },
+  logMercadoPagoProviderStatus({
+    httpStatus: httpStatus,
     operation,
     providerPlanId: input.preapprovalPlanId,
-    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
+    providerStatus: body.status,
     traceContext: input.traceContext,
   });
 
@@ -1169,17 +1322,12 @@ async function createMercadoPagoSubscriptionCheckout(
   const response = await fetchMercadoPago(
     operation,
     MERCADO_PAGO_URL.preapproval,
-    {
-      body: JSON.stringify(requestBody),
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-        [MERCADO_PAGO_HTTP.contentTypeHeader]:
-          MERCADO_PAGO_HTTP.jsonContentType,
-        [MERCADO_PAGO_HTTP.idempotencyHeader]: input.idempotencyKey,
-      },
+    buildMercadoPagoJsonRequest({
+      accessToken: input.accessToken,
+      body: requestBody,
+      idempotencyKey: input.idempotencyKey,
       method: MERCADO_PAGO_HTTP.postMethod,
-    },
+    }),
     input.traceContext
   );
   const body =
@@ -1239,18 +1387,13 @@ export async function updateMercadoPagoPreapprovalBackUrl(
   const response = await fetchMercadoPago(
     operation,
     `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
-    {
-      body: JSON.stringify({
+    buildMercadoPagoJsonRequest({
+      accessToken: input.accessToken,
+      body: {
         back_url: input.backUrl,
-      }),
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-        [MERCADO_PAGO_HTTP.contentTypeHeader]:
-          MERCADO_PAGO_HTTP.jsonContentType,
       },
       method: MERCADO_PAGO_HTTP.putMethod,
-    },
+    }),
     input.traceContext
   );
 
@@ -1288,18 +1431,13 @@ export async function updateMercadoPagoPreapprovalSubscriptionStatus(input: {
   const response = await fetchMercadoPago(
     operation,
     `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
-    {
-      body: JSON.stringify({
+    buildMercadoPagoJsonRequest({
+      accessToken: input.accessToken,
+      body: {
         status: MERCADO_PAGO_SUBSCRIPTION_STATUS.cancelled,
-      }),
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-        [MERCADO_PAGO_HTTP.contentTypeHeader]:
-          MERCADO_PAGO_HTTP.jsonContentType,
       },
       method: MERCADO_PAGO_HTTP.putMethod,
-    },
+    }),
     input.traceContext
   );
   if (!response.ok && response.status === HTTP_STATUS_BAD_REQUEST) {
@@ -1314,32 +1452,12 @@ export async function updateMercadoPagoPreapprovalSubscriptionStatus(input: {
     input.traceContext
   );
 
-  if (!body.status) {
-    logMercadoPagoOperationResult({
-      level: SERVER_LOG_LEVEL.error,
-      operation,
-      preapprovalId: input.preapprovalId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
-      traceContext: input.traceContext,
-    });
-
-    throw new Error(
-      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
-    );
-  }
-
-  logMercadoPagoOperationResult({
-    metadata: {
-      providerStatus: body.status,
-      status: response.status,
-    },
+  return confirmMercadoPagoPreapprovalStatus(body, {
+    httpStatus: response.status,
     operation,
     preapprovalId: input.preapprovalId,
-    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
     traceContext: input.traceContext,
   });
-
-  return body.status;
 }
 
 /**
@@ -1352,65 +1470,20 @@ export async function getMercadoPagoPreapprovalStatus(
   input: MercadoPagoPreapprovalStatusInput
 ): Promise<string | null> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.getPreapprovalStatus;
-  const response = await fetchMercadoPago(
-    operation,
-    `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
-    {
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-      },
-      method: MERCADO_PAGO_HTTP.getMethod,
-    },
-    input.traceContext
-  );
+  const preapproval = await fetchMercadoPagoPreapproval(operation, input);
 
-  if (response.status === HTTP_STATUS_NOT_FOUND) {
-    logMercadoPagoOperationResult({
-      metadata: {
-        status: response.status,
-      },
-      operation,
-      preapprovalId: input.preapprovalId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
-      traceContext: input.traceContext,
-    });
-
+  if (!preapproval) {
     return null;
   }
 
-  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalResponse>(
-    operation,
-    response,
-    input.traceContext
-  );
+  const { body, httpStatus } = preapproval;
 
-  if (!body.status) {
-    logMercadoPagoOperationResult({
-      level: SERVER_LOG_LEVEL.error,
-      operation,
-      preapprovalId: input.preapprovalId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
-      traceContext: input.traceContext,
-    });
-
-    throw new Error(
-      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
-    );
-  }
-
-  logMercadoPagoOperationResult({
-    metadata: {
-      providerStatus: body.status,
-      status: response.status,
-    },
+  return confirmMercadoPagoPreapprovalStatus(body, {
+    httpStatus: httpStatus,
     operation,
     preapprovalId: input.preapprovalId,
-    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
     traceContext: input.traceContext,
   });
-
-  return body.status;
 }
 
 /**
@@ -1423,52 +1496,19 @@ export async function getMercadoPagoPreapprovalDetails(
   input: MercadoPagoPreapprovalDetailsInput
 ): Promise<MercadoPagoPreapprovalDetailsResult | null> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.getPreapprovalDetails;
-  const response = await fetchMercadoPago(
-    operation,
-    `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
-    {
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-      },
-      method: MERCADO_PAGO_HTTP.getMethod,
-    },
-    input.traceContext
-  );
+  const preapproval = await fetchMercadoPagoPreapproval(operation, input);
 
-  if (response.status === HTTP_STATUS_NOT_FOUND) {
-    logMercadoPagoOperationResult({
-      metadata: {
-        status: response.status,
-      },
-      operation,
-      preapprovalId: input.preapprovalId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
-      traceContext: input.traceContext,
-    });
-
+  if (!preapproval) {
     return null;
   }
 
-  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalResponse>(
+  const { body, httpStatus } = preapproval;
+
+  const providerStatus = requireMercadoPagoPreapprovalStatus(body, {
     operation,
-    response,
-    input.traceContext
-  );
-
-  if (!body.status) {
-    logMercadoPagoOperationResult({
-      level: SERVER_LOG_LEVEL.error,
-      operation,
-      preapprovalId: input.preapprovalId,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
-      traceContext: input.traceContext,
-    });
-
-    throw new Error(
-      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
-    );
-  }
+    preapprovalId: input.preapprovalId,
+    traceContext: input.traceContext,
+  });
 
   const providerPreapprovalDetails = {
     externalReference:
@@ -1477,18 +1517,15 @@ export async function getMercadoPagoPreapprovalDetails(
         : String(body.external_reference),
     id: body.id ?? input.preapprovalId,
     preapprovalPlanId: body.preapproval_plan_id ?? null,
-    status: body.status,
+    status: providerStatus,
   };
 
-  logMercadoPagoOperationResult({
-    metadata: {
-      providerStatus: providerPreapprovalDetails.status,
-      status: response.status,
-    },
+  logMercadoPagoProviderStatus({
+    httpStatus: httpStatus,
     operation,
     preapprovalId: providerPreapprovalDetails.id,
     providerPlanId: providerPreapprovalDetails.preapprovalPlanId,
-    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
+    providerStatus: providerPreapprovalDetails.status,
     traceContext: input.traceContext,
   });
 
@@ -1555,10 +1592,7 @@ type MercadoPagoPaymentResponse = {
  */
 export async function getMercadoPagoPayment(input: MercadoPagoPaymentInput): Promise<MercadoPagoPayment | null> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.getPayment;
-  const response = await fetchMercadoPago(operation, `${MERCADO_PAGO_URL.payments}/${encodeURIComponent(input.paymentId)}`, {
-    headers: { [MERCADO_PAGO_HTTP.authorizationHeader]: MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken },
-    method: MERCADO_PAGO_HTTP.getMethod,
-  }, input.traceContext);
+  const response = await fetchMercadoPago(operation, `${MERCADO_PAGO_URL.payments}/${encodeURIComponent(input.paymentId)}`, buildMercadoPagoReadRequest(input.accessToken), input.traceContext);
   if (response.status === HTTP_STATUS_NOT_FOUND) return null;
   const body = await readMercadoPagoResponse<MercadoPagoPaymentResponse>(operation, response, input.traceContext);
   const id = readOptionalProviderString(body.id);
@@ -1655,32 +1689,19 @@ export async function getMercadoPagoAuthorizedPayment(
   const response = await fetchMercadoPago(
     operation,
     `${MERCADO_PAGO_URL.authorizedPayments}/${encodeURIComponent(input.authorizedPaymentId)}`,
-    {
-      headers: {
-        [MERCADO_PAGO_HTTP.authorizationHeader]:
-          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-      },
-      method: MERCADO_PAGO_HTTP.getMethod,
-    },
+    buildMercadoPagoReadRequest(input.accessToken),
     input.traceContext
   );
 
-  if (response.status === HTTP_STATUS_NOT_FOUND) {
-    logMercadoPagoOperationResult({
-      metadata: { status: response.status },
-      operation,
-      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
-      traceContext: input.traceContext,
-    });
-
-    return null;
-  }
-
-  const body = await readMercadoPagoResponse<MercadoPagoAuthorizedPaymentResponse>(
+  const body = await readMercadoPagoResponseOrNull<MercadoPagoAuthorizedPaymentResponse>(
     operation,
     response,
-    input.traceContext
+    { traceContext: input.traceContext }
   );
+
+  if (!body) {
+    return null;
+  }
   const authorizedPayment = mapMercadoPagoAuthorizedPayment(body);
 
   logMercadoPagoOperationResult({
@@ -1721,13 +1742,7 @@ export async function searchMercadoPagoAuthorizedPayments(
     const response = await fetchMercadoPago(
       operation,
       `${MERCADO_PAGO_URL.authorizedPayments}/search?${searchParams.toString()}`,
-      {
-        headers: {
-          [MERCADO_PAGO_HTTP.authorizationHeader]:
-            MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
-        },
-        method: MERCADO_PAGO_HTTP.getMethod,
-      },
+      buildMercadoPagoReadRequest(input.accessToken),
       input.traceContext
     );
     const body = await readMercadoPagoResponse<MercadoPagoAuthorizedPaymentSearchResponse>(

@@ -4,7 +4,7 @@
  * @module verification-provider-route-http
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import { handleAcademyRoute } from "@/app/api/tribes/[slug]/academy-route-scope";
 import type { z } from "zod";
 
 import { toVerificationProviderDto } from "@/src/modules/member-verifications/application/results/member-verification-dto-mappers";
@@ -13,10 +13,6 @@ import {
   ACADEMY_HTTP_STATUS,
   ACADEMY_ROUTE_MESSAGE,
   createAcademyJsonResponse,
-  createAcademyPublicResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
-  readAcademyJsonBody,
 } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import {
   verificationProviderBodySchema,
@@ -38,63 +34,33 @@ export async function saveVerificationProviderFromRoute<TDto>(input: {
   dtoSchema: z.ZodType<TDto>;
   request: Request;
 }): Promise<Response> {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request: input.request });
-
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: verificationProviderParamsSchema,
-    value: await input.context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  const body = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "body",
-    schema: verificationProviderBodySchema,
-    value: await readAcademyJsonBody(input.request),
-  });
-
-  if (!body.isValid) {
-    return body.response;
-  }
-
-  const metadata = { requestId: scope.requestId, tribeSlug: params.data.slug };
-
-  try {
-    const result = await scope.modules.memberVerifications.useCases.saveVerificationProvider({
-      ...body.data,
-      correlationId: scope.requestId,
-      providerId: params.data.providerId,
-      tribeSlug: params.data.slug,
-    });
-
-    if (result.status === "created" || result.status === "updated") {
-      return createAcademyPublicResponse({
-        body: toVerificationProviderDto(result.provider),
-        logger: scope.logger,
-        metadata,
-        schema: input.dtoSchema,
-        status: result.status === "created" ? ACADEMY_HTTP_STATUS.created : ACADEMY_HTTP_STATUS.ok,
+  return handleAcademyRoute(
+    input.request,
+    input.context,
+    {
+      failureMessage: "Verification provider save failed",
+      operation: OPERATION,
+      schemas: { body: verificationProviderBodySchema, params: verificationProviderParamsSchema },
+    },
+    async ({ body, modules, params, requestId, respond }) => {
+      const result = await modules.memberVerifications.useCases.saveVerificationProvider({
+        ...body,
+        correlationId: requestId,
+        providerId: params.providerId,
+        tribeSlug: params.slug,
       });
+
+      if (result.status === "created" || result.status === "updated") {
+        return respond(
+          toVerificationProviderDto(result.provider),
+          input.dtoSchema,
+          result.status === "created" ? ACADEMY_HTTP_STATUS.created : ACADEMY_HTTP_STATUS.ok
+        );
+      }
+
+      const failure = SAVE_FAILURE_RESPONSE[result.status];
+
+      return createAcademyJsonResponse({ message: failure.message }, failure.status);
     }
-
-    const failure = SAVE_FAILURE_RESPONSE[result.status];
-
-    return createAcademyJsonResponse({ message: failure.message }, failure.status);
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Verification provider save failed",
-      metadata,
-    });
-  }
+  );
 }

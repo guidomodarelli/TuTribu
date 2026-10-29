@@ -17,9 +17,14 @@ import {
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleGuardedMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { isPayloadObject } from "@/app/api/request-body-fields";
 
 const WELCOME_ROUTE_LOG = {
   feature: "tribes",
@@ -42,15 +47,6 @@ const WELCOME_ROUTE_RESPONSE = {
   unexpectedSaveMessage: "No pudimos guardar la bienvenida. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
 const ALLOWED_EXTERNAL_URL_PROTOCOL = {
   http: "http:",
   https: "https:",
@@ -60,19 +56,15 @@ const BADGE_LABEL_MAX_LENGTH = 30;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
 function createHiddenWelcomeResponse(reason: string): Response {
   if (reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: WELCOME_ROUTE_RESPONSE.accessForbiddenMessage },
       HTTP_STATUS.forbidden
     );
   }
 
-  return createJsonResponse(
+  return createRouteJsonResponse(
     { message: WELCOME_ROUTE_RESPONSE.notFoundMessage },
     HTTP_STATUS.notFound
   );
@@ -125,10 +117,6 @@ function hasPhoneNumberDigits(value: string | null): boolean {
 
 function hasValidWhatsappPhoneFormat(value: string | null): boolean {
   return Boolean(value && isValidPhoneNumber(value));
-}
-
-function isPayloadObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function mapPayloadRules(rules: unknown): TribeWelcomeRuleResult[] | null {
@@ -269,74 +257,50 @@ function validateWelcomePayload(input: {
   return null;
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: WELCOME_ROUTE_LOG.feature,
+  operation: WELCOME_ROUTE_LOG.operation,
+  unauthorizedMessage: WELCOME_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function GET(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: WELCOME_ROUTE_LOG.feature,
-    operation: WELCOME_ROUTE_LOG.operation,
-    requestId,
-  });
-  let viewerId: string | null = null;
 
-  try {
-    const modules = await createRequestModules();
-    const authenticatedMember =
-      await modules.auth.useCases.getAuthenticatedMember();
+  return handleGuardedMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: WELCOME_ROUTE_LOG.getFailureMessage,
+      readMetadata: (viewerId) => ({ slug, viewerId }),
+      responseMessage: WELCOME_ROUTE_RESPONSE.unexpectedGetMessage,
+    },
+    async ({ modules }) => {
+      const accessResult = await modules.tribes.useCases.getTribePageAccess({
+        // Onboarding (welcome rules and the external WhatsApp group) is part of
+        // the academy free allowlist.
+        allowWithoutCommunityAccess: true,
+        isAuthenticated: true,
+        slug,
+      });
 
-    if (!authenticatedMember) {
-      return createJsonResponse(
-        { message: WELCOME_ROUTE_RESPONSE.unauthorizedMessage },
-        HTTP_STATUS.unauthorized
+      if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
+        return createHiddenWelcomeResponse(accessResult.reason);
+      }
+
+      return createRouteJsonResponse(
+        {
+          welcome: await modules.tribes.useCases.getTribeWelcome({
+            tribeSlug: slug,
+          }),
+        },
+        HTTP_STATUS.ok
       );
     }
-
-    viewerId = authenticatedMember.id;
-    const accessResult = await modules.tribes.useCases.getTribePageAccess({
-      // Onboarding (welcome rules and the external WhatsApp group) is part of
-      // the academy free allowlist.
-      allowWithoutCommunityAccess: true,
-      isAuthenticated: true,
-      slug,
-    });
-
-    if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-      return createHiddenWelcomeResponse(accessResult.reason);
-    }
-
-    return createJsonResponse(
-      {
-        welcome: await modules.tribes.useCases.getTribeWelcome({
-          tribeSlug: slug,
-        }),
-      },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      error,
-      message: WELCOME_ROUTE_LOG.getFailureMessage,
-      metadata: {
-        slug,
-        viewerId,
-      },
-    });
-
-    return createJsonResponse(
-      { message: WELCOME_ROUTE_RESPONSE.unexpectedGetMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type SaveTribeWelcomeResult = Awaited<
   ReturnType<RequestModules["tribes"]["useCases"]["saveTribeWelcome"]>
@@ -345,18 +309,18 @@ type SaveTribeWelcomeResult = Awaited<
 function createPutResultResponse(result: SaveTribeWelcomeResult): Response {
   switch (result.status) {
     case TRIBE_WELCOME_SAVE_STATUS.updated:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: WELCOME_ROUTE_RESPONSE.savedMessage },
         HTTP_STATUS.ok
       );
     case TRIBE_WELCOME_SAVE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: WELCOME_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case TRIBE_WELCOME_SAVE_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: WELCOME_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -428,64 +392,36 @@ function readWelcomeDraft(parsedBody: unknown): WelcomeDraft | { errorMessage: s
 
 export async function PUT(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: WELCOME_ROUTE_LOG.feature,
-    operation: WELCOME_ROUTE_LOG.operation,
-    requestId,
-  });
-  let viewerId: string | null = null;
 
-  try {
-    const modules = await createRequestModules();
-    const authenticatedMember =
-      await modules.auth.useCases.getAuthenticatedMember();
+  return handleGuardedMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: WELCOME_ROUTE_LOG.saveFailureMessage,
+      readMetadata: (viewerId) => ({ slug, viewerId }),
+      responseMessage: WELCOME_ROUTE_RESPONSE.unexpectedSaveMessage,
+    },
+    async ({ modules }) => {
+      const parsedBody: unknown = await request.json().catch(() => ({}));
 
-    if (!authenticatedMember) {
-      return createJsonResponse(
-        { message: WELCOME_ROUTE_RESPONSE.unauthorizedMessage },
-        HTTP_STATUS.unauthorized
-      );
+      const draft = readWelcomeDraft(parsedBody);
+
+      if ("errorMessage" in draft) {
+        return createRouteJsonResponse(
+          { message: draft.errorMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      const result = await modules.tribes.useCases.saveTribeWelcome({
+        ...draft,
+        tribeSlug: slug,
+      });
+
+      return createPutResultResponse(result);
     }
-
-    viewerId = authenticatedMember.id;
-    const parsedBody: unknown = await request.json().catch(() => ({}));
-
-    const draft = readWelcomeDraft(parsedBody);
-
-    if ("errorMessage" in draft) {
-      return createJsonResponse(
-        { message: draft.errorMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const result = await modules.tribes.useCases.saveTribeWelcome({
-      ...draft,
-      tribeSlug: slug,
-    });
-
-    return createPutResultResponse(result);
-  } catch (error) {
-    logger.error({
-      error,
-      message: WELCOME_ROUTE_LOG.saveFailureMessage,
-      metadata: {
-        slug,
-        viewerId,
-      },
-    });
-
-    return createJsonResponse(
-      { message: WELCOME_ROUTE_RESPONSE.unexpectedSaveMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

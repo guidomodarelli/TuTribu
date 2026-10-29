@@ -1,0 +1,18 @@
+// Accessibility helpers shared by the component CSS Modules.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/a11y";
+//   .Block__visuallyHidden { @include a11y.visually-hidden; }
+
+// Hides content visually while keeping it available to assistive technology.
+@mixin visually-hidden {
+  border: 0;
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

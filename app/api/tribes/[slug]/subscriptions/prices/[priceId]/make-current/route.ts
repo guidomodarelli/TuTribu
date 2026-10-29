@@ -5,9 +5,12 @@
  */
 
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const CURRENT_PRICE_ROUTE_LOG = {
   failureMessage: "Tribe subscription current price update failed",
@@ -23,103 +26,64 @@ const CURRENT_PRICE_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos marcar el precio como actual. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
+const MEMBER_ROUTE_SCOPE = {
+  feature: CURRENT_PRICE_ROUTE_LOG.feature,
+  operation: CURRENT_PRICE_ROUTE_LOG.operation,
+  unauthorizedMessage: CURRENT_PRICE_ROUTE_RESPONSE.unauthorizedMessage,
 } as const;
-
-/**
- * Creates a JSON response with an explicit status.
- *
- * @param body - JSON body.
- * @param status - HTTP status.
- * @returns JSON response.
- */
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
 
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      priceId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ priceId: string }>
 ) {
   const { priceId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: CURRENT_PRICE_ROUTE_LOG.feature,
-    operation: CURRENT_PRICE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: CURRENT_PRICE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: CURRENT_PRICE_ROUTE_LOG.failureMessage,
+      metadata: { priceId, slug },
+      responseMessage: CURRENT_PRICE_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const result =
+        await modules.subscriptions.useCases.makeTribeSubscriptionPriceCurrent({
+          priceId,
+          tribeSlug: slug,
+        });
 
-  try {
-    const result =
-      await modules.subscriptions.useCases.makeTribeSubscriptionPriceCurrent({
-        priceId,
-        tribeSlug: slug,
-      });
-
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.current:
-        return createJsonResponse(
-          {
-            message: CURRENT_PRICE_ROUTE_RESPONSE.successMessage,
-            price: result.price,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          { message: CURRENT_PRICE_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
-      default:
-        return createJsonResponse(
-          { message: CURRENT_PRICE_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
+      switch (result.status) {
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.current:
+          return createRouteJsonResponse(
+            {
+              message: CURRENT_PRICE_ROUTE_RESPONSE.successMessage,
+              price: result.price,
+            },
+            HTTP_STATUS.ok
+          );
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+          return createRouteJsonResponse(
+            { message: CURRENT_PRICE_ROUTE_RESPONSE.notFoundMessage },
+            HTTP_STATUS.notFound
+          );
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
+        default:
+          return createRouteJsonResponse(
+            { message: CURRENT_PRICE_ROUTE_RESPONSE.forbiddenMessage },
+            HTTP_STATUS.forbidden
+          );
+      }
     }
-  } catch (error) {
-    logger.error({
-      message: CURRENT_PRICE_ROUTE_LOG.failureMessage,
-      error,
-      metadata: {
-        priceId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: CURRENT_PRICE_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

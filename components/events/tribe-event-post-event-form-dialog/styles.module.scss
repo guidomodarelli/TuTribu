@@ -1,3 +1,5 @@
+@use "../events";
+
 .TribeEventPostEventFormDialog {
   width: min(100% - 2rem, 36rem);
 
@@ -59,17 +61,10 @@
   }
 
   &__error {
-    margin: 0;
-    border-left: 3px solid var(--destructive);
-    color: var(--destructive);
-    font-size: 0.9rem;
-    padding-left: 0.75rem;
+    @include events.inline-error;
   }
 
   &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: flex-end;
+    @include events.dialog-actions;
   }
 }

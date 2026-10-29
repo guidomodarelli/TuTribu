@@ -9,10 +9,15 @@ import {
   TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
   TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
-import { createRequestModules } from "@/src/modules/setup";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { readOptionalStringField, readStringField } from "@/app/api/request-body-fields";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const PRICE_ITEM_ROUTE_LOG = {
   deleteFailureMessage: "Tribe subscription price deletion failed",
@@ -43,17 +48,6 @@ const PRICE_ITEM_ROUTE_RESPONSE = {
   updatedMessage: "Precio actualizado.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  conflict: 409,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
-} as const;
-
 const PRICE_ITEM_ROUTE_FIELD = {
   amount: "amount",
   name: "name",
@@ -65,54 +59,6 @@ const PRICE_ITEM_ROUTE_TRIAL = {
   daysType: "days",
   validPattern: /^\d+$/,
 } as const;
-
-/**
- * Creates a JSON response with an explicit status.
- *
- * @param body - JSON body.
- * @param status - HTTP status.
- * @returns JSON response.
- */
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-/**
- * Reads a string field from an unknown JSON body.
- *
- * @param body - Parsed JSON body.
- * @param field - Field name to read.
- * @returns String field value or an empty string.
- */
-function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
-
-/**
- * Reads a string field while preserving omitted optional fields.
- *
- * @param body - Parsed JSON body.
- * @param field - Field name to read.
- * @returns String field value, an empty string for invalid provided values, or undefined when omitted.
- */
-function readOptionalStringField(
-  body: unknown,
-  field: string
-): string | undefined {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return undefined;
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
 
 /**
  * Creates the safe response used for trial validation failures.
@@ -171,8 +117,6 @@ function hasTrialFrequencyValidationError(body: unknown): boolean {
   );
 }
 
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
-
 type UpdateTribeSubscriptionPriceResult = Awaited<
   ReturnType<RequestModules["subscriptions"]["useCases"]["updateTribeSubscriptionPrice"]>
 >;
@@ -182,7 +126,7 @@ function createPatchResultResponse(result: UpdateTribeSubscriptionPriceResult, b
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.current:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: PRICE_ITEM_ROUTE_RESPONSE.updatedMessage,
           price: result.price,
@@ -190,24 +134,24 @@ function createPatchResultResponse(result: UpdateTribeSubscriptionPriceResult, b
         HTTP_STATUS.ok
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         hasTrialFrequencyValidationError(body)
           ? createInvalidTrialFrequencyResponse()
           : { message: PRICE_ITEM_ROUTE_RESPONSE.invalidInputMessage },
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.limitReachedMessage },
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.missingIntegrationMessage },
         HTTP_STATUS.serviceUnavailable
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
@@ -218,7 +162,7 @@ function createPatchResultResponse(result: UpdateTribeSubscriptionPriceResult, b
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -227,65 +171,44 @@ function createPatchResultResponse(result: UpdateTribeSubscriptionPriceResult, b
 
 export async function PATCH(
   request: Request,
-  context: {
-    params: Promise<{
-      priceId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ priceId: string }>
 ) {
   const { priceId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: PRICE_ITEM_ROUTE_LOG.feature,
-    operation: PRICE_ITEM_ROUTE_LOG.updateOperation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    {
+      feature: PRICE_ITEM_ROUTE_LOG.feature,
+      operation: PRICE_ITEM_ROUTE_LOG.updateOperation,
+      unauthorizedMessage: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage,
+      withRequestId: true,
+    },
+    {
+      logMessage: PRICE_ITEM_ROUTE_LOG.updateFailureMessage,
+      metadata: { priceId, slug },
+      responseMessage: PRICE_ITEM_ROUTE_RESPONSE.unexpectedUpdateMessage,
+    },
+    async ({ modules }) => {
+      const body: unknown = await request.json().catch(() => null);
+      const result =
+        await modules.subscriptions.useCases.updateTribeSubscriptionPrice({
+          amount: readStringField(body, PRICE_ITEM_ROUTE_FIELD.amount),
+          name: readStringField(body, PRICE_ITEM_ROUTE_FIELD.name),
+          priceId,
+          trialFrequency: readOptionalStringField(
+            body,
+            PRICE_ITEM_ROUTE_FIELD.trialFrequency
+          ),
+          trialFrequencyType: readOptionalStringField(
+            body,
+            PRICE_ITEM_ROUTE_FIELD.trialFrequencyType
+          ),
+          tribeSlug: slug,
+        });
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const result =
-      await modules.subscriptions.useCases.updateTribeSubscriptionPrice({
-        amount: readStringField(body, PRICE_ITEM_ROUTE_FIELD.amount),
-        name: readStringField(body, PRICE_ITEM_ROUTE_FIELD.name),
-        priceId,
-        trialFrequency: readOptionalStringField(
-          body,
-          PRICE_ITEM_ROUTE_FIELD.trialFrequency
-        ),
-        trialFrequencyType: readOptionalStringField(
-          body,
-          PRICE_ITEM_ROUTE_FIELD.trialFrequencyType
-        ),
-        tribeSlug: slug,
-      });
-
-    return createPatchResultResponse(result, body);
-  } catch (error) {
-    logger.error({
-      message: PRICE_ITEM_ROUTE_LOG.updateFailureMessage,
-      error,
-      metadata: {
-        priceId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: PRICE_ITEM_ROUTE_RESPONSE.unexpectedUpdateMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPatchResultResponse(result, body);
+    }
+  );
 }
 
 type DeleteTribeSubscriptionPriceResult = Awaited<
@@ -298,7 +221,7 @@ async function createDeleteResultResponse(
 ): Promise<Response> {
   switch (result.status) {
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: PRICE_ITEM_ROUTE_RESPONSE.canceledMessage,
           price: result.price,
@@ -306,7 +229,7 @@ async function createDeleteResultResponse(
         HTTP_STATUS.ok
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           deletedPriceId: priceId,
           message: PRICE_ITEM_ROUTE_RESPONSE.deletedMessage,
@@ -314,7 +237,7 @@ async function createDeleteResultResponse(
         HTTP_STATUS.ok
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.hasSubscribersMessage },
         HTTP_STATUS.badRequest
       );
@@ -326,7 +249,7 @@ async function createDeleteResultResponse(
           tribeSlug: slug,
         });
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           linkedInvitations: linkedInvitations.invitations,
           message: PRICE_ITEM_ROUTE_RESPONSE.hasLinkedInvitationsMessage,
@@ -336,12 +259,12 @@ async function createDeleteResultResponse(
       );
     }
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.missingIntegrationMessage },
         HTTP_STATUS.serviceUnavailable
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
@@ -353,7 +276,7 @@ async function createDeleteResultResponse(
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ITEM_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -362,52 +285,31 @@ async function createDeleteResultResponse(
 
 export async function DELETE(
   request: Request,
-  context: {
-    params: Promise<{
-      priceId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ priceId: string }>
 ) {
   const { priceId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: PRICE_ITEM_ROUTE_LOG.feature,
-    operation: PRICE_ITEM_ROUTE_LOG.deleteOperation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    {
+      feature: PRICE_ITEM_ROUTE_LOG.feature,
+      operation: PRICE_ITEM_ROUTE_LOG.deleteOperation,
+      unauthorizedMessage: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage,
+      withRequestId: true,
+    },
+    {
+      logMessage: PRICE_ITEM_ROUTE_LOG.deleteFailureMessage,
+      metadata: { priceId, slug },
+      responseMessage: PRICE_ITEM_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const result =
+        await modules.subscriptions.useCases.deleteTribeSubscriptionPrice({
+          priceId,
+          tribeSlug: slug,
+        });
 
-  try {
-    const result =
-      await modules.subscriptions.useCases.deleteTribeSubscriptionPrice({
-        priceId,
-        tribeSlug: slug,
-      });
-
-    return await createDeleteResultResponse(result, { modules, priceId, slug });
-  } catch (error) {
-    logger.error({
-      message: PRICE_ITEM_ROUTE_LOG.deleteFailureMessage,
-      error,
-      metadata: {
-        priceId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: PRICE_ITEM_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return await createDeleteResultResponse(result, { modules, priceId, slug });
+    }
+  );
 }

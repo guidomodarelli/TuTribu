@@ -5,6 +5,7 @@ import { AnimatePresence } from "motion/react";
 
 import { Badge, Button, Dialog, DialogContent, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "@golfo/ui";
 
+import { TribeEventRetryButton } from "@/components/events/tribe-event-retry-button";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
 import {
   formatBuenosAiresLongDate,
@@ -72,7 +73,6 @@ const COPY = {
   managerTitle: "Propuestas de la tribu",
   proposedBy: "Propuesta por ",
   rejectButton: "Rechazar",
-  retry: "Reintentar",
   reviewButton: "Revisar y aprobar",
   reviewNoteLabel: "Nota para quien la propuso (opcional)",
   reviewNotePrefix: "Nota: ",
@@ -271,14 +271,7 @@ function ProposalsLoadError({ message, onRetry }: { message: string; onRetry: ()
   return (
     <div className={styles.TribeEventProposalsPanel__status} role="alert">
       <p>{message || COPY.loadError}</p>
-      <Button
-        size={BUTTON_ATTRIBUTE.sizeSmall}
-        type={BUTTON_ATTRIBUTE.typeButton}
-        variant={BUTTON_ATTRIBUTE.variantSecondary}
-        onClick={onRetry}
-      >
-        {COPY.retry}
-      </Button>
+      <TribeEventRetryButton onRetry={onRetry} />
     </div>
   );
 }

@@ -9,20 +9,14 @@ import type {
   TribeStoryRepository,
   TribeStorySaveResult,
 } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
+import {
+  normalizeNullableText,
+  normalizeText,
+} from "@/src/modules/shared/application/validation/text-normalization";
 
 type TribeStoryDependencies = {
   tribeStoryRepository: TribeStoryRepository;
 };
-
-function normalizeText(value: string): string {
-  return value.trim();
-}
-
-function normalizeNullableText(value: string | null): string | null {
-  const normalizedValue = value?.trim() ?? "";
-
-  return normalizedValue.length > 0 ? normalizedValue : null;
-}
 
 function normalizeMediaItems(
   media: SaveTribeStoryMediaItem[]

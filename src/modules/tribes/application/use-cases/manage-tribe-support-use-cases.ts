@@ -5,20 +5,14 @@ import type {
   TribeSupportRepository,
   TribeSupportSaveResult,
 } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
+import {
+  normalizeNullableText,
+  normalizeText,
+} from "@/src/modules/shared/application/validation/text-normalization";
 
 type TribeSupportDependencies = {
   tribeSupportRepository: TribeSupportRepository;
 };
-
-function normalizeText(value: string): string {
-  return value.trim();
-}
-
-function normalizeNullableText(value: string | null): string | null {
-  const normalizedValue = value?.trim() ?? "";
-
-  return normalizedValue.length > 0 ? normalizedValue : null;
-}
 
 export function getTribeSupport({
   tribeSupportRepository,

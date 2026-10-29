@@ -4,20 +4,14 @@ import type {
   SaveTribeWelcomeCommand,
   TribeWelcomeRepository,
 } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
+import {
+  normalizeNullableText,
+  normalizeText,
+} from "@/src/modules/shared/application/validation/text-normalization";
 
 type TribeWelcomeDependencies = {
   tribeWelcomeRepository: TribeWelcomeRepository;
 };
-
-function normalizeText(value: string): string {
-  return value.trim();
-}
-
-function normalizeNullableText(value: string | null): string | null {
-  const normalizedValue = value?.trim() ?? "";
-
-  return normalizedValue.length > 0 ? normalizedValue : null;
-}
 
 function normalizeRule(rule: SaveTribeWelcomeCommand["rules"][number]) {
   return {

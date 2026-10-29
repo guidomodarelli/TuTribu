@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../../styles/typography";
 
 @include motion.define-keyframes;
 
@@ -24,12 +25,8 @@
   }
 
   &__title {
-    margin: 0;
+    @include typography.display-title(clamp(2.5rem, 6vw, 3.5rem), 1.05);
     color: var(--foreground);
-    font-family: var(--font-display), var(--font-sans), sans-serif;
-    font-size: clamp(2.5rem, 6vw, 3.5rem);
-    font-weight: 500;
-    line-height: 1.05;
   }
 
   &__subtitle {

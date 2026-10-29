@@ -16,8 +16,8 @@ import type {
 } from "@/src/modules/courses/domain/repositories/lesson-file-repository";
 import {
   isAttachmentAssetId,
-  isValidAttachmentUploadDeclaration,
-  normalizeAttachmentFileName,
+  normalizeAttachmentFileDrafts,
+  normalizeAttachmentUploadRequest,
 } from "@/src/modules/shared/application/attachments/attachment-upload-validation";
 
 type CreateLessonFileUploadDependencies = {
@@ -60,27 +60,11 @@ export type NormalizedLessonFileDrafts =
 export function normalizeLessonFileDrafts(
   drafts: LessonFileDraftCommand[] | null | undefined
 ): NormalizedLessonFileDrafts {
-  const rawDrafts = drafts ?? [];
+  const files = normalizeAttachmentFileDrafts(drafts, LESSON_FILES.maxCount);
 
-  if (rawDrafts.length > LESSON_FILES.maxCount) {
-    return { status: COURSE_MUTATION_STATUS.invalidFile };
-  }
-
-  const files: LessonFileAttachmentDraft[] = [];
-  const seenAssetIds = new Set<string>();
-
-  for (const draft of rawDrafts) {
-    const assetId = draft.assetId.trim();
-
-    if (!isAttachmentAssetId(assetId) || seenAssetIds.has(assetId)) {
-      return { status: COURSE_MUTATION_STATUS.invalidFile };
-    }
-
-    seenAssetIds.add(assetId);
-    files.push({ assetId, sortOrder: files.length });
-  }
-
-  return { files, status: NORMALIZED_LESSON_FILES_STATUS.valid };
+  return files
+    ? { files, status: NORMALIZED_LESSON_FILES_STATUS.valid }
+    : { status: COURSE_MUTATION_STATUS.invalidFile };
 }
 
 export function createLessonFileUpload({
@@ -89,26 +73,13 @@ export function createLessonFileUpload({
   return async (
     command: CreateLessonFileUploadCommand
   ): Promise<LessonFileUploadCreationResult> => {
-    const fileName = normalizeAttachmentFileName(command.fileName);
-    const mimeType = command.mimeType.trim().toLowerCase();
+    const upload = normalizeAttachmentUploadRequest(command);
 
-    if (
-      !isValidAttachmentUploadDeclaration({
-        fileName,
-        fileSizeBytes: command.fileSizeBytes,
-        mimeType,
-      })
-    ) {
+    if (!upload) {
       return { status: COURSE_MUTATION_STATUS.invalidFile };
     }
 
-    return lessonFileRepository.createUpload({
-      fileName,
-      fileSizeBytes: command.fileSizeBytes,
-      mimeType,
-      tribeSlug: command.tribeSlug.trim(),
-      userId: command.userId.trim(),
-    });
+    return lessonFileRepository.createUpload(upload);
   };
 }
 

@@ -8,6 +8,7 @@ import { toast, Button, Input, Switch, Textarea, AnimatedCount, AnimatedListItem
 
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
+import { readTribeSaveResponseMessage } from "@/lib/tribes/tribe-save-response";
 import type {
   TribeWelcomeLinkResult,
   TribeWelcomeResult,
@@ -511,17 +512,8 @@ async function submitWelcomeUpdate(
     },
     method: WELCOME_MANAGEMENT_REQUEST.putMethod,
   });
-  const responseBody = (await response.json().catch(() => ({}))) as {
-    message?: string;
-  };
 
-  if (!response.ok) {
-    throw new Error(
-      responseBody.message ?? TRIBE_WELCOME_MANAGEMENT_COPY.fallbackSaveError
-    );
-  }
-
-  return responseBody.message ?? TRIBE_WELCOME_MANAGEMENT_COPY.saveSuccess;
+  return readTribeSaveResponseMessage(response, TRIBE_WELCOME_MANAGEMENT_COPY);
 }
 
 type IdSet = ReadonlySet<string>;

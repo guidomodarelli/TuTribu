@@ -1,4 +1,4 @@
-import { planFreshnessReadRetry } from "@/lib/events/tribe-event-read-retry";
+import { settleFailedFreshnessRead } from "@/lib/events/tribe-event-read-retry";
 
 /**
  * Pure state machine that decides when the calendar reads the occurrences of
@@ -225,20 +225,15 @@ function settleRead(
     return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
   }
 
-  const retry = planFreshnessReadRetry(state.failedReadRetryCount);
+  const failedRead = settleFailedFreshnessRead(
+    settledState,
+    state.failedReadRetryCount,
+    OCCURRENCES_FRESHNESS_COMMAND.scheduleRead
+  );
 
-  if (retry === null) {
-    return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
-  }
-
-  return {
-    commands: [{ delayMs: retry.delayMs, type: OCCURRENCES_FRESHNESS_COMMAND.scheduleRead }],
-    state: {
-      ...settledState,
-      failedReadRetryCount: retry.retryCount,
-      isReadRetryScheduled: true,
-    },
-  };
+  return failedRead.commands.length === 0
+    ? failedRead
+    : { ...failedRead, state: { ...failedRead.state, isReadRetryScheduled: true } };
 }
 
 /**

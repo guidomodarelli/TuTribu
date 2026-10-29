@@ -1,14 +1,11 @@
 @use "../../../src/styles/workspace-panel";
+@use "../../styles/admission-workspace";
 
 .MessagingConnectionResources {
   @include workspace-panel.section;
 
-  &__title { @include workspace-panel.title; }
+  @include admission-workspace.connection-panel-elements;
   &__subtitle { @include workspace-panel.subtitle; padding: 0; }
-  &__lead { @include workspace-panel.lead; }
-  &__note { @include workspace-panel.note; }
-  &__form { @include workspace-panel.form; }
-  &__field { @include workspace-panel.field; }
   &__group {
     @include workspace-panel.form;
     @include workspace-panel.divider;

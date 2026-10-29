@@ -1,4 +1,6 @@
 @use "../../../src/styles/motion";
+@use "../../styles/typography";
+@use "../academy";
 
 @include motion.define-keyframes;
 
@@ -34,19 +36,12 @@ $academy-home-wide: 48rem;
   }
 
   &__eyebrow {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 0.8125rem;
-    font-weight: 500;
+    @include academy.eyebrow;
   }
 
   &__title {
-    margin: 0;
+    @include typography.display-title(clamp(2rem, 6vw, 3rem), 1.1);
     color: var(--foreground);
-    font-family: var(--font-display), var(--font-sans), sans-serif;
-    font-size: clamp(2rem, 6vw, 3rem);
-    font-weight: 500;
-    line-height: 1.1;
     overflow-wrap: anywhere;
   }
 
@@ -115,10 +110,7 @@ $academy-home-wide: 48rem;
     align-items: flex-start;
     margin: 0;
     padding: 0.75rem 0.875rem;
-    border-inline-start: 3px solid var(--primary);
-    border-radius: min(var(--radius-md), 0.5rem);
-    background-color: color-mix(in oklab, var(--primary) 8%, transparent);
-    color: var(--foreground);
+    @include academy.primary-notice;
     line-height: 1.5;
 
     .AcademyHome__icon {

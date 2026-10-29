@@ -1,14 +1,10 @@
 @use "../../../src/styles/motion";
+@use "../../styles/management-page";
 
 @include motion.define-keyframes;
 
 .TribeInvitationManagement {
-  display: grid;
-  gap: clamp(1.5rem, 4vw, 2.25rem);
-  margin: 0 auto;
-  width: 100%;
-  min-width: 0;
-  padding: 0.25rem 0 1.5rem;
+  @include management-page.page;
 
   &__header {
     @include motion.enter;
@@ -21,10 +17,8 @@
   }
 
   &__headingGroup {
-    display: grid;
+    @include management-page.heading-group;
     flex: 1 1 18rem;
-    gap: 0.5rem;
-    min-width: 0;
   }
 
   &__title,
@@ -36,21 +30,7 @@
     margin: 0;
   }
 
-  &__title {
-    color: var(--foreground);
-    font-family: var(--font-display), var(--font-sans), sans-serif;
-    font-size: clamp(2.25rem, 6vw, 3.5rem);
-    font-weight: 500;
-    line-height: 1.05;
-    overflow-wrap: anywhere;
-  }
-
-  &__description {
-    color: var(--muted-foreground);
-    font-size: 1rem;
-    line-height: 1.6;
-    max-width: 60ch;
-  }
+  @include management-page.heading-elements;
 
   &__headerActions {
     display: flex;
@@ -92,19 +72,11 @@
 
   &__list {
     position: relative;
-    display: grid;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--border);
+    @include management-page.list;
   }
 
   &__item {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
-    padding: 1.25rem 0;
-    border-bottom: 1px solid var(--border);
+    @include management-page.list-item(1rem, 1.25rem);
   }
 
   &__itemBody {
@@ -242,24 +214,15 @@
   }
 
   &__empty {
-    display: grid;
-    gap: 0.25rem;
-    padding: 1.5rem 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    @include management-page.empty(1.5rem);
   }
 
   &__emptyTitle {
-    color: var(--foreground);
-    font-size: 0.95rem;
-    font-weight: 500;
-    line-height: 1.5;
+    @include management-page.empty-title;
   }
 
   &__emptyHint {
-    color: var(--muted-foreground);
-    font-size: 0.9rem;
-    line-height: 1.5;
+    @include management-page.empty-hint;
     max-width: 52ch;
   }
 
@@ -274,7 +237,6 @@
     gap: 1rem;
     padding-block: 0.25rem;
   }
-
 }
 
 @media (min-width: 40rem) {

@@ -5,10 +5,10 @@ import { TribeSettingsManagement } from "@/components/tribes/tribe-settings-mana
 import { toAcademySettingsDto } from "@/src/modules/product-access/application/results/academy-dto-mappers";
 import { academySettingsDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
+import { requireActiveTribeMembership } from "../tribe-manager-page-access";
 
 const TRIBE_SETTINGS_PAGE = {
   operation: "tribe-settings-page",
@@ -34,12 +34,7 @@ export default async function TribeSettingsPage({
       operation: TRIBE_SETTINGS_PAGE.operation,
       slug,
     });
-  const membershipStatus =
-    await modules.tribes.useCases.getCurrentTribeMembershipStatus(tribe.slug);
-
-  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
-    notFound();
-  }
+  await requireActiveTribeMembership(modules, tribe.slug);
 
   const currentMembership = (
     await modules.tribes.useCases.getMemberTribes()

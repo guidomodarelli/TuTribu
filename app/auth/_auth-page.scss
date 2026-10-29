@@ -1,0 +1,48 @@
+// Shared layout for the auth pages (sign in, auth error).
+//
+// Each page keeps its own BEM block and card surface; these mixins only give them the same centered column,
+// frosted card base and heading typography.
+//
+// Usage (path relative to the module):
+//   @use "../auth-page";
+//   .Block { @include auth-page.page; @include auth-page.heading-elements; }
+
+@mixin page {
+  margin-inline: auto;
+  display: flex;
+  min-height: 100svh;
+  width: 100%;
+  max-width: 32rem;
+  align-items: center;
+  padding: clamp(1.5rem, 6vw, 3rem) 1rem;
+}
+
+// Frosted card padding and blur; each page sets its own border, radius, tint and shadow.
+@mixin card {
+  padding: clamp(1.25rem, 5vw, 2rem);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+// Eyebrow, title and description of the including block.
+@mixin heading-elements {
+  &__eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+
+  &__title {
+    margin-top: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  &__description {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    color: var(--muted-foreground);
+  }
+}

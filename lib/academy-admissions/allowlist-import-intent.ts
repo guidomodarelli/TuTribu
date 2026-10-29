@@ -2,6 +2,7 @@
 /** Persists one scoped file copy, explicit selection and original references without consent, results or credentials. @module allowlist-import-intent */
 import { z } from "zod";
 import { allowlistImportDraftSchema, allowlistImportBrowserIntentSchema, allowlistImportConfirmationIntentSchema, allowlistImportSelectionSchema } from "@/src/modules/academy-admissions/application/commands/allowlist-import-browser-intent";
+import { buildScopedIntentKey, readScopedIntentRecord, type ScopedIntentStorage } from "@/lib/scoped-intent-storage";
 import { ALLOWLIST_IMPORT_STORAGE_PREFIX } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import type { AllowlistImportDraftStore } from "@/src/modules/academy-admissions/application/ports/allowlist-import-draft-store";
@@ -12,24 +13,20 @@ export const storedAllowlistImportSchema = z.strictObject({ viewerId: z.string()
   .refine((stored) => [...stored.unresolved, ...(stored.pending?.type === REAUTHENTICATION_OPERATION.confirmAllowlistImport ? [stored.pending] : [])].every((intent) => intent.importId === stored.importId))
   .refine((stored) => new Set(stored.unresolved.map((intent) => intent.operationId)).size === stored.unresolved.length);
 export type StoredAllowlistImport = z.infer<typeof storedAllowlistImportSchema>;
-type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type StoragePort = ScopedIntentStorage;
 /** Metadata fits Web Storage; CSV bytes stay in the native large-data store. */
 const storedReferenceSchema = z.strictObject({ viewerId: z.string().min(1), slug: z.string().min(1), draft: z.strictObject({ draftId: z.uuid(), fileName: allowlistImportDraftSchema.shape.fileName }).nullable(), importId: z.uuid().nullable(), selection: allowlistImportSelectionSchema, pending: allowlistImportBrowserIntentSchema.nullable(), unresolved: z.array(allowlistImportConfirmationIntentSchema) });
 /** @param viewerId - Native current viewer. @param slug - Current academy. @returns A private scoped storage key. */
-function key(viewerId: string, slug: string): string { return `${ALLOWLIST_IMPORT_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`; }
+function key(viewerId: string, slug: string): string { return buildScopedIntentKey(ALLOWLIST_IMPORT_STORAGE_PREFIX, viewerId, slug); }
 /** Restore boundaries: metadata persistence (`storage`), own large-data store (`files`) and hydration cancellation (`signal`). */
 export type AllowlistImportRestorePorts = { storage?: StoragePort; files?: AllowlistImportDraftStore; signal?: AbortSignal };
 /** @param viewerId - Native viewer to restore. @param slug - Current academy. @param ports - Storage, file store and cancellation; browser defaults when absent. @returns Guarded proposals/references; a missing local file never discards its unresolved original. */
 export async function readAllowlistImport(viewerId: string, slug: string, { storage = window.sessionStorage, files = allowlistImportDraftStore, signal = new AbortController().signal }: AllowlistImportRestorePorts = {}): Promise<StoredAllowlistImport | null> {
-  const raw = storage.getItem(key(viewerId, slug));
-  if (!raw) return null;
-  let value: unknown;
-  try { value = JSON.parse(raw); } catch { storage.removeItem(key(viewerId, slug)); return null; }
-  const parsed = storedReferenceSchema.safeParse(value);
-  if (!parsed.success || parsed.data.viewerId !== viewerId || parsed.data.slug !== slug) { storage.removeItem(key(viewerId, slug)); return null; }
-  const draft = parsed.data.draft ? await files.load(viewerId, slug, parsed.data.draft.draftId, signal) : null;
+  const stored = readScopedIntentRecord(storedReferenceSchema, { viewerId, slug }, key(viewerId, slug), storage);
+  if (!stored) return null;
+  const draft = stored.draft ? await files.load(viewerId, slug, stored.draft.draftId, signal) : null;
   if (signal.aborted) return null;
-  return storedAllowlistImportSchema.parse({ ...parsed.data, draft });
+  return storedAllowlistImportSchema.parse({ ...stored, draft });
 }
 /** @param value - One current scoped proposal and exact originals. @param storage - Persistence edge. @returns After storage succeeds; callers must stop a write when it fails. */
 export function writeAllowlistImport(value: StoredAllowlistImport, storage: StoragePort = window.sessionStorage): void {

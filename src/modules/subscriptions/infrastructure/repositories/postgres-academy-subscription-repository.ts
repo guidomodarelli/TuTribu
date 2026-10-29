@@ -63,6 +63,7 @@ import {
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
 import { mapMercadoPagoSubscriptionStatus } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
+import type { AuditEventWriter } from "@/src/modules/shared/infrastructure/database/audit-event";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { ROUTES } from "@/src/constants/routes";
 
@@ -85,21 +86,7 @@ export type AcademyPaidGrantWriter = (
 ) => Promise<{ grantId: string; inserted: boolean }>;
 
 /** Audit writer injected by the composition root (product-access SQL). */
-export type AcademySubscriptionAuditWriter = (
-  database: RequestDatabase,
-  event: {
-    action: string;
-    actorUserId: string | null;
-    correlationId: string | null;
-    entityId: string;
-    entityType: string;
-    fromState: string | null;
-    reason: string | null;
-    subjectUserId: string | null;
-    toState: string | null;
-    tribeId: string;
-  }
-) => Promise<void>;
+export type AcademySubscriptionAuditWriter = AuditEventWriter;
 
 export type AcademySubscriptionGateway = {
   findCheckoutByReference(input: MercadoPagoCheckoutReferenceInput): Promise<{ checkoutUrl: string; providerSubscriptionId: string } | null>;

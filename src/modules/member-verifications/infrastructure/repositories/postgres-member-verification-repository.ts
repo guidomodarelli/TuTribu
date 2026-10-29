@@ -37,6 +37,7 @@ import {
   resolveVerificationRequestTransition,
   resolveVerificationReviewTransition,
 } from "@/src/modules/member-verifications/domain/services/member-verification-transitions";
+import type { AuditEventWriter } from "@/src/modules/shared/infrastructure/database/audit-event";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -44,21 +45,7 @@ type DatabaseExecutor = <T>(
 ) => Promise<T>;
 
 /** Audit writer injected by the composition root (product-access SQL). */
-export type VerificationAuditWriter = (
-  database: RequestDatabase,
-  event: {
-    action: string;
-    actorUserId: string | null;
-    correlationId: string | null;
-    entityId: string;
-    entityType: string;
-    fromState: string | null;
-    reason: string | null;
-    subjectUserId: string | null;
-    toState: string | null;
-    tribeId: string;
-  }
-) => Promise<void>;
+export type VerificationAuditWriter = AuditEventWriter;
 
 export const VERIFICATION_AUDIT_ACTION = {
   decided: "member_verification_decided",

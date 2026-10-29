@@ -49,9 +49,11 @@ import type { MessagePinRepository } from "@/src/modules/messages/domain/reposit
 import type { MessagePollRepository } from "@/src/modules/messages/domain/repositories/message-poll-repository";
 import type { MessageDeletionRepository } from "@/src/modules/messages/domain/repositories/message-deletion-repository";
 import {
-  createTribeRoundReply,
   createTribeRoundMessage,
+  createTribeRoundReplyFromRow,
+  createUnvotedPollOptions,
   formatMessageDateTimeValue,
+  type TribeRoundReplyRow,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import { sortMessageMediaBySortOrder } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -134,15 +136,7 @@ type InsertedPollOptionsRow = {
   poll_options: CreatedPollOptionRow[] | null;
 };
 
-type CreatedReplyRow = MutationStatusRow & {
-  reply_author_id: string | null;
-  reply_author_image: string | null;
-  reply_author_name: string | null;
-  reply_author_role: string | null;
-  reply_content: string | null;
-  reply_created_at: Date | string | null;
-  reply_id: string | null;
-};
+type CreatedReplyRow = MutationStatusRow & TribeRoundReplyRow;
 
 type LikeCountRow = {
   like_count: number | string | null;
@@ -325,15 +319,7 @@ function mapCreatedMessage(
           ? {
               allowMultipleVotes: Boolean(row.poll_allow_multiple_votes),
               id: row.poll_id,
-              options: (row.poll_options ?? [])
-                .filter((option) => option.id && option.text)
-                .map((option) => ({
-                  id: option.id ?? "",
-                  percentage: 0,
-                  selectedByViewer: false,
-                  text: option.text ?? "",
-                  voteCount: 0,
-                })),
+              options: createUnvotedPollOptions(row.poll_options ?? []),
               totalVoteCount: 0,
               viewerHasVoted: false,
             }
@@ -352,27 +338,12 @@ function mapCreatedMessage(
 }
 
 function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResult {
-  if (
-    row?.status === MESSAGE_MUTATION_STATUS.created &&
-    row.reply_id &&
-    row.reply_author_id &&
-    row.reply_content &&
-    row.reply_created_at
-  ) {
-    return {
-      reply: createTribeRoundReply({
-        id: row.reply_id,
-        author: {
-          id: row.reply_author_id,
-          image: row.reply_author_image,
-          name: row.reply_author_name,
-          role: row.reply_author_role,
-        },
-        content: row.reply_content,
-        createdAt: row.reply_created_at,
-      }),
-      status: row.status,
-    };
+  if (row?.status === MESSAGE_MUTATION_STATUS.created) {
+    const reply = createTribeRoundReplyFromRow(row);
+
+    if (reply) {
+      return { reply, status: row.status };
+    }
   }
 
   return mapFallbackReplyCreationStatus(row?.status ?? null);
@@ -1394,15 +1365,7 @@ export class PostgresMessageMutationRepository
     return {
       allowMultipleVotes: poll.allowMultipleVotes,
       id: pollId,
-      options: insertedOptions
-        .filter((option) => option.id && option.text)
-        .map((option) => ({
-          id: option.id ?? "",
-          percentage: 0,
-          selectedByViewer: false,
-          text: option.text ?? "",
-          voteCount: 0,
-        })),
+      options: createUnvotedPollOptions(insertedOptions),
       totalVoteCount: 0,
       viewerHasVoted: false,
     };

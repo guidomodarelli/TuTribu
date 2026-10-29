@@ -1,84 +1,26 @@
 @use "../../../src/styles/motion";
+@use "../../styles/status-surface";
 
 @include motion.define-keyframes;
 
 .ErrorState {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  // Inside the platform layout the surface cancels the page gutter so its backdrop reaches the edges;
-  // elsewhere the variable is unset and both values fall back to the plain layout.
-  width: calc(100% + 2 * var(--platform-page-padding, 0px));
-  margin: calc(-1 * var(--platform-page-padding, 0px));
-  flex: 1;
-  // Fills the viewport on its own and the content area inside the platform layout.
-  min-height: var(--platform-surface-min-height, 100svh);
-  align-content: center;
-  justify-items: start;
-  gap: 1.25rem;
-  overflow: hidden;
-  padding: clamp(2rem, 5vw, 5rem);
+  @include status-surface.surface;
   background: var(--background);
   color: var(--foreground);
 
   &__backdrop {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
+    @include status-surface.backdrop;
     background-image: var(--body-background-image);
     background-color: var(--background);
   }
 
-  // Copy and actions settle in one after another; the backdrop stays static.
-  &__eyebrow,
-  &__title,
-  &__description,
-  &__actions {
-    @include motion.enter;
-  }
+  @include status-surface.copy-elements;
 
   &__title {
-    animation-delay: 40ms;
-  }
-
-  &__description {
-    animation-delay: 80ms;
-  }
-
-  &__actions {
-    animation-delay: 120ms;
-  }
-
-  &__eyebrow {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: color-mix(in oklab, var(--foreground) 62%, transparent);
-  }
-
-  &__title {
-    margin: 0;
+    @include status-surface.title;
     max-width: 12ch;
-    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: clamp(2.8rem, 8vw, 5.5rem);
     line-height: 0.96;
-    text-wrap: balance;
-  }
-
-  &__description {
-    margin: 0;
-    max-width: 40rem;
-    font-size: clamp(1rem, 2vw, 1.15rem);
-    line-height: 1.75;
-    color: var(--muted-foreground);
-    text-wrap: pretty;
-  }
-
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.875rem;
-    padding-top: 0.5rem;
   }
 }
 

@@ -1,11 +1,10 @@
-import { notFound } from "next/navigation";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@golfo/ui";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { TribeInvitationConversionMetricResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../../tribe-page-access";
 import styles from "./styles.module.scss";
+import { requireTribeManagerMembership } from "../../tribe-manager-page-access";
 
 const INVITATION_METRICS_PAGE_COPY = {
   campaignFallback: "Sin campaña",
@@ -22,11 +21,6 @@ const INVITATION_METRICS_PAGE_LOG = {
   operation: "tribe-invitation-metrics-page",
   resolveMetricsFailureMessage:
     "Failed to resolve tribe invitation conversion metrics",
-} as const;
-
-const INVITATION_MANAGER_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
 } as const;
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -165,23 +159,7 @@ export default async function TribeInvitationMetricsPage({
       slug,
     });
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
-
-  if (
-    currentMembership?.role !== INVITATION_MANAGER_ROLE.leader &&
-    currentMembership?.role !== INVITATION_MANAGER_ROLE.guardian
-  ) {
-    notFound();
-  }
-
-  const membershipStatus =
-    await modules.tribes.useCases.getCurrentTribeMembershipStatus(tribe.slug);
-
-  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
-    notFound();
-  }
+  await requireTribeManagerMembership(modules, tribe.slug);
 
   const metrics = await modules.tribes.useCases
     .getTribeInvitationConversionMetrics({

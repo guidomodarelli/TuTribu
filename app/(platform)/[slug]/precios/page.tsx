@@ -11,9 +11,10 @@ import {
   MERCADO_PAGO_CONNECTION_STATUS,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { readFirstSearchParamValue } from "@/app/search-params";
+import { requireActiveTribeMembership } from "../tribe-manager-page-access";
 
 const PRICE_MANAGEMENT_PAGE_LOG = {
   resolveDiagnosticsFailureMessage:
@@ -46,30 +47,6 @@ type TribePricesPageSearchParams = {
   status?: string | string[];
   statusOrigin?: string | string[];
 };
-
-/**
- * Reads the first search param value from App Router input.
- *
- * @param searchParamValue - Search param value received by the page.
- * @returns First non-empty search param value.
- */
-function readFirstSearchParamValue(
-  searchParamValue: string | string[] | undefined
-): string | null {
-  if (typeof searchParamValue === "string") {
-    return searchParamValue;
-  }
-
-  if (Array.isArray(searchParamValue)) {
-    const firstSearchParamValue = searchParamValue.find(
-      (value) => value.trim().length > 0
-    );
-
-    return firstSearchParamValue ?? null;
-  }
-
-  return null;
-}
 
 /**
  * Resolves a safe user-facing status message for the prices page.
@@ -232,12 +209,7 @@ export default async function TribePricesPage({
     notFound();
   }
 
-  const membershipStatus =
-    await modules.tribes.useCases.getCurrentTribeMembershipStatus(tribe.slug);
-
-  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
-    notFound();
-  }
+  await requireActiveTribeMembership(modules, tribe.slug);
 
   const shouldAutoConnectMercadoPago =
     status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.connected &&

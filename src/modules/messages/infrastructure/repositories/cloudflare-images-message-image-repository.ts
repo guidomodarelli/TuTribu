@@ -24,11 +24,10 @@ import type {
   PrepareMessageImagesForAttachmentCommand,
   PreparedMessageImageAttachmentResult,
 } from "@/src/modules/messages/domain/repositories/message-image-repository";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-
-type DatabaseExecutor = <T>(
-  callback: (database: RequestDatabase) => Promise<T>
-) => Promise<T>;
+import {
+  selectBooleanResult,
+  type DatabaseExecutor,
+} from "@/src/modules/shared/infrastructure/database/database-executor";
 
 type Fetcher = typeof fetch;
 
@@ -76,10 +75,6 @@ type QueuedRemoteImageRow = {
 
 type ReclaimedDraftsRow = {
   reclaimed: number | string;
-};
-
-type BooleanResultRow = {
-  result: boolean | null;
 };
 
 type CloudflareDirectUploadResponse = {
@@ -472,27 +467,21 @@ export class CloudflareImagesMessageImageRepository
   }
 
   private async confirmRemoteDeleted(assetId: string): Promise<boolean> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+    return selectBooleanResult(
+      this.executeWithDatabase,
+      sql`
         select public.confirm_message_image_remote_deleted(${assetId}) as result
-      `);
-
-      return Boolean(
-        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
-      );
-    });
+      `
+    );
   }
 
   private async dequeueRemoteDeletion(queueId: string): Promise<boolean> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+    return selectBooleanResult(
+      this.executeWithDatabase,
+      sql`
         select public.delete_queued_remote_image_deletion(${queueId}) as result
-      `);
-
-      return Boolean(
-        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
-      );
-    });
+      `
+    );
   }
 
   private async listPendingRemoteDeletions(

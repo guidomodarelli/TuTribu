@@ -1,0 +1,111 @@
+// Shared pieces of the course modules (catalog, course view, course management).
+//
+// Each module keeps its own BEM block; these mixins only repeat the links, badges, cards and empty states
+// that the course screens show the same way.
+//
+// Usage (path relative to the module):
+//   @use "../courses";
+//   .Block__backLink { @include courses.back-link; }
+
+@use "../../src/styles/motion";
+@use "../styles/interaction";
+
+// Muted text link back to the parent screen; each module sets its own size.
+@mixin back-link {
+  @include motion.interactive(color);
+
+  border-radius: calc(var(--radius-md) - 2px);
+  color: var(--muted-foreground);
+  text-decoration: none;
+  text-underline-offset: 0.2rem;
+
+  &:hover {
+    color: var(--foreground);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    color: var(--foreground);
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+// Small pill for course and lesson states; each module sets its own display and tint.
+@mixin status-pill($background) {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999rem;
+  background-color: $background;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+// Compact ghost link to the management screen; `$transitions` lists the properties that animate.
+@mixin management-link($transitions...) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 1.75rem;
+  padding: 0 0.625rem;
+  border: 1px solid transparent;
+  border-radius: min(var(--radius-md), 0.75rem);
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+
+  @include motion.interactive($transitions...);
+
+  &:hover {
+    background-color: var(--muted);
+  }
+
+  @include interaction.focus-ring;
+}
+
+// Inline icon of a course link.
+@mixin link-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+// Bordered card that frames a course row or form.
+@mixin card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
+  border-radius: var(--radius-lg);
+  background-color: var(--card);
+}
+
+// Dashed empty state with heading and description elements of the including block.
+@mixin empty-state-elements {
+  &__emptyState {
+    @include motion.enter;
+
+    display: grid;
+    gap: 0.5rem;
+    padding: 2rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+    text-align: center;
+  }
+
+  &__emptyHeading {
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  &__emptyDescription {
+    color: var(--muted-foreground);
+    margin: 0;
+  }
+}

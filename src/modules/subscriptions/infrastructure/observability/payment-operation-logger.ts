@@ -20,6 +20,34 @@ export type PaymentOperationTraceContext = {
   tribeSlug?: string | null;
 };
 
+/**
+ * Builds a trace context for Mercado Pago operations started by a traced request.
+ *
+ * @param input - Payment operation identifiers available at the repository boundary.
+ * @returns Trace context for provider logging, or undefined when request tracing is unavailable.
+ */
+export function buildPaymentOperationTraceContext(input: {
+  operationKey: string;
+  preapprovalId?: string | null;
+  priceId?: string | null;
+  providerPlanId?: string | null;
+  requestId?: string;
+  tribeSlug?: string | null;
+}): PaymentOperationTraceContext | undefined {
+  if (!input.requestId) {
+    return undefined;
+  }
+
+  return {
+    operationKey: input.operationKey,
+    preapprovalId: input.preapprovalId,
+    priceId: input.priceId,
+    providerPlanId: input.providerPlanId,
+    requestId: input.requestId,
+    tribeSlug: input.tribeSlug,
+  };
+}
+
 type PaymentOperationLogInput = {
   context?: PaymentOperationTraceContext;
   error?: unknown;

@@ -53,3 +53,79 @@ export function isValidAttachmentUploadDeclaration(declaration: {
     declaration.fileSizeBytes <= ATTACHMENT_FILE.maxFileSizeBytes
   );
 }
+
+/**
+ * Orders attachment drafts by the position the author arranged, rejecting
+ * more than `maxCount` drafts and malformed or repeated asset ids.
+ *
+ * @param drafts - Raw file drafts from the payload.
+ * @param maxCount - Maximum number of attachments the owner accepts.
+ * @returns The normalized drafts, or null when any draft is invalid.
+ */
+export function normalizeAttachmentFileDrafts(
+  drafts: { assetId: string }[] | null | undefined,
+  maxCount: number
+): { assetId: string; sortOrder: number }[] | null {
+  const rawDrafts = drafts ?? [];
+
+  if (rawDrafts.length > maxCount) {
+    return null;
+  }
+
+  const files: { assetId: string; sortOrder: number }[] = [];
+  const seenAssetIds = new Set<string>();
+
+  for (const draft of rawDrafts) {
+    const assetId = draft.assetId.trim();
+
+    if (!isAttachmentAssetId(assetId) || seenAssetIds.has(assetId)) {
+      return null;
+    }
+
+    seenAssetIds.add(assetId);
+    files.push({ assetId, sortOrder: files.length });
+  }
+
+  return files;
+}
+
+/**
+ * Normalizes an upload reservation request and validates its declared metadata.
+ *
+ * @param command - Raw upload request of the authenticated author.
+ * @returns The canonical reservation, or null when the declaration is invalid.
+ */
+export function normalizeAttachmentUploadRequest(command: {
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  tribeSlug: string;
+  userId: string;
+}): {
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  tribeSlug: string;
+  userId: string;
+} | null {
+  const fileName = normalizeAttachmentFileName(command.fileName);
+  const mimeType = command.mimeType.trim().toLowerCase();
+
+  if (
+    !isValidAttachmentUploadDeclaration({
+      fileName,
+      fileSizeBytes: command.fileSizeBytes,
+      mimeType,
+    })
+  ) {
+    return null;
+  }
+
+  return {
+    fileName,
+    fileSizeBytes: command.fileSizeBytes,
+    mimeType,
+    tribeSlug: command.tribeSlug.trim(),
+    userId: command.userId.trim(),
+  };
+}

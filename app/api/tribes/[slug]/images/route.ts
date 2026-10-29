@@ -1,7 +1,10 @@
-import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-images";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const TRIBE_IMAGES_ROUTE_LOG = {
   createFailureMessage: "Tribe image upload creation failed",
@@ -16,87 +19,53 @@ const TRIBE_IMAGES_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos subir la imagen. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  created: 201,
-  forbidden: 403,
-  serverError: 500,
-  unauthorized: 401,
+const MEMBER_ROUTE_SCOPE = {
+  feature: TRIBE_IMAGES_ROUTE_LOG.feature,
+  operation: TRIBE_IMAGES_ROUTE_LOG.operation,
+  unauthorizedMessage: TRIBE_IMAGES_ROUTE_RESPONSE.unauthorizedMessage,
 } as const;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
 
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: TRIBE_IMAGES_ROUTE_LOG.feature,
-    operation: TRIBE_IMAGES_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TRIBE_IMAGES_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: TRIBE_IMAGES_ROUTE_LOG.createFailureMessage,
+      metadata: { slug },
+      responseMessage: TRIBE_IMAGES_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const result = await modules.tribes.useCases.createTribeImageUpload({
+        tribeSlug: slug,
+      });
 
-  try {
-    const result = await modules.tribes.useCases.createTribeImageUpload({
-      tribeSlug: slug,
-    });
-
-    switch (result.status) {
-      case TRIBE_IMAGE_UPLOAD_STATUS.created:
-        return createJsonResponse(
-          {
-            deliveryUrl: result.deliveryUrl,
-            imageId: result.imageId,
-            uploadUrl: result.uploadUrl,
-          },
-          HTTP_STATUS.created
-        );
-      case TRIBE_IMAGE_UPLOAD_STATUS.forbidden:
-        return createJsonResponse(
-          { message: TRIBE_IMAGES_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-      case TRIBE_IMAGE_UPLOAD_STATUS.invalidImage:
-      default:
-        return createJsonResponse(
-          { message: TRIBE_IMAGES_ROUTE_RESPONSE.invalidImageMessage },
-          HTTP_STATUS.badRequest
-        );
+      switch (result.status) {
+        case TRIBE_IMAGE_UPLOAD_STATUS.created:
+          return createRouteJsonResponse(
+            {
+              deliveryUrl: result.deliveryUrl,
+              imageId: result.imageId,
+              uploadUrl: result.uploadUrl,
+            },
+            HTTP_STATUS.created
+          );
+        case TRIBE_IMAGE_UPLOAD_STATUS.forbidden:
+          return createRouteJsonResponse(
+            { message: TRIBE_IMAGES_ROUTE_RESPONSE.forbiddenMessage },
+            HTTP_STATUS.forbidden
+          );
+        case TRIBE_IMAGE_UPLOAD_STATUS.invalidImage:
+        default:
+          return createRouteJsonResponse(
+            { message: TRIBE_IMAGES_ROUTE_RESPONSE.invalidImageMessage },
+            HTTP_STATUS.badRequest
+          );
+      }
     }
-  } catch (error) {
-    logger.error({
-      error,
-      message: TRIBE_IMAGES_ROUTE_LOG.createFailureMessage,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_IMAGES_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

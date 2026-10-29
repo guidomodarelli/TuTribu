@@ -1,10 +1,11 @@
 /** Projects versioned messaging SQL; migrations own deferred FKs, grants, FORCE RLS and triggers. */
 import { sql } from "drizzle-orm";
+import { binaryData } from "@/src/modules/shared/infrastructure/database/schema-columns";
 import { ADMISSION_MESSAGING_MAINTENANCE_STORAGE } from "../../constants/admission-messaging-maintenance";
 import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 import { CODE_REQUEST_EVENT } from "@/src/modules/messaging/constants/code-request-budget";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, type AnyPgColumn, type PgTableExtraConfigValue } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, type AnyPgColumn, type PgTableExtraConfigValue } from "drizzle-orm/pg-core";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
 import { MESSAGING_DEFAULT_CONNECTION_NAME } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_KEY_MATERIAL_CONTINUITY } from "../../constants/messaging-key-material-continuity";
@@ -22,8 +23,14 @@ type MessagingSchemaParents = {
   contactVerificationChallenges: { id: AnyPgColumn; tribeId: AnyPgColumn; userId: AnyPgColumn };
 };
 
-/** Maps the binary driver value without validating backend rows. */
-const binaryData = customType<{data:Uint8Array;driverData:Buffer}>({dataType:()=>"bytea",toDriver:(value)=>Buffer.from(value),fromDriver:(value)=>new Uint8Array(value)});
+/** Tribe connection version a messaging row was produced under. */
+function connectionVersionScopeColumns() {
+  return {
+    tribeId: uuid("tribe_id").notNull(),
+    connectionId: uuid("connection_id").notNull(),
+    connectionVersion: integer("connection_version").notNull(),
+  };
+}
 
 /** Columns referenced before their table is projected; drizzle reads them lazily, after every table exists. */
 type MessagingSchemaForwardTables = {
@@ -145,9 +152,7 @@ function createMessagingConnectionSecretTables(tables: Pick<ReturnType<typeof cr
   ]);
   const messagingSecretEnvelopes = pgTable("messaging_secret_envelopes", {
     secretRef: uuid("secret_ref").primaryKey().defaultRandom(),
-    tribeId: uuid("tribe_id").notNull(),
-    connectionId: uuid("connection_id").notNull(),
-    connectionVersion: integer("connection_version").notNull(),
+    ...connectionVersionScopeColumns(),
     environment: text("environment").notNull(),
     securityEpoch: text("security_epoch").notNull(),
     purpose: text("purpose").notNull().default("credential"),
@@ -183,9 +188,7 @@ function createMessagingConnectionEvidenceTables(parents: MessagingSchemaParents
   const { messagingConnectionVersions } = tables;
   const messagingConnectionCapabilities = pgTable("messaging_connection_capabilities", {
     id: uuid("id").primaryKey().defaultRandom(),
-    tribeId: uuid("tribe_id").notNull(),
-    connectionId: uuid("connection_id").notNull(),
-    connectionVersion: integer("connection_version").notNull(),
+    ...connectionVersionScopeColumns(),
     channel: text("channel").notNull(),
     senderId: text("sender_id").notNull(),
     templateId: text("template_id"),
@@ -205,9 +208,7 @@ function createMessagingConnectionEvidenceTables(parents: MessagingSchemaParents
   ]);
   const messagingConnectionDiagnostics = pgTable("messaging_connection_diagnostics", {
     id: uuid("id").primaryKey().defaultRandom(),
-    tribeId: uuid("tribe_id").notNull(),
-    connectionId: uuid("connection_id").notNull(),
-    connectionVersion: integer("connection_version").notNull(),
+    ...connectionVersionScopeColumns(),
     leaderUserId: text("leader_user_id"),
     challengeId: uuid("challenge_id").notNull(),
     channel: text("channel").notNull(),
@@ -262,9 +263,7 @@ function createMessageDeliveryTable(parents: MessagingSchemaParents, tables: Pic
   const { messagingConnectionVersions, messagingContactBudgetSubjects, messagingNotificationRecoveryOrigins, messagingNotificationGroupOrigins } = tables;
   const messageDeliveries = pgTable("message_deliveries", {
     id: uuid("id").primaryKey().defaultRandom(),
-    tribeId: uuid("tribe_id").notNull(),
-    connectionId: uuid("connection_id").notNull(),
-    connectionVersion: integer("connection_version").notNull(),
+    ...connectionVersionScopeColumns(),
     environment: text("environment").notNull(),
     securityEpoch: text("security_epoch").notNull(),
     purpose: text("purpose").notNull(),
@@ -332,9 +331,7 @@ function createMessageDeliveryAttemptTables(parents: MessagingSchemaParents, tab
   const { messagingConnectionVersions, messageDeliveries } = tables;
   const verificationCodeEnvelopes = pgTable("verification_code_envelopes", {
     id: uuid("id").primaryKey().defaultRandom(),
-    tribeId: uuid("tribe_id").notNull(),
-    connectionId: uuid("connection_id").notNull(),
-    connectionVersion: integer("connection_version").notNull(),
+    ...connectionVersionScopeColumns(),
     challengeId: uuid("challenge_id").notNull(),
     deliveryId: uuid("delivery_id").notNull(),
     environment: text("environment").notNull(),
@@ -363,9 +360,7 @@ function createMessageDeliveryAttemptTables(parents: MessagingSchemaParents, tab
   const messageDeliveryAttempts = pgTable("message_delivery_attempts", {
     id: uuid("id").primaryKey().defaultRandom(),
     deliveryId: uuid("delivery_id").notNull(),
-    tribeId: uuid("tribe_id").notNull(),
-    connectionId: uuid("connection_id").notNull(),
-    connectionVersion: integer("connection_version").notNull(),
+    ...connectionVersionScopeColumns(),
     sequence: integer("sequence").notNull(),
     reservationId: uuid("reservation_id").notNull(),
     leaseToken: uuid("lease_token").notNull(),

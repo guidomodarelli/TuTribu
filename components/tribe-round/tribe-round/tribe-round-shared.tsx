@@ -868,6 +868,20 @@ async function readApiErrorMessage(response: Response): Promise<string | null> {
   return typeof body?.message === "string" ? body.message : null;
 }
 
+/**
+ * Reads the JSON body of a tribe round API answer.
+ * @param response - API answer.
+ * @returns The parsed body (an empty object when it is not JSON).
+ * @throws {Error} With the API message, or the status text, when the request failed.
+ */
+async function readJsonResponse<ResponseBody>(response: Response): Promise<ResponseBody> {
+  if (!response.ok) {
+    throw new Error((await readApiErrorMessage(response)) ?? response.statusText);
+  }
+
+  return (await response.json().catch(() => ({}))) as ResponseBody;
+}
+
 export async function submitJsonRequest<ResponseBody>(
   url: string,
   body?: Record<string, unknown>,
@@ -884,11 +898,7 @@ export async function submitJsonRequest<ResponseBody>(
     signal,
   });
 
-  if (!response.ok) {
-    throw new Error((await readApiErrorMessage(response)) ?? response.statusText);
-  }
-
-  return (await response.json().catch(() => ({}))) as ResponseBody;
+  return readJsonResponse<ResponseBody>(response);
 }
 
 export async function readJsonRequest<ResponseBody>(
@@ -897,11 +907,7 @@ export async function readJsonRequest<ResponseBody>(
 ): Promise<ResponseBody> {
   const response = await fetch(url, { signal });
 
-  if (!response.ok) {
-    throw new Error((await readApiErrorMessage(response)) ?? response.statusText);
-  }
-
-  return (await response.json().catch(() => ({}))) as ResponseBody;
+  return readJsonResponse<ResponseBody>(response);
 }
 
 function normalizeFormattedDateTime(formattedDateTime: string): string {

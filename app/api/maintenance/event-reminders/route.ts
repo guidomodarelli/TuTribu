@@ -17,6 +17,7 @@ import { createMaintenanceModules } from "@/src/modules/setup";
 import { isAuthorizedCronRequest } from "@/src/modules/shared/infrastructure/http/cron-authorization";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const EVENT_REMINDERS_ROUTE_LOG = {
   feature: "notifications",
@@ -36,12 +37,6 @@ const EVENT_REMINDERS_ROUTE_RESPONSE = {
   ok: "ok",
   partialFailure: "error",
   unauthorized: "unauthorized",
-} as const;
-
-const HTTP_STATUS = {
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
 } as const;
 
 type ServerLogger = ReturnType<typeof createServerLogger>;

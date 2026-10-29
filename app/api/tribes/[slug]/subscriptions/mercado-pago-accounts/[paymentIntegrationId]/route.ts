@@ -5,9 +5,13 @@
  */
 
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { readStringField } from "@/app/api/request-body-fields";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const MERCADO_PAGO_ACCOUNT_ROUTE_LOG = {
   feature: "subscriptions",
@@ -24,126 +28,70 @@ const MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE = {
   updatedMessage: "Alias actualizado.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
 const MERCADO_PAGO_ACCOUNT_ROUTE_FIELD = {
   accountLabel: "accountLabel",
 } as const;
 
-/**
- * Creates a JSON response with an explicit status.
- *
- * @param body - JSON body.
- * @param status - HTTP status.
- * @returns JSON response.
- */
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-/**
- * Reads a string field from an unknown JSON body.
- *
- * @param body - Parsed JSON body.
- * @param field - Field name to read.
- * @returns String field value or an empty string.
- */
-function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
+const MEMBER_ROUTE_SCOPE = {
+  feature: MERCADO_PAGO_ACCOUNT_ROUTE_LOG.feature,
+  operation: MERCADO_PAGO_ACCOUNT_ROUTE_LOG.updateOperation,
+  unauthorizedMessage: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.unauthorizedMessage,
+  withRequestId: true,
+} as const;
 
 export async function PATCH(
   request: Request,
-  context: {
-    params: Promise<{
-      paymentIntegrationId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ paymentIntegrationId: string }>
 ) {
   const { paymentIntegrationId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: MERCADO_PAGO_ACCOUNT_ROUTE_LOG.feature,
-    operation: MERCADO_PAGO_ACCOUNT_ROUTE_LOG.updateOperation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: MERCADO_PAGO_ACCOUNT_ROUTE_LOG.updateFailureMessage,
+      metadata: { paymentIntegrationId, slug },
+      responseMessage: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const body: unknown = await request.json().catch(() => null);
+      const result =
+        await modules.subscriptions.useCases.updateTribePaymentIntegrationAccountLabel({
+          accountLabel: readStringField(
+            body,
+            MERCADO_PAGO_ACCOUNT_ROUTE_FIELD.accountLabel
+          ),
+          paymentIntegrationId,
+          tribeSlug: slug,
+        });
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const result =
-      await modules.subscriptions.useCases.updateTribePaymentIntegrationAccountLabel({
-        accountLabel: readStringField(
-          body,
-          MERCADO_PAGO_ACCOUNT_ROUTE_FIELD.accountLabel
-        ),
-        paymentIntegrationId,
-        tribeSlug: slug,
-      });
-
-    switch (result.status) {
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
-        return createJsonResponse(
-          {
-            account: result.account,
-            message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.updatedMessage,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-        return createJsonResponse(
-          { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.invalidInputMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-        return createJsonResponse(
-          { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
-      case TRIBE_SUBSCRIPTION_PRICE_STATUS.connected:
-      default:
-        return createJsonResponse(
-          { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
+      switch (result.status) {
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
+          return createRouteJsonResponse(
+            {
+              account: result.account,
+              message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.updatedMessage,
+            },
+            HTTP_STATUS.ok
+          );
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
+          return createRouteJsonResponse(
+            { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.invalidInputMessage },
+            HTTP_STATUS.badRequest
+          );
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
+          return createRouteJsonResponse(
+            { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.notFoundMessage },
+            HTTP_STATUS.notFound
+          );
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
+        case TRIBE_SUBSCRIPTION_PRICE_STATUS.connected:
+        default:
+          return createRouteJsonResponse(
+            { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.forbiddenMessage },
+            HTTP_STATUS.forbidden
+          );
+      }
     }
-  } catch (error) {
-    logger.error({
-      message: MERCADO_PAGO_ACCOUNT_ROUTE_LOG.updateFailureMessage,
-      error,
-      metadata: {
-        paymentIntegrationId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: MERCADO_PAGO_ACCOUNT_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

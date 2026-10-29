@@ -4,6 +4,7 @@ import { type SubmitEvent, useState } from "react";
 
 import { Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, cn } from "@golfo/ui";
 
+import { TribeEventStartsTimeInput } from "@/components/events/tribe-event-starts-time-input";
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import type { TribeEventType } from "@/src/modules/events/application/results/tribe-event-result";
@@ -57,7 +58,6 @@ type ProposalRequiredFieldId =
   | typeof FIELD_ID.title;
 const INPUT_TYPE = {
   date: "date",
-  time: "time",
 } as const;
 const BUTTON_ATTRIBUTE = {
   typeButton: "button",
@@ -74,7 +74,6 @@ const COPY = {
   durationOption: (minutes: number) => `${minutes} min`,
   eventTypeLabel: "Tipo",
   missingFields: "Completá el título, la fecha y la hora de inicio.",
-  startsTimeLabel: "Hora de inicio",
   submitButton: "Enviar propuesta",
   submittingButton: "Enviando…",
   title: "Proponer un encuentro",
@@ -145,14 +144,11 @@ function ProposalFormFields({ getFieldError, updateField, values }: ProposalForm
           value={values.date}
           onChange={(event) => updateField("date", event.currentTarget.value)}
         />
-        <Input
+        <TribeEventStartsTimeInput
           error={getFieldError(FIELD_ID.startsTime)}
           id={FIELD_ID.startsTime}
-          label={COPY.startsTimeLabel}
-          required
-          type={INPUT_TYPE.time}
           value={values.startsTime}
-          onChange={(event) => updateField("startsTime", event.currentTarget.value)}
+          onValueChange={(value) => updateField("startsTime", value)}
         />
       </div>
       <div

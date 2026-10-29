@@ -12,6 +12,8 @@ import type {
   SitepingFeedbackStatus,
   SitepingFeedbackType,
 } from "@/src/modules/siteping/domain/entities/siteping-feedback";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { isPayloadObject, readTrimmedText } from "@/app/api/request-body-fields";
 
 const SITEPING_ROUTE = {
   feature: "siteping",
@@ -39,16 +41,6 @@ const SITEPING_DIAGNOSTIC_LEVEL = {
   warn: "warn",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  created: 201,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
 const SITEPING_QUERY_PARAM = {
   limit: "limit",
   page: "page",
@@ -61,20 +53,8 @@ const SITEPING_QUERY_PARAM = {
 
 type SitepingAnnotationRequestPayload = SitepingAnnotationCommand;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function readRequiredText(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
 function isTextValue(value: unknown): value is string {
   return typeof value === "string";
-}
-
-function readOptionalText(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 const SITEPING_SCREENSHOT = {
@@ -141,19 +121,19 @@ function isConsoleDiagnosticLevel(value: unknown): boolean {
 
 function isConsoleDiagnosticEntry(value: unknown): boolean {
   return (
-    isRecord(value) &&
+    isPayloadObject(value) &&
     isConsoleDiagnosticLevel(value.level) &&
-    Boolean(readRequiredText(value.message)) &&
-    Boolean(readRequiredText(value.timestamp))
+    Boolean(readTrimmedText(value.message)) &&
+    Boolean(readTrimmedText(value.timestamp))
   );
 }
 
 function isNetworkDiagnosticEntry(value: unknown): boolean {
   return (
-    isRecord(value) &&
-    Boolean(readRequiredText(value.url)) &&
-    Boolean(readRequiredText(value.method)) &&
-    Boolean(readRequiredText(value.timestamp)) &&
+    isPayloadObject(value) &&
+    Boolean(readTrimmedText(value.url)) &&
+    Boolean(readTrimmedText(value.method)) &&
+    Boolean(readTrimmedText(value.timestamp)) &&
     readRequiredNumber(value.status) !== null &&
     readRequiredNumber(value.durationMs) !== null
   );
@@ -161,7 +141,7 @@ function isNetworkDiagnosticEntry(value: unknown): boolean {
 
 function isDiagnosticsPayload(value: unknown): value is SitepingDiagnosticsSnapshot {
   return (
-    isRecord(value) &&
+    isPayloadObject(value) &&
     Array.isArray(value.console) &&
     Array.isArray(value.network) &&
     value.console.every(isConsoleDiagnosticEntry) &&
@@ -170,16 +150,16 @@ function isDiagnosticsPayload(value: unknown): value is SitepingDiagnosticsSnaps
 }
 
 function isAnnotationPayload(value: unknown): value is SitepingAnnotationRequestPayload {
-  if (!isRecord(value) || !isRecord(value.anchor) || !isRecord(value.rect)) {
+  if (!isPayloadObject(value) || !isPayloadObject(value.anchor) || !isPayloadObject(value.rect)) {
     return false;
   }
 
   return (
-    Boolean(readRequiredText(value.anchor.cssSelector)) &&
-    Boolean(readRequiredText(value.anchor.xpath)) &&
+    Boolean(readTrimmedText(value.anchor.cssSelector)) &&
+    Boolean(readTrimmedText(value.anchor.xpath)) &&
     isTextValue(value.anchor.textSnippet) &&
-    Boolean(readRequiredText(value.anchor.elementTag)) &&
-    Boolean(readRequiredText(value.anchor.fingerprint)) &&
+    Boolean(readTrimmedText(value.anchor.elementTag)) &&
+    Boolean(readTrimmedText(value.anchor.fingerprint)) &&
     isTextValue(value.anchor.neighborText) &&
     isTextValue(value.anchor.textPrefix) &&
     isTextValue(value.anchor.textSuffix) &&
@@ -222,19 +202,19 @@ function readDiagnostics(value: unknown): SitepingDiagnosticsSnapshot | null | u
 }
 
 function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
-  if (!isRecord(body)) {
+  if (!isPayloadObject(body)) {
     return null;
   }
 
-  const projectName = readRequiredText(body.projectName);
+  const projectName = readTrimmedText(body.projectName);
   const type = body.type;
-  const message = readRequiredText(body.message);
-  const url = readRequiredText(body.url);
-  const viewport = readRequiredText(body.viewport);
-  const userAgent = readRequiredText(body.userAgent);
-  const authorName = readRequiredText(body.authorName);
-  const authorEmail = readRequiredText(body.authorEmail);
-  const clientId = readRequiredText(body.clientId);
+  const message = readTrimmedText(body.message);
+  const url = readTrimmedText(body.url);
+  const viewport = readTrimmedText(body.viewport);
+  const userAgent = readTrimmedText(body.userAgent);
+  const authorName = readTrimmedText(body.authorName);
+  const authorEmail = readTrimmedText(body.authorEmail);
+  const clientId = readTrimmedText(body.clientId);
   const diagnostics = readDiagnostics(body.diagnostics);
 
   if (
@@ -265,7 +245,7 @@ function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
     screenshotDataUrl: readScreenshotDataUrl(body.screenshotDataUrl),
     type,
     url,
-    urlPattern: readOptionalText(body.urlPattern),
+    urlPattern: readTrimmedText(body.urlPattern),
     userAgent,
     viewport,
   };
@@ -289,6 +269,69 @@ async function resolveAuthorizedModules() {
   };
 }
 
+/** How a siteping route answers a viewer without widget access. */
+const SITEPING_SESSION_GUARD = {
+  /** 403 for both missing session and disabled widget. */
+  forbidden: "forbidden",
+  /** 401 without session, 403 when the widget is disabled. */
+  splitUnauthorized: "split-unauthorized",
+} as const;
+
+type SitepingSessionGuard = (typeof SITEPING_SESSION_GUARD)[keyof typeof SITEPING_SESSION_GUARD];
+type AuthorizedSitepingScope = Awaited<ReturnType<typeof resolveAuthorizedModules>>;
+
+/**
+ * Runs one siteping handler: observed request, widget access guard, the
+ * route body and the logged safe 500 when anything throws.
+ */
+async function handleSitepingRoute(
+  request: Request,
+  route: { failureLogMessage: string; guard: SitepingSessionGuard },
+  handle: (
+    scope: AuthorizedSitepingScope & {
+      authenticatedMember: NonNullable<AuthorizedSitepingScope["authenticatedMember"]>;
+      respond: (body: unknown, status: number) => Response;
+    }
+  ) => Promise<Response>
+): Promise<Response> {
+  const observation = createRouteObservation({
+    feature: SITEPING_ROUTE.feature,
+    operation: SITEPING_ROUTE.operation,
+    request,
+  });
+  const respond = (body: unknown, status: number) =>
+    observation.createJsonResponse(body, status);
+
+  try {
+    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+
+    if (!authenticatedMember && route.guard === SITEPING_SESSION_GUARD.splitUnauthorized) {
+      return respond(
+        { message: SITEPING_ROUTE_RESPONSE.unauthorizedMessage },
+        HTTP_STATUS.unauthorized
+      );
+    }
+
+    if (!authenticatedMember || !identity.enabled) {
+      return respond({ message: SITEPING_ROUTE_RESPONSE.forbiddenMessage }, HTTP_STATUS.forbidden);
+    }
+
+    return await handle({ authenticatedMember, identity, modules, respond });
+  } catch (error) {
+    observation.logRouteError({
+      error,
+      message: route.failureLogMessage,
+      outcome: SITEPING_ROUTE_OUTCOME.error,
+      status: HTTP_STATUS.serverError,
+    });
+
+    return respond(
+      { message: SITEPING_ROUTE_RESPONSE.unexpectedMessage },
+      HTTP_STATUS.serverError
+    );
+  }
+}
+
 export function OPTIONS(request: Request) {
   const observation = createRouteObservation({
     feature: SITEPING_ROUTE.feature,
@@ -303,247 +346,153 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const observation = createRouteObservation({
-    feature: SITEPING_ROUTE.feature,
-    operation: SITEPING_ROUTE.operation,
+  return handleSitepingRoute(
     request,
-  });
+    {
+      failureLogMessage: "Siteping feedback creation failed",
+      guard: SITEPING_SESSION_GUARD.splitUnauthorized,
+    },
+    async ({ authenticatedMember, identity, modules, respond }) => {
+      const command = parseFeedbackCommand(await request.json().catch(() => null));
 
-  try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+      if (!command) {
+        return respond(
+          { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (!authenticatedMember) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.unauthorizedMessage },
-        HTTP_STATUS.unauthorized
-      );
+      const feedback = await modules.siteping.useCases.createFeedback({
+        authenticatedMember,
+        command: {
+          ...command,
+          projectName: identity.projectName,
+        },
+        requestUrl: request.url,
+      });
+
+      return respond(feedback, HTTP_STATUS.created);
     }
-
-    if (!identity.enabled) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.forbiddenMessage },
-        HTTP_STATUS.forbidden
-      );
-    }
-
-    const command = parseFeedbackCommand(await request.json().catch(() => null));
-
-    if (!command) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const feedback = await modules.siteping.useCases.createFeedback({
-      authenticatedMember,
-      command: {
-        ...command,
-        projectName: identity.projectName,
-      },
-      requestUrl: request.url,
-    });
-
-    return observation.createJsonResponse(feedback, HTTP_STATUS.created);
-  } catch (error) {
-    observation.logRouteError({
-      error,
-      message: "Siteping feedback creation failed",
-      outcome: SITEPING_ROUTE_OUTCOME.error,
-      status: HTTP_STATUS.serverError,
-    });
-
-    return observation.createJsonResponse(
-      { message: SITEPING_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }
 
 export async function GET(request: Request) {
-  const observation = createRouteObservation({
-    feature: SITEPING_ROUTE.feature,
-    operation: SITEPING_ROUTE.operation,
+  return handleSitepingRoute(
     request,
-  });
-
-  try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
-
-    if (!authenticatedMember) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.unauthorizedMessage },
-        HTTP_STATUS.unauthorized
+    {
+      failureLogMessage: "Siteping feedback listing failed",
+      guard: SITEPING_SESSION_GUARD.splitUnauthorized,
+    },
+    async ({ identity, modules, respond }) => {
+      const requestUrl = new URL(request.url);
+      const type = requestUrl.searchParams.get(SITEPING_QUERY_PARAM.type);
+      const status = requestUrl.searchParams.get(SITEPING_QUERY_PARAM.status);
+      const limit = readOptionalInteger(
+        requestUrl.searchParams.get(SITEPING_QUERY_PARAM.limit)
       );
-    }
-
-    if (!identity.enabled) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.forbiddenMessage },
-        HTTP_STATUS.forbidden
+      const page = readOptionalInteger(
+        requestUrl.searchParams.get(SITEPING_QUERY_PARAM.page)
       );
+
+      if (
+        limit === null ||
+        page === null ||
+        isInvalidOptionalFeedbackStatus(status) ||
+        isInvalidOptionalFeedbackType(type)
+      ) {
+        return respond(
+          { message: SITEPING_ROUTE_RESPONSE.invalidQueryMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      const feedbackPage = await modules.siteping.useCases.listFeedback({
+        limit,
+        page,
+        projectName: identity.projectName,
+        search: requestUrl.searchParams.get(SITEPING_QUERY_PARAM.search) ?? undefined,
+        status: isFeedbackStatus(status) ? status : undefined,
+        type: isFeedbackType(type) ? type : undefined,
+        url: requestUrl.searchParams.get(SITEPING_QUERY_PARAM.url) ?? undefined,
+        urlPattern:
+          requestUrl.searchParams.get(SITEPING_QUERY_PARAM.urlPattern) ?? undefined,
+      });
+
+      return respond({ ...feedbackPage, capabilities: SITEPING_WIDGET_CAPABILITIES, permissions: SITEPING_WIDGET_LIST_PERMISSIONS }, HTTP_STATUS.ok);
     }
-
-    const requestUrl = new URL(request.url);
-    const type = requestUrl.searchParams.get(SITEPING_QUERY_PARAM.type);
-    const status = requestUrl.searchParams.get(SITEPING_QUERY_PARAM.status);
-    const limit = readOptionalInteger(
-      requestUrl.searchParams.get(SITEPING_QUERY_PARAM.limit)
-    );
-    const page = readOptionalInteger(
-      requestUrl.searchParams.get(SITEPING_QUERY_PARAM.page)
-    );
-
-    if (
-      limit === null ||
-      page === null ||
-      isInvalidOptionalFeedbackStatus(status) ||
-      isInvalidOptionalFeedbackType(type)
-    ) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.invalidQueryMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const feedbackPage = await modules.siteping.useCases.listFeedback({
-      limit,
-      page,
-      projectName: identity.projectName,
-      search: requestUrl.searchParams.get(SITEPING_QUERY_PARAM.search) ?? undefined,
-      status: isFeedbackStatus(status) ? status : undefined,
-      type: isFeedbackType(type) ? type : undefined,
-      url: requestUrl.searchParams.get(SITEPING_QUERY_PARAM.url) ?? undefined,
-      urlPattern:
-        requestUrl.searchParams.get(SITEPING_QUERY_PARAM.urlPattern) ?? undefined,
-    });
-
-    return observation.createJsonResponse({ ...feedbackPage, capabilities: SITEPING_WIDGET_CAPABILITIES, permissions: SITEPING_WIDGET_LIST_PERMISSIONS }, HTTP_STATUS.ok);
-  } catch (error) {
-    observation.logRouteError({
-      error,
-      message: "Siteping feedback listing failed",
-      outcome: SITEPING_ROUTE_OUTCOME.error,
-      status: HTTP_STATUS.serverError,
-    });
-
-    return observation.createJsonResponse(
-      { message: SITEPING_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }
 
 export async function PATCH(request: Request) {
-  const observation = createRouteObservation({
-    feature: SITEPING_ROUTE.feature,
-    operation: SITEPING_ROUTE.operation,
+  return handleSitepingRoute(
     request,
-  });
+    {
+      failureLogMessage: "Siteping feedback status update failed",
+      guard: SITEPING_SESSION_GUARD.forbidden,
+    },
+    async ({ identity, modules, respond }) => {
+      const body: unknown = await request.json().catch(() => null);
 
-  try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+      if (!isPayloadObject(body) || !readTrimmedText(body.id) || !isFeedbackStatus(body.status)) {
+        return respond(
+          { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (!authenticatedMember || !identity.enabled) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.forbiddenMessage },
-        HTTP_STATUS.forbidden
-      );
+      const feedback = await modules.siteping.useCases.updateFeedbackStatus({
+        feedbackId: readTrimmedText(body.id) as string,
+        projectName: identity.projectName,
+        status: body.status,
+      });
+
+      if (!feedback) {
+        return respond(
+          { message: SITEPING_ROUTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      }
+
+      return respond(feedback, HTTP_STATUS.ok);
     }
-
-    const body: unknown = await request.json().catch(() => null);
-
-    if (!isRecord(body) || !readRequiredText(body.id) || !isFeedbackStatus(body.status)) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const feedback = await modules.siteping.useCases.updateFeedbackStatus({
-      feedbackId: readRequiredText(body.id) as string,
-      projectName: identity.projectName,
-      status: body.status,
-    });
-
-    if (!feedback) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.notFoundMessage },
-        HTTP_STATUS.notFound
-      );
-    }
-
-    return observation.createJsonResponse(feedback, HTTP_STATUS.ok);
-  } catch (error) {
-    observation.logRouteError({
-      error,
-      message: "Siteping feedback status update failed",
-      outcome: SITEPING_ROUTE_OUTCOME.error,
-      status: HTTP_STATUS.serverError,
-    });
-
-    return observation.createJsonResponse(
-      { message: SITEPING_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }
 
 export async function DELETE(request: Request) {
-  const observation = createRouteObservation({
-    feature: SITEPING_ROUTE.feature,
-    operation: SITEPING_ROUTE.operation,
+  return handleSitepingRoute(
     request,
-  });
+    {
+      failureLogMessage: "Siteping feedback deletion failed",
+      guard: SITEPING_SESSION_GUARD.forbidden,
+    },
+    async ({ identity, modules, respond }) => {
+      const body: unknown = await request.json().catch(() => null);
 
-  try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+      if (!isPayloadObject(body)) {
+        return respond(
+          { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (!authenticatedMember || !identity.enabled) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.forbiddenMessage },
-        HTTP_STATUS.forbidden
+      const feedbackId = readTrimmedText(body.id);
+
+      if (!feedbackId) {
+        return respond(
+          { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      await modules.siteping.useCases.deleteFeedback({
+        feedbackId,
+        projectName: identity.projectName,
+      });
+
+      return respond(
+        { message: SITEPING_ROUTE_RESPONSE.okMessage },
+        HTTP_STATUS.ok
       );
     }
-
-    const body: unknown = await request.json().catch(() => null);
-
-    if (!isRecord(body)) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const feedbackId = readRequiredText(body.id);
-
-    if (!feedbackId) {
-      return observation.createJsonResponse(
-        { message: SITEPING_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    await modules.siteping.useCases.deleteFeedback({
-      feedbackId,
-      projectName: identity.projectName,
-    });
-
-    return observation.createJsonResponse(
-      { message: SITEPING_ROUTE_RESPONSE.okMessage },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    observation.logRouteError({
-      error,
-      message: "Siteping feedback deletion failed",
-      outcome: SITEPING_ROUTE_OUTCOME.error,
-      status: HTTP_STATUS.serverError,
-    });
-
-    return observation.createJsonResponse(
-      { message: SITEPING_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

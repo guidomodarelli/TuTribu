@@ -8,181 +8,109 @@ import {
   tribeEventEmptyQuerySchema,
   tribeEventsRouteParamsSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
-import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
-import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
-  createJsonResponse,
   mapTribeEventProposalStatusResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  handleTribeEventRoute,
+  openTribeEventScope,
+  type TribeEventsRouteContext,
+} from "../tribe-event-route";
 
 const PROPOSALS_ROUTE_LOG = {
   createFailureMessage: "Tribe event proposal creation failed",
-  feature: "events",
   listFailureMessage: "Tribe event proposal listing failed",
   operation: "tribe-event-proposals",
 } as const;
-
-type TribeRouteContext = {
-  params: Promise<{
-    slug: string;
-  }>;
-};
-
-function createRouteLogger(request: Request) {
-  const { requestId } = resolveRequestContext(request.headers);
-
-  return {
-    logger: createServerLogger({
-      feature: PROPOSALS_ROUTE_LOG.feature,
-      operation: PROPOSALS_ROUTE_LOG.operation,
-      requestId,
-    }),
-    requestId,
-  };
-}
 
 /**
  * Proposals panel: managers get the pending queue of the tribe; members get
  * their own proposals.
  */
-export async function GET(request: Request, context: TribeRouteContext) {
-  const { logger, requestId } = createRouteLogger(request);
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unauthorizedMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.unauthorized
-    );
-  }
-
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+export async function GET(request: Request, context: TribeEventsRouteContext) {
+  return handleTribeEventRoute(
     request,
-    schemas: {
-      params: tribeEventsRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+    context,
+    {
+      failure: {
+        logMessage: PROPOSALS_ROUTE_LOG.listFailureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalListMessage,
+      },
+      openScope: openTribeEventScope(PROPOSALS_ROUTE_LOG.operation),
+      schemas: {
+        params: tribeEventsRouteParamsSchema,
+        query: tribeEventEmptyQuerySchema,
+      },
     },
-  });
+    async ({ modules, params, respond }) => {
+      const result = await modules.events.useCases.listTribeEventProposals({
+        tribeSlug: params.slug,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (result.status !== TRIBE_EVENT_MUTATION_STATUS.found) {
+        return mapTribeEventProposalStatusResponse(
+          result.status,
+          TRIBE_EVENT_ROUTE_RESPONSE.proposalForbiddenMessage
+        );
+      }
 
-  const { slug } = input.params;
-  const logMetadata = { slug, viewerId: authenticatedMember.id };
-
-  try {
-    const result = await modules.events.useCases.listTribeEventProposals({ tribeSlug: slug });
-
-    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.found) {
-      return mapTribeEventProposalStatusResponse(
-        result.status,
-        TRIBE_EVENT_ROUTE_RESPONSE.proposalForbiddenMessage
+      return respond(
+        {
+          canReviewProposals: result.canReviewProposals,
+          pendingCount: result.pendingCount,
+          proposals: result.proposals,
+        },
+        tribeEventProposalListResponseSchema,
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
       );
     }
-
-    return createTribeEventPublicResponse({
-      body: {
-        canReviewProposals: result.canReviewProposals,
-        pendingCount: result.pendingCount,
-        proposals: result.proposals,
-      },
-      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalListMessage,
-      logger,
-      metadata: logMetadata,
-      schema: tribeEventProposalListResponseSchema,
-      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    logger.error({
-      message: PROPOSALS_ROUTE_LOG.listFailureMessage,
-      error,
-      metadata: logMetadata,
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalListMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+  );
 }
 
 /**
  * "Proponer un encuentro" (active members). 409 when the member already has
  * the maximum of pending proposals.
  */
-export async function POST(request: Request, context: TribeRouteContext) {
-  const { logger, requestId } = createRouteLogger(request);
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unauthorizedMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.unauthorized
-    );
-  }
-
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+export async function POST(request: Request, context: TribeEventsRouteContext) {
+  return handleTribeEventRoute(
     request,
-    schemas: {
-      body: tribeEventProposalBodySchema,
-      params: tribeEventsRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+    context,
+    {
+      failure: {
+        logMessage: PROPOSALS_ROUTE_LOG.createFailureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalMessage,
+      },
+      openScope: openTribeEventScope(PROPOSALS_ROUTE_LOG.operation),
+      schemas: {
+        body: tribeEventProposalBodySchema,
+        params: tribeEventsRouteParamsSchema,
+        query: tribeEventEmptyQuerySchema,
+      },
     },
-  });
+    async ({ body, modules, params, respond }) => {
+      const result = await modules.events.useCases.createTribeEventProposal({
+        ...body,
+        tribeSlug: params.slug,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalCreated) {
+        return mapTribeEventProposalStatusResponse(
+          result.status,
+          TRIBE_EVENT_ROUTE_RESPONSE.proposalForbiddenMessage
+        );
+      }
 
-  const { slug } = input.params;
-  const logMetadata = { slug, viewerId: authenticatedMember.id };
-
-  try {
-    const result = await modules.events.useCases.createTribeEventProposal({
-      ...input.body,
-      tribeSlug: slug,
-    });
-
-    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalCreated) {
-      return mapTribeEventProposalStatusResponse(
-        result.status,
-        TRIBE_EVENT_ROUTE_RESPONSE.proposalForbiddenMessage
+      return respond(
+        {
+          message: TRIBE_EVENT_ROUTE_RESPONSE.proposalCreatedMessage,
+          proposal: result.proposal,
+        },
+        tribeEventProposalResponseSchema,
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.created,
+        { proposalId: result.proposal.id }
       );
     }
-
-    return createTribeEventPublicResponse({
-      body: {
-        message: TRIBE_EVENT_ROUTE_RESPONSE.proposalCreatedMessage,
-        proposal: result.proposal,
-      },
-      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalMessage,
-      logger,
-      metadata: { ...logMetadata, proposalId: result.proposal.id },
-      schema: tribeEventProposalResponseSchema,
-      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.created,
-    });
-  } catch (error) {
-    logger.error({
-      message: PROPOSALS_ROUTE_LOG.createFailureMessage,
-      error,
-      metadata: logMetadata,
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+  );
 }

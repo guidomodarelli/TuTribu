@@ -43,6 +43,10 @@ import type {
 import type { TribeInvitationSubscriptionAssociation } from "@/src/modules/tribes/domain/value-objects/tribe-invitation-subscription-association";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  POSTGRES_ERROR_CODE,
+  hasPostgresErrorCode,
+} from "@/src/modules/shared/infrastructure/database/postgres-error";
 
 const TRIBE_INVITATION_REPOSITORY_LOG = {
   decryptFailureMessage:
@@ -114,17 +118,6 @@ type InvitationConversionMetricRow = {
 
 const INVITATION_ROUTE = {
   inviteSegment: "/invitar/",
-} as const;
-
-const POSTGRES_ERROR_CODE = {
-  undefinedColumn: "42703",
-  undefinedFunction: "42883",
-  undefinedTable: "42P01",
-} as const;
-
-const POSTGRES_INTEGRITY_ERROR_CODE = {
-  checkViolation: "23514",
-  foreignKeyViolation: "23503",
 } as const;
 
 const UUID_PATTERN =
@@ -301,15 +294,62 @@ function mapCreationResult(
     };
   }
 
-  if (row?.status === TRIBE_INVITATION_STATUS.notFound) {
+  return mapInvitationMutationFailure(row?.status);
+}
+
+type UpdatedInvitationRow = InvitationListRow & { status: string | null };
+
+/**
+ * Maps the failure statuses of an invitation mutation; any other status is forbidden.
+ *
+ * @param status - Status returned by the database function.
+ * @returns The failure result.
+ */
+function mapInvitationMutationFailure(status: string | null | undefined) {
+  if (status === TRIBE_INVITATION_STATUS.notFound) {
     return { status: TRIBE_INVITATION_STATUS.notFound };
   }
 
-  if (row?.status === TRIBE_INVITATION_STATUS.invalid) {
+  if (status === TRIBE_INVITATION_STATUS.invalid) {
     return { status: TRIBE_INVITATION_STATUS.invalid };
   }
 
   return { status: TRIBE_INVITATION_STATUS.forbidden };
+}
+
+/**
+ * Maps an updated invitation row with its shareable URL.
+ *
+ * @param row - Updated invitation row.
+ * @param scope - Public base URL and tribe used to rebuild the invitation URL.
+ * @returns The `updated` result.
+ */
+function mapUpdatedInvitation(
+  row: UpdatedInvitationRow,
+  scope: { baseUrl: string; tribeSlug: string }
+) {
+  return {
+    invitation: mapInvitation(
+      row,
+      resolveInvitationUrlFromRow(row, scope.baseUrl, scope.tribeSlug)
+    ),
+    status: TRIBE_INVITATION_STATUS.updated,
+  };
+}
+
+/**
+ * Turns a rejected integrity constraint into the `invalid` result.
+ *
+ * @param error - Error thrown by the mutation.
+ * @returns The `invalid` result.
+ * @throws The original error when it is not an integrity violation.
+ */
+function rejectIntegrityViolationAsInvalid(error: unknown) {
+  if (isIntegrityViolation(error)) {
+    return { status: TRIBE_INVITATION_STATUS.invalid };
+  }
+
+  throw error;
 }
 
 function mapRevocationResult(row: InvitationStatusRow | null): TribeInvitationRevocationResult {
@@ -357,49 +397,18 @@ function mapSubscriptionOfferResult(
 }
 
 function isMissingInvitationStorageError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-  const directCode = postgresError.code;
-  const causeCode =
-    postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-      ? (postgresError.cause as { code?: string }).code
-      : undefined;
-
-  return (
-    directCode === POSTGRES_ERROR_CODE.undefinedColumn ||
-    directCode === POSTGRES_ERROR_CODE.undefinedTable ||
-    directCode === POSTGRES_ERROR_CODE.undefinedFunction ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedColumn ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedTable ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedFunction
-  );
+  return hasPostgresErrorCode(error, [
+    POSTGRES_ERROR_CODE.undefinedColumn,
+    POSTGRES_ERROR_CODE.undefinedTable,
+    POSTGRES_ERROR_CODE.undefinedFunction,
+  ]);
 }
 
 function isIntegrityViolation(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-  const directCode = postgresError.code;
-  const causeCode =
-    postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-      ? (postgresError.cause as { code?: string }).code
-      : undefined;
-
-  return (
-    directCode === POSTGRES_INTEGRITY_ERROR_CODE.checkViolation ||
-    directCode === POSTGRES_INTEGRITY_ERROR_CODE.foreignKeyViolation ||
-    causeCode === POSTGRES_INTEGRITY_ERROR_CODE.checkViolation ||
-    causeCode === POSTGRES_INTEGRITY_ERROR_CODE.foreignKeyViolation
-  );
+  return hasPostgresErrorCode(error, [
+    POSTGRES_ERROR_CODE.checkViolation,
+    POSTGRES_ERROR_CODE.foreignKeyViolation,
+  ]);
 }
 
 function resolveAssociationColumns(
@@ -1052,36 +1061,14 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         buildUpdateInvitationAssociationStatement(command)
       );;
 
-      const row = (result.rows[0] ?? null) as
-        | (InvitationListRow & { status: string | null })
-        | null;
+      const row = (result.rows[0] ?? null) as UpdatedInvitationRow | null;
 
       if (row?.status === TRIBE_INVITATION_STATUS.updated) {
-        return {
-          invitation: mapInvitation(
-            row,
-            resolveInvitationUrlFromRow(row, command.baseUrl, command.tribeSlug)
-          ),
-          status: TRIBE_INVITATION_STATUS.updated,
-        };
+        return mapUpdatedInvitation(row, command);
       }
 
-      if (row?.status === TRIBE_INVITATION_STATUS.notFound) {
-        return { status: TRIBE_INVITATION_STATUS.notFound };
-      }
-
-      if (row?.status === TRIBE_INVITATION_STATUS.invalid) {
-        return { status: TRIBE_INVITATION_STATUS.invalid };
-      }
-
-      return { status: TRIBE_INVITATION_STATUS.forbidden };
-    }).catch((error: unknown) => {
-      if (isIntegrityViolation(error)) {
-        return { status: TRIBE_INVITATION_STATUS.invalid };
-      }
-
-      throw error;
-    });
+      return mapInvitationMutationFailure(row?.status);
+    }).catch(rejectIntegrityViolationAsInvalid);
   }
 
   async updateReferralMetadata(
@@ -1136,18 +1123,10 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           on associated_plan_integration.id = associated_price.payment_integration_id
       `);
 
-      const row = (result.rows[0] ?? null) as
-        | (InvitationListRow & { status: string | null })
-        | null;
+      const row = (result.rows[0] ?? null) as UpdatedInvitationRow | null;
 
       if (row?.status === TRIBE_INVITATION_STATUS.updated) {
-        return {
-          invitation: mapInvitation(
-            row,
-            resolveInvitationUrlFromRow(row, command.baseUrl, command.tribeSlug)
-          ),
-          status: TRIBE_INVITATION_STATUS.updated,
-        };
+        return mapUpdatedInvitation(row, command);
       }
 
       if (row?.status === TRIBE_INVITATION_STATUS.notFound) {
@@ -1155,13 +1134,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
       }
 
       return { status: TRIBE_INVITATION_STATUS.forbidden };
-    }).catch((error: unknown) => {
-      if (isIntegrityViolation(error)) {
-        return { status: TRIBE_INVITATION_STATUS.invalid };
-      }
-
-      throw error;
-    });
+    }).catch(rejectIntegrityViolationAsInvalid);
   }
 
   async getConversionMetrics(query: {

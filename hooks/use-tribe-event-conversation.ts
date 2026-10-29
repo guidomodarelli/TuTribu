@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "@golfo/ui";
 
+import { loadTribeEventOccurrenceAfterMutations } from "@/lib/events/tribe-event-occurrence-load";
 import {
   trackTribeEventConversationMutation,
   waitForTribeEventConversationMutations,
@@ -63,40 +64,33 @@ function useConversationLoad(target: TribeEventOccurrenceTarget) {
 
     // A comment created or deleted by a previous opening of this occurrence
     // may still be committing: load after it so the thread is not stale.
-    waitForTribeEventConversationMutations(occurrenceTarget)
-      .then(() =>
-        abortController.signal.aborted
-          ? null
-          : fetchTribeEventConversationRequest(occurrenceTarget, abortController.signal)
-      )
-      .then((result) => {
-        if (!result || abortController.signal.aborted) {
-          return;
-        }
-
-        setLoadState(
-          result.isSuccess
-            ? {
-                canComment: result.canComment,
-                comments: result.comments,
-                status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded,
-              }
-            : {
-                message: result.message ?? COPY.loadFailure,
-                status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
-              }
-        );
-      })
-      .catch(() => {
-        // Aborted requests are the expected cleanup; any other failure is a
-        // network error shown with the safe fallback copy.
-        if (!abortController.signal.aborted) {
+    loadTribeEventOccurrenceAfterMutations(
+      () => waitForTribeEventConversationMutations(occurrenceTarget),
+      (signal) => fetchTribeEventConversationRequest(occurrenceTarget, signal),
+      abortController.signal,
+      {
+        onLoaded: (result) => {
+          setLoadState(
+            result.isSuccess
+              ? {
+                  canComment: result.canComment,
+                  comments: result.comments,
+                  status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded,
+                }
+              : {
+                  message: result.message ?? COPY.loadFailure,
+                  status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
+                }
+          );
+        },
+        onNetworkFailure: () => {
           setLoadState({
             message: COPY.loadFailure,
             status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
           });
-        }
-      });
+        },
+      }
+    );
 
     return () => abortController.abort();
   }, [eventId, originalStartsAt, reloadCount, tribeSlug]);

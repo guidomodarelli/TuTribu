@@ -1,4 +1,5 @@
 @use "../../../src/styles/workspace-panel";
+@use "../../styles/admission-workspace";
 
 .AdmissionNotificationSettings {
   display: grid;
@@ -34,22 +35,9 @@
     @include workspace-panel.form;
   }
 
-  &__facts {
-    @include workspace-panel.facts;
-  }
-
-  &__fact {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-  }
-
-  &__term {
-    @include workspace-panel.fact-term;
-  }
+  @include admission-workspace.fact-elements;
 
   &__value {
-    @include workspace-panel.fact-value;
 
     display: flex;
     flex-wrap: wrap;

@@ -32,6 +32,7 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 type ServerLogger = ReturnType<typeof createServerLogger>;
 
@@ -52,14 +53,6 @@ const SUBSCRIPTION_RETURN_STATUS_ROUTE_RESPONSE = {
   unauthorizedMessage: "Iniciá sesión para confirmar tu suscripción.",
   unexpectedMessage:
     "No pudimos confirmar tu suscripción en este momento. Seguimos intentando.",
-} as const;
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
 } as const;
 
 const CACHE_CONTROL_HEADER = "Cache-Control";

@@ -507,6 +507,28 @@ type BrandProps = {
   tribe?: MemberTribeListItemResult;
 };
 
+type RailLabelStackProps = {
+  collapsed: boolean;
+  detail: string;
+  reduce: boolean;
+  title: string;
+};
+
+/** Title and detail beside a rail icon; they fade and drift out while the rail collapses. */
+function RailLabelStack({ collapsed, detail, reduce, title }: RailLabelStackProps) {
+  return (
+    <motion.span
+      className={styles.AppRailShell__stack}
+      initial={false}
+      animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? LABEL_DRIFT_PX : 0 }}
+      transition={labelTiming(collapsed, reduce)}
+    >
+      <strong className={styles.AppRailShell__stackTitle}>{title}</strong>
+      <span className={styles.AppRailShell__stackDetail}>{detail}</span>
+    </motion.span>
+  );
+}
+
 /** Workspace row: the tribe switcher trigger inside a tribe, the home link elsewhere. */
 function Brand({ collapsed, memberTribes, onNavigate, onTribeSwitch, reduce, tribe }: BrandProps) {
   const name = tribe?.name ?? siteConfig.name;
@@ -527,15 +549,7 @@ function Brand({ collapsed, memberTribes, onNavigate, onTribeSwitch, reduce, tri
           {tribe ? getBrandMark(tribe.name) : siteConfig.brandMark}
         </span>
       )}
-      <motion.span
-        className={styles.AppRailShell__stack}
-        initial={false}
-        animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? LABEL_DRIFT_PX : 0 }}
-        transition={labelTiming(collapsed, reduce)}
-      >
-        <strong className={styles.AppRailShell__stackTitle}>{name}</strong>
-        <span className={styles.AppRailShell__stackDetail}>{subtitle}</span>
-      </motion.span>
+      <RailLabelStack collapsed={collapsed} detail={subtitle} reduce={reduce} title={name} />
     </>
   );
 
@@ -573,15 +587,7 @@ function Profile({ collapsed, member, reduce }: { collapsed: boolean; member: Au
     <div className={styles.AppRailShell__profile}>
       {/* Decorative: the name is shown next to it. */}
       <Avatar aria-hidden fallback={member.avatarFallback} name={member.name} size="sm" src={member.image} />
-      <motion.span
-        className={styles.AppRailShell__stack}
-        initial={false}
-        animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? LABEL_DRIFT_PX : 0 }}
-        transition={labelTiming(collapsed, reduce)}
-      >
-        <strong className={styles.AppRailShell__stackTitle}>{member.name}</strong>
-        <span className={styles.AppRailShell__stackDetail}>{APP_RAIL_UI.profileSubtitle}</span>
-      </motion.span>
+      <RailLabelStack collapsed={collapsed} detail={APP_RAIL_UI.profileSubtitle} reduce={reduce} title={member.name} />
     </div>
   );
 }

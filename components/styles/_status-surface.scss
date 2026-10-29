@@ -1,0 +1,88 @@
+// Shared layout for full-surface status pages (not found, error states).
+//
+// Each page keeps its own BEM block and backdrop; these mixins only give them the same full-bleed surface,
+// staggered copy entrance and typography.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/status-surface";
+//   .Block { @include status-surface.surface; @include status-surface.copy-elements; }
+
+@use "../../src/styles/motion";
+
+@mixin surface {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  flex: 1;
+  // Inside the platform layout the surface cancels the page gutter so its backdrop reaches the edges;
+  // elsewhere the variable is unset and both values fall back to the plain layout.
+  width: calc(100% + 2 * var(--platform-page-padding, 0px));
+  margin: calc(-1 * var(--platform-page-padding, 0px));
+  // Fills the viewport on its own and the content area inside the platform layout.
+  min-height: var(--platform-surface-min-height, 100svh);
+  align-content: center;
+  justify-items: start;
+  gap: 1.25rem;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 5rem);
+}
+
+// Layer behind the copy; each page paints its own background on it.
+@mixin backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+// Eyebrow, description and actions of the including block, with their staggered entrance.
+@mixin copy-elements {
+  // Copy and actions settle in one after another; the backdrop stays static.
+  &__eyebrow,
+  &__title,
+  &__description,
+  &__actions {
+    @include motion.enter;
+  }
+
+  &__title {
+    animation-delay: 40ms;
+  }
+
+  &__description {
+    animation-delay: 80ms;
+  }
+
+  &__actions {
+    animation-delay: 120ms;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: color-mix(in oklab, var(--foreground) 62%, transparent);
+  }
+
+  &__description {
+    margin: 0;
+    max-width: 40rem;
+    font-size: clamp(1rem, 2vw, 1.15rem);
+    line-height: 1.75;
+    color: var(--muted-foreground);
+    text-wrap: pretty;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.875rem;
+    padding-top: 0.5rem;
+  }
+}
+
+// Display title; each page sets its own size, line height and measure.
+@mixin title {
+  margin: 0;
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  text-wrap: balance;
+}

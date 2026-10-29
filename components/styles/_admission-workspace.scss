@@ -1,0 +1,74 @@
+// Shared pieces of the academy admission screens and workspace panels.
+//
+// Builds on `src/styles/workspace-panel` (per-element typography) with the element sets and frames that
+// several admission modules repeat. Each module keeps its own BEM block.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/admission-workspace";
+//   .Block { @include admission-workspace.fact-elements; }
+
+@use "../../src/styles/workspace-panel";
+
+// Single-column panel stacked inside a workspace tab (review queue, review history).
+@mixin review-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  min-width: 0;
+  gap: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+// Facts, fact, term and value elements of the including block.
+@mixin fact-elements {
+  &__facts {
+    @include workspace-panel.facts;
+  }
+
+  &__fact {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  &__term {
+    @include workspace-panel.fact-term;
+  }
+
+  &__value {
+    @include workspace-panel.fact-value;
+  }
+}
+
+// Title, lead, note, form and field elements of a messaging connection panel.
+@mixin connection-panel-elements {
+  &__title { @include workspace-panel.title; }
+  &__lead { @include workspace-panel.lead; }
+  &__note { @include workspace-panel.note; }
+  &__form { @include workspace-panel.form; }
+  &__field { @include workspace-panel.field; }
+}
+
+// Full-page column of the public admission screens; `$width` caps the measure.
+@mixin screen-frame($width) {
+  width: min(100%, $width);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 5vw, 3.5rem);
+  display: grid;
+  align-content: start;
+  gap: 2rem;
+  overflow-wrap: anywhere;
+}
+
+@mixin screen-eyebrow {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+// Display title of an admission screen; `$max-size` caps the fluid size.
+@mixin screen-title($max-size: 2.5rem) {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, $max-size);
+  line-height: 1.2;
+}

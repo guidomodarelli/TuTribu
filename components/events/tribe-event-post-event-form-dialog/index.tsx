@@ -6,6 +6,7 @@ import { AnimatePresence } from "motion/react";
 
 import { Button, Dialog, DialogContent, Input, AnimatedCollapse, AnimatedListItem } from "@golfo/ui";
 
+import { TribeEventFormActions } from "@/components/events/tribe-event-form-actions";
 import type { TribeEventPostEventView } from "@/src/modules/events/application/results/tribe-event-post-event-public-dto-schemas";
 import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import styles from "./styles.module.scss";
@@ -60,13 +61,11 @@ const INPUT_TYPE = {
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
-  typeSubmit: "submit",
   variantGhost: "ghost",
   variantSecondary: "secondary",
 } as const;
 const COPY = {
   addMaterial: "Agregar material",
-  cancelButton: "Cancelar",
   description:
     "Pegá el link de la grabación (YouTube, Vimeo, Wistia o Loom) y los links de slides, documentos o repositorios. Quienes respondieron Voy o Tal vez reciben un aviso cuando publicás la primera grabación.",
   invalidMaterial: "Cada material necesita un nombre y un link que empiece con http o https.",
@@ -297,18 +296,13 @@ type PostEventFormActionsProps = Pick<TribeEventPostEventFormDialogProps, "isSav
 /** Cancel and save buttons of the form. */
 function PostEventFormActions({ isSaving, onClose }: PostEventFormActionsProps) {
   return (
-    <div className={styles.TribeEventPostEventFormDialog__actions}>
-      <Button
-        type={BUTTON_ATTRIBUTE.typeButton}
-        variant={BUTTON_ATTRIBUTE.variantGhost}
-        onClick={onClose}
-      >
-        {COPY.cancelButton}
-      </Button>
-      <Button disabled={isSaving} type={BUTTON_ATTRIBUTE.typeSubmit}>
-        {isSaving ? COPY.submittingButton : COPY.submitButton}
-      </Button>
-    </div>
+    <TribeEventFormActions
+      className={styles.TribeEventPostEventFormDialog__actions}
+      isSaving={isSaving}
+      onClose={onClose}
+      savingLabel={COPY.submittingButton}
+      submitLabel={COPY.submitButton}
+    />
   );
 }
 

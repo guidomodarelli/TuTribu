@@ -1,3 +1,4 @@
+import { MESSAGING_CONNECTION_ERROR_CODE } from "@/src/modules/shared/constants/messaging-connection-error-codes";
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
 import type {MessagingErrorCode} from "../domain/errors/messaging-error-code";
 export const MESSAGING_ERROR_CODE = {
@@ -18,20 +19,7 @@ export const MESSAGING_ERROR_CODE = {
   verificationAttemptsExceeded: "verification_attempts_exceeded",
   /** Kept only for persisted audit values and responses from older servers; current writers never emit it. */
   reauthenticationRequired: "reauthentication_required",
-  connectionIncomplete: "connection_incomplete",
-  /** The academy has not saved its countries and daily quotas yet; distinct from an incomplete connection. */
-  usagePolicyMissing: "usage_policy_missing",
-  missingCapability: "missing_capability",
-  invalidCredentials: "invalid_credentials",
-  upstreamRejected: "upstream_rejected",
-  providerRateLimited: "provider_rate_limited",
-  transportTimeout: "transport_timeout",
-  dependencyUnavailable: "dependency_unavailable",
-  deliveryUnknown: "delivery_unknown",
-  operationUnresolved: "operation_unresolved",
-  upstreamPayloadUnusable: "upstream_payload_unusable",
-  publicContractUnusable: "public_contract_unusable",
-  unexpectedFailure: "unexpected_failure",
+  ...MESSAGING_CONNECTION_ERROR_CODE,
 } as const satisfies Record<string,MessagingErrorCode>;
 
 /** Only catalogue copy can cross the public error boundary. */

@@ -7,10 +7,14 @@
  */
 
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { createRequestModules } from "@/src/modules/setup";
 import { revalidateTribeStoryAboutCache } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache-revalidation";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { isPayloadObject } from "@/app/api/request-body-fields";
 
 const OPEN_FREE_JOIN_ROUTE_LOG = {
   failureMessage: "Tribe open free join toggle failed",
@@ -27,101 +31,63 @@ const OPEN_FREE_JOIN_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos guardar el cambio. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
+const MEMBER_ROUTE_SCOPE = {
+  feature: OPEN_FREE_JOIN_ROUTE_LOG.feature,
+  operation: OPEN_FREE_JOIN_ROUTE_LOG.operation,
+  unauthorizedMessage: OPEN_FREE_JOIN_ROUTE_RESPONSE.unauthorizedMessage,
 } as const;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
-
-function isPayloadObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 export async function PUT(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: OPEN_FREE_JOIN_ROUTE_LOG.feature,
-    operation: OPEN_FREE_JOIN_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: OPEN_FREE_JOIN_ROUTE_LOG.failureMessage,
+      metadata: { slug },
+      responseMessage: OPEN_FREE_JOIN_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const parsedBody: unknown = await request.json().catch(() => ({}));
 
-  try {
-    const parsedBody: unknown = await request.json().catch(() => ({}));
+      if (
+        !isPayloadObject(parsedBody) ||
+        typeof parsedBody.enabled !== "boolean"
+      ) {
+        return createRouteJsonResponse(
+          { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (
-      !isPayloadObject(parsedBody) ||
-      typeof parsedBody.enabled !== "boolean"
-    ) {
-      return createJsonResponse(
-        { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
+      const enabled = parsedBody.enabled;
+      const result = await modules.subscriptions.useCases.setTribeOpenFreeJoin({
+        enabled,
+        tribeSlug: slug,
+      });
+
+      if (result.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.current) {
+        revalidateTribeStoryAboutCache(slug);
+
+        return createRouteJsonResponse(
+          {
+            message: enabled
+              ? OPEN_FREE_JOIN_ROUTE_RESPONSE.enabledMessage
+              : OPEN_FREE_JOIN_ROUTE_RESPONSE.disabledMessage,
+            openFreeJoinEnabled: enabled,
+          },
+          HTTP_STATUS.ok
+        );
+      }
+
+      return createRouteJsonResponse(
+        { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
       );
     }
-
-    const enabled = parsedBody.enabled;
-    const result = await modules.subscriptions.useCases.setTribeOpenFreeJoin({
-      enabled,
-      tribeSlug: slug,
-    });
-
-    if (result.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.current) {
-      revalidateTribeStoryAboutCache(slug);
-
-      return createJsonResponse(
-        {
-          message: enabled
-            ? OPEN_FREE_JOIN_ROUTE_RESPONSE.enabledMessage
-            : OPEN_FREE_JOIN_ROUTE_RESPONSE.disabledMessage,
-          openFreeJoinEnabled: enabled,
-        },
-        HTTP_STATUS.ok
-      );
-    }
-
-    return createJsonResponse(
-      { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.forbiddenMessage },
-      HTTP_STATUS.forbidden
-    );
-  } catch (error) {
-    logger.error({
-      error,
-      message: OPEN_FREE_JOIN_ROUTE_LOG.failureMessage,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

@@ -9,6 +9,7 @@ import { ACADEMY_ROUTE_COPY } from "@/src/modules/product-access/constants/acade
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const CURRENT_SUBSCRIPTION_ROUTE_LOG = {
   cancelFailureMessage: "Current member subscription cancellation failed",
@@ -28,14 +29,6 @@ const CURRENT_SUBSCRIPTION_ROUTE_RESPONSE = {
 /** `?product=academy` cancels the academy renewal instead of the membership. */
 const PRODUCT_QUERY_PARAM = "product";
 const ACADEMY_PRODUCT = "academy";
-
-const HTTP_STATUS = {
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
-} as const;
 
 function createJsonResponse(body: Record<string, unknown>, status: number): Response {
   return Response.json(body, { status });

@@ -1,9 +1,13 @@
 import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const TOGGLE_MESSAGE_PIN_ROUTE_LOG = {
   feature: "messages",
@@ -21,21 +25,6 @@ const TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE = {
   unpinnedMessage: "Mensaje despineado.",
 } as const;
 
-const HTTP_STATUS = {
-  conflict: 409,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
-
 type ToggleMessagePinResult = Awaited<
   ReturnType<RequestModules["messages"]["useCases"]["toggleMessagePin"]>
 >;
@@ -45,7 +34,7 @@ function createPostResultResponse(result: ToggleMessagePinResult, slug: string):
     case MESSAGE_MUTATION_STATUS.pinned:
       revalidateTribeRoundCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           isPinned: true,
           message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.pinnedMessage,
@@ -56,7 +45,7 @@ function createPostResultResponse(result: ToggleMessagePinResult, slug: string):
     case MESSAGE_MUTATION_STATUS.unpinned:
       revalidateTribeRoundCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           isPinned: false,
           message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unpinnedMessage,
@@ -65,79 +54,59 @@ function createPostResultResponse(result: ToggleMessagePinResult, slug: string):
         HTTP_STATUS.ok
       );
     case MESSAGE_MUTATION_STATUS.pinLimitReached:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.limitReachedMessage },
         HTTP_STATUS.conflict
       );
     case MESSAGE_MUTATION_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case MESSAGE_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
   }
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: TOGGLE_MESSAGE_PIN_ROUTE_LOG.feature,
+  operation: TOGGLE_MESSAGE_PIN_ROUTE_LOG.operation,
+  unauthorizedMessage: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      messageId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ messageId: string }>
 ) {
   const { messageId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: TOGGLE_MESSAGE_PIN_ROUTE_LOG.feature,
-    operation: TOGGLE_MESSAGE_PIN_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: TOGGLE_MESSAGE_PIN_ROUTE_LOG.toggleFailureMessage,
+      metadata: { messageId, slug },
+      responseMessage: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ member, modules }) => {
+      if (!isUuidRouteParam(messageId)) {
+        return createRouteJsonResponse(
+          { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      }
 
-  if (!isUuidRouteParam(messageId)) {
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.notFoundMessage },
-      HTTP_STATUS.notFound
-    );
-  }
-
-  try {
-    const result = await modules.messages.useCases.toggleMessagePin({
-      messageId,
-      tribeSlug: slug,
-      userId: authenticatedMember.id,
-    });
-
-    return createPostResultResponse(result, slug);
-  } catch (error) {
-    logger.error({
-      message: TOGGLE_MESSAGE_PIN_ROUTE_LOG.toggleFailureMessage,
-      error,
-      metadata: {
+      const result = await modules.messages.useCases.toggleMessagePin({
         messageId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+        tribeSlug: slug,
+        userId: member.id,
+      });
 
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_PIN_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPostResultResponse(result, slug);
+    }
+  );
 }

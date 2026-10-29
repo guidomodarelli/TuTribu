@@ -12,6 +12,13 @@ import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/mes
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const DELETE_MESSAGE_ROUTE_LOG = {
   deleteFailureMessage: "Tribe message deletion failed",
@@ -55,16 +62,6 @@ const UPDATE_MESSAGE_ROUTE_RESPONSE = {
   successMessage: "Mensaje actualizado.",
   unauthorizedMessage: "Inicia sesion para editar mensajes.",
   unexpectedMessage: "No pudimos editar el mensaje. Intentalo de nuevo.",
-} as const;
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  conflict: 409,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
 } as const;
 
 type UpdateMessagePollPayload = {
@@ -253,89 +250,63 @@ function readUpdateMessagePayload(
   return payload;
 }
 
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
+const MEMBER_ROUTE_SCOPE = {
+  feature: DELETE_MESSAGE_ROUTE_LOG.feature,
+  operation: DELETE_MESSAGE_ROUTE_LOG.operation,
+  unauthorizedMessage: DELETE_MESSAGE_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
 
 export async function DELETE(
   request: Request,
-  context: {
-    params: Promise<{
-      messageId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ messageId: string }>
 ) {
   const { messageId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: DELETE_MESSAGE_ROUTE_LOG.feature,
-    operation: DELETE_MESSAGE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: DELETE_MESSAGE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  if (!isUuidRouteParam(messageId)) {
-    return createJsonResponse(
-      { message: DELETE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
-      HTTP_STATUS.notFound
-    );
-  }
-
-  try {
-    const result = await modules.messages.useCases.deleteTribeMessage({
-      messageId,
-      tribeSlug: slug,
-      userId: authenticatedMember.id,
-    });
-
-    switch (result.status) {
-      case MESSAGE_MUTATION_STATUS.deleted:
-        revalidateTribeRoundCache(slug);
-
-        return createJsonResponse(
-          { message: DELETE_MESSAGE_ROUTE_RESPONSE.successMessage },
-          HTTP_STATUS.ok
-        );
-      case MESSAGE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: DELETE_MESSAGE_ROUTE_LOG.deleteFailureMessage,
+      metadata: { messageId, slug },
+      responseMessage: DELETE_MESSAGE_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ member, modules }) => {
+      if (!isUuidRouteParam(messageId)) {
+        return createRouteJsonResponse(
           { message: DELETE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
           HTTP_STATUS.notFound
         );
-      case MESSAGE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: DELETE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
-  } catch (error) {
-    logger.error({
-      message: DELETE_MESSAGE_ROUTE_LOG.deleteFailureMessage,
-      error,
-      metadata: {
+      }
+
+      const result = await modules.messages.useCases.deleteTribeMessage({
         messageId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+        tribeSlug: slug,
+        userId: member.id,
+      });
 
-    return createJsonResponse(
-      { message: DELETE_MESSAGE_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      switch (result.status) {
+        case MESSAGE_MUTATION_STATUS.deleted:
+          revalidateTribeRoundCache(slug);
+
+          return createRouteJsonResponse(
+            { message: DELETE_MESSAGE_ROUTE_RESPONSE.successMessage },
+            HTTP_STATUS.ok
+          );
+        case MESSAGE_MUTATION_STATUS.notFound:
+          return createRouteJsonResponse(
+            { message: DELETE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
+            HTTP_STATUS.notFound
+          );
+        case MESSAGE_MUTATION_STATUS.forbidden:
+        default:
+          return createRouteJsonResponse(
+            { message: DELETE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
+            HTTP_STATUS.forbidden
+          );
+      }
+    }
+  );
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type UpdateTribeMessageContentResult = Awaited<
   ReturnType<RequestModules["messages"]["useCases"]["updateTribeMessageContent"]>
@@ -346,7 +317,7 @@ function createPatchResultResponse(result: UpdateTribeMessageContentResult, slug
     case MESSAGE_MUTATION_STATUS.updated:
       revalidateTribeRoundCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           content: result.content,
           message: UPDATE_MESSAGE_ROUTE_RESPONSE.successMessage,
@@ -359,53 +330,53 @@ function createPatchResultResponse(result: UpdateTribeMessageContentResult, slug
         HTTP_STATUS.ok
       );
     case MESSAGE_MUTATION_STATUS.invalidContent:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidContentMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidImage:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidMedia:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidPoll:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidVideoMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidFile:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.pollHasVotes:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.pollHasVotesMessage },
         HTTP_STATUS.conflict
       );
     case MESSAGE_MUTATION_STATUS.pollMissing:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.pollMissingMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case MESSAGE_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: UPDATE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -414,12 +385,7 @@ function createPatchResultResponse(result: UpdateTribeMessageContentResult, slug
 
 export async function PATCH(
   request: Request,
-  context: {
-    params: Promise<{
-      messageId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ messageId: string }>
 ) {
   const { messageId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
@@ -432,14 +398,14 @@ export async function PATCH(
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: UPDATE_MESSAGE_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
   }
 
   if (!isUuidRouteParam(messageId)) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: UPDATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
       HTTP_STATUS.notFound
     );
@@ -451,7 +417,7 @@ export async function PATCH(
   const payload = readUpdateMessagePayload(body);
 
   if (!payload) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidPayloadMessage },
       HTTP_STATUS.badRequest
     );
@@ -481,7 +447,7 @@ export async function PATCH(
       },
     });
 
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: UPDATE_MESSAGE_ROUTE_RESPONSE.unexpectedMessage },
       HTTP_STATUS.serverError
     );

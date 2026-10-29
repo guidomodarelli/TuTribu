@@ -1,4 +1,3 @@
-import { openTribeEventPostEventRouteScope } from "@/app/api/tribes/[slug]/events/post-event-route-scope";
 import {
   tribeEventCommentResponseSchema,
   tribeEventConversationResponseSchema,
@@ -12,14 +11,17 @@ import {
   tribeEventEmptyQuerySchema,
   tribeEventRouteParamsSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
-import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
-import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
-  createJsonResponse,
   mapTribeEventPostEventStatusResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
+import {
+  handleTribeEventRoute,
+  openTribeEventPostEventScope,
+  readEventOccurrenceLogMetadata,
+  type TribeEventRouteContext,
+} from "../../tribe-event-route";
 
 const CONVERSATION_ROUTE_LOG = {
   createFailureMessage: "Tribe event occurrence comment creation failed",
@@ -27,81 +29,47 @@ const CONVERSATION_ROUTE_LOG = {
   operation: "tribe-event-occurrence-conversation",
 } as const;
 
-type TribeEventRouteContext = {
-  params: Promise<{
-    eventId: string;
-    slug: string;
-  }>;
-};
-
 /**
  * Conversation of `?occurrence=` (original start), oldest first, and whether
  * the viewer can write in it.
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, {
-    operation: CONVERSATION_ROUTE_LOG.operation,
-    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedConversationMessage,
-  });
-
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const { logger, member, modules } = scope;
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+  return handleTribeEventRoute(
     request,
-    schemas: { params: tribeEventRouteParamsSchema, query: tribeEventPostEventQuerySchema },
-  });
+    context,
+    {
+      failure: {
+        logMessage: CONVERSATION_ROUTE_LOG.listFailureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedConversationMessage,
+      },
+      openScope: openTribeEventPostEventScope(
+        CONVERSATION_ROUTE_LOG.operation,
+        TRIBE_EVENT_ROUTE_RESPONSE.unexpectedConversationMessage
+      ),
+      readLogMetadata: readEventOccurrenceLogMetadata("originalStartsAt"),
+      schemas: { params: tribeEventRouteParamsSchema, query: tribeEventPostEventQuerySchema },
+    },
+    async ({ modules, params, query, respond }) => {
+      const result = await modules.events.useCases.listTribeEventOccurrenceComments({
+        eventId: params.eventId,
+        originalStartsAt: query.occurrence,
+        tribeSlug: params.slug,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (result.status !== TRIBE_EVENT_MUTATION_STATUS.found) {
+        return mapTribeEventPostEventStatusResponse(
+          result.status,
+          TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage
+        );
+      }
 
-  const { eventId, slug } = input.params;
-  const logMetadata = {
-    eventId,
-    originalStartsAt: input.query.occurrence,
-    slug,
-    viewerId: member.id,
-  };
-
-  try {
-    const result = await modules.events.useCases.listTribeEventOccurrenceComments({
-      eventId,
-      originalStartsAt: input.query.occurrence,
-      tribeSlug: slug,
-    });
-
-    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.found) {
-      return mapTribeEventPostEventStatusResponse(
-        result.status,
-        TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage
+      return respond(
+        { canComment: result.canComment, comments: result.comments },
+        tribeEventConversationResponseSchema,
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
       );
     }
-
-    return createTribeEventPublicResponse({
-      body: { canComment: result.canComment, comments: result.comments },
-      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedConversationMessage,
-      logger,
-      metadata: logMetadata,
-      schema: tribeEventConversationResponseSchema,
-      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    logger.error({
-      error,
-      message: CONVERSATION_ROUTE_LOG.listFailureMessage,
-      metadata: logMetadata,
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedConversationMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+  );
 }
 
 /**
@@ -109,76 +77,53 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
  * thread appends it without reloading. Replies do not notify in this phase.
  */
 export async function POST(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, {
-    operation: CONVERSATION_ROUTE_LOG.operation,
-    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
-  });
-
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const { logger, member, modules } = scope;
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+  return handleTribeEventRoute(
     request,
-    schemas: {
-      body: tribeEventCommentBodySchema,
-      params: tribeEventRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+    context,
+    {
+      failure: {
+        logMessage: CONVERSATION_ROUTE_LOG.createFailureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
+      },
+      openScope: openTribeEventPostEventScope(
+        CONVERSATION_ROUTE_LOG.operation,
+        TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage
+      ),
+      readLogMetadata: ({ body, params }) => ({
+        eventId: params.eventId,
+        originalStartsAt: body.occurrenceStartsAt,
+        slug: params.slug,
+      }),
+      schemas: {
+        body: tribeEventCommentBodySchema,
+        params: tribeEventRouteParamsSchema,
+        query: tribeEventEmptyQuerySchema,
+      },
     },
-  });
+    async ({ body, modules, params, respond }) => {
+      const result = await modules.events.useCases.createTribeEventOccurrenceComment({
+        clientRequestId: body.clientRequestId,
+        content: body.content,
+        eventId: params.eventId,
+        originalStartsAt: body.occurrenceStartsAt,
+        tribeSlug: params.slug,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (result.status !== TRIBE_EVENT_MUTATION_STATUS.commentCreated) {
+        return mapTribeEventPostEventStatusResponse(
+          result.status,
+          TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage
+        );
+      }
 
-  const { eventId, slug } = input.params;
-  const logMetadata = {
-    eventId,
-    originalStartsAt: input.body.occurrenceStartsAt,
-    slug,
-    viewerId: member.id,
-  };
-
-  try {
-    const result = await modules.events.useCases.createTribeEventOccurrenceComment({
-      clientRequestId: input.body.clientRequestId,
-      content: input.body.content,
-      eventId,
-      originalStartsAt: input.body.occurrenceStartsAt,
-      tribeSlug: slug,
-    });
-
-    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.commentCreated) {
-      return mapTribeEventPostEventStatusResponse(
-        result.status,
-        TRIBE_EVENT_ROUTE_RESPONSE.commentForbiddenMessage
+      return respond(
+        {
+          comment: result.comment,
+          message: TRIBE_EVENT_ROUTE_RESPONSE.commentCreatedMessage,
+        },
+        tribeEventCommentResponseSchema,
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.created
       );
     }
-
-    return createTribeEventPublicResponse({
-      body: {
-        comment: result.comment,
-        message: TRIBE_EVENT_ROUTE_RESPONSE.commentCreatedMessage,
-      },
-      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
-      logger,
-      metadata: logMetadata,
-      schema: tribeEventCommentResponseSchema,
-      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.created,
-    });
-  } catch (error) {
-    logger.error({
-      error,
-      message: CONVERSATION_ROUTE_LOG.createFailureMessage,
-      metadata: logMetadata,
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+  );
 }

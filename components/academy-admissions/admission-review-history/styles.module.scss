@@ -1,12 +1,8 @@
 @use "../../../src/styles/workspace-panel";
+@use "../../styles/admission-workspace";
 
 .AdmissionReviewHistory {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  min-width: 0;
-  gap: 1.5rem;
-  overflow-wrap: anywhere;
+  @include admission-workspace.review-panel;
 
   &__toolbar {
     @include workspace-panel.actions;

@@ -13,20 +13,10 @@ import {
   PRODUCT_KEY,
   type AccessGrantSourceType,
 } from "@/src/modules/product-access/constants/product-access";
+import type { AuditEventRecord } from "@/src/modules/shared/infrastructure/database/audit-event";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
-export type AcademyAuditEvent = {
-  action: string;
-  actorUserId: string | null;
-  correlationId: string | null;
-  entityId: string;
-  entityType: string;
-  fromState: string | null;
-  reason: string | null;
-  subjectUserId: string | null;
-  toState: string | null;
-  tribeId: string;
-};
+export type AcademyAuditEvent = AuditEventRecord;
 
 /**
  * Appends one audit event. It stores ids and transitions, never emails,

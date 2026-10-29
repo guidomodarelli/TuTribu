@@ -1,0 +1,76 @@
+// Shared pieces of the tribe welcome display and its selection modal.
+//
+// Usage (path relative to the module):
+//   @use "../welcome";
+//   .Block { @include welcome.benefit-elements; }
+
+@use "../../src/styles/motion";
+@use "../styles/interaction";
+
+// Benefit callout and its eyebrow elements of the including block.
+@mixin benefit-elements {
+  &__benefit {
+    background: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    color: var(--foreground);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0.75rem 0.875rem;
+  }
+
+  &__benefitEyebrow {
+    color: var(--muted-foreground);
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+}
+
+// Full-width card button of a welcome choice; `$disabled-opacity` dims it while unavailable and
+// `$transitions` lists the properties that animate. Each module sets its own font.
+@mixin choice-card($disabled-opacity, $transitions...) {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--foreground);
+  cursor: pointer;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+  text-align: left;
+  width: 100%;
+
+  @include motion.interactive($transitions...);
+  @include interaction.focus-outline;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: $disabled-opacity;
+  }
+
+  // After `:disabled`, so a busy card stays fully visible.
+  &[aria-busy="true"] {
+    cursor: progress;
+    opacity: 1;
+  }
+}
+
+// Hover state of the `$card` element and its `$icon` element, only where a real pointer hovers.
+@mixin choice-card-hover($card, $icon) {
+  @media (hover: hover) {
+    &__#{$card}:hover:not(:disabled) {
+      background: var(--accent);
+      border-color: color-mix(in oklab, var(--ring) 55%, var(--border));
+    }
+
+    &__#{$card}:hover:not(:disabled) &__#{$icon} {
+      color: var(--foreground);
+      transform: translate(2px, -2px);
+    }
+  }
+}

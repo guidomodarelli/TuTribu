@@ -37,11 +37,17 @@ import type {
 } from "@/src/modules/messages/domain/repositories/message-round-read-repository";
 import {
   createTribeRoundAuthor,
-  createTribeRoundReply,
+  createTribeRoundReplyFromRow,
   createTribeChannel,
   formatMessageDateTimeValue,
+  type TribeRoundReplyRow,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {
+  applyTribeRoundViewerState,
+  normalizeTribeRoundChannelSlug,
+  normalizeTribeRoundPage,
+} from "@/src/modules/messages/application/results/tribe-round-viewer-state";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -254,14 +260,7 @@ type MessageRoundViewerStateRow = {
   viewer_membership_role: string | null;
 };
 
-type MessageReplyRow = {
-  reply_author_id: string | null;
-  reply_author_image: string | null;
-  reply_author_name: string | null;
-  reply_author_role: string | null;
-  reply_content: string | null;
-  reply_created_at: Date | string | null;
-  reply_id: string | null;
+type MessageReplyRow = TribeRoundReplyRow & {
   status_result: string;
 };
 
@@ -363,52 +362,22 @@ function mapRowsToChannels(rows: TribeChannelRow[]): TribeChannelResult[] {
   );
 }
 
-function mapRowsToRound(
-  sharedData: TribeRoundSharedDataResult,
-  viewerState: TribeRoundViewerStateResult
-): TribeRoundResult {
-  const likedMessageIds = new Set(viewerState.likedMessageIds);
-  const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
-  const canManageOwnMessages = viewerState.viewerPermissions.canCreateMessage;
-  const canDeleteStaffMessages = Boolean(
-    viewerState.viewerPermissions.canPinMessages
-  );
+/**
+ * Applies the viewer's selections to a poll without hiding its results.
+ */
+function applyViewerPollSelections(
+  poll: MessagePollResult,
+  selectedPollOptionIds: Set<string>
+): MessagePollResult {
+  const options = poll.options.map((option) => ({
+    ...option,
+    selectedByViewer: selectedPollOptionIds.has(option.id),
+  }));
 
   return {
-    activeChannelId: sharedData.activeChannelId,
-    channels: sharedData.channels,
-    messages: sharedData.messages.map((message) => {
-      const poll = message.poll
-        ? {
-            ...message.poll,
-            options: message.poll.options.map((option) => ({
-              ...option,
-              selectedByViewer: selectedPollOptionIds.has(option.id),
-            })),
-          }
-        : null;
-      const isViewerAuthor = message.author.id === viewerState.viewerId;
-
-      return {
-        ...message,
-        hasLoadedReplies: message.replyCount === 0,
-        likedByViewer: likedMessageIds.has(message.id),
-        permissions: {
-          canDelete:
-            (isViewerAuthor && canManageOwnMessages) || canDeleteStaffMessages,
-          canEdit: isViewerAuthor && canManageOwnMessages,
-        },
-        poll: poll
-          ? {
-              ...poll,
-              viewerHasVoted: poll.options.some((option) => option.selectedByViewer),
-            }
-          : null,
-        replies: [],
-      };
-    }),
-    pagination: sharedData.pagination,
-    viewerPermissions: viewerState.viewerPermissions,
+    ...poll,
+    options,
+    viewerHasVoted: options.some((option) => option.selectedByViewer),
   };
 }
 
@@ -574,20 +543,6 @@ function mapViewerStateRow(
   };
 }
 
-function normalizePage(page: number | undefined): number {
-  if (!Number.isInteger(page) || !page || page < 1) {
-    return 1;
-  }
-
-  return page;
-}
-
-function normalizeChannelSlug(channelSlug: string | null | undefined): string | null {
-  const normalizedChannelSlug = channelSlug?.trim() ?? "";
-
-  return normalizedChannelSlug.length > 0 ? normalizedChannelSlug : null;
-}
-
 function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
   const status = rows[0]?.status_result;
 
@@ -602,28 +557,9 @@ function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
   return {
     status: "found",
     replies: rows.flatMap((row) => {
-      if (
-        !row.reply_id ||
-        !row.reply_author_id ||
-        !row.reply_content ||
-        !row.reply_created_at
-      ) {
-        return [];
-      }
+      const reply = createTribeRoundReplyFromRow(row);
 
-      return [
-        createTribeRoundReply({
-          id: row.reply_id,
-          author: {
-            id: row.reply_author_id,
-            image: row.reply_author_image,
-            name: row.reply_author_name,
-            role: row.reply_author_role,
-          },
-          content: row.reply_content,
-          createdAt: row.reply_created_at,
-        }),
-      ];
+      return reply ? [reply] : [];
     }),
   };
 }
@@ -974,7 +910,11 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
       viewerId,
     });
 
-    return mapRowsToRound(sharedData, viewerState);
+    return applyTribeRoundViewerState(
+      sharedData,
+      viewerState,
+      applyViewerPollSelections
+    );
   }
 
   async listSharedDataByTribeSlug({
@@ -983,7 +923,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     tribeSlug,
   }: ListTribeRoundQuery): Promise<TribeRoundSharedDataResult> {
     return this.executeWithDatabase(async (database) => {
-      const currentPage = normalizePage(page);
+      const currentPage = normalizeTribeRoundPage(page);
       const messageOffset = (currentPage - 1) * TRIBE_ROUND_PAGE_SIZE;
       const messageLimit = TRIBE_ROUND_PAGE_SIZE + 1;
       const channelsResult = await database.execute(sql`
@@ -1006,7 +946,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           order by tribe_channels.sort_order asc, tribe_channels.name asc
         `);
       const channels = mapRowsToChannels(channelsResult.rows as TribeChannelRow[]);
-      const selectedChannelSlug = normalizeChannelSlug(channelSlug);
+      const selectedChannelSlug = normalizeTribeRoundChannelSlug(channelSlug);
       const activeChannel =
         channels.find((channel) => channel.slug === selectedChannelSlug) ?? null;
       const result = await database.execute(sql`

@@ -5,6 +5,10 @@ import type {
   TribePresenceRepository,
 } from "@/src/modules/tribes/domain/repositories/tribe-presence-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {
+  POSTGRES_ERROR_CODE,
+  hasPostgresErrorCode,
+} from "@/src/modules/shared/infrastructure/database/postgres-error";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -14,27 +18,10 @@ type PresenceTouchRow = {
   touched: boolean | null;
 };
 
-const POSTGRES_ERROR_CODE = {
-  undefinedFunction: "42883",
-} as const;
-
 function isMissingPresenceFunctionError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-  const causeCode =
-    postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-      ? (postgresError.cause as { code?: string }).code
-      : undefined;
-
-  return (
-    postgresError.code === POSTGRES_ERROR_CODE.undefinedFunction ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedFunction
-  );
+  return hasPostgresErrorCode(error, [
+    POSTGRES_ERROR_CODE.undefinedFunction,
+  ]);
 }
 
 export class PostgresTribePresenceRepository implements TribePresenceRepository {

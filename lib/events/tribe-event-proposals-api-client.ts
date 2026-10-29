@@ -69,6 +69,32 @@ function buildProposalEndpoint(tribeSlug: string, proposalId: string): string {
 }
 
 /**
+ * Sends a proposal mutation whose answer is the stored proposal.
+ *
+ * @param endpoint - Proposal endpoint.
+ * @param method - HTTP method.
+ * @param body - JSON body.
+ * @returns The stored proposal, or the failure message and whether the
+ * outcome is ambiguous.
+ */
+async function sendTribeEventProposalMutation(
+  endpoint: string,
+  method: string,
+  body: TribeEventProposalPayload | TribeEventProposalDecisionRequestBody
+): Promise<TribeEventMutationResult<{ proposal: TribeEventProposalResult }>> {
+  const response = await fetch(endpoint, {
+    body: JSON.stringify(body),
+    headers: TRIBE_EVENT_JSON_HEADERS,
+    method,
+  });
+  const result = await readTribeEventResponse(response, tribeEventProposalResponseSchema);
+
+  return result.isUsable
+    ? { isSuccess: true, message: result.dto.message, proposal: result.dto.proposal }
+    : buildTribeEventMutationFailure(response, result);
+}
+
+/**
  * Loads the proposals panel (manager queue or the viewer's own proposals).
  *
  * @param input - Tribe and an abort signal so a stale load never updates the UI.
@@ -99,16 +125,11 @@ export async function createTribeEventProposalRequest(input: {
   payload: TribeEventProposalPayload;
   tribeSlug: string;
 }): Promise<TribeEventMutationResult<{ proposal: TribeEventProposalResult }>> {
-  const response = await fetch(buildProposalsEndpoint(input.tribeSlug), {
-    body: JSON.stringify(input.payload),
-    headers: TRIBE_EVENT_JSON_HEADERS,
-    method: TRIBE_EVENT_HTTP_REQUEST.methodPost,
-  });
-  const result = await readTribeEventResponse(response, tribeEventProposalResponseSchema);
-
-  return result.isUsable
-    ? { isSuccess: true, message: result.dto.message, proposal: result.dto.proposal }
-    : buildTribeEventMutationFailure(response, result);
+  return sendTribeEventProposalMutation(
+    buildProposalsEndpoint(input.tribeSlug),
+    TRIBE_EVENT_HTTP_REQUEST.methodPost,
+    input.payload
+  );
 }
 
 /**
@@ -169,14 +190,9 @@ export async function decideTribeEventProposalRequest(input: {
   proposalId: string;
   tribeSlug: string;
 }): Promise<TribeEventMutationResult<{ proposal: TribeEventProposalResult }>> {
-  const response = await fetch(buildProposalEndpoint(input.tribeSlug, input.proposalId), {
-    body: JSON.stringify(input.body),
-    headers: TRIBE_EVENT_JSON_HEADERS,
-    method: TRIBE_EVENT_HTTP_REQUEST.methodPatch,
-  });
-  const result = await readTribeEventResponse(response, tribeEventProposalResponseSchema);
-
-  return result.isUsable
-    ? { isSuccess: true, message: result.dto.message, proposal: result.dto.proposal }
-    : buildTribeEventMutationFailure(response, result);
+  return sendTribeEventProposalMutation(
+    buildProposalEndpoint(input.tribeSlug, input.proposalId),
+    TRIBE_EVENT_HTTP_REQUEST.methodPatch,
+    input.body
+  );
 }

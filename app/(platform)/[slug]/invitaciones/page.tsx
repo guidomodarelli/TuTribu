@@ -1,20 +1,14 @@
-import { notFound } from "next/navigation";
 
 import { TribeInvitationManagement } from "@/components/tribes/tribe-invitation-management";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { requireTribeManagerMembership } from "../tribe-manager-page-access";
 
 const INVITATION_MANAGEMENT_PAGE_LOG = {
   operation: "tribe-invitation-management-page",
   resolveInvitationsFailureMessage: "Failed to resolve tribe invitations",
   resolvePricesFailureMessage: "Failed to resolve tribe subscription prices",
-} as const;
-
-const INVITATION_MANAGER_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
 } as const;
 
 const INVITATION_PRICE_STATUS = {
@@ -57,25 +51,7 @@ export default async function TribeInvitationsPage({
       slug,
     });
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
-
-  if (
-    currentMembership?.role !== INVITATION_MANAGER_ROLE.leader &&
-    currentMembership?.role !== INVITATION_MANAGER_ROLE.guardian
-  ) {
-    notFound();
-  }
-
-  const membershipStatus =
-    await modules.tribes.useCases.getCurrentTribeMembershipStatus(
-      tribe.slug
-    );
-
-  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
-    notFound();
-  }
+  await requireTribeManagerMembership(modules, tribe.slug);
 
   const [invitations, pricesListing] = await Promise.all([
     modules.tribes.useCases

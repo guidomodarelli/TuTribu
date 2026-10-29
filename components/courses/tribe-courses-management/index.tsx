@@ -6,6 +6,7 @@ import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
+import { readCourseEntityEntry, sendCourseJson } from "@/lib/courses/course-api";
 import {
   ATTACHMENT_FILE,
   ATTACHMENT_FILE_INPUT_ACCEPT,
@@ -194,10 +195,6 @@ const HTTP_HEADER_NAME = {
   contentType: "Content-Type",
 } as const;
 
-const HTTP_CONTENT_TYPE = {
-  applicationJson: "application/json",
-} as const;
-
 const COURSES_API = {
   apiTribesPrefix: "/api/tribes/",
   coursesLessonFiles: "/courses/lessons/files/",
@@ -360,21 +357,8 @@ function isOptimisticId(id: string): boolean {
 function readModuleFromResponse(
   payload: unknown
 ): CourseModuleResult | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  const candidate = (payload as { courseModule?: unknown }).courseModule;
-  if (!candidate || typeof candidate !== "object") {
-    return null;
-  }
-  const entry = candidate as Record<string, unknown>;
-  if (
-    typeof entry.id !== "string" ||
-    typeof entry.title !== "string" ||
-    typeof entry.sortOrder !== "number" ||
-    typeof entry.isActive !== "boolean" ||
-    typeof entry.courseId !== "string"
-  ) {
+  const entry = readCourseEntityEntry(payload, "courseModule");
+  if (!entry || typeof entry.courseId !== "string") {
     return null;
   }
   return {
@@ -451,19 +435,9 @@ function readUploadReservationFromResponse(
 }
 
 function readLessonFromResponse(payload: unknown): LessonResult | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  const candidate = (payload as { lesson?: unknown }).lesson;
-  if (!candidate || typeof candidate !== "object") {
-    return null;
-  }
-  const entry = candidate as Record<string, unknown>;
+  const entry = readCourseEntityEntry(payload, "lesson");
   if (
-    typeof entry.id !== "string" ||
-    typeof entry.title !== "string" ||
-    typeof entry.sortOrder !== "number" ||
-    typeof entry.isActive !== "boolean" ||
+    !entry ||
     typeof entry.courseModuleId !== "string" ||
     typeof entry.externalVideoId !== "string" ||
     typeof entry.videoProvider !== "string"
@@ -487,28 +461,6 @@ function readLessonFromResponse(payload: unknown): LessonResult | null {
 }
 
 type SetModules = Dispatch<SetStateAction<CourseModuleWithLessonsResult[]>>;
-
-/**
- * Sends a JSON request to a course content endpoint.
- *
- * @param url - Endpoint.
- * @param method - HTTP method.
- * @param body - JSON body.
- * @returns The response.
- */
-function sendJson(
-  url: string,
-  method: string,
-  body: Record<string, unknown>
-): Promise<Response> {
-  return fetch(url, {
-    body: JSON.stringify(body),
-    headers: {
-      [HTTP_HEADER_NAME.contentType]: HTTP_CONTENT_TYPE.applicationJson,
-    },
-    method,
-  });
-}
 
 /**
  * Parses the lesson video URL, reporting an unsupported one to the author.
@@ -700,7 +652,7 @@ function createSubmitNewModule(context: CourseContentMutationContext) {
     modulePending.markPending(optimisticId);
 
     try {
-      const response = await sendJson(buildModulesApiUrl(context.tribeSlug), HTTP_METHOD.post, {
+      const response = await sendCourseJson(buildModulesApiUrl(context.tribeSlug), HTTP_METHOD.post, {
         courseId,
         sortOrder: form.sortOrder,
         title: form.title,
@@ -761,7 +713,7 @@ function createSubmitModuleUpdate(context: CourseContentMutationContext) {
     modulePending.markPending(moduleId);
 
     try {
-      const response = await sendJson(
+      const response = await sendCourseJson(
         buildModuleApiUrl(context.tribeSlug, moduleId),
         HTTP_METHOD.patch,
         pickModuleFields(form)
@@ -876,7 +828,7 @@ function createSubmitNewLesson(context: CourseContentMutationContext) {
     lessonPending.markPending(optimisticId);
 
     try {
-      const response = await sendJson(buildLessonsApiUrl(context.tribeSlug, courseModuleId), HTTP_METHOD.post, {
+      const response = await sendCourseJson(buildLessonsApiUrl(context.tribeSlug, courseModuleId), HTTP_METHOD.post, {
         description: form.description,
         externalVideoUrl: form.externalVideoUrl,
         ...(form.files !== undefined ? { files: form.files } : {}),
@@ -953,7 +905,7 @@ function createSubmitLessonUpdate(context: CourseContentMutationContext) {
     lessonPending.markPending(lesson.id);
 
     try {
-      const response = await sendJson(buildLessonApiUrl(context.tribeSlug, lesson.id), HTTP_METHOD.patch, {
+      const response = await sendCourseJson(buildLessonApiUrl(context.tribeSlug, lesson.id), HTTP_METHOD.patch, {
         courseModuleId: lesson.courseModuleId,
         description: form.description,
         externalVideoUrl: form.externalVideoUrl,
@@ -1800,6 +1752,39 @@ function ModuleScheduleFields({
   );
 }
 
+type ContentFormIntroProps = {
+  headingLabel: string;
+  titleField: ReturnType<typeof useRequiredTitleField>;
+  titlePlaceholder: string;
+};
+
+/**
+ * Heading and required title input that open a module or lesson form.
+ *
+ * @param props - Heading, title field state and the title placeholder.
+ * @returns The form heading and title input.
+ */
+function ContentFormIntro({ headingLabel, titleField, titlePlaceholder }: ContentFormIntroProps) {
+  const { setTitle, title, titleError, titleInputRef } = titleField;
+
+  return (
+    <>
+      <h3 className={styles.TribeCoursesManagement__formHeading}>
+        {headingLabel}
+      </h3>
+      <Input
+        error={titleError ?? undefined}
+        label={COURSES_MANAGEMENT_COPY.titleLabel}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder={titlePlaceholder}
+        ref={titleInputRef}
+        required
+        value={title}
+      />
+    </>
+  );
+}
+
 /**
  * Create or edit form of a course module.
  *
@@ -1813,13 +1798,8 @@ function ModuleForm({
   onCancel,
   onSubmit,
 }: ModuleFormProps) {
-  const {
-    setTitle,
-    title,
-    titleError,
-    titleInputRef,
-    validateTitle,
-  } = useRequiredTitleField(initialState.title);
+  const titleField = useRequiredTitleField(initialState.title);
+  const { validateTitle } = titleField;
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
   const [unlockAfterDays, setUnlockAfterDays] = useState<number | null>(
@@ -1856,17 +1836,10 @@ function ModuleForm({
       noValidate
       onSubmit={handleSubmit}
     >
-      <h3 className={styles.TribeCoursesManagement__formHeading}>
-        {headingLabel}
-      </h3>
-      <Input
-        error={titleError ?? undefined}
-        label={COURSES_MANAGEMENT_COPY.titleLabel}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder={COURSES_MANAGEMENT_COPY.titleModulePlaceholder}
-        ref={titleInputRef}
-        required
-        value={title}
+      <ContentFormIntro
+        headingLabel={headingLabel}
+        titleField={titleField}
+        titlePlaceholder={COURSES_MANAGEMENT_COPY.titleModulePlaceholder}
       />
       <ModuleScheduleFields
         setSortOrder={setSortOrder}
@@ -1959,7 +1932,7 @@ function deleteLessonFileAssetBestEffort(tribeSlug: string, assetId: string) {
  * @returns The reservation response.
  */
 function requestLessonFileReservation(tribeSlug: string, file: File): Promise<Response> {
-  return sendJson(buildLessonFileUploadsApiUrl(tribeSlug), HTTP_METHOD.post, {
+  return sendCourseJson(buildLessonFileUploadsApiUrl(tribeSlug), HTTP_METHOD.post, {
     fileName: file.name,
     fileSizeBytes: file.size,
     mimeType: file.type,
@@ -2541,7 +2514,6 @@ function LessonForm({
     initialState,
     onSubmit,
   });
-  const { setTitle, title, titleError, titleInputRef } = titleField;
   const { hasFailedUploads, hasUploadsInFlight } = attachments;
   const { isSubmitting } = form;
 
@@ -2555,17 +2527,10 @@ function LessonForm({
       noValidate
       onSubmit={form.handleSubmit}
     >
-      <h3 className={styles.TribeCoursesManagement__formHeading}>
-        {headingLabel}
-      </h3>
-      <Input
-        error={titleError ?? undefined}
-        label={COURSES_MANAGEMENT_COPY.titleLabel}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder={COURSES_MANAGEMENT_COPY.titleLessonPlaceholder}
-        ref={titleInputRef}
-        required
-        value={title}
+      <ContentFormIntro
+        headingLabel={headingLabel}
+        titleField={titleField}
+        titlePlaceholder={COURSES_MANAGEMENT_COPY.titleLessonPlaceholder}
       />
       <Input
         description={describeVideoUrlField(form.videoUrlError, form.detectedProvider)}
