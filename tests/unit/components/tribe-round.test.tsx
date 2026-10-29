@@ -3452,6 +3452,164 @@ describe("TribeRound", () => {
     }
   });
 
+  describe("when the author edits a created message that still shows its local image preview", () => {
+    const PUBLISHED_PREVIEW_URL = "blob:message-image";
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+
+    afterEach(() => {
+      Object.defineProperty(URL, "createObjectURL", { configurable: true, value: originalCreateObjectUrl });
+      Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: originalRevokeObjectUrl });
+    });
+
+    /**
+     * Publishes a message with one image whose created copy keeps showing the
+     * local preview, opens its edit dialog and hands back the revoke spy.
+     */
+    async function openEditOfMessageShowingLocalPreview(
+      user: ReturnType<typeof userEvent.setup>,
+      handleMessageUpdate: () => Promise<Partial<Response>> = async () => {
+        throw new Error("Unexpected message update");
+      }
+    ) {
+      const revokeObjectUrl = vi.fn();
+      Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => PUBLISHED_PREVIEW_URL) });
+      Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectUrl });
+
+      (global.fetch as Mock).mockImplementation(async function (url: string) {
+        if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+          return {
+            json: async () => ({
+              assetId: "asset-1",
+              imageId: "cloudflare-image-1",
+              uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        if (url === "https://upload.imagedelivery.net/direct-upload") {
+          return { json: async () => ({}), ok: true, statusText: "OK" };
+        }
+
+        if (url === "/api/tribes/matematica-pro/messages") {
+          return {
+            json: async () => ({
+              message: "Mensaje creado.",
+              tribeMessage: {
+                ...createdMessage,
+                media: [
+                  {
+                    altText: "",
+                    id: "asset-1",
+                    kind: "image",
+                    sortOrder: 0,
+                    url: "https://imagedelivery.net/account-hash/image-1/public",
+                  },
+                ],
+                permissions: { canDelete: false, canEdit: true },
+              },
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        if (url === "/api/tribes/matematica-pro/messages/message-2") {
+          return handleMessageUpdate();
+        }
+
+        throw new Error(`Unexpected fetch ${url}`);
+      });
+
+      const view = render(
+        <TribeRound authenticatedMember={authenticatedMember} tribeSlug="matematica-pro" round={round} />
+      );
+
+      await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+      await user.type(screen.getByRole("textbox", { name: "Título del mensaje" }), "Nuevo encuentro");
+      setMessageEditorContent(screen.getByRole("textbox", { name: "Contenido del mensaje" }), "Sumate al encuentro");
+      await user.upload(
+        screen.getByLabelText("Agregar imagen"),
+        new File(["image"], "captura.png", { type: "image/png" })
+      );
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Mensaje creado.");
+      });
+      expect(screen.getByRole("img", { name: "Nuevo encuentro" })).toHaveAttribute("src", PUBLISHED_PREVIEW_URL);
+
+      await user.click(screen.getByRole("button", { name: "Acciones del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+      return { revokeObjectUrl, unmount: view.unmount };
+    }
+
+    function expectMessageStillShowsLocalPreview(revokeObjectUrl: Mock) {
+      expect(revokeObjectUrl).not.toHaveBeenCalled();
+      expect(screen.getByRole("img", { name: "Nuevo encuentro" })).toHaveAttribute("src", PUBLISHED_PREVIEW_URL);
+    }
+
+    it("keeps the message image when the edit is cancelled", async () => {
+      const user = userEvent.setup();
+      const { revokeObjectUrl, unmount } = await openEditOfMessageShowingLocalPreview(user);
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+      expectMessageStillShowsLocalPreview(revokeObjectUrl);
+
+      unmount();
+
+      expect(revokeObjectUrl).toHaveBeenCalledExactlyOnceWith(PUBLISHED_PREVIEW_URL);
+    });
+
+    it("keeps the message image when the image is removed and the edit is cancelled", async () => {
+      const user = userEvent.setup();
+      const { revokeObjectUrl } = await openEditOfMessageShowingLocalPreview(user);
+
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Quitar imagen" }));
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+      expectMessageStillShowsLocalPreview(revokeObjectUrl);
+    });
+
+    it("keeps the message image when the edit is saved without changing its media", async () => {
+      const user = userEvent.setup();
+      const { revokeObjectUrl } = await openEditOfMessageShowingLocalPreview(user, async () => ({
+        json: async () => ({
+          content: "Sumate al encuentro",
+          message: "Mensaje actualizado.",
+          title: "Nuevo encuentro",
+        }),
+        ok: true,
+        statusText: "OK",
+      }));
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Mensaje actualizado.");
+      });
+      expectMessageStillShowsLocalPreview(revokeObjectUrl);
+    });
+  });
+
   it("reopens the message draft without images when optimistic message creation fails", async () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;

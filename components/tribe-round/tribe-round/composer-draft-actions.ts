@@ -23,8 +23,8 @@ import {
   type MessageFileUploadResponse,
   type MessageImageUploadResponse,
   type ResetMessageComposerOptions,
+  revokeComposerImageDraftPreviewUrl,
   revokeMessageImageDraftPreviewUrls,
-  revokeMessageImagePreviewUrl,
   submitJsonRequest,
   TRIBE_ROUND_COPY,
   TRIBE_ROUND_ENDPOINT,
@@ -532,7 +532,7 @@ export const handleMessageImageSelection = (controller: TribeRoundController,
 };
 
 export const removeMessageImageDraft = (controller: TribeRoundController, imageDraft: ComposerImageDraft) => {
-  revokeMessageImagePreviewUrl(imageDraft.previewUrl);
+  revokeComposerImageDraftPreviewUrl(imageDraft);
   controller.setMessageImageDrafts((currentImages) =>
     currentImages.filter((image) => image.localId !== imageDraft.localId)
   );

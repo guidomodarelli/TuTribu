@@ -12,6 +12,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Fixed
 
 - Las imágenes que publicás en el Fogón ya no quedan ocupando memoria del navegador cuando se reemplazan por la versión subida o cuando salís de la ronda.
+- En el Fogón, cancelar la edición de un mensaje recién publicado con imagen (o quitarle la imagen y cancelar, o guardar la edición) ya no rompe la imagen que muestra el mensaje.
 - Al crear una tribu, si el servidor falla pero responde como si la hubiera creado, el formulario muestra el error en lugar de darla por creada.
 - Al reintentar la carga de los comentarios de una lección, una carga vieja que termina tarde ya no deja la lista vacía.
 

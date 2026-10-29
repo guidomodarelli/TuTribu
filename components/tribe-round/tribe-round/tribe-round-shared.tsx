@@ -1007,12 +1007,24 @@ export function revokeMessageImagePreviewUrl(previewUrl: string): void {
   }
 }
 
+/**
+ * Revokes the preview of an image draft only when the composer created it from
+ * a new file. A draft an edit hydrated from a message (`isPersisted`) borrows
+ * the message's URL, which may be a blob preview the message still shows: that
+ * one belongs to the retained previews of the round, which revoke it once
+ * nothing shows it.
+ */
+export function revokeComposerImageDraftPreviewUrl(imageDraft: ComposerImageDraft): void {
+  if (!imageDraft.isPersisted) {
+    revokeMessageImagePreviewUrl(imageDraft.previewUrl);
+  }
+}
+
+/** Revokes the previews the composer created for the given image drafts. */
 export function revokeMessageImageDraftPreviewUrls(
   imageDrafts: ComposerImageDraft[]
 ): void {
-  imageDrafts.forEach((imageDraft) => {
-    revokeMessageImagePreviewUrl(imageDraft.previewUrl);
-  });
+  imageDrafts.forEach(revokeComposerImageDraftPreviewUrl);
 }
 
 /**
