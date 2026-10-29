@@ -185,8 +185,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@golfo/ui':
-        specifier: ^2.2.0
-        version: 2.2.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^2.2.1
+        version: 2.2.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
@@ -1938,8 +1938,8 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@golfo/ui@2.2.0':
-    resolution: {integrity: sha512-4QgLgp43E8RLV+v7Y5kkmvDHyUXhDzufYCKDE7xpFbL3z15C50QNu+xri28r4kef3zYawqdSjMqnduMkgaCpxw==}
+  '@golfo/ui@2.2.1':
+    resolution: {integrity: sha512-3vv0dD5wY7baiN+yAPbi97ODmmqLVJzldIvAZehsQNmAvAemHgCOY12TAPLv9cTd3xDoBDNx1zY/8NyyGKA/XA==}
     engines: {node: '>=22', pnpm: '>=12 <13'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.33
@@ -9923,7 +9923,7 @@ snapshots:
 
   '@golfo/rp@2.0.0': {}
 
-  '@golfo/ui@2.2.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@golfo/ui@2.2.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-table': 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

@@ -26,6 +26,7 @@ import {
 } from "./tribe-round-shared";
 import { type TribeRoundController, useTribeRoundController } from "./use-tribe-round-controller";
 import {
+  applyNavigatedRound,
   handleConfirmMessageDeletion,
   handleDeleteConfirmationOpenChange,
   handleEditCreatedAtOpenChange,
@@ -41,7 +42,7 @@ import { renderMessageDetailsDialog } from "./message-details-render";
  * renders the round section from it.
  */
 function TribeRoundContent(props: TribeRoundProps) {
-  const controller = useTribeRoundController(props);
+  const controller = useTribeRoundController(props, applyNavigatedRound);
 
   return renderTribeRoundContent(controller);
 }
