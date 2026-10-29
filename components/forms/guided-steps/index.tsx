@@ -15,7 +15,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ComponentProps, type SubmitEvent, type ReactNode } from "react";
-import { AnimatePresence, motion, useIsPresent, useReducedMotion, type Variants } from "motion/react";
+import { AnimatePresence, m, useIsPresent, useReducedMotion, type Variants } from "motion/react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { Button, MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL, SPRING_POP } from "@golfo/ui";
 import styles from "./styles.module.scss";
@@ -94,9 +94,9 @@ export function GuidedStepsDisclosure({ summary = DEFAULT_SECONDARY_LABEL, child
  * @param props - The step fieldset's own props.
  * @returns The animated fieldset of one step.
  */
-function GuidedStepPanel({ disabled, ...props }: ComponentProps<typeof motion.fieldset>) {
+function GuidedStepPanel({ disabled, ...props }: ComponentProps<typeof m.fieldset>) {
   const present = useIsPresent();
-  return <motion.fieldset {...props} disabled={disabled || !present} inert={!present} aria-hidden={present ? undefined : true} />;
+  return <m.fieldset {...props} disabled={disabled || !present} inert={!present} aria-hidden={present ? undefined : true} />;
 }
 
 /** Horizontal travel of a step that enters or leaves, in pixels; enough to show the direction. */
@@ -123,10 +123,10 @@ function GuidedStepGlyph({ complete, index, reduced }: { complete: boolean; inde
   return (
     <AnimatePresence initial={false} mode="popLayout">
       {complete
-        ? <motion.svg key="done" className={styles.GuidedSteps__glyph} viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" initial={initial} animate={{ opacity: 1, scale: 1 }} exit={exit} transition={transition}>
-            <motion.path d="M4 12.5 9 17.5 20 6.5" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: CHECK_DRAWN }} transition={reduced ? { duration: 0 } : { duration: MOTION_TIMING.standard, ease: MOTION_EASE }} />
-          </motion.svg>
-        : <motion.span key="number" className={styles.GuidedSteps__glyph} initial={initial} animate={{ opacity: 1, scale: 1 }} exit={exit} transition={transition}>{index + 1}</motion.span>}
+        ? <m.svg key="done" className={styles.GuidedSteps__glyph} viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" initial={initial} animate={{ opacity: 1, scale: 1 }} exit={exit} transition={transition}>
+            <m.path d="M4 12.5 9 17.5 20 6.5" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: CHECK_DRAWN }} transition={reduced ? { duration: 0 } : { duration: MOTION_TIMING.standard, ease: MOTION_EASE }} />
+          </m.svg>
+        : <m.span key="number" className={styles.GuidedSteps__glyph} initial={initial} animate={{ opacity: 1, scale: 1 }} exit={exit} transition={transition}>{index + 1}</m.span>}
     </AnimatePresence>
   );
 }

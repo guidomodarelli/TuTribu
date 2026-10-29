@@ -1,12 +1,13 @@
 import { createTribePublicResponseSchema } from "@/src/modules/tribes/application/results/create-tribe-public-dto-schemas";
 import type { CreateTribePublicResponse } from "@/src/modules/tribes/application/results/create-tribe-result";
+import { CREATE_TRIBE_STATUS } from "@/src/modules/tribes/constants/create-tribe";
 
 /**
  * Browser adapter of `POST /api/tribes` for the enhanced create-tribe form.
  * It posts the same form fields as the native form, asks for JSON, and checks
- * the body with `safeParse` against the public DTO schema. A network failure
- * or a body outside the contract is a failure without message, so the caller
- * shows its own fallback copy.
+ * the body with `safeParse` against the public DTO schema. A network failure,
+ * a body outside the contract, or a created body with an error status is a
+ * failure without message, so the caller shows its own fallback copy.
  */
 
 export type CreateTribeRequestResult =
@@ -32,7 +33,8 @@ const NO_STORE_CACHE: RequestCache = "no-store";
  *
  * @param input - Endpoint path plus the tribe name and canonical slug.
  * @returns The parsed response, or a failure without message when the request
- *   did not complete or the body breaks the public contract.
+ *   did not complete, the body breaks the public contract, or it reports a
+ *   creation with an error status.
  */
 export async function submitCreateTribeRequest(input: {
   name: string;
@@ -54,9 +56,16 @@ export async function submitCreateTribeRequest(input: {
     const body: unknown = await response.json().catch(() => null);
     const parsedResponse = createTribePublicResponseSchema.safeParse(body);
 
-    return parsedResponse.success
-      ? { isSuccess: true, response: parsedResponse.data }
-      : { isSuccess: false };
+    if (!parsedResponse.success) {
+      return { isSuccess: false };
+    }
+
+    // Error bodies may arrive with any status, but a creation only counts with a successful one.
+    if (parsedResponse.data.status === CREATE_TRIBE_STATUS.created && !response.ok) {
+      return { isSuccess: false };
+    }
+
+    return { isSuccess: true, response: parsedResponse.data };
   } catch {
     // A rejected fetch is a network failure: the caller maps it to safe copy.
     return { isSuccess: false };

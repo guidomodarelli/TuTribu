@@ -1,7 +1,7 @@
 "use client";
 
 import { type SubmitEvent, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 
 import { Button, Checkbox, Dialog, DialogContent, Input, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
 
@@ -366,7 +366,7 @@ function MoveScheduleFields({
       </div>
       <AnimatePresence initial={false}>
         {endsOnAnotherDay ? (
-          <motion.div key={FIELD_ID.endsDate} {...CONDITIONAL_FIELD_MOTION}>
+          <m.div key={FIELD_ID.endsDate} {...CONDITIONAL_FIELD_MOTION}>
             {/* No native `min`: an earlier end must reach the Spanish
                 inline error instead of a browser-language bubble. */}
             <Input
@@ -377,7 +377,7 @@ function MoveScheduleFields({
               value={values.endsDate}
               onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
             />
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
       <div className={styles.TribeEventOccurrenceExceptionDialog__toggle}>

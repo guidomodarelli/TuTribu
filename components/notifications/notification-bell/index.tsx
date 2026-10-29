@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BellIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger, AnimatedCount, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@golfo/ui";
 
 import { NotificationPanel } from "@/components/notifications/notification-panel";
@@ -116,7 +116,7 @@ function BellTriggerContent({ unreadCount, unreadIncreaseCount }: { unreadCount:
   return (
     <>
       {/* Remounting on each increase replays the swing exactly once. */}
-      <motion.span
+      <m.span
         animate={unreadIncreaseCount > 0 ? { rotate: BELL_NUDGE_ROTATION_DEGREES } : undefined}
         aria-hidden="true"
         className={styles.NotificationBell__icon}
@@ -124,10 +124,10 @@ function BellTriggerContent({ unreadCount, unreadIncreaseCount }: { unreadCount:
         transition={BELL_NUDGE_TRANSITION}
       >
         <BellIcon aria-hidden="true" />
-      </motion.span>
+      </m.span>
       <AnimatePresence initial={false}>
         {unreadCount > 0 ? (
-          <motion.span
+          <m.span
             animate={BADGE_MOTION.animate}
             aria-hidden="true"
             className={styles.NotificationBell__badge}
@@ -139,7 +139,7 @@ function BellTriggerContent({ unreadCount, unreadIncreaseCount }: { unreadCount:
               format={formatUnreadBadge}
               value={Math.min(unreadCount, BADGE_ROLL_CEILING)}
             />
-          </motion.span>
+          </m.span>
         ) : null}
       </AnimatePresence>
     </>

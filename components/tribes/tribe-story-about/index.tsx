@@ -88,11 +88,14 @@ function buildOnlineMemberInitials(memberName: string): string {
     .join("");
 }
 
+/** Built once: the month-and-year format never varies between calls. */
+const CREATED_AT_FORMATTER = new Intl.DateTimeFormat(ABOUT_DATE_FORMAT.locale, {
+  month: ABOUT_DATE_FORMAT.month,
+  year: ABOUT_DATE_FORMAT.year,
+});
+
 function formatCreatedAt(createdAt: string): string {
-  return new Intl.DateTimeFormat(ABOUT_DATE_FORMAT.locale, {
-    month: ABOUT_DATE_FORMAT.month,
-    year: ABOUT_DATE_FORMAT.year,
-  }).format(new Date(createdAt));
+  return CREATED_AT_FORMATTER.format(new Date(createdAt));
 }
 
 function formatOfferPrice(offerPrice: TribeStoryAboutOfferPrice): string {

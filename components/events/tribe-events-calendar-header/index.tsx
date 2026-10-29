@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent, ReactNode } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -185,7 +185,7 @@ function TribeEventsViewModeToggle({
         return (
           <span className={styles.TribeEventsCalendarHeader__viewSlot} key={option.viewMode}>
             {isActive ? (
-              <motion.span
+              <m.span
                 aria-hidden
                 className={styles.TribeEventsCalendarHeader__viewIndicator}
                 layoutId={VIEW_MODE_INDICATOR_LAYOUT_ID}

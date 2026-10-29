@@ -6,7 +6,7 @@
 import { MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING } from "@golfo/ui";
 import {
   animate,
-  motion,
+  m,
   motionValue,
   useAnimationFrame,
   useMotionValue,
@@ -128,7 +128,7 @@ function Stroke({ values, wave }: { values: StrokeValues; wave: MotionValue<Part
   });
   const width = useTransform(() => Math.max(0, values.w.get() + (wave.get().w ?? 0)));
   const opacity = useTransform(() => Math.min(1, Math.max(0, values.o.get())));
-  return <motion.path d={pathData} opacity={opacity} strokeWidth={width} />;
+  return <m.path d={pathData} opacity={opacity} strokeWidth={width} />;
 }
 
 /** Motion values the idle loop and the settle animation drive, beside the turn in flight. */
@@ -251,11 +251,11 @@ function MorphDrawing({ size, transform, strokes, waves }: { size: number; trans
       viewBox="0 0 24 24"
       width={size}
     >
-      <motion.g style={{ transform, transformOrigin: "12px 12px", transformBox: "view-box" }}>
+      <m.g style={{ transform, transformOrigin: "12px 12px", transformBox: "view-box" }}>
         {strokes.map((values, index) => (
           <Stroke key={index} values={values} wave={waves[index]} />
         ))}
-      </motion.g>
+      </m.g>
     </svg>
   );
 }

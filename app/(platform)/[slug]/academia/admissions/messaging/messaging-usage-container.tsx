@@ -1,6 +1,6 @@
 "use client";
 /** Owns native viewer checks, the guided save of countries and quotas, and original usage recovery; all form controls remain callback-only. @module messaging-usage-container */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 import type { MessagingUsagePageState } from "@/src/modules/messaging/application/results/messaging-usage-page-state";
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
@@ -65,6 +65,8 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     readController.current?.abort(); const controller = new AbortController(); readController.current = controller;
     setPrivateVisible(false); setErrorMessage(null); setConfirmed(false); void readCurrent(controller.signal);
   }, [readCurrent]);
+  /** The restore listener always relaunches with the latest read, without making it a subscription dependency. */
+  const relaunchRead = useEffectEvent(() => launchRead());
   useEffect(() => {
     const controller = new AbortController(); readController.current = controller;
     void Promise.resolve().then(() => {
@@ -74,10 +76,10 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
       return readCurrent(controller.signal, initial);
     });
     /** Activity/bfcache restoration invalidates confirmation and reloads the original stored intent. */
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) { setPrivateVisible(false); setFresh(false); setConfirmed(false); writeController.current?.abort(); busy.current = false; loaded.current = false; launchRead(); } };
+    const restored = (event: PageTransitionEvent) => { if (event.persisted) { setPrivateVisible(false); setFresh(false); setConfirmed(false); writeController.current?.abort(); busy.current = false; loaded.current = false; relaunchRead(); } };
     window.addEventListener("pageshow", restored);
     return () => { controller.abort(); releaseUsageWork(controls); window.removeEventListener("pageshow", restored); };
-  }, [readCurrent, launchRead, controls]);
+  }, [readCurrent, controls]);
 
   if (!ready || !state || !draft) return <MessagingUsageUnavailable initialState={initialState} pathname={pathname} search={searchParams?.toString() ?? ""} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
