@@ -2,121 +2,60 @@ import {
   tribeEventEmptyQuerySchema,
   tribeEventRouteParamsSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
-import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import { buildTribeEventIcsFile } from "@/src/modules/events/infrastructure/calendar/ics-calendar-file";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createPrivateFileDownloadResponse,
+  handleTribeEventRoute,
+  openTribeEventScope,
+  type TribeEventRouteContext,
+} from "../../tribe-event-route";
 
 const CALENDAR_ROUTE_LOG = {
   failureMessage: "Tribe event calendar export failed",
-  feature: "events",
   operation: "tribe-event-calendar-export",
 } as const;
-const CALENDAR_RESPONSE_HEADER = {
-  cacheControl: "Cache-Control",
-  contentDisposition: "Content-Disposition",
-  contentType: "Content-Type",
-} as const;
-const CALENDAR_RESPONSE_HEADER_VALUE = {
-  attachmentPrefix: 'attachment; filename="',
-  attachmentSuffix: '"',
-  noStore: "private, no-store",
-} as const;
-
-type TribeEventRouteContext = {
-  params: Promise<{
-    eventId: string;
-    slug: string;
-  }>;
-};
 
 /**
  * Downloads the event (or the whole series, with its cancelled and moved
  * dates) as an `.ics` file that any calendar app can import.
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: CALENDAR_ROUTE_LOG.feature,
-    operation: CALENDAR_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unauthorizedMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.unauthorized
-    );
-  }
-
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+  return handleTribeEventRoute(
     request,
-    schemas: {
-      params: tribeEventRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+    context,
+    {
+      failure: {
+        logMessage: CALENDAR_ROUTE_LOG.failureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCalendarMessage,
+      },
+      openScope: openTribeEventScope(CALENDAR_ROUTE_LOG.operation),
+      readLogMetadata: ({ params }) => ({ eventId: params.eventId, slug: params.slug }),
+      schemas: {
+        params: tribeEventRouteParamsSchema,
+        query: tribeEventEmptyQuerySchema,
+      },
     },
-  });
+    async ({ modules, params }) => {
+      const calendar = await modules.events.useCases.getTribeEventCalendar({
+        eventId: params.eventId,
+        tribeSlug: params.slug,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (!calendar) {
+        return createJsonResponse(
+          { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
+          TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
+        );
+      }
 
-  const { eventId, slug } = input.params;
-
-  try {
-    const calendar = await modules.events.useCases.getTribeEventCalendar({
-      eventId,
-      tribeSlug: slug,
-    });
-
-    if (!calendar) {
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
+      return createPrivateFileDownloadResponse(
+        buildTribeEventIcsFile(calendar.event, new Date(), calendar.occurrenceExceptions)
       );
     }
-
-    const icsFile = buildTribeEventIcsFile(
-      calendar.event,
-      new Date(),
-      calendar.occurrenceExceptions
-    );
-
-    return new Response(icsFile.content, {
-      headers: {
-        [CALENDAR_RESPONSE_HEADER.cacheControl]: CALENDAR_RESPONSE_HEADER_VALUE.noStore,
-        [CALENDAR_RESPONSE_HEADER.contentDisposition]:
-          CALENDAR_RESPONSE_HEADER_VALUE.attachmentPrefix +
-          icsFile.fileName +
-          CALENDAR_RESPONSE_HEADER_VALUE.attachmentSuffix,
-        [CALENDAR_RESPONSE_HEADER.contentType]: icsFile.contentType,
-      },
-      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    logger.error({
-      message: CALENDAR_ROUTE_LOG.failureMessage,
-      error,
-      metadata: {
-        eventId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCalendarMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+  );
 }

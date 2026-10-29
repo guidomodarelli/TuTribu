@@ -13,6 +13,7 @@ import { detectInAppBrowser } from "@/src/modules/shared/infrastructure/http/in-
 import { resolveDevSignInFormEmail } from "@/src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-activation";
 import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
+import { readFirstSearchParamValue } from "@/app/search-params";
 
 export type SignInSearchParams = {
   [key: string]: string | string[] | undefined;
@@ -91,24 +92,6 @@ function resolveSafeCallbackUrl(
     resolvedCallbackUrl.search +
     resolvedCallbackUrl.hash
   );
-}
-
-function readFirstSearchParamValue(
-  searchParamValue: string | string[] | undefined
-): string | null {
-  if (typeof searchParamValue === "string") {
-    return searchParamValue;
-  }
-
-  if (Array.isArray(searchParamValue)) {
-    const firstStringValue = searchParamValue.find(
-      (value) => value.trim().length > 0
-    );
-
-    return firstStringValue ?? null;
-  }
-
-  return null;
 }
 
 type SignInShellProps = {

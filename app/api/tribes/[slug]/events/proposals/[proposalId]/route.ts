@@ -8,21 +8,15 @@ import {
   tribeEventProposalRouteParamsSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-proposal-request-schemas";
 import { tribeEventEmptyQuerySchema } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
-import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
-import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
-  createJsonResponse,
   mapTribeEventProposalStatusResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { handleTribeEventRoute, openTribeEventScope } from "../../tribe-event-route";
 
 const PROPOSAL_ROUTE_LOG = {
   decisionFailureMessage: "Tribe event proposal decision failed",
-  feature: "events",
   operation: "tribe-event-proposal-decision",
 } as const;
 
@@ -33,111 +27,66 @@ type TribeEventProposalRouteContext = {
   }>;
 };
 
-type DecisionFailureContext = {
-  error: unknown;
-  logger: ReturnType<typeof createServerLogger>;
-  logMetadata: Record<string, unknown>;
-};
-
-function createDecisionFailureResponse({
-  error,
-  logger,
-  logMetadata,
-}: DecisionFailureContext): Response {
-  logger.error({
-    message: PROPOSAL_ROUTE_LOG.decisionFailureMessage,
-    error,
-    metadata: logMetadata,
-  });
-
-  return createJsonResponse(
-    { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalReviewMessage },
-    TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
-  );
-}
-
 /**
  * Resolves a pending proposal without creating an event: a manager rejects
  * it (optional note for the author) or the author withdraws it. 409 when it
  * is no longer pending.
  */
 export async function PATCH(request: Request, context: TribeEventProposalRouteContext) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: PROPOSAL_ROUTE_LOG.feature,
-    operation: PROPOSAL_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unauthorizedMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.unauthorized
-    );
-  }
-
-  const input = await parseTribeEventRouteInput({
-    logger,
-    params: context.params,
+  return handleTribeEventRoute(
     request,
-    schemas: {
-      body: tribeEventProposalDecisionBodySchema,
-      params: tribeEventProposalRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+    context,
+    {
+      failure: {
+        logMessage: PROPOSAL_ROUTE_LOG.decisionFailureMessage,
+        responseMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalReviewMessage,
+      },
+      openScope: openTribeEventScope(PROPOSAL_ROUTE_LOG.operation),
+      readLogMetadata: ({ body, params }) => ({
+        decision: body.decision,
+        proposalId: params.proposalId,
+        slug: params.slug,
+      }),
+      schemas: {
+        body: tribeEventProposalDecisionBodySchema,
+        params: tribeEventProposalRouteParamsSchema,
+        query: tribeEventEmptyQuerySchema,
+      },
     },
-  });
+    async ({ body, modules, params, respond }) => {
+      const { proposalId, slug } = params;
+      const isRejection = body.decision === TRIBE_EVENT_PROPOSAL_STATUS.rejected;
+      const result = isRejection
+        ? await modules.events.useCases.rejectTribeEventProposal({
+            proposalId,
+            reviewNote: body.reviewNote,
+            tribeSlug: slug,
+          })
+        : await modules.events.useCases.withdrawTribeEventProposal({
+            proposalId,
+            tribeSlug: slug,
+          });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (
+        result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalRejected &&
+        result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalWithdrawn
+      ) {
+        return mapTribeEventProposalStatusResponse(
+          result.status,
+          TRIBE_EVENT_ROUTE_RESPONSE.proposalReviewForbiddenMessage
+        );
+      }
 
-  const { proposalId, slug } = input.params;
-  const isRejection = input.body.decision === TRIBE_EVENT_PROPOSAL_STATUS.rejected;
-  const logMetadata = {
-    decision: input.body.decision,
-    proposalId,
-    slug,
-    viewerId: authenticatedMember.id,
-  };
-
-  try {
-    const result = isRejection
-      ? await modules.events.useCases.rejectTribeEventProposal({
-          proposalId,
-          reviewNote: input.body.reviewNote,
-          tribeSlug: slug,
-        })
-      : await modules.events.useCases.withdrawTribeEventProposal({
-          proposalId,
-          tribeSlug: slug,
-        });
-
-    if (
-      result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalRejected &&
-      result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalWithdrawn
-    ) {
-      return mapTribeEventProposalStatusResponse(
-        result.status,
-        TRIBE_EVENT_ROUTE_RESPONSE.proposalReviewForbiddenMessage
+      return respond(
+        {
+          message: isRejection
+            ? TRIBE_EVENT_ROUTE_RESPONSE.proposalRejectedMessage
+            : TRIBE_EVENT_ROUTE_RESPONSE.proposalWithdrawnMessage,
+          proposal: result.proposal,
+        },
+        tribeEventProposalResponseSchema,
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
       );
     }
-
-    return createTribeEventPublicResponse({
-      body: {
-        message: isRejection
-          ? TRIBE_EVENT_ROUTE_RESPONSE.proposalRejectedMessage
-          : TRIBE_EVENT_ROUTE_RESPONSE.proposalWithdrawnMessage,
-        proposal: result.proposal,
-      },
-      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalReviewMessage,
-      logger,
-      metadata: logMetadata,
-      schema: tribeEventProposalResponseSchema,
-      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    return createDecisionFailureResponse({ error, logger, logMetadata });
-  }
+  );
 }

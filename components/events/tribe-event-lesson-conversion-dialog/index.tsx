@@ -4,6 +4,7 @@ import { type SubmitEvent, useState } from "react";
 
 import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "@golfo/ui";
 
+import { TribeEventRetryButton } from "@/components/events/tribe-event-retry-button";
 import { ButtonLink } from "@/components/navigation/link";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,
@@ -70,11 +71,9 @@ type LessonConversionView = Pick<
   "convertedLesson" | "targetsState"
 >;
 const BUTTON_ATTRIBUTE = {
-  sizeSmall: "sm",
   typeButton: "button",
   typeSubmit: "submit",
   variantGhost: "ghost",
-  variantSecondary: "secondary",
 } as const;
 const COPY = {
   cancelButton: "Cancelar",
@@ -92,7 +91,6 @@ const COPY = {
   noCourses:
     "La tribu todavía no tiene cursos con módulos. Creá uno desde Cursos para poder convertir la grabación.",
   openLesson: "Ver lección",
-  retry: "Reintentar",
   submitButton: "Crear lección",
   submittingButton: "Creando…",
   success: "La lección ya está en el curso.",
@@ -233,14 +231,7 @@ function LessonConversionTargetsError({ message, onRetry }: { message: string; o
       <p className={styles.TribeEventLessonConversionDialog__error} role="alert">
         {message}
       </p>
-      <Button
-        size={BUTTON_ATTRIBUTE.sizeSmall}
-        type={BUTTON_ATTRIBUTE.typeButton}
-        variant={BUTTON_ATTRIBUTE.variantSecondary}
-        onClick={onRetry}
-      >
-        {COPY.retry}
-      </Button>
+      <TribeEventRetryButton onRetry={onRetry} />
     </div>
   );
 }

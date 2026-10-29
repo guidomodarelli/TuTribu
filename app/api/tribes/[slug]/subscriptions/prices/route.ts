@@ -13,6 +13,14 @@ import {
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { readOptionalStringField, readStringField } from "@/app/api/request-body-fields";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const PRICE_ROUTE_FIELD = {
   amount: "amount",
@@ -62,65 +70,6 @@ const PRICE_ROUTE_RESPONSE = {
 const MERCADO_PAGO_PRICE_REJECTION = {
   minimumAmountMessage: "Cannot pay an amount lower than $ 15.00",
 } as const;
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  created: 201,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
-} as const;
-
-/**
- * Creates a JSON response with an explicit status.
- *
- * @param body - JSON body.
- * @param status - HTTP status.
- * @returns JSON response.
- */
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-/**
- * Reads a string field from an unknown JSON body.
- *
- * @param body - Parsed JSON body.
- * @param field - Field name to read.
- * @returns String field value or an empty string.
- */
-function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
-
-/**
- * Reads an optional string field without collapsing omitted fields.
- *
- * @param body - Parsed JSON body.
- * @param field - Field name to read.
- * @returns String field value, an empty string for invalid provided values, or undefined when omitted.
- */
-function readOptionalStringField(
-  body: unknown,
-  field: string
-): string | undefined {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return undefined;
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
 
 /**
  * Creates the safe response used for amount validation failures.
@@ -253,6 +202,13 @@ function createInvalidPriceInputResponse(body: unknown): Record<string, unknown>
   return { message: PRICE_ROUTE_RESPONSE.invalidInputMessage };
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: PRICE_ROUTE_LOG.feature,
+  operation: PRICE_ROUTE_LOG.operation,
+  unauthorizedMessage: PRICE_ROUTE_RESPONSE.unauthorizedMessage,
+  withRequestId: true,
+} as const;
+
 /**
  * Detects the Mercado Pago minimum amount rejection without exposing provider text.
  *
@@ -268,54 +224,28 @@ function isMercadoPagoMinimumAmountError(error: unknown): boolean {
 
 export async function GET(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: PRICE_ROUTE_LOG.feature,
-    operation: PRICE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: PRICE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  try {
-    return createJsonResponse(
-      await modules.subscriptions.useCases.listTribeSubscriptionPrices({
-        tribeSlug: slug,
-      }),
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      message: PRICE_ROUTE_LOG.listFailureMessage,
-      error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: PRICE_ROUTE_RESPONSE.unexpectedListMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: PRICE_ROUTE_LOG.listFailureMessage,
+      metadata: { slug },
+      responseMessage: PRICE_ROUTE_RESPONSE.unexpectedListMessage,
+    },
+    async ({ modules }) => {
+      return createRouteJsonResponse(
+        await modules.subscriptions.useCases.listTribeSubscriptionPrices({
+          tribeSlug: slug,
+        }),
+        HTTP_STATUS.ok
+      );
+    }
+  );
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type CreateTribeSubscriptionPriceResult = Awaited<
   ReturnType<RequestModules["subscriptions"]["useCases"]["createTribeSubscriptionPrice"]>
@@ -324,7 +254,7 @@ type CreateTribeSubscriptionPriceResult = Awaited<
 function createPostResultResponse(result: CreateTribeSubscriptionPriceResult, body: unknown): Response {
   switch (result.status) {
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: PRICE_ROUTE_RESPONSE.createdMessage,
           price: result.price,
@@ -332,22 +262,22 @@ function createPostResultResponse(result: CreateTribeSubscriptionPriceResult, bo
         HTTP_STATUS.created
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         createInvalidPriceInputResponse(body),
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ROUTE_RESPONSE.limitReachedMessage },
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ROUTE_RESPONSE.missingIntegrationMessage },
         HTTP_STATUS.serviceUnavailable
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
@@ -360,7 +290,7 @@ function createPostResultResponse(result: CreateTribeSubscriptionPriceResult, bo
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: PRICE_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -369,11 +299,7 @@ function createPostResultResponse(result: CreateTribeSubscriptionPriceResult, bo
 
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
@@ -386,7 +312,7 @@ export async function POST(
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: PRICE_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
@@ -416,7 +342,7 @@ export async function POST(
     return createPostResultResponse(result, body);
   } catch (error) {
     if (isMercadoPagoMinimumAmountError(error)) {
-      return createJsonResponse(
+      return createRouteJsonResponse(
         createInvalidPriceAmountResponse(),
         HTTP_STATUS.badRequest
       );
@@ -431,7 +357,7 @@ export async function POST(
       },
     });
 
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: PRICE_ROUTE_RESPONSE.unexpectedCreateMessage },
       HTTP_STATUS.serverError
     );

@@ -32,6 +32,13 @@ import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const CREATE_MESSAGE_ROUTE_FIELD = {
   allowMultipleVotes: "allowMultipleVotes",
@@ -108,20 +115,6 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos crear el mensaje. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para publicar.",
 } as const;
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  created: 201,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
 
 function readContentFromBody(body: unknown): string {
   if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.content in body)) {
@@ -420,8 +413,6 @@ function findDraftRejectionMessage({
   return null;
 }
 
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
-
 type CreateTribeMessageResult = Awaited<
   ReturnType<RequestModules["messages"]["useCases"]["createTribeMessage"]>
 >;
@@ -432,7 +423,7 @@ function createPostResultResponse(result: CreateTribeMessageResult, slug: string
       // The stored publication may come from an attempt whose response was lost: refresh the round like a creation.
       revalidateTribeRoundCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: CREATE_MESSAGE_ROUTE_RESPONSE.replayedMessage,
           replayed: true,
@@ -443,7 +434,7 @@ function createPostResultResponse(result: CreateTribeMessageResult, slug: string
     case MESSAGE_MUTATION_STATUS.created:
       revalidateTribeRoundCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: CREATE_MESSAGE_ROUTE_RESPONSE.successMessage,
           tribeMessage: result.message,
@@ -451,128 +442,110 @@ function createPostResultResponse(result: CreateTribeMessageResult, slug: string
         HTTP_STATUS.created
       );
     case MESSAGE_MUTATION_STATUS.invalidContent:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidContentMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidChannel:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidChannelMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidImage:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidMedia:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidPoll:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: getInvalidPollMessage(poll) },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.invalidFile:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case MESSAGE_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
   }
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: CREATE_MESSAGE_ROUTE_LOG.feature,
+  operation: CREATE_MESSAGE_ROUTE_LOG.operation,
+  unauthorizedMessage: CREATE_MESSAGE_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: CREATE_MESSAGE_ROUTE_LOG.feature,
-    operation: CREATE_MESSAGE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: CREATE_MESSAGE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: CREATE_MESSAGE_ROUTE_LOG.createFailureMessage,
+      metadata: { slug },
+      responseMessage: CREATE_MESSAGE_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ member, modules }) => {
+      const body: unknown = await request.json().catch(() => null);
+      const poll = readPollFromBody(body);
+      const mediaResult = readMediaFromBody(body);
+      const filesResult = readFilesFromBody(body);
+      const clientRequestId = readClientRequestIdFromBody(body);
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const poll = readPollFromBody(body);
-    const mediaResult = readMediaFromBody(body);
-    const filesResult = readFilesFromBody(body);
-    const clientRequestId = readClientRequestIdFromBody(body);
+      const rejectionMessage = findDraftRejectionMessage({ clientRequestId, filesResult, mediaResult });
 
-    const rejectionMessage = findDraftRejectionMessage({ clientRequestId, filesResult, mediaResult });
+      if (rejectionMessage !== null) {
+        return createRouteJsonResponse({ message: rejectionMessage }, HTTP_STATUS.badRequest);
+      }
 
-    if (rejectionMessage !== null) {
-      return createJsonResponse({ message: rejectionMessage }, HTTP_STATUS.badRequest);
+      const media =
+        mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.valid
+          ? mediaResult.media
+          : undefined;
+      const files =
+        filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid
+          ? filesResult.files
+          : undefined;
+      const result = await modules.messages.useCases.createTribeMessage({
+        authorId: member.id,
+        channelId: readChannelIdFromBody(body),
+        tribeSlug: slug,
+        content: readContentFromBody(body),
+        ...(files !== undefined ? { files } : {}),
+        ...(media !== undefined ? { media } : {}),
+        ...(poll ? { poll } : {}),
+        ...(clientRequestId ? { clientRequestId } : {}),
+        title: readTitleFromBody(body),
+      });
+
+      return createPostResultResponse(result, slug, poll);
     }
-
-    const media =
-      mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.valid
-        ? mediaResult.media
-        : undefined;
-    const files =
-      filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid
-        ? filesResult.files
-        : undefined;
-    const result = await modules.messages.useCases.createTribeMessage({
-      authorId: authenticatedMember.id,
-      channelId: readChannelIdFromBody(body),
-      tribeSlug: slug,
-      content: readContentFromBody(body),
-      ...(files !== undefined ? { files } : {}),
-      ...(media !== undefined ? { media } : {}),
-      ...(poll ? { poll } : {}),
-      ...(clientRequestId ? { clientRequestId } : {}),
-      title: readTitleFromBody(body),
-    });
-
-    return createPostResultResponse(result, slug, poll);
-  } catch (error) {
-    logger.error({
-      message: CREATE_MESSAGE_ROUTE_LOG.createFailureMessage,
-      error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: CREATE_MESSAGE_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }
 
 type UnexpectedRoundFailure = {
@@ -605,11 +578,7 @@ function createUnexpectedRoundResponse({
  */
 export async function GET(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({

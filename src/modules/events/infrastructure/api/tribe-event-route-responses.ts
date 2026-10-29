@@ -130,6 +130,25 @@ export function createJsonResponse(
 }
 
 /**
+ * Maps the statuses every event endpoint shares: a missing event is a 404 and
+ * anything else (forbidden or unexpected) is the endpoint's 403.
+ *
+ * @param status - Failed status of the use case.
+ * @param forbiddenMessage - Copy of the 403 for this endpoint.
+ * @returns The safe JSON response.
+ */
+function mapTribeEventNotFoundOrForbidden(status: string, forbiddenMessage: string): Response {
+  if (status === TRIBE_EVENT_MUTATION_STATUS.notFound) {
+    return createJsonResponse(
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
+      TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
+    );
+  }
+
+  return createJsonResponse({ message: forbiddenMessage }, TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden);
+}
+
+/**
  * Maps a failed save/delete status to the matching safe HTTP response.
  */
 export function mapTribeEventMutationStatusResponse(status: string): Response {
@@ -154,17 +173,8 @@ export function mapTribeEventMutationStatusResponse(status: string): Response {
         { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleRemovesPostEventContentMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
-    case TRIBE_EVENT_MUTATION_STATUS.notFound:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.forbiddenMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
-      );
+      return mapTribeEventNotFoundOrForbidden(status, TRIBE_EVENT_ROUTE_RESPONSE.forbiddenMessage);
   }
 }
 
@@ -196,17 +206,8 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
         { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
-    case TRIBE_EVENT_MUTATION_STATUS.notFound:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.memberForbiddenMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
-      );
+      return mapTribeEventNotFoundOrForbidden(status, TRIBE_EVENT_ROUTE_RESPONSE.memberForbiddenMessage);
   }
 }
 
@@ -222,17 +223,8 @@ export function mapTribeEventAttendanceReportStatusResponse(status: string): Res
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
       );
-    case TRIBE_EVENT_MUTATION_STATUS.notFound:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.attendanceReportForbiddenMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
-      );
+      return mapTribeEventNotFoundOrForbidden(status, TRIBE_EVENT_ROUTE_RESPONSE.attendanceReportForbiddenMessage);
   }
 }
 
@@ -261,17 +253,8 @@ export function mapTribeEventExceptionStatusResponse(status: string): Response {
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
       );
-    case TRIBE_EVENT_MUTATION_STATUS.notFound:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.forbiddenMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
-      );
+      return mapTribeEventNotFoundOrForbidden(status, TRIBE_EVENT_ROUTE_RESPONSE.forbiddenMessage);
   }
 }
 
@@ -348,16 +331,7 @@ export function mapTribeEventPostEventStatusResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceNotFinishedMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
-    case TRIBE_EVENT_MUTATION_STATUS.notFound:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
-        { message: forbiddenMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
-      );
+      return mapTribeEventNotFoundOrForbidden(status, forbiddenMessage);
   }
 }

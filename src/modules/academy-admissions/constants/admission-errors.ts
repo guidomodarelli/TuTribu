@@ -1,3 +1,4 @@
+import { MESSAGING_CONNECTION_ERROR_CODE } from "@/src/modules/shared/constants/messaging-connection-error-codes";
 /** Closed semantic outcomes shared inward without deriving contracts from runtime values. */
 export type AdmissionErrorCode =
   | "invalid_input" | "authentication_required" | "permission_denied" | "resource_unavailable"
@@ -42,20 +43,7 @@ export const ADMISSION_ERROR_CODE = {
   admissionsPaused: "admissions_paused",
   admissionIneligible: "admission_ineligible",
   membershipRecoveryRequired: "membership_recovery_required",
-  connectionIncomplete: "connection_incomplete",
-  /** The academy has not saved its countries and daily quotas yet; distinct from an incomplete connection. */
-  usagePolicyMissing: "usage_policy_missing",
-  missingCapability: "missing_capability",
-  invalidCredentials: "invalid_credentials",
-  upstreamRejected: "upstream_rejected",
-  providerRateLimited: "provider_rate_limited",
-  transportTimeout: "transport_timeout",
-  dependencyUnavailable: "dependency_unavailable",
-  deliveryUnknown: "delivery_unknown",
-  operationUnresolved: "operation_unresolved",
-  upstreamPayloadUnusable: "upstream_payload_unusable",
-  publicContractUnusable: "public_contract_unusable",
-  unexpectedFailure: "unexpected_failure",
+  ...MESSAGING_CONNECTION_ERROR_CODE,
 } as const satisfies Record<string, AdmissionErrorCode>;
 
 /** Only catalogue copy can cross the public error boundary. */

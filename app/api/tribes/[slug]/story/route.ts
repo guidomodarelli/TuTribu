@@ -1,4 +1,3 @@
-import { createRequestModules } from "@/src/modules/setup";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import { revalidateTribeStoryAboutCache } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache-revalidation";
 import {
@@ -11,10 +10,16 @@ import {
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import type { TribeStoryResult } from "@/src/modules/tribes/application/results/tribe-story-result";
 import type { SaveTribeStoryMediaItem } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { isHttpUrl, isPayloadObject, readTrimmedText } from "@/app/api/request-body-fields";
 
 const STORY_ROUTE_LOG = {
   feature: "tribes",
@@ -43,66 +48,22 @@ const STORY_ROUTE_RESPONSE = {
   unexpectedSaveMessage: "No pudimos guardar la historia. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-const STORY_URL_PROTOCOL = {
-  http: "http:",
-  https: "https:",
-} as const;
-
 type MediaValidationResult =
   | { errorMessage: string; ok: false }
   | { media: SaveTribeStoryMediaItem[]; ok: true };
 
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
-
 function createHiddenStoryResponse(reason: string): Response {
   if (reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: STORY_ROUTE_RESPONSE.accessForbiddenMessage },
       HTTP_STATUS.forbidden
     );
   }
 
-  return createJsonResponse(
+  return createRouteJsonResponse(
     { message: STORY_ROUTE_RESPONSE.notFoundMessage },
     HTTP_STATUS.notFound
   );
-}
-
-function isPayloadObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function readRequiredText(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsedUrl = new URL(value);
-
-    return (
-      parsedUrl.protocol === STORY_URL_PROTOCOL.http ||
-      parsedUrl.protocol === STORY_URL_PROTOCOL.https
-    );
-  } catch {
-    return false;
-  }
 }
 
 type StoryMediaItemRead = { errorMessage: string } | { item: SaveTribeStoryMediaItem };
@@ -134,7 +95,7 @@ function readStoryMediaItem(mediaCandidate: unknown, sortOrder: number): StoryMe
     return { errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage };
   }
 
-  const mediaUrl = readRequiredText(mediaCandidate.url);
+  const mediaUrl = readTrimmedText(mediaCandidate.url);
 
   if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.video) {
     return readStoryVideoItem(mediaUrl, sortOrder);
@@ -176,7 +137,7 @@ function readStoryDraft(parsedBody: unknown): StoryDraft | { errorMessage: strin
     return { errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage };
   }
 
-  const content = readRequiredText(parsedBody.content);
+  const content = readTrimmedText(parsedBody.content);
 
   if (!content) {
     return { errorMessage: STORY_ROUTE_RESPONSE.missingContentMessage };
@@ -186,7 +147,7 @@ function readStoryDraft(parsedBody: unknown): StoryDraft | { errorMessage: strin
     return { errorMessage: STORY_ROUTE_RESPONSE.contentTooLongMessage };
   }
 
-  const websiteUrl = readRequiredText(parsedBody.websiteUrl);
+  const websiteUrl = readTrimmedText(parsedBody.websiteUrl);
 
   if (websiteUrl && !isHttpUrl(websiteUrl)) {
     return { errorMessage: STORY_ROUTE_RESPONSE.invalidWebsiteUrlMessage };
@@ -250,69 +211,48 @@ function serializeStory(story: TribeStoryResult) {
   };
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: STORY_ROUTE_LOG.feature,
+  operation: STORY_ROUTE_LOG.operation,
+  unauthorizedMessage: STORY_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function GET(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: STORY_ROUTE_LOG.feature,
-    operation: STORY_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: STORY_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  try {
-    const accessResult = await modules.tribes.useCases.getTribePageAccess({
-      allowWithoutCommunityAccess: true,
-      isAuthenticated: true,
-      slug,
-    });
-
-    if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-      return createHiddenStoryResponse(accessResult.reason);
-    }
-
-    const story = await modules.tribes.useCases.getTribeStory({
-      tribeSlug: slug,
-    });
-
-    return createJsonResponse(
-      { story: story ? serializeStory(story) : null },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      error,
-      message: STORY_ROUTE_LOG.getFailureMessage,
-      metadata: {
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: STORY_ROUTE_LOG.getFailureMessage,
+      metadata: { slug },
+      responseMessage: STORY_ROUTE_RESPONSE.unexpectedGetMessage,
+    },
+    async ({ modules }) => {
+      const accessResult = await modules.tribes.useCases.getTribePageAccess({
+        allowWithoutCommunityAccess: true,
+        isAuthenticated: true,
         slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+      });
 
-    return createJsonResponse(
-      { message: STORY_ROUTE_RESPONSE.unexpectedGetMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
+        return createHiddenStoryResponse(accessResult.reason);
+      }
+
+      const story = await modules.tribes.useCases.getTribeStory({
+        tribeSlug: slug,
+      });
+
+      return createRouteJsonResponse(
+        { story: story ? serializeStory(story) : null },
+        HTTP_STATUS.ok
+      );
+    }
+  );
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type SaveTribeStoryResult = Awaited<
   ReturnType<RequestModules["tribes"]["useCases"]["saveTribeStory"]>
@@ -323,7 +263,7 @@ function createPutResultResponse(result: SaveTribeStoryResult, slug: string): Re
     case TRIBE_STORY_SAVE_STATUS.updated:
       revalidateTribeStoryAboutCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: STORY_ROUTE_RESPONSE.savedMessage,
           story: result.story ? serializeStory(result.story) : null,
@@ -331,13 +271,13 @@ function createPutResultResponse(result: SaveTribeStoryResult, slug: string): Re
         HTTP_STATUS.ok
       );
     case TRIBE_STORY_SAVE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: STORY_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case TRIBE_STORY_SAVE_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: STORY_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -346,61 +286,36 @@ function createPutResultResponse(result: SaveTribeStoryResult, slug: string): Re
 
 export async function PUT(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: STORY_ROUTE_LOG.feature,
-    operation: STORY_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: STORY_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: STORY_ROUTE_LOG.saveFailureMessage,
+      metadata: { slug },
+      responseMessage: STORY_ROUTE_RESPONSE.unexpectedSaveMessage,
+    },
+    async ({ modules }) => {
+      const parsedBody: unknown = await request.json().catch(() => ({}));
 
-  try {
-    const parsedBody: unknown = await request.json().catch(() => ({}));
+      const draft = readStoryDraft(parsedBody);
 
-    const draft = readStoryDraft(parsedBody);
+      if ("errorMessage" in draft) {
+        return createRouteJsonResponse(
+          { message: draft.errorMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if ("errorMessage" in draft) {
-      return createJsonResponse(
-        { message: draft.errorMessage },
-        HTTP_STATUS.badRequest
-      );
+      const result = await modules.tribes.useCases.saveTribeStory({
+        ...draft,
+        tribeSlug: slug,
+      });
+
+      return createPutResultResponse(result, slug);
     }
-
-    const result = await modules.tribes.useCases.saveTribeStory({
-      ...draft,
-      tribeSlug: slug,
-    });
-
-    return createPutResultResponse(result, slug);
-  } catch (error) {
-    logger.error({
-      error,
-      message: STORY_ROUTE_LOG.saveFailureMessage,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: STORY_ROUTE_RESPONSE.unexpectedSaveMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

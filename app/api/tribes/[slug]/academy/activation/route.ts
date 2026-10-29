@@ -7,18 +7,14 @@
  * @module academy-activation-route
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import {
+  createAcademyFailureResponse,
+  handleAcademyRoute,
+  type AcademyTribeRouteContext,
+} from "@/app/api/tribes/[slug]/academy-route-scope";
 import { toAcademySettingsDto } from "@/src/modules/product-access/application/results/academy-dto-mappers";
 import { academySettingsDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
-import {
-  ACADEMY_HTTP_STATUS,
-  ACADEMY_ROUTE_MESSAGE,
-  createAcademyJsonResponse,
-  createAcademyPublicResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
-  readAcademyJsonBody,
-} from "@/src/modules/product-access/infrastructure/api/academy-route-http";
+import { ACADEMY_HTTP_STATUS } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import {
   academyActivationBodySchema,
   academyTribeParamsSchema,
@@ -32,82 +28,39 @@ const ACTIVATION_STATUS = {
   conflict: ACADEMY_HTTP_STATUS.conflict,
 } as const;
 
-export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
+export async function POST(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Academy activation failed",
+      operation: OPERATION,
+      schemas: { body: academyActivationBodySchema, params: academyTribeParamsSchema },
+    },
+    async ({ body, logger, metadata, modules, params, respond }) => {
+      const result = await modules.productAccess.useCases.activateAcademy({
+        expectedConfigVersion: body.expectedConfigVersion,
+        tribeSlug: params.slug,
+      });
 
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  const body = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "body",
-    schema: academyActivationBodySchema,
-    value: await readAcademyJsonBody(request),
-  });
-
-  if (!body.isValid) {
-    return body.response;
-  }
-
-  const metadata = { requestId: scope.requestId, tribeSlug: params.data.slug };
-
-  try {
-    const result = await scope.modules.productAccess.useCases.activateAcademy({
-      expectedConfigVersion: body.data.expectedConfigVersion,
-      tribeSlug: params.data.slug,
-    });
-
-    switch (result.status) {
-      case "activated":
-      case "already_academy":
-      case "conflict":
-        scope.logger.info({
+      if (
+        result.status === "activated" ||
+        result.status === "already_academy" ||
+        result.status === "conflict"
+      ) {
+        logger.info({
           message: "Academy activation processed",
           metadata: { ...metadata, result: result.status },
         });
 
-        return createAcademyPublicResponse({
-          body: toAcademySettingsDto(result.settings),
-          logger: scope.logger,
-          metadata,
-          schema: academySettingsDtoSchema,
-          status: ACTIVATION_STATUS[result.status],
-        });
-      case "invalid_input":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.invalidInput },
-          ACADEMY_HTTP_STATUS.badRequest
+        return respond(
+          toAcademySettingsDto(result.settings),
+          academySettingsDtoSchema,
+          ACTIVATION_STATUS[result.status]
         );
-      case "forbidden":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.forbidden },
-          ACADEMY_HTTP_STATUS.forbidden
-        );
-      case "not_found":
-      default:
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.notFound },
-          ACADEMY_HTTP_STATUS.notFound
-        );
+      }
+
+      return createAcademyFailureResponse(result.status);
     }
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Academy activation failed",
-      metadata,
-    });
-  }
+  );
 }

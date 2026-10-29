@@ -5,6 +5,13 @@ import {
   type TribeRoundInputIssue,
 } from "@/src/modules/messages/infrastructure/api/schemas/tribe-round-request-schemas";
 import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createPrivateNoStoreJsonResponse,
+  parsePublicDto,
+  parseRouteRequestParts,
+  type RouteInputPart,
+  type RouteInputRejection,
+} from "@/src/modules/shared/infrastructure/http/route-input";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 /**
@@ -37,17 +44,6 @@ const TRIBE_ROUND_ROUTE_LOG = {
   publicDtoRejectedReason: "public_dto_rejected",
 } as const;
 
-const TRIBE_ROUND_ROUTE_INPUT_PART = {
-  params: "params",
-  query: "query",
-} as const;
-
-type TribeRoundRouteInputPart =
-  (typeof TRIBE_ROUND_ROUTE_INPUT_PART)[keyof typeof TRIBE_ROUND_ROUTE_INPUT_PART];
-
-const CACHE_CONTROL_HEADER = "Cache-Control";
-const NO_STORE_CACHE_CONTROL = "private, no-store";
-
 const TRIBE_ROUND_INPUT_ISSUE_MESSAGE: Record<TribeRoundInputIssue, string> = {
   [TRIBE_ROUND_INPUT_ISSUE.invalidRoundPage]: TRIBE_ROUND_ROUTE_RESPONSE.invalidRoundPageMessage,
   [TRIBE_ROUND_INPUT_ISSUE.invalidTribeReference]: TRIBE_ROUND_ROUTE_RESPONSE.tribeNotFoundMessage,
@@ -61,28 +57,7 @@ const TRIBE_ROUND_INPUT_ISSUE_MESSAGE: Record<TribeRoundInputIssue, string> = {
  * @returns The JSON response with `Cache-Control: private, no-store`.
  */
 export function createTribeRoundJsonResponse(body: unknown, status: number): Response {
-  const response = Response.json(body, { status });
-
-  response.headers.set(CACHE_CONTROL_HEADER, NO_STORE_CACHE_CONTROL);
-
-  return response;
-}
-
-/**
- * Query string as a plain object: one string per key, or an array when the
- * key is repeated, so the schema decides whether repetition is allowed.
- */
-function readQueryObject(request: Request): Record<string, string | string[]> {
-  const { searchParams } = new URL(request.url);
-  const query: Record<string, string | string[]> = {};
-
-  for (const key of new Set(searchParams.keys())) {
-    const values = searchParams.getAll(key);
-
-    query[key] = values.length === 1 ? values[0] : values;
-  }
-
-  return query;
+  return createPrivateNoStoreJsonResponse(body, status);
 }
 
 function isTribeRoundInputIssue(value: string): value is TribeRoundInputIssue {
@@ -91,9 +66,9 @@ function isTribeRoundInputIssue(value: string): value is TribeRoundInputIssue {
 
 function rejectInput(
   logger: ServerLogger,
-  part: TribeRoundRouteInputPart,
+  part: RouteInputPart,
   error: z.ZodError
-): { isValid: false; response: Response } {
+): RouteInputRejection {
   logger.warn({
     message: TRIBE_ROUND_ROUTE_LOG.inputRejectedMessage,
     metadata: { issues: summarizeValidationIssues(error.issues), part },
@@ -132,19 +107,16 @@ export async function parseTribeRoundRouteInput<TParams, TQuery>(input: {
   request: Request;
   schemas: { params: z.ZodType<TParams>; query: z.ZodType<TQuery> };
 }): Promise<TribeRoundRouteInput<TParams, TQuery>> {
-  const params = input.schemas.params.safeParse(await input.params);
+  const parsed = await parseRouteRequestParts({
+    params: input.params,
+    reject: (part, error) => rejectInput(input.logger, part, error),
+    request: input.request,
+    schemas: input.schemas,
+  });
 
-  if (!params.success) {
-    return rejectInput(input.logger, TRIBE_ROUND_ROUTE_INPUT_PART.params, params.error);
-  }
-
-  const query = input.schemas.query.safeParse(readQueryObject(input.request));
-
-  if (!query.success) {
-    return rejectInput(input.logger, TRIBE_ROUND_ROUTE_INPUT_PART.query, query.error);
-  }
-
-  return { isValid: true, params: params.data, query: query.data };
+  return parsed.isValid
+    ? { isValid: true, params: parsed.params, query: parsed.query }
+    : parsed;
 }
 
 /**
@@ -163,18 +135,16 @@ export function createTribeRoundPublicResponse<TDto>(input: {
   metadata: Record<string, unknown>;
   schema: z.ZodType<TDto>;
 }): Response {
-  const parsed = input.schema.safeParse(input.body);
+  const parsed = parsePublicDto({
+    body: input.body,
+    logMessage: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedMessage,
+    logger: input.logger,
+    metadata: input.metadata,
+    reason: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedReason,
+    schema: input.schema,
+  });
 
   if (!parsed.success) {
-    input.logger.error({
-      message: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedMessage,
-      metadata: {
-        ...input.metadata,
-        issues: summarizeValidationIssues(parsed.error.issues),
-        reason: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedReason,
-      },
-    });
-
     return createTribeRoundJsonResponse(
       { message: input.failureMessage },
       TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError

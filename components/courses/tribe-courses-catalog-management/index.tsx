@@ -6,6 +6,7 @@ import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Switch, Textarea, AnimatedCollapse, AnimatedListItem, cn } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
+import { readCourseEntityEntry, sendCourseJson } from "@/lib/courses/course-api";
 import { ROUTES } from "@/src/constants/routes";
 import {
   COURSE_ACCESS_REQUIREMENT,
@@ -64,14 +65,6 @@ const HTTP_METHOD = {
   delete: "DELETE",
   patch: "PATCH",
   post: "POST",
-} as const;
-
-const HTTP_HEADER_NAME = {
-  contentType: "Content-Type",
-} as const;
-
-const HTTP_CONTENT_TYPE = {
-  applicationJson: "application/json",
 } as const;
 
 const COURSES_API = {
@@ -151,20 +144,8 @@ function isOptimisticId(id: string): boolean {
 }
 
 function readCourseFromResponse(payload: unknown): CourseResult | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  const candidate = (payload as { course?: unknown }).course;
-  if (!candidate || typeof candidate !== "object") {
-    return null;
-  }
-  const entry = candidate as Record<string, unknown>;
-  if (
-    typeof entry.id !== "string" ||
-    typeof entry.title !== "string" ||
-    typeof entry.sortOrder !== "number" ||
-    typeof entry.isActive !== "boolean"
-  ) {
+  const entry = readCourseEntityEntry(payload, "course");
+  if (!entry) {
     return null;
   }
   return {
@@ -268,28 +249,6 @@ function restoreCourseAt(
   const next = [...courses];
   next.splice(snapshotIndex, 0, snapshot);
   return next;
-}
-
-/**
- * Sends a JSON course mutation.
- *
- * @param url - Course endpoint.
- * @param method - HTTP method.
- * @param body - JSON body.
- * @returns The response.
- */
-function sendCourseJson(
-  url: string,
-  method: string,
-  body: Record<string, unknown>
-): Promise<Response> {
-  return fetch(url, {
-    body: JSON.stringify(body),
-    headers: {
-      [HTTP_HEADER_NAME.contentType]: HTTP_CONTENT_TYPE.applicationJson,
-    },
-    method,
-  });
 }
 
 /**

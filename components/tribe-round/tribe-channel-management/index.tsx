@@ -219,12 +219,49 @@ type ChannelListState = {
   pendingChannelIds: ReadonlySet<string>;
   removeChannel: (channelId: string) => void;
   savedChannels: TribeChannelResult[];
-  setChannelPending: (channelId: string, isPending: boolean) => void;
+  /**
+   * Runs one request for a channel row, ignoring it while the row already has
+   * one in flight; a failure shows the API message or `fallbackError`.
+   */
+  runChannelRequest: (
+    channelId: string,
+    fallbackError: string,
+    request: () => Promise<void>
+  ) => Promise<void>;
   updateChannelDraft: (
     channelId: string,
     patch: Partial<Pick<TribeChannelResult, "emoji" | "name">>
   ) => void;
 };
+
+/**
+ * Builds the runner of channel row requests: one request per row at a time,
+ * with the row marked pending while it runs and failures reported as toasts.
+ *
+ * @param pendingChannelIds - Rows with a request in flight.
+ * @param setChannelPending - Marks or clears a row as pending.
+ * @returns The request runner.
+ */
+function createChannelRequestRunner(
+  pendingChannelIds: ReadonlySet<string>,
+  setChannelPending: (channelId: string, isPending: boolean) => void
+): ChannelListState["runChannelRequest"] {
+  return async (channelId, fallbackError, request) => {
+    if (pendingChannelIds.has(channelId)) {
+      return;
+    }
+
+    setChannelPending(channelId, true);
+
+    try {
+      await request();
+    } catch (error) {
+      toastChannelRequestError(error, fallbackError);
+    } finally {
+      setChannelPending(channelId, false);
+    }
+  };
+}
 
 /**
  * Keeps the editable channel rows, their last saved version and the rows
@@ -269,14 +306,10 @@ function useChannelList(
     );
   };
 
-  const handleUpdateChannel = async (channel: TribeChannelResult) => {
-    if (pendingChannelIds.has(channel.id)) {
-      return;
-    }
+  const runChannelRequest = createChannelRequestRunner(pendingChannelIds, setChannelPending);
 
-    setChannelPending(channel.id, true);
-
-    try {
+  const handleUpdateChannel = (channel: TribeChannelResult) =>
+    runChannelRequest(channel.id, CHANNEL_MANAGEMENT_COPY.fallbackUpdateError, async () => {
       const response = await submitChannelRequest(
         CHANNEL_MANAGEMENT_ENDPOINT.channel(tribeSlug, channel.id),
         CHANNEL_MANAGEMENT_FORM.patchMethod,
@@ -289,12 +322,7 @@ function useChannelList(
 
       replaceChannel(response.channel ?? channel);
       toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.saveSuccess);
-    } catch (error) {
-      toastChannelRequestError(error, CHANNEL_MANAGEMENT_COPY.fallbackUpdateError);
-    } finally {
-      setChannelPending(channel.id, false);
-    }
-  };
+    });
 
   const updateChannelDraft: ChannelListState["updateChannelDraft"] = (
     channelId,
@@ -315,8 +343,8 @@ function useChannelList(
     handleUpdateChannel,
     pendingChannelIds,
     removeChannel,
+    runChannelRequest,
     savedChannels,
-    setChannelPending,
     updateChannelDraft,
   };
 }
@@ -418,7 +446,7 @@ function useChannelDeletion(
   channelList: ChannelListState,
   tribeSlug: string
 ): ChannelDeletionState {
-  const { pendingChannelIds, removeChannel, savedChannels, setChannelPending } =
+  const { pendingChannelIds, removeChannel, runChannelRequest, savedChannels } =
     channelList;
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const [deleteTargetChannelId, setDeleteTargetChannelId] = useState("");
@@ -436,14 +464,8 @@ function useChannelDeletion(
   const isDeleteInProgress =
     deleteCandidateId !== null && pendingChannelIds.has(deleteCandidateId);
 
-  const handleDeleteChannel = async (channel: TribeChannelResult) => {
-    if (pendingChannelIds.has(channel.id)) {
-      return;
-    }
-
-    setChannelPending(channel.id, true);
-
-    try {
+  const handleDeleteChannel = (channel: TribeChannelResult) =>
+    runChannelRequest(channel.id, CHANNEL_MANAGEMENT_COPY.fallbackDeleteError, async () => {
       const response = await submitChannelRequest(
         CHANNEL_MANAGEMENT_ENDPOINT.channel(tribeSlug, channel.id),
         CHANNEL_MANAGEMENT_FORM.deleteMethod,
@@ -455,12 +477,7 @@ function useChannelDeletion(
       setDeleteCandidateId(null);
       setDeleteTargetChannelId("");
       toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.deleteSuccess);
-    } catch (error) {
-      toastChannelRequestError(error, CHANNEL_MANAGEMENT_COPY.fallbackDeleteError);
-    } finally {
-      setChannelPending(channel.id, false);
-    }
-  };
+    });
 
   const handleDeleteDialogChange = (open: boolean) => {
     if (open || isDeleteInProgress) {

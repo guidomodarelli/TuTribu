@@ -63,7 +63,10 @@ import type {
   MercadoPagoPreapprovalStatusInput,
   MercadoPagoPreapprovalPlanStatusInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
-import type { PaymentOperationTraceContext } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
+import { POSTGRES_ERROR_CODE } from "@/src/modules/shared/infrastructure/database/postgres-error";
+import {
+  buildPaymentOperationTraceContext,
+} from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
 import {
   isMercadoPagoAccessTokenFresh,
   refreshStoredMercadoPagoAccessToken,
@@ -226,6 +229,9 @@ type PriceUpdateContextRow = SubscriptionProviderPlanRow & {
   tribe_id: string | null;
 };
 
+/** Price update context whose tribe exists. */
+type ManageablePriceUpdateContext = PriceUpdateContextRow & { tribe_id: string };
+
 type ResolvedUpdateTrialPeriod = {
   trialFrequency: number | null;
   trialFrequencyType: "days" | "months" | null;
@@ -310,11 +316,6 @@ const PROVIDER_PLAN_CONTENT_FINGERPRINT = {
   algorithm: "sha256",
   encoding: "hex",
   length: 16,
-} as const;
-
-const POSTGRES_ERROR_CODE = {
-  undefinedColumn: "42703",
-  undefinedTable: "42P01",
 } as const;
 
 type MercadoPagoConnectionTokenRow = {
@@ -570,34 +571,6 @@ function applyMercadoPagoAccountConnectionStatuses(
 }
 
 /**
- * Builds a trace context for Mercado Pago operations scoped to subscription prices.
- *
- * @param input - Payment operation identifiers available at the repository boundary.
- * @returns Trace context for provider logging, or undefined when request tracing is unavailable.
- */
-function buildSubscriptionPricePaymentTraceContext(input: {
-  operationKey: string;
-  preapprovalId?: string | null;
-  priceId?: string | null;
-  providerPlanId?: string | null;
-  requestId?: string;
-  tribeSlug?: string | null;
-}): PaymentOperationTraceContext | undefined {
-  if (!input.requestId) {
-    return undefined;
-  }
-
-  return {
-    operationKey: input.operationKey,
-    preapprovalId: input.preapprovalId,
-    priceId: input.priceId,
-    providerPlanId: input.providerPlanId,
-    requestId: input.requestId,
-    tribeSlug: input.tribeSlug,
-  };
-}
-
-/**
  * Builds a stable operation key for price-scoped Mercado Pago reads and writes.
  *
  * @param parts - Operation family and local identifiers.
@@ -686,7 +659,7 @@ async function readProviderSubscriptionStatuses(input: {
       const providerSubscriber =
         input.providerSubscribers[providerSubscriberIndex];
       const traceContext = providerSubscriber.mercado_pago_preapproval_id
-        ? buildSubscriptionPricePaymentTraceContext({
+        ? buildPaymentOperationTraceContext({
             operationKey: input.operationKey,
             preapprovalId: providerSubscriber.mercado_pago_preapproval_id,
             priceId: input.priceId,
@@ -2270,7 +2243,7 @@ export class PostgresTribeSubscriptionPriceRepository
       command,
       reservedPriceId
     );
-    const traceContext = buildSubscriptionPricePaymentTraceContext({
+    const traceContext = buildPaymentOperationTraceContext({
       operationKey: providerPlanOperationKey,
       priceId: reservedPriceId,
       requestId: this.requestId,
@@ -2522,19 +2495,16 @@ export class PostgresTribeSubscriptionPriceRepository
   async update(
     command: UpdateTribeSubscriptionPriceCommand
   ): Promise<TribeSubscriptionPriceMutationResult> {
-    const updateContext = await this.resolvePriceUpdateContext(command);
+    const manageablePrice = await this.resolveManageablePriceContext(
+      command,
+      TRIBE_SUBSCRIPTION_PRICE_STATUS.active
+    );
 
-    if (!updateContext?.tribe_id) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    if ("rejection" in manageablePrice) {
+      return manageablePrice.rejection;
     }
 
-    if (!updateContext.can_manage_prices) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
-
-    if (updateContext.status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.active) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
+    const { updateContext } = manageablePrice;
 
     const resolvedTrialPeriod = resolveUpdateTrialPeriod(command, updateContext);
 
@@ -2552,7 +2522,7 @@ export class PostgresTribeSubscriptionPriceRepository
         priceId: command.priceId,
         tribeSlug: command.tribeSlug,
       });
-      const traceContext = buildSubscriptionPricePaymentTraceContext({
+      const traceContext = buildPaymentOperationTraceContext({
         operationKey,
         priceId: command.priceId,
         providerPlanId: updateContext.mercado_pago_preapproval_plan_id,
@@ -2579,6 +2549,37 @@ export class PostgresTribeSubscriptionPriceRepository
       ...command,
       ...resolvedTrialPeriod,
     });
+  }
+
+  /**
+   * Resolves a price the caller may mutate while it is in the required status.
+   *
+   * @param command - Price identity.
+   * @param requiredStatus - Local price status the mutation applies to.
+   * @returns The mutation context, or the rejection to return to the caller.
+   */
+  private async resolveManageablePriceContext(
+    command: TribeSubscriptionPriceIdentity,
+    requiredStatus: string
+  ): Promise<
+    | { rejection: TribeSubscriptionPriceMutationResult }
+    | { updateContext: ManageablePriceUpdateContext }
+  > {
+    const updateContext = await this.resolvePriceUpdateContext(command);
+
+    if (!updateContext?.tribe_id) {
+      return { rejection: { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound } };
+    }
+
+    if (!updateContext.can_manage_prices) {
+      return { rejection: { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden } };
+    }
+
+    if (updateContext.status !== requiredStatus) {
+      return { rejection: { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden } };
+    }
+
+    return { updateContext: { ...updateContext, tribe_id: updateContext.tribe_id } };
   }
 
   /**
@@ -3020,7 +3021,7 @@ export class PostgresTribeSubscriptionPriceRepository
     tribeSlug: string
   ) {
     const traceContext = providerPlanPrice.mercado_pago_preapproval_plan_id
-      ? buildSubscriptionPricePaymentTraceContext({
+      ? buildPaymentOperationTraceContext({
           operationKey: buildSubscriptionPriceOperationKey({
             operation:
               SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderPlan,
@@ -3284,7 +3285,7 @@ export class PostgresTribeSubscriptionPriceRepository
       SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.syncProviderPlanWebhook,
       command.resourceId,
     ].join(":");
-    const traceContext = buildSubscriptionPricePaymentTraceContext({
+    const traceContext = buildPaymentOperationTraceContext({
       operationKey: operationKeyPrefix,
       priceId: webhookContext.id,
       providerPlanId: command.resourceId,
@@ -4078,19 +4079,16 @@ export class PostgresTribeSubscriptionPriceRepository
   async delete(
     command: TribeSubscriptionPriceIdentity
   ): Promise<TribeSubscriptionPriceMutationResult> {
-    const updateContext = await this.resolvePriceUpdateContext(command);
+    const manageablePrice = await this.resolveManageablePriceContext(
+      command,
+      TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
+    );
 
-    if (!updateContext?.tribe_id) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    if ("rejection" in manageablePrice) {
+      return manageablePrice.rejection;
     }
 
-    if (!updateContext.can_manage_prices) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
-
-    if (updateContext.status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
+    const { updateContext } = manageablePrice;
 
     const linkedInvitationIds = await this.listLinkedActiveInvitationIds(
       command.priceId
@@ -4103,48 +4101,13 @@ export class PostgresTribeSubscriptionPriceRepository
       };
     }
 
-    const hasProviderPlanLink = Boolean(
-      updateContext.mercado_pago_preapproval_plan_id
-    );
-
-    if (!hasProviderPlanLink) {
-      const wasDeleted = await this.deleteCanceledProviderPlanPrice(command);
-
-      return wasDeleted
-        ? { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted }
-        : { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
-    }
-
-    const accessToken = await this.resolveAccessTokenForProviderMutation(
+    const providerPrecheckStatus = await this.runDeleteProviderPrecheck(
+      command,
       updateContext
     );
 
-    if (!accessToken) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
-    }
-
-    if (updateContext.mercado_pago_preapproval_plan_id) {
-      const traceContext = buildSubscriptionPricePaymentTraceContext({
-        operationKey: buildSubscriptionPriceOperationKey({
-          operation:
-            SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.deleteProviderPlanPrice,
-          priceId: command.priceId,
-          tribeSlug: command.tribeSlug,
-        }),
-        priceId: command.priceId,
-        providerPlanId: updateContext.mercado_pago_preapproval_plan_id,
-        requestId: this.requestId,
-        tribeSlug: command.tribeSlug,
-      });
-      const providerPlanStatus = await this.getMercadoPagoPlanStatus({
-        accessToken,
-        preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
-        ...(traceContext ? { traceContext } : {}),
-      });
-
-      if (isLiveProviderPlanStatus(providerPlanStatus)) {
-        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-      }
+    if (providerPrecheckStatus) {
+      return providerPrecheckStatus;
     }
 
     const wasDeleted = await this.deleteCanceledProviderPlanPrice(command);
@@ -4346,22 +4309,19 @@ export class PostgresTribeSubscriptionPriceRepository
   async deleteWithInvitationActions(
     command: DeleteTribeSubscriptionPriceWithInvitationActionsCommand
   ): Promise<TribeSubscriptionPriceMutationResult> {
-    const updateContext = await this.resolvePriceUpdateContext({
-      priceId: command.priceId,
-      tribeSlug: command.tribeSlug,
-    });
+    const manageablePrice = await this.resolveManageablePriceContext(
+      {
+        priceId: command.priceId,
+        tribeSlug: command.tribeSlug,
+      },
+      TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
+    );
 
-    if (!updateContext?.tribe_id) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    if ("rejection" in manageablePrice) {
+      return manageablePrice.rejection;
     }
 
-    if (!updateContext.can_manage_prices) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
-
-    if (updateContext.status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
+    const { updateContext } = manageablePrice;
 
     const validatedActions = await this.validateInvitationActions(
       command.priceId,
@@ -4549,7 +4509,7 @@ export class PostgresTribeSubscriptionPriceRepository
     }
 
     if (updateContext.mercado_pago_preapproval_plan_id) {
-      const traceContext = buildSubscriptionPricePaymentTraceContext({
+      const traceContext = buildPaymentOperationTraceContext({
         operationKey: buildSubscriptionPriceOperationKey({
           operation:
             SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.deleteProviderPlanPrice,

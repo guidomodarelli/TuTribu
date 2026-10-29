@@ -5,14 +5,15 @@
  * @module academy-reconcile-route
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import {
+  handleAcademyRoute,
+  type AcademyTribeRouteContext,
+} from "@/app/api/tribes/[slug]/academy-route-scope";
 import { ACADEMY_ROUTE_COPY } from "@/src/modules/product-access/constants/academy-route-copy";
 import {
   ACADEMY_HTTP_STATUS,
   ACADEMY_ROUTE_MESSAGE,
   createAcademyJsonResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
 } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import { academyTribeParamsSchema } from "@/src/modules/product-access/infrastructure/api/academy-request-schemas";
 
@@ -28,41 +29,26 @@ const RECONCILE_RESPONSE = {
   throttled: { message: ACADEMY_ROUTE_COPY.reconcileThrottled, status: ACADEMY_HTTP_STATUS.ok },
 } as const;
 
-export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
+export async function POST(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Academy reconciliation failed",
+      operation: OPERATION,
+      schemas: { params: academyTribeParamsSchema },
+    },
+    async ({ modules, params, requestId }) => {
+      const result = await modules.subscriptions.useCases.reconcileOwnAcademyCoverage({
+        correlationId: requestId,
+        tribeSlug: params.slug,
+      });
+      const response = RECONCILE_RESPONSE[result.status];
 
-  if (!scope.isOpen) {
-    return scope.response;
-  }
-
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  try {
-    const result = await scope.modules.subscriptions.useCases.reconcileOwnAcademyCoverage({
-      correlationId: scope.requestId,
-      tribeSlug: params.data.slug,
-    });
-    const response = RECONCILE_RESPONSE[result.status];
-
-    return createAcademyJsonResponse(
-      { message: response.message, status: result.status },
-      response.status
-    );
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Academy reconciliation failed",
-      metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-    });
-  }
+      return createAcademyJsonResponse(
+        { message: response.message, status: result.status },
+        response.status
+      );
+    }
+  );
 }

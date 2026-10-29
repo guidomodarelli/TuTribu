@@ -14,6 +14,10 @@ import type {
   TribeFreeJoinResult,
 } from "@/src/modules/tribes/domain/repositories/tribe-free-join-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {
+  POSTGRES_ERROR_CODE,
+  readPostgresErrorCode,
+} from "@/src/modules/shared/infrastructure/database/postgres-error";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -24,29 +28,6 @@ type FreeJoinRow = {
   tribe_available: boolean | null;
   member_readable: boolean | null;
 };
-
-const POSTGRES_ERROR_CODE = {
-  insufficientPrivilege: "42501",
-  undefinedFunction: "42883",
-} as const;
-
-function readPostgresErrorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") {
-    return undefined;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-
-  if (postgresError.code) {
-    return postgresError.code;
-  }
-
-  return postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-    ? (postgresError.cause as { code?: string }).code
-    : undefined;
-}
 
 /** Preserves readable instances and restores only known commercial basic membership. */
 export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository {

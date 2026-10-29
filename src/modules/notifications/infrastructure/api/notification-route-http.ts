@@ -2,6 +2,12 @@ import type { z } from "zod";
 
 import { NOTIFICATION_INPUT_ISSUE } from "@/src/modules/notifications/infrastructure/api/notification-request-schemas";
 import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createPrivateNoStoreJsonResponse,
+  parsePublicDto,
+  parseRouteRequestParts,
+  type RouteInputRejection,
+} from "@/src/modules/shared/infrastructure/http/route-input";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 /**
@@ -34,9 +40,6 @@ const NOTIFICATION_ROUTE_LOG = {
   publicDtoRejectedReason: "public_dto_rejected",
 } as const;
 
-const CACHE_CONTROL_HEADER = "Cache-Control";
-const NO_STORE_CACHE_CONTROL = "private, no-store";
-
 const INPUT_ISSUE_MESSAGE: Record<string, string> = {
   [NOTIFICATION_INPUT_ISSUE.invalidInput]: NOTIFICATION_ROUTE_RESPONSE.invalidInputMessage,
   [NOTIFICATION_INPUT_ISSUE.invalidNotificationReference]:
@@ -47,36 +50,14 @@ const INPUT_ISSUE_MESSAGE: Record<string, string> = {
  * JSON response that no shared cache may store (the inbox is personal).
  */
 export function createNotificationJsonResponse(body: unknown, status: number): Response {
-  const response = Response.json(body, { status });
-
-  response.headers.set(CACHE_CONTROL_HEADER, NO_STORE_CACHE_CONTROL);
-
-  return response;
+  return createPrivateNoStoreJsonResponse(body, status);
 }
 
-function readQueryObject(request: Request): Record<string, string | string[]> {
-  const { searchParams } = new URL(request.url);
-  const query: Record<string, string | string[]> = {};
-
-  for (const key of new Set(searchParams.keys())) {
-    const values = searchParams.getAll(key);
-
-    query[key] = values.length === 1 ? values[0] : values;
-  }
-
-  return query;
-}
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    // Unparseable JSON is expected client input: the body schema rejects it.
-    return undefined;
-  }
-}
-
-function rejectInput(logger: ServerLogger, part: string, error: z.ZodError) {
+function rejectInput(
+  logger: ServerLogger,
+  part: string,
+  error: z.ZodError
+): RouteInputRejection {
   logger.warn({
     message: NOTIFICATION_ROUTE_LOG.inputRejectedMessage,
     metadata: { issues: summarizeValidationIssues(error.issues), part },
@@ -85,7 +66,7 @@ function rejectInput(logger: ServerLogger, part: string, error: z.ZodError) {
   const firstIssueMessage = error.issues[0]?.message ?? "";
 
   return {
-    isValid: false as const,
+    isValid: false,
     response: createNotificationJsonResponse(
       {
         message:
@@ -111,30 +92,16 @@ export async function parseNotificationRouteInput<TParams, TQuery, TBody = undef
   request: Request;
   schemas: { body?: z.ZodType<TBody>; params: z.ZodType<TParams>; query: z.ZodType<TQuery> };
 }): Promise<NotificationRouteInput<TParams, TBody>> {
-  const { logger, request, schemas } = input;
-  const params = schemas.params.safeParse(await input.params);
+  const parsed = await parseRouteRequestParts({
+    params: input.params,
+    reject: (part, error) => rejectInput(input.logger, part, error),
+    request: input.request,
+    schemas: input.schemas,
+  });
 
-  if (!params.success) {
-    return rejectInput(logger, "params", params.error);
-  }
-
-  const query = schemas.query.safeParse(readQueryObject(request));
-
-  if (!query.success) {
-    return rejectInput(logger, "query", query.error);
-  }
-
-  if (!schemas.body) {
-    return { body: undefined as TBody, isValid: true, params: params.data };
-  }
-
-  const body = schemas.body.safeParse(await readJsonBody(request));
-
-  if (!body.success) {
-    return rejectInput(logger, "body", body.error);
-  }
-
-  return { body: body.data, isValid: true, params: params.data };
+  return parsed.isValid
+    ? { body: parsed.body, isValid: true, params: parsed.params }
+    : parsed;
 }
 
 /**
@@ -149,18 +116,16 @@ export function createNotificationPublicResponse<TDto>(input: {
   metadata: Record<string, unknown>;
   schema: z.ZodType<TDto>;
 }): Response {
-  const parsed = input.schema.safeParse(input.body);
+  const parsed = parsePublicDto({
+    body: input.body,
+    logMessage: NOTIFICATION_ROUTE_LOG.publicDtoRejectedMessage,
+    logger: input.logger,
+    metadata: input.metadata,
+    reason: NOTIFICATION_ROUTE_LOG.publicDtoRejectedReason,
+    schema: input.schema,
+  });
 
   if (!parsed.success) {
-    input.logger.error({
-      message: NOTIFICATION_ROUTE_LOG.publicDtoRejectedMessage,
-      metadata: {
-        ...input.metadata,
-        issues: summarizeValidationIssues(parsed.error.issues),
-        reason: NOTIFICATION_ROUTE_LOG.publicDtoRejectedReason,
-      },
-    });
-
     return createNotificationJsonResponse(
       { message: input.failureMessage },
       NOTIFICATION_ROUTE_HTTP_STATUS.serverError

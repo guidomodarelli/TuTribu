@@ -1,8 +1,12 @@
-import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_IMAGE_SAVE_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 import { revalidateTribeStoryAboutCache } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache-revalidation";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { isHttpUrl, isPayloadObject, readTrimmedText } from "@/app/api/request-body-fields";
 
 const SETTINGS_ROUTE_LOG = {
   feature: "tribes",
@@ -22,48 +26,11 @@ const SETTINGS_ROUTE_RESPONSE = {
   unexpectedSaveMessage: "No pudimos guardar los ajustes. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
+const MEMBER_ROUTE_SCOPE = {
+  feature: SETTINGS_ROUTE_LOG.feature,
+  operation: SETTINGS_ROUTE_LOG.operation,
+  unauthorizedMessage: SETTINGS_ROUTE_RESPONSE.unauthorizedMessage,
 } as const;
-
-const SETTINGS_URL_PROTOCOL = {
-  http: "http:",
-  https: "https:",
-} as const;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
-
-function isPayloadObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function readOptionalText(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsedUrl = new URL(value);
-
-    return (
-      parsedUrl.protocol === SETTINGS_URL_PROTOCOL.http ||
-      parsedUrl.protocol === SETTINGS_URL_PROTOCOL.https
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Saves the tribe visual identity (logo and cover). Authorization is enforced
@@ -72,93 +39,68 @@ function isHttpUrl(value: string): boolean {
  */
 export async function PUT(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: SETTINGS_ROUTE_LOG.feature,
-    operation: SETTINGS_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: SETTINGS_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: SETTINGS_ROUTE_LOG.saveFailureMessage,
+      metadata: { slug },
+      responseMessage: SETTINGS_ROUTE_RESPONSE.unexpectedSaveMessage,
+    },
+    async ({ modules }) => {
+      const parsedBody: unknown = await request.json().catch(() => ({}));
 
-  try {
-    const parsedBody: unknown = await request.json().catch(() => ({}));
+      if (!isPayloadObject(parsedBody)) {
+        return createRouteJsonResponse(
+          { message: SETTINGS_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (!isPayloadObject(parsedBody)) {
-      return createJsonResponse(
-        { message: SETTINGS_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
+      const logoUrl = readTrimmedText(parsedBody.logoUrl);
+
+      if (logoUrl && !isHttpUrl(logoUrl)) {
+        return createRouteJsonResponse(
+          { message: SETTINGS_ROUTE_RESPONSE.invalidLogoUrlMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      const coverUrl = readTrimmedText(parsedBody.coverUrl);
+
+      if (coverUrl && !isHttpUrl(coverUrl)) {
+        return createRouteJsonResponse(
+          { message: SETTINGS_ROUTE_RESPONSE.invalidCoverUrlMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      const result = await modules.tribes.useCases.saveTribeIdentity({
+        coverUrl,
+        logoUrl,
+        tribeSlug: slug,
+      });
+
+      if (result.status === TRIBE_IMAGE_SAVE_STATUS.updated) {
+        revalidateTribeStoryAboutCache(slug);
+
+        return createRouteJsonResponse(
+          {
+            identity: result.identity,
+            message: SETTINGS_ROUTE_RESPONSE.savedMessage,
+          },
+          HTTP_STATUS.ok
+        );
+      }
+
+      return createRouteJsonResponse(
+        { message: SETTINGS_ROUTE_RESPONSE.forbiddenMessage },
+        HTTP_STATUS.forbidden
       );
     }
-
-    const logoUrl = readOptionalText(parsedBody.logoUrl);
-
-    if (logoUrl && !isHttpUrl(logoUrl)) {
-      return createJsonResponse(
-        { message: SETTINGS_ROUTE_RESPONSE.invalidLogoUrlMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const coverUrl = readOptionalText(parsedBody.coverUrl);
-
-    if (coverUrl && !isHttpUrl(coverUrl)) {
-      return createJsonResponse(
-        { message: SETTINGS_ROUTE_RESPONSE.invalidCoverUrlMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const result = await modules.tribes.useCases.saveTribeIdentity({
-      coverUrl,
-      logoUrl,
-      tribeSlug: slug,
-    });
-
-    if (result.status === TRIBE_IMAGE_SAVE_STATUS.updated) {
-      revalidateTribeStoryAboutCache(slug);
-
-      return createJsonResponse(
-        {
-          identity: result.identity,
-          message: SETTINGS_ROUTE_RESPONSE.savedMessage,
-        },
-        HTTP_STATUS.ok
-      );
-    }
-
-    return createJsonResponse(
-      { message: SETTINGS_ROUTE_RESPONSE.forbiddenMessage },
-      HTTP_STATUS.forbidden
-    );
-  } catch (error) {
-    logger.error({
-      error,
-      message: SETTINGS_ROUTE_LOG.saveFailureMessage,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: SETTINGS_ROUTE_RESPONSE.unexpectedSaveMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

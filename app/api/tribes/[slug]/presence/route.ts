@@ -1,6 +1,9 @@
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const PRESENCE_ROUTE_LOG = {
   feature: "tribes",
@@ -13,64 +16,32 @@ const PRESENCE_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos registrar tu presencia.",
 } as const;
 
-const HTTP_STATUS = {
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
+const MEMBER_ROUTE_SCOPE = {
+  feature: PRESENCE_ROUTE_LOG.feature,
+  operation: PRESENCE_ROUTE_LOG.operation,
+  unauthorizedMessage: PRESENCE_ROUTE_RESPONSE.unauthorizedMessage,
 } as const;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
 
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: PRESENCE_ROUTE_LOG.feature,
-    operation: PRESENCE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: PRESENCE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: PRESENCE_ROUTE_LOG.touchFailureMessage,
+      metadata: { slug },
+      responseMessage: PRESENCE_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const touched = await modules.tribes.useCases.touchTribePresence({
+        tribeSlug: slug,
+      });
 
-  try {
-    const touched = await modules.tribes.useCases.touchTribePresence({
-      tribeSlug: slug,
-    });
-
-    return createJsonResponse({ touched }, HTTP_STATUS.ok);
-  } catch (error) {
-    logger.error({
-      error,
-      message: PRESENCE_ROUTE_LOG.touchFailureMessage,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: PRESENCE_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createRouteJsonResponse({ touched }, HTTP_STATUS.ok);
+    }
+  );
 }

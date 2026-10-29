@@ -1,4 +1,6 @@
 @use "../../../src/styles/motion";
+@use "../courses";
+@use "../../styles/interaction";
 
 @include motion.define-keyframes;
 
@@ -35,37 +37,10 @@
   }
 
   &__managementLink {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    min-height: 1.75rem;
-    padding: 0 0.625rem;
-    border: 1px solid transparent;
-    border-radius: min(var(--radius-md), 0.75rem);
-    color: var(--foreground);
-    font-size: 0.8rem;
-    font-weight: 500;
-    line-height: 1;
-    text-decoration: none;
-    white-space: nowrap;
-    @include motion.interactive(background-color, color, border-color, box-shadow);
-
-    &:hover {
-      background-color: var(--muted);
-    }
-
-    &:focus-visible {
-      outline: none;
-      border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
-    }
+    @include courses.management-link(background-color, color, border-color, box-shadow);
 
     svg {
-      width: 0.875rem;
-      height: 0.875rem;
-      flex-shrink: 0;
-      pointer-events: none;
+      @include courses.link-icon;
     }
   }
 
@@ -114,11 +89,7 @@
       transform: translateY(0) scale(0.995);
     }
 
-    &:focus-visible {
-      outline: none;
-      border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
-    }
+    @include interaction.focus-ring;
   }
 
   &__coverFrame {
@@ -191,12 +162,7 @@
   &__inactiveBadge {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem 0.5rem;
-    border-radius: 999rem;
-    background-color: var(--muted);
-    color: var(--muted-foreground);
-    font-size: 0.6875rem;
-    font-weight: 500;
+    @include courses.status-pill(var(--muted));
   }
 
   &__cardDescription {
@@ -270,25 +236,5 @@
     }
   }
 
-  &__emptyState {
-    @include motion.enter;
-
-    display: grid;
-    gap: 0.5rem;
-    padding: 2rem;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-lg);
-    text-align: center;
-  }
-
-  &__emptyHeading {
-    font-size: 1.125rem;
-    font-weight: 500;
-    margin: 0;
-  }
-
-  &__emptyDescription {
-    color: var(--muted-foreground);
-    margin: 0;
-  }
+  @include courses.empty-state-elements;
 }

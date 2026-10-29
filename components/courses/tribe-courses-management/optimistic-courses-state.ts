@@ -136,11 +136,14 @@ export function removeLessonById(
   );
 }
 
-export function replaceLessonId(
+/**
+ * Replaces one lesson of a module and keeps the module's lessons in order.
+ */
+function mapModuleLesson(
   modules: CourseModuleWithLessonsResult[],
   moduleId: string,
-  fromLessonId: string,
-  serverLesson: LessonWithViewerStateResult
+  lessonId: string,
+  mapLesson: (lesson: LessonWithViewerStateResult) => LessonWithViewerStateResult
 ): CourseModuleWithLessonsResult[] {
   return modules.map((entry) => {
     if (entry.id !== moduleId) {
@@ -150,11 +153,20 @@ export function replaceLessonId(
       ...entry,
       lessons: sortLessons(
         entry.lessons.map((lesson) =>
-          lesson.id === fromLessonId ? serverLesson : lesson
+          lesson.id === lessonId ? mapLesson(lesson) : lesson
         )
       ),
     };
   });
+}
+
+export function replaceLessonId(
+  modules: CourseModuleWithLessonsResult[],
+  moduleId: string,
+  fromLessonId: string,
+  serverLesson: LessonWithViewerStateResult
+): CourseModuleWithLessonsResult[] {
+  return mapModuleLesson(modules, moduleId, fromLessonId, () => serverLesson);
 }
 
 export function patchLessonFields(
@@ -163,19 +175,7 @@ export function patchLessonFields(
   lessonId: string,
   patch: Partial<LessonWithViewerStateResult>
 ): CourseModuleWithLessonsResult[] {
-  return modules.map((entry) => {
-    if (entry.id !== moduleId) {
-      return entry;
-    }
-    return {
-      ...entry,
-      lessons: sortLessons(
-        entry.lessons.map((lesson) =>
-          lesson.id === lessonId ? { ...lesson, ...patch } : lesson
-        )
-      ),
-    };
-  });
+  return mapModuleLesson(modules, moduleId, lessonId, (lesson) => ({ ...lesson, ...patch }));
 }
 
 export function findLessonSnapshot(

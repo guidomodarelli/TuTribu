@@ -1,0 +1,5 @@
+@use "../events";
+
+.TribeEventFormActions {
+  @include events.dialog-actions;
+}

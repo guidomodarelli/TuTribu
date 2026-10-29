@@ -18,6 +18,10 @@ import type {
   TribeWelcomeRule,
 } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {
+  POSTGRES_ERROR_CODE,
+  hasPostgresErrorCode,
+} from "@/src/modules/shared/infrastructure/database/postgres-error";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -55,33 +59,13 @@ type WelcomeSaveRow = {
   status: string | null;
 };
 
-type SerializedWelcomeRule = {
-  id: string;
-  is_active: boolean;
-  label: string;
-  sort_order: number;
-};
+/** Rules and links are written back with the same columns they are read with. */
+type SerializedWelcomeRule = WelcomeRuleRow;
 
-type SerializedWelcomeLink = {
-  badge_label: string;
-  description: string | null;
-  id: string;
-  is_active: boolean;
-  label: string;
-  message: string | null;
-  phone_number: string | null;
-  sort_order: number;
-  type: string;
-  url: string | null;
-};
+type SerializedWelcomeLink = WelcomeLinkRow;
 
 const WELCOME_DATABASE_CONTEXT_SETTING = {
   currentInvitationHash: "app.current_invitation_hash",
-} as const;
-
-const POSTGRES_ERROR_CODE = {
-  undefinedFunction: "42883",
-  undefinedTable: "42P01",
 } as const;
 
 function hashInvitationToken(token: string): string {
@@ -171,24 +155,10 @@ function serializeWelcomeLinks(
 }
 
 function isMissingWelcomeStorageError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-  const causeCode =
-    postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-      ? (postgresError.cause as { code?: string }).code
-      : undefined;
-
-  return (
-    postgresError.code === POSTGRES_ERROR_CODE.undefinedTable ||
-    postgresError.code === POSTGRES_ERROR_CODE.undefinedFunction ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedTable ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedFunction
-  );
+  return hasPostgresErrorCode(error, [
+    POSTGRES_ERROR_CODE.undefinedTable,
+    POSTGRES_ERROR_CODE.undefinedFunction,
+  ]);
 }
 
 function createDefaultWelcome(): TribeWelcome {

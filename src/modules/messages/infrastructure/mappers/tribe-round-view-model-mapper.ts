@@ -114,7 +114,7 @@ export function createTribeRoundAuthor({
   };
 }
 
-export function createTribeRoundReply({
+function createTribeRoundReply({
   author,
   content,
   createdAt,
@@ -187,4 +187,66 @@ export function createTribeRoundMessage({
     replyCount,
     title,
   };
+}
+
+/** Reply columns selected by the reply queries. */
+export type TribeRoundReplyRow = {
+  reply_author_id: string | null;
+  reply_author_image: string | null;
+  reply_author_name: string | null;
+  reply_author_role: string | null;
+  reply_content: string | null;
+  reply_created_at: Date | string | null;
+  reply_id: string | null;
+};
+
+/**
+ * Maps a reply row when it carries every required column.
+ *
+ * @param row - Reply columns of one query row.
+ * @returns The reply, or null when the row has no complete reply.
+ */
+export function createTribeRoundReplyFromRow(
+  row: TribeRoundReplyRow
+): TribeRoundReplyResult | null {
+  if (
+    !row.reply_id ||
+    !row.reply_author_id ||
+    !row.reply_content ||
+    !row.reply_created_at
+  ) {
+    return null;
+  }
+
+  return createTribeRoundReply({
+    id: row.reply_id,
+    author: {
+      id: row.reply_author_id,
+      image: row.reply_author_image,
+      name: row.reply_author_name,
+      role: row.reply_author_role,
+    },
+    content: row.reply_content,
+    createdAt: row.reply_created_at,
+  });
+}
+
+/**
+ * Maps the stored options of a poll nobody has voted yet, dropping incomplete rows.
+ *
+ * @param options - Stored option ids and texts.
+ * @returns Options without votes or viewer selection.
+ */
+export function createUnvotedPollOptions(
+  options: { id: string | null; text: string | null }[]
+): MessagePollResult["options"] {
+  return options
+    .filter((option) => option.id && option.text)
+    .map((option) => ({
+      id: option.id ?? "",
+      percentage: 0,
+      selectedByViewer: false,
+      text: option.text ?? "",
+      voteCount: 0,
+    }));
 }

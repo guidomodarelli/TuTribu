@@ -1,6 +1,9 @@
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const TRIBE_IMAGE_ITEM_ROUTE_LOG = {
   deleteFailureMessage: "Tribe image upload deletion failed",
@@ -14,75 +17,40 @@ const TRIBE_IMAGE_ITEM_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos eliminar la imagen. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
+const MEMBER_ROUTE_SCOPE = {
+  feature: TRIBE_IMAGE_ITEM_ROUTE_LOG.feature,
+  operation: TRIBE_IMAGE_ITEM_ROUTE_LOG.operation,
+  unauthorizedMessage: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.unauthorizedMessage,
 } as const;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
 
 export async function DELETE(
   request: Request,
-  context: {
-    params: Promise<{
-      imageId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ imageId: string }>
 ) {
   const { imageId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: TRIBE_IMAGE_ITEM_ROUTE_LOG.feature,
-    operation: TRIBE_IMAGE_ITEM_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  try {
-    const deleted = await modules.tribes.useCases.deleteTribeImageUpload({
-      imageId,
-      tribeSlug: slug,
-    });
-
-    if (!deleted) {
-      return createJsonResponse(
-        { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.notFoundMessage },
-        HTTP_STATUS.notFound
-      );
-    }
-
-    return createJsonResponse({ deleted }, HTTP_STATUS.ok);
-  } catch (error) {
-    logger.error({
-      error,
-      message: TRIBE_IMAGE_ITEM_ROUTE_LOG.deleteFailureMessage,
-      metadata: {
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: TRIBE_IMAGE_ITEM_ROUTE_LOG.deleteFailureMessage,
+      metadata: { imageId, slug },
+      responseMessage: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const deleted = await modules.tribes.useCases.deleteTribeImageUpload({
         imageId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+        tribeSlug: slug,
+      });
 
-    return createJsonResponse(
-      { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      if (!deleted) {
+        return createRouteJsonResponse(
+          { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      }
+
+      return createRouteJsonResponse({ deleted }, HTTP_STATUS.ok);
+    }
+  );
 }

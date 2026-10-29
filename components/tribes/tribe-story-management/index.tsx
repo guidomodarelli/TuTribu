@@ -20,19 +20,26 @@ import {
   ListIcon,
   LoaderCircleIcon,
   PlusIcon,
-  UploadIcon,
   Trash2Icon,
   VideoIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, buttonClassName, cn } from "@golfo/ui";
+import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "@golfo/ui";
 
 
 
 
 
 
+import { TribeImageUploadButton } from "@/components/tribes/tribe-image-upload-button";
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
+import { useUploadingTargets } from "@/hooks/use-uploading-targets";
+import {
+  buildTribeImagesEndpoint,
+  readTribeImageReservation,
+  releaseTribeImageReservation,
+} from "@/lib/tribes/tribe-image-reservation";
+import { readTribeSaveResponseMessage } from "@/lib/tribes/tribe-save-response";
 import { buildPlayerEmbedSource } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
@@ -111,8 +118,6 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   toolbarBoldLabel: "Negrita",
   toolbarLinkLabel: "Link",
   toolbarListLabel: "Lista",
-  uploadButton: "Subir imagen",
-  uploadingButton: "Subiendo...",
   uploadLimitHint: (maxMegabytes: number) =>
     `JPG, PNG, GIF o WebP de hasta ${maxMegabytes} MB, o una URL pública.`,
   validationSummary: "Revisá los campos marcados antes de guardar.",
@@ -124,19 +129,15 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
 
 const STORY_MANAGEMENT_ROUTE = {
   apiPrefix: "/api/tribes/",
-  imagesSegment: "/images",
-  pathSeparator: "/",
   storySegment: "/story",
 } as const;
 
 const STORY_MANAGEMENT_REQUEST = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
-  deleteMethod: "DELETE",
   dangerVariant: "danger",
   fileFormField: "file",
   iconButtonSize: "sm",
-  imageAcceptTypes: "image/*",
   jsonContentType: "application/json",
   secondaryVariant: "secondary",
   postMethod: "POST",
@@ -257,14 +258,6 @@ function buildStoryEndpoint(tribeSlug: string): string {
     STORY_MANAGEMENT_ROUTE.apiPrefix +
     tribeSlug +
     STORY_MANAGEMENT_ROUTE.storySegment
-  );
-}
-
-function buildTribeImagesEndpoint(tribeSlug: string): string {
-  return (
-    STORY_MANAGEMENT_ROUTE.apiPrefix +
-    tribeSlug +
-    STORY_MANAGEMENT_ROUTE.imagesSegment
   );
 }
 
@@ -415,17 +408,8 @@ async function submitStoryUpdate(
     },
     method: STORY_MANAGEMENT_REQUEST.putMethod,
   });
-  const responseBody = (await response.json().catch(() => ({}))) as {
-    message?: string;
-  };
 
-  if (!response.ok) {
-    throw new Error(
-      responseBody.message ?? TRIBE_STORY_MANAGEMENT_COPY.fallbackSaveError
-    );
-  }
-
-  return responseBody.message ?? TRIBE_STORY_MANAGEMENT_COPY.saveSuccess;
+  return readTribeSaveResponseMessage(response, TRIBE_STORY_MANAGEMENT_COPY);
 }
 
 /**
@@ -440,80 +424,29 @@ async function uploadStoryImage(
   const reserveResponse = await fetch(buildTribeImagesEndpoint(tribeSlug), {
     method: STORY_MANAGEMENT_REQUEST.postMethod,
   });
-  const reserveBody = (await reserveResponse.json().catch(() => ({}))) as {
-    deliveryUrl?: string;
-    imageId?: string;
-    message?: string;
-    uploadUrl?: string;
-  };
+  const { message, reservation } =
+    await readTribeImageReservation(reserveResponse);
 
-  if (
-    !reserveResponse.ok ||
-    !reserveBody.uploadUrl ||
-    !reserveBody.deliveryUrl ||
-    !reserveBody.imageId
-  ) {
-    throw new Error(
-      reserveBody.message ?? TRIBE_STORY_MANAGEMENT_COPY.fallbackUploadError
-    );
+  if (!reservation) {
+    throw new Error(message ?? TRIBE_STORY_MANAGEMENT_COPY.fallbackUploadError);
   }
 
   const formData = new FormData();
 
   formData.append(STORY_MANAGEMENT_REQUEST.fileFormField, imageFile);
 
-  const uploadResponse = await fetch(reserveBody.uploadUrl, {
+  const uploadResponse = await fetch(reservation.uploadUrl, {
     body: formData,
     method: STORY_MANAGEMENT_REQUEST.postMethod,
   });
 
   if (!uploadResponse.ok) {
-    void fetch(
-      buildTribeImagesEndpoint(tribeSlug) +
-        STORY_MANAGEMENT_ROUTE.pathSeparator +
-        reserveBody.imageId,
-      { method: STORY_MANAGEMENT_REQUEST.deleteMethod }
-    ).catch(() => {
-      // Deliberate no-op: the reserved draft stays and is never attached.
-    });
+    releaseTribeImageReservation(tribeSlug, reservation.imageId);
 
     throw new Error(TRIBE_STORY_MANAGEMENT_COPY.fallbackUploadError);
   }
 
-  return reserveBody.deliveryUrl;
-}
-
-type ImageUploadButtonProps = {
-  isUploading: boolean;
-  onFileSelected: (imageFile: File | undefined) => void;
-};
-
-/**
- * Outline button wrapping a visually hidden file input, so the upload control
- * looks like every other button while staying keyboard and screen-reader
- * accessible.
- */
-function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
-  return (
-    <label className={buttonClassName({ variant: "secondary", className: styles.TribeStoryManagement__uploadButton })} data-disabled={isUploading ? true : undefined}>
-        <UploadIcon />
-        {isUploading
-          ? TRIBE_STORY_MANAGEMENT_COPY.uploadingButton
-          : TRIBE_STORY_MANAGEMENT_COPY.uploadButton}
-        <input
-          accept={STORY_MANAGEMENT_REQUEST.imageAcceptTypes}
-          className={styles.TribeStoryManagement__uploadInput}
-          disabled={isUploading}
-          onChange={(event) => {
-            const [selectedFile] = event.target.files ?? [];
-
-            event.target.value = "";
-            onFileSelected(selectedFile);
-          }}
-          type="file"
-        />
-      </label>
-  );
+  return reservation.deliveryUrl;
 }
 
 type MediaThumbnailProps = {
@@ -700,23 +633,8 @@ type StoryContentModel = ReturnType<typeof useStoryContent>;
  * @returns Rows being uploaded and the upload handler.
  */
 function useStoryImageUploads(tribeSlug: string) {
-  const [uploadingTargets, setUploadingTargets] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const { setUploadingTarget, uploadingTargets } = useUploadingTargets();
 
-  const setUploadingTarget = (target: string, isUploading: boolean) => {
-    setUploadingTargets((currentTargets) => {
-      const nextTargets = new Set(currentTargets);
-
-      if (isUploading) {
-        nextTargets.add(target);
-      } else {
-        nextTargets.delete(target);
-      }
-
-      return nextTargets;
-    });
-  };
   const handleImageFileUpload = async (
     target: string,
     imageFile: File | undefined,
@@ -1476,7 +1394,8 @@ function StoryMediaUrlField({
           value={mediaItem.url}
         />
         {!isVideoItem ? (
-          <ImageUploadButton
+          <TribeImageUploadButton
+            className={styles.TribeStoryManagement__uploadButton}
             isUploading={uploads.uploadingTargets.has(mediaItem.clientId)}
             onFileSelected={(imageFile) => {
               void uploads.handleImageFileUpload(

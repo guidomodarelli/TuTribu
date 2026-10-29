@@ -1,7 +1,5 @@
 import { COURSE_MUTATION_STATUS } from "@/src/modules/courses/constants/courses";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { createAttachmentDeletionRoute } from "../../../../attachment-file-routes";
 import { readUuidValue } from "../../../route-helpers";
 
 const LESSON_FILE_DELETE_ROUTE_LOG = {
@@ -19,96 +17,15 @@ const LESSON_FILE_DELETE_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos quitar el archivo. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-export async function DELETE(
-  request: Request,
-  context: {
-    params: Promise<{
-      fileId: string;
-      slug: string;
-    }>;
-  }
-) {
-  const { fileId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: LESSON_FILE_DELETE_ROUTE_LOG.feature,
-    operation: LESSON_FILE_DELETE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  if (!readUuidValue(fileId)) {
-    return createJsonResponse(
-      { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.notFoundMessage },
-      HTTP_STATUS.notFound
-    );
-  }
-
-  try {
-    const result = await modules.courses.useCases.deleteLessonFile({
-      fileId,
-      tribeSlug: slug,
-      userId: authenticatedMember.id,
-    });
-
-    switch (result.status) {
-      case COURSE_MUTATION_STATUS.deleted:
-        return createJsonResponse(
-          { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.successMessage },
-          HTTP_STATUS.ok
-        );
-      case COURSE_MUTATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case COURSE_MUTATION_STATUS.invalidFile:
-        return createJsonResponse(
-          { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.invalidFileMessage },
-          HTTP_STATUS.badRequest
-        );
-      case COURSE_MUTATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
-    }
-  } catch (error) {
-    logger.error({
-      message: LESSON_FILE_DELETE_ROUTE_LOG.failureMessage,
-      error,
-      metadata: {
-        fileId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: LESSON_FILE_DELETE_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
-}
+export const DELETE = createAttachmentDeletionRoute<{ fileId: string; slug: string }>({
+  copy: LESSON_FILE_DELETE_ROUTE_RESPONSE,
+  deleteAttachment: (modules, { fileId, slug }, { userId }) =>
+    modules.courses.useCases.deleteLessonFile({ fileId, tribeSlug: slug, userId }),
+  hasValidId: ({ fileId }) => readUuidValue(fileId) !== null,
+  invalid: {
+    message: LESSON_FILE_DELETE_ROUTE_RESPONSE.invalidFileMessage,
+    status: COURSE_MUTATION_STATUS.invalidFile,
+  },
+  log: LESSON_FILE_DELETE_ROUTE_LOG,
+  readMetadata: ({ fileId, slug }) => ({ fileId, slug }),
+});

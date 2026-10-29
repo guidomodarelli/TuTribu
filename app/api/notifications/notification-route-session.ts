@@ -1,7 +1,15 @@
+import type { z } from "zod";
+
+import {
+  notificationEmptyParamsSchema,
+  notificationEmptyQuerySchema,
+} from "@/src/modules/notifications/infrastructure/api/notification-request-schemas";
 import {
   NOTIFICATION_ROUTE_HTTP_STATUS,
   NOTIFICATION_ROUTE_RESPONSE,
   createNotificationJsonResponse,
+  createNotificationPublicResponse,
+  parseNotificationRouteInput,
 } from "@/src/modules/notifications/infrastructure/api/notification-route-http";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -45,7 +53,7 @@ async function loadRequestSession(requestId: string) {
  * @param options - Log operation and safe failure copy of the route.
  * @returns The resolved context or the response (401 or 500) to return as is.
  */
-export async function resolveNotificationRouteSession(
+async function resolveNotificationRouteSession(
   request: Request,
   options: NotificationRouteSessionOptions
 ) {
@@ -89,4 +97,124 @@ export async function resolveNotificationRouteSession(
     metadata: { userId: authenticatedMember.id },
     modules,
   } as const;
+}
+
+type ResolvedNotificationRouteSession = Extract<
+  Awaited<ReturnType<typeof resolveNotificationRouteSession>>,
+  { isResolved: true }
+>;
+
+/** Typed input, session and responder a notification route body receives. */
+export type NotificationRouteBody<TParams, TBody> = {
+  body: TBody;
+  logger: ResolvedNotificationRouteSession["logger"];
+  modules: ResolvedNotificationRouteSession["modules"];
+  params: TParams;
+  /** Validates a success body against its public DTO schema and answers it. */
+  respond: <TDto>(body: unknown, schema: z.ZodType<TDto>) => Response;
+};
+
+/** Description of one notification route handler. */
+export type NotificationRouteDefinition<TParams, TQuery, TBody> = {
+  failureLogMessage: string;
+  operation: string;
+  /** Route ids logged after the user id. */
+  readMetadata?: (params: TParams) => Record<string, unknown>;
+  schemas: { body?: z.ZodType<TBody>; params: z.ZodType<TParams>; query: z.ZodType<TQuery> };
+  /** Safe Spanish copy of the 500 (also the DTO fallback). */
+  unexpectedFailureMessage: string;
+};
+
+/**
+ * Runs one notification route handler: session (401/500), input validation
+ * (400), the route body, and the logged no-store 500 when the body throws.
+ *
+ * @param request - Incoming request.
+ * @param params - Raw route params.
+ * @param route - Operation, schemas, log metadata and failure copy.
+ * @param handle - Route body run with the typed input and session.
+ * @returns The route response.
+ */
+export async function handleNotificationRoute<TParams, TQuery, TBody = undefined>(
+  request: Request,
+  params: Promise<unknown>,
+  route: NotificationRouteDefinition<TParams, TQuery, TBody>,
+  handle: (route: NotificationRouteBody<TParams, TBody>) => Promise<Response>
+): Promise<Response> {
+  const session = await resolveNotificationRouteSession(request, {
+    operation: route.operation,
+    unexpectedFailureMessage: route.unexpectedFailureMessage,
+  });
+
+  if (!session.isResolved) {
+    return session.response;
+  }
+
+  const { logger, modules } = session;
+  const input = await parseNotificationRouteInput({
+    logger,
+    params,
+    request,
+    schemas: route.schemas,
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const metadata = route.readMetadata
+    ? { ...session.metadata, ...route.readMetadata(input.params) }
+    : session.metadata;
+
+  try {
+    return await handle({
+      body: input.body,
+      logger,
+      modules,
+      params: input.params,
+      respond: (body, schema) =>
+        createNotificationPublicResponse({
+          body,
+          failureMessage: route.unexpectedFailureMessage,
+          logger,
+          metadata,
+          schema,
+        }),
+    });
+  } catch (error) {
+    logger.error({ error, message: route.failureLogMessage, metadata });
+
+    return createNotificationJsonResponse(
+      { message: route.unexpectedFailureMessage },
+      NOTIFICATION_ROUTE_HTTP_STATUS.serverError
+    );
+  }
+}
+
+/**
+ * Runs a notification route without params, query or body (inbox, unread
+ * count, mark all as read); see {@link handleNotificationRoute}.
+ *
+ * @param request - Incoming request.
+ * @param route - Operation and failure copy.
+ * @param handle - Route body run with the session.
+ * @returns The route response.
+ */
+export function handleNotificationInboxRoute(
+  request: Request,
+  route: Pick<
+    NotificationRouteDefinition<unknown, unknown, undefined>,
+    "failureLogMessage" | "operation" | "unexpectedFailureMessage"
+  >,
+  handle: (route: NotificationRouteBody<unknown, undefined>) => Promise<Response>
+): Promise<Response> {
+  return handleNotificationRoute(
+    request,
+    Promise.resolve({}),
+    {
+      ...route,
+      schemas: { params: notificationEmptyParamsSchema, query: notificationEmptyQuerySchema },
+    },
+    handle
+  );
 }

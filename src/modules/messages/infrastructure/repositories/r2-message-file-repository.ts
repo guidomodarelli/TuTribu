@@ -2,7 +2,6 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 
-import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 import {
   MESSAGE_FILE_PREPARATION_STATUS,
   MESSAGE_FILE_STATUS,
@@ -23,27 +22,17 @@ import type {
   PreparedMessageFileAttachmentResult,
 } from "@/src/modules/messages/domain/repositories/message-file-repository";
 import {
-  readCloudflareR2Environment,
-  type CloudflareR2Environment,
-} from "@/src/modules/shared/infrastructure/storage/cloudflare-r2-config";
+  selectBooleanResult,
+  type DatabaseExecutor,
+} from "@/src/modules/shared/infrastructure/database/database-executor";
 import {
-  createR2FileObjectStorage,
-  type FileObjectStorage,
-} from "@/src/modules/shared/infrastructure/storage/r2-file-object-storage";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-
-type DatabaseExecutor = <T>(
-  callback: (database: RequestDatabase) => Promise<T>
-) => Promise<T>;
-
-type MessageFileLogger = {
-  warn: (entry: { message: string; metadata?: Record<string, unknown> }) => void;
-};
-
-type MessageFileRepositoryOptions = {
-  logger?: MessageFileLogger;
-  storageFactory?: (environment: CloudflareR2Environment) => FileObjectStorage;
-};
+  createLazyFileObjectStorage,
+  deleteRemoteAttachmentObjects,
+  verifyUploadedDraftFileSizes,
+  type AttachmentFileLogger,
+  type AttachmentFileRepositoryOptions,
+} from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-storage";
+import type { FileObjectStorage } from "@/src/modules/shared/infrastructure/storage/r2-file-object-storage";
 
 type TargetTribeRow = {
   can_write: boolean;
@@ -94,10 +83,6 @@ type ReclaimedDraftsRow = {
   reclaimed: number | string;
 };
 
-type BooleanResultRow = {
-  result: boolean | null;
-};
-
 const MESSAGE_FILE_LOG_RESULT = {
   failed: "failed",
 } as const;
@@ -124,18 +109,15 @@ function buildMessageFileStorageKey(tribeId: string, assetId: string): string {
  * storage helper.
  */
 export class R2MessageFileRepository implements MessageFileRepository {
-  private readonly logger?: MessageFileLogger;
-  private readonly storageFactory: (
-    environment: CloudflareR2Environment
-  ) => FileObjectStorage;
-  private storage?: FileObjectStorage;
+  private readonly logger?: AttachmentFileLogger;
+  private readonly resolveStorage: () => FileObjectStorage | null;
 
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
-    options: MessageFileRepositoryOptions = {}
+    options: AttachmentFileRepositoryOptions = {}
   ) {
     this.logger = options.logger;
-    this.storageFactory = options.storageFactory ?? createR2FileObjectStorage;
+    this.resolveStorage = createLazyFileObjectStorage(options.storageFactory);
   }
 
   async createUpload(
@@ -239,14 +221,11 @@ export class R2MessageFileRepository implements MessageFileRepository {
     }
 
     if (!(await this.markFilePendingDelete(file.id))) {
-      this.logger?.warn({
-        message: "Message file local pending delete mark failed",
-        metadata: {
-          assetId: file.id,
-          result: MESSAGE_FILE_LOG_RESULT.failed,
-          tribeSlug: command.tribeSlug,
-        },
-      });
+      this.warnFileFailure(
+        "Message file local pending delete mark failed",
+        file.id,
+        command.tribeSlug
+      );
 
       return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
@@ -259,28 +238,22 @@ export class R2MessageFileRepository implements MessageFileRepository {
       });
 
       if (!wasRestored) {
-        this.logger?.warn({
-          message: "Message file local delete rollback failed",
-          metadata: {
-            assetId: file.id,
-            result: MESSAGE_FILE_LOG_RESULT.failed,
-            tribeSlug: command.tribeSlug,
-          },
-        });
+        this.warnFileFailure(
+          "Message file local delete rollback failed",
+          file.id,
+          command.tribeSlug
+        );
       }
 
       return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
 
     if (!(await this.markFileDeleted(file.id))) {
-      this.logger?.warn({
-        message: "Message file local delete mark failed",
-        metadata: {
-          assetId: file.id,
-          result: MESSAGE_FILE_LOG_RESULT.failed,
-          tribeSlug: command.tribeSlug,
-        },
-      });
+      this.warnFileFailure(
+        "Message file local delete mark failed",
+        file.id,
+        command.tribeSlug
+      );
 
       return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
@@ -299,29 +272,27 @@ export class R2MessageFileRepository implements MessageFileRepository {
 
     const files = await this.findPendingDeleteFiles(command);
 
-    for (const file of files) {
-      if (await storage.deleteObject(file.storage_key)) {
-        if (!(await this.markFileDeleted(file.id))) {
-          this.logger?.warn({
-            message: "Message file local delete mark failed",
-            metadata: {
-              assetId: file.id,
-              result: MESSAGE_FILE_LOG_RESULT.failed,
-              tribeSlug: command.tribeSlug,
-            },
-          });
+    await deleteRemoteAttachmentObjects(storage, files, {
+      confirmDeleted: async (file) => {
+        const wasMarked = await this.markFileDeleted(file.id);
+
+        if (!wasMarked) {
+          this.warnFileFailure(
+            "Message file local delete mark failed",
+            file.id,
+            command.tribeSlug
+          );
         }
-      } else {
-        this.logger?.warn({
-          message: "Message file remote delete failed",
-          metadata: {
-            assetId: file.id,
-            result: MESSAGE_FILE_LOG_RESULT.failed,
-            tribeSlug: command.tribeSlug,
-          },
-        });
-      }
-    }
+
+        return wasMarked;
+      },
+      onRemoteFailure: (file) =>
+        this.warnFileFailure(
+          "Message file remote delete failed",
+          file.id,
+          command.tribeSlug
+        ),
+    });
   }
 
   /**
@@ -361,43 +332,47 @@ export class R2MessageFileRepository implements MessageFileRepository {
       command.interactiveDeleteGraceMinutes
     );
 
-    for (const file of pendingFiles) {
-      if (await storage.deleteObject(file.storage_key)) {
-        if (await this.confirmRemoteDeleted(file.asset_id)) {
-          result.remoteDeletedPending += 1;
-        }
-      } else {
-        result.remoteFailures += 1;
-        this.logger?.warn({
-          message: MESSAGE_FILE_CLEANUP_LOG.pendingFailed,
-          metadata: {
-            assetId: file.asset_id,
-            result: MESSAGE_FILE_LOG_RESULT.failed,
-          },
-        });
+    const pendingDeletion = await deleteRemoteAttachmentObjects(
+      storage,
+      pendingFiles,
+      {
+        confirmDeleted: (file) => this.confirmRemoteDeleted(file.asset_id),
+        onRemoteFailure: (file) =>
+          this.logger?.warn({
+            message: MESSAGE_FILE_CLEANUP_LOG.pendingFailed,
+            metadata: {
+              assetId: file.asset_id,
+              result: MESSAGE_FILE_LOG_RESULT.failed,
+            },
+          }),
       }
-    }
+    );
+
+    result.remoteDeletedPending += pendingDeletion.confirmed;
+    result.remoteFailures += pendingDeletion.failures;
 
     const queuedFiles = await this.listQueuedRemoteDeletions(
       command.batchLimit
     );
 
-    for (const queued of queuedFiles) {
-      if (await storage.deleteObject(queued.storage_key)) {
-        if (await this.dequeueRemoteDeletion(queued.queue_id)) {
-          result.remoteDeletedQueued += 1;
-        }
-      } else {
-        result.remoteFailures += 1;
-        this.logger?.warn({
-          message: MESSAGE_FILE_CLEANUP_LOG.queuedFailed,
-          metadata: {
-            queueId: queued.queue_id,
-            result: MESSAGE_FILE_LOG_RESULT.failed,
-          },
-        });
+    const queuedDeletion = await deleteRemoteAttachmentObjects(
+      storage,
+      queuedFiles,
+      {
+        confirmDeleted: (queued) => this.dequeueRemoteDeletion(queued.queue_id),
+        onRemoteFailure: (queued) =>
+          this.logger?.warn({
+            message: MESSAGE_FILE_CLEANUP_LOG.queuedFailed,
+            metadata: {
+              queueId: queued.queue_id,
+              result: MESSAGE_FILE_LOG_RESULT.failed,
+            },
+          }),
       }
-    }
+    );
+
+    result.remoteDeletedQueued += queuedDeletion.confirmed;
+    result.remoteFailures += queuedDeletion.failures;
 
     return result;
   }
@@ -417,28 +392,15 @@ export class R2MessageFileRepository implements MessageFileRepository {
       return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
 
-    for (const file of files) {
-      if (file.status !== MESSAGE_FILE_STATUS.draft) {
-        continue;
-      }
+    const areUploadsValid = await verifyUploadedDraftFileSizes(
+      storage,
+      files,
+      MESSAGE_FILE_STATUS.draft,
+      (fileId, sizeBytes) => this.updateFileSize(fileId, sizeBytes)
+    );
 
-      // The presigned PUT cannot enforce a size ceiling on R2, so the actual
-      // uploaded size is verified here, before the draft can ever be attached.
-      const uploadedSizeBytes = await storage.getObjectSizeBytes(
-        file.storage_key
-      );
-
-      if (
-        uploadedSizeBytes === null ||
-        uploadedSizeBytes <= 0 ||
-        uploadedSizeBytes > ATTACHMENT_FILE.maxFileSizeBytes
-      ) {
-        return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-      }
-
-      if (uploadedSizeBytes !== Number(file.file_size_bytes)) {
-        await this.updateFileSize(file.id, uploadedSizeBytes);
-      }
+    if (!areUploadsValid) {
+      return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
 
     return {
@@ -447,44 +409,37 @@ export class R2MessageFileRepository implements MessageFileRepository {
     };
   }
 
-  private resolveStorage(): FileObjectStorage | null {
-    if (this.storage) {
-      return this.storage;
-    }
-
-    const environment = readCloudflareR2Environment();
-
-    if (!environment) {
-      return null;
-    }
-
-    this.storage = this.storageFactory(environment);
-
-    return this.storage;
+  private warnFileFailure(
+    message: string,
+    assetId: string,
+    tribeSlug: string
+  ): void {
+    this.logger?.warn({
+      message,
+      metadata: {
+        assetId,
+        result: MESSAGE_FILE_LOG_RESULT.failed,
+        tribeSlug,
+      },
+    });
   }
 
   private async confirmRemoteDeleted(assetId: string): Promise<boolean> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+    return selectBooleanResult(
+      this.executeWithDatabase,
+      sql`
         select public.confirm_message_file_remote_deleted(${assetId}) as result
-      `);
-
-      return Boolean(
-        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
-      );
-    });
+      `
+    );
   }
 
   private async dequeueRemoteDeletion(queueId: string): Promise<boolean> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+    return selectBooleanResult(
+      this.executeWithDatabase,
+      sql`
         select public.delete_queued_remote_file_deletion(${queueId}) as result
-      `);
-
-      return Boolean(
-        ((result.rows[0] ?? null) as BooleanResultRow | null)?.result
-      );
-    });
+      `
+    );
   }
 
   private async listPendingRemoteDeletions(

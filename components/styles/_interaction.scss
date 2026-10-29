@@ -1,0 +1,30 @@
+// Interaction states shared by the component CSS Modules.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/interaction";
+//   .Block__link { @include interaction.focus-ring; }
+
+// Keyboard focus for bordered controls: the outline becomes a ring-colored border and halo.
+@mixin focus-ring {
+  &:focus-visible {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+}
+
+// Keyboard focus outline in the ring color, offset from the control.
+@mixin focus-outline {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+// Navigation rows that recolor on hover and press: no tap flash, quick color fades.
+@mixin tap-colors {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}

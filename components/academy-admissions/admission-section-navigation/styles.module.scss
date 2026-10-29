@@ -1,3 +1,5 @@
+@use "../../styles/interaction";
+
 // Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the
 // Arc Pro license (https://uiarc.dev/license). Not covered by this project's
 // license; do not redistribute it on its own.
@@ -61,10 +63,7 @@
     line-height: 1.2;
     text-decoration: none;
     white-space: nowrap;
-    -webkit-tap-highlight-color: transparent;
-    transition:
-      color var(--duration-fast) var(--ease-standard),
-      background-color var(--duration-fast) var(--ease-standard);
+    @include interaction.tap-colors;
 
     isolation: isolate;
 

@@ -9,10 +9,7 @@
  * @module orphan-file-cleanup-route
  */
 
-import { createMaintenanceModules } from "@/src/modules/setup";
-import { isAuthorizedCronRequest } from "@/src/modules/shared/infrastructure/http/cron-authorization";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { CRON_SWEEP_RESPONSE_STATUS, handleCronSweepRoute } from "../cron-sweep-route";
 
 const FILE_CLEANUP_ROUTE_LOG = {
   completedMessage: "Orphan file cleanup sweep completed",
@@ -20,25 +17,6 @@ const FILE_CLEANUP_ROUTE_LOG = {
   feature: "attachments",
   operation: "cleanup-orphan-attachment-files",
 } as const;
-
-const FILE_CLEANUP_ROUTE_RESPONSE = {
-  ok: "ok",
-  unauthorized: "unauthorized",
-  unexpected: "error",
-} as const;
-
-const HTTP_STATUS = {
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
 
 /**
  * Runs one orphan-file cleanup sweep on a cron schedule: message attachments
@@ -48,49 +26,17 @@ function createJsonResponse(
  * @returns JSON response with the sweep counters or a safe failure status.
  */
 export async function GET(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
-    return createJsonResponse(
-      { status: FILE_CLEANUP_ROUTE_RESPONSE.unauthorized },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleCronSweepRoute(request, FILE_CLEANUP_ROUTE_LOG, async (modules) => {
+    const messageFilesSummary = await modules.messages.useCases.cleanupOrphanMessageFiles();
+    const lessonFilesSummary = await modules.courses.useCases.cleanupOrphanLessonFiles();
 
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: FILE_CLEANUP_ROUTE_LOG.feature,
-    operation: FILE_CLEANUP_ROUTE_LOG.operation,
-    requestId,
-  });
-
-  try {
-    const modules = await createMaintenanceModules({ requestId });
-    const messageFilesSummary =
-      await modules.messages.useCases.cleanupOrphanMessageFiles();
-    const lessonFilesSummary =
-      await modules.courses.useCases.cleanupOrphanLessonFiles();
-
-    logger.info({
-      message: FILE_CLEANUP_ROUTE_LOG.completedMessage,
-      metadata: { lessonFiles: lessonFilesSummary, messageFiles: messageFilesSummary },
-    });
-
-    return createJsonResponse(
-      {
+    return {
+      body: {
         lessonFiles: lessonFilesSummary,
         messageFiles: messageFilesSummary,
-        status: FILE_CLEANUP_ROUTE_RESPONSE.ok,
+        status: CRON_SWEEP_RESPONSE_STATUS.ok,
       },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      message: FILE_CLEANUP_ROUTE_LOG.failureMessage,
-      error,
-    });
-
-    return createJsonResponse(
-      { status: FILE_CLEANUP_ROUTE_RESPONSE.unexpected },
-      HTTP_STATUS.serverError
-    );
-  }
+      metadata: { lessonFiles: lessonFilesSummary, messageFiles: messageFilesSummary },
+    };
+  });
 }

@@ -11,6 +11,7 @@ import {
 import { verifyMercadoPagoWebhookSignature } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-webhook-signature";
 import { createRequestModules } from "@/src/modules/setup";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const WEBHOOK_FIELD = {
   action: "action",
@@ -50,14 +51,6 @@ const WEBHOOK_LOG = {
 
 const WEBHOOK_LOG_LEVEL = {
   warn: "warn",
-} as const;
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
 } as const;
 
 /**
@@ -227,18 +220,46 @@ function rejectWebhook(
 }
 
 /**
+ * Answers a dispatched webhook: 503 (warn log) when Mercado Pago must retry
+ * it, otherwise 200 with the processed status.
+ */
+function createWebhookResultResponse(
+  { eventId, resourceId, routeObservation, topic }: WebhookDispatch,
+  resultStatus: string,
+  outcome: { isRetryable: boolean; processedStatus: string }
+): Response {
+  const metadata = { eventId, resourceId, result: resultStatus, topic };
+
+  if (outcome.isRetryable) {
+    return routeObservation.createJsonResponse(
+      { message: WEBHOOK_RESPONSE.unexpectedMessage },
+      HTTP_STATUS.serviceUnavailable,
+      {
+        message: WEBHOOK_LOG.retryableMessage,
+        metadata,
+        outcome: resultStatus,
+        level: WEBHOOK_LOG_LEVEL.warn,
+      }
+    );
+  }
+
+  return routeObservation.createJsonResponse(
+    { status: outcome.processedStatus },
+    HTTP_STATUS.ok,
+    {
+      message: WEBHOOK_LOG.processedMessage,
+      metadata,
+      outcome: resultStatus,
+    }
+  );
+}
+
+/**
  * Handles payment and authorized payment (invoice) webhooks of academy
  * subscriptions.
  */
-async function handlePaymentWebhook({
-  body,
-  eventId,
-  modules,
-  requestId,
-  resourceId,
-  routeObservation,
-  topic,
-}: WebhookDispatch): Promise<Response> {
+async function handlePaymentWebhook(dispatch: WebhookDispatch): Promise<Response> {
+  const { body, modules, requestId, resourceId, topic } = dispatch;
 
   // Only provider reads determine payment state. Payment signals first
   // resolve the known invoice through the ledger; invoice signals name it directly.
@@ -256,34 +277,18 @@ async function handlePaymentWebhook({
       resourceId,
     });
 
-  return routeObservation.createJsonResponse(
-    result.status === "retryable"
-      ? { message: WEBHOOK_RESPONSE.unexpectedMessage }
-      : { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
-    result.status === "retryable" ? HTTP_STATUS.serviceUnavailable : HTTP_STATUS.ok,
-    {
-      message:
-        result.status === "retryable"
-          ? WEBHOOK_LOG.retryableMessage
-          : WEBHOOK_LOG.processedMessage,
-      metadata: { eventId, resourceId, result: result.status, topic },
-      outcome: result.status,
-      ...(result.status === "retryable" ? { level: WEBHOOK_LOG_LEVEL.warn } : {}),
-    }
-  );
+  return createWebhookResultResponse(dispatch, result.status, {
+    isRetryable: result.status === "retryable",
+    processedStatus: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed,
+  });
 }
 
 /**
  * Handles provider plan webhooks; a sync that did not reach the provider is
  * retried by Mercado Pago.
  */
-async function handleSubscriptionPlanWebhook({
-  eventId,
-  modules,
-  resourceId,
-  routeObservation,
-  topic,
-}: WebhookDispatch): Promise<Response> {
+async function handleSubscriptionPlanWebhook(dispatch: WebhookDispatch): Promise<Response> {
+  const { eventId, modules, resourceId, topic } = dispatch;
 
   const result =
     await modules.subscriptions.useCases.syncMercadoPagoSubscriptionProviderPlanWebhook(
@@ -294,52 +299,18 @@ async function handleSubscriptionPlanWebhook({
       }
     );
 
-  if (isRetryableSubscriptionPlanSyncStatus(result.status)) {
-    return routeObservation.createJsonResponse(
-      { message: WEBHOOK_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serviceUnavailable,
-      {
-        message: WEBHOOK_LOG.retryableMessage,
-        metadata: {
-          eventId,
-          resourceId,
-          result: result.status,
-          topic,
-        },
-        outcome: result.status,
-        level: WEBHOOK_LOG_LEVEL.warn,
-      }
-    );
-  }
-
-  return routeObservation.createJsonResponse(
-    { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
-    HTTP_STATUS.ok,
-    {
-      message: WEBHOOK_LOG.processedMessage,
-      metadata: {
-        eventId,
-        resourceId,
-        result: result.status,
-        topic,
-      },
-      outcome: result.status,
-    }
-  );
+  return createWebhookResultResponse(dispatch, result.status, {
+    isRetryable: isRetryableSubscriptionPlanSyncStatus(result.status),
+    processedStatus: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed,
+  });
 }
 
 /**
  * Handles membership subscription webhooks and reconciles academy coverage
  * on a best-effort basis.
  */
-async function handleSubscriptionWebhook({
-  eventId,
-  modules,
-  requestId,
-  resourceId,
-  routeObservation,
-  topic,
-}: WebhookDispatch): Promise<Response> {
+async function handleSubscriptionWebhook(dispatch: WebhookDispatch): Promise<Response> {
+  const { eventId, modules, requestId, resourceId, routeObservation, topic } = dispatch;
 
   const result =
     await modules.subscriptions.useCases.handleMercadoPagoSubscriptionWebhook({
@@ -367,43 +338,13 @@ async function handleSubscriptionWebhook({
       });
     });
 
-  if (result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook) {
-    return routeObservation.createJsonResponse(
-      { message: WEBHOOK_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serviceUnavailable,
-      {
-        message: WEBHOOK_LOG.retryableMessage,
-        metadata: {
-          eventId,
-          resourceId,
-          result: result.status,
-          topic,
-        },
-        outcome: result.status,
-        level: WEBHOOK_LOG_LEVEL.warn,
-      }
-    );
-  }
-
-  return routeObservation.createJsonResponse(
-    {
-      status:
-        result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
-          ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
-          : TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed,
-    },
-    HTTP_STATUS.ok,
-    {
-      message: WEBHOOK_LOG.processedMessage,
-      metadata: {
-        eventId,
-        resourceId,
-        result: result.status,
-        topic,
-      },
-      outcome: result.status,
-    }
-  );
+  return createWebhookResultResponse(dispatch, result.status, {
+    isRetryable: result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook,
+    processedStatus:
+      result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
+        ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
+        : TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed,
+  });
 }
 
 /**

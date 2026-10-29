@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../welcome";
 
 @include motion.define-keyframes;
 
@@ -38,24 +39,7 @@ $tribe-welcome-selection-modal-option-count: 8;
     margin: 0;
   }
 
-  &__benefit {
-    background: var(--accent);
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    color: var(--foreground);
-    font-size: 0.95rem;
-    line-height: 1.5;
-    margin: 0;
-    padding: 0.75rem 0.875rem;
-  }
-
-  &__benefitEyebrow {
-    color: var(--muted-foreground);
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-  }
+  @include welcome.benefit-elements;
 
   &__optionList {
     display: grid;
@@ -75,50 +59,13 @@ $tribe-welcome-selection-modal-option-count: 8;
   }
 
   &__optionCard {
-    align-items: center;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    color: var(--foreground);
-    cursor: pointer;
-    display: flex;
     font-family: inherit;
     font-size: 1rem;
-    gap: 0.75rem;
-    justify-content: space-between;
-    padding: 0.875rem 1rem;
-    text-align: left;
-    width: 100%;
 
-    @include motion.interactive(background-color, border-color, opacity);
-
-    &:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-
-    &[aria-busy="true"] {
-      cursor: progress;
-      opacity: 1;
-    }
+    @include welcome.choice-card(0.5, background-color, border-color, opacity);
   }
 
-  @media (hover: hover) {
-    &__optionCard:hover:not(:disabled) {
-      background: var(--accent);
-      border-color: color-mix(in oklab, var(--ring) 55%, var(--border));
-    }
-
-    &__optionCard:hover:not(:disabled) &__optionCardIcon {
-      color: var(--foreground);
-      transform: translate(2px, -2px);
-    }
-  }
+  @include welcome.choice-card-hover(optionCard, optionCardIcon);
 
   &__optionCardText {
     display: grid;

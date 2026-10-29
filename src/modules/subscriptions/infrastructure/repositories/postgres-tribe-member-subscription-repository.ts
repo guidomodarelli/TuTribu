@@ -37,6 +37,7 @@ import type {
   MercadoPagoPreapprovalStatusInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import {
+  buildPaymentOperationTraceContext,
   logPaymentOperation,
   type PaymentOperationTraceContext,
 } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
@@ -44,6 +45,7 @@ import { SERVER_LOG_LEVEL } from "@/src/modules/shared/infrastructure/observabil
 import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
+  type StoredMercadoPagoAccessToken,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
 import {
   MERCADO_PAGO_SUBSCRIPTION_STATUS,
@@ -207,6 +209,14 @@ type ProviderSubscriptionReturnPathRow = {
   tribe_slug: string | null;
 };
 
+/** Seller token columns selected together with a subscription context. */
+type StoredSellerTokenRow = {
+  access_token: string | null;
+  refresh_token: string | null;
+  token_expires_at: Date | string | null;
+  tribe_id: string | null;
+};
+
 type SubscriptionReconciliationContextRow = {
   access_token: string | null;
   is_reconciliation_fresh: boolean | null;
@@ -365,34 +375,6 @@ const MEMBER_SUBSCRIPTION_PAYMENT_LOG = {
 const MEMBER_SUBSCRIPTION_BACK_URL_LINK_RESULT = {
   failed: "back_url_link_failed",
 } as const;
-
-/**
- * Builds a trace context for Mercado Pago operations scoped to member subscriptions.
- *
- * @param input - Payment operation identifiers available at the repository boundary.
- * @returns Trace context for provider logging, or undefined when request tracing is unavailable.
- */
-function buildMemberSubscriptionPaymentTraceContext(input: {
-  operationKey: string;
-  preapprovalId?: string | null;
-  priceId?: string | null;
-  providerPlanId?: string | null;
-  requestId?: string;
-  tribeSlug?: string | null;
-}): PaymentOperationTraceContext | undefined {
-  if (!input.requestId) {
-    return undefined;
-  }
-
-  return {
-    operationKey: input.operationKey,
-    preapprovalId: input.preapprovalId,
-    priceId: input.priceId,
-    providerPlanId: input.providerPlanId,
-    requestId: input.requestId,
-    tribeSlug: input.tribeSlug,
-  };
-}
 
 /**
  * Builds a stable operation key for member subscription payment workflows.
@@ -1312,7 +1294,7 @@ export class PostgresTribeMemberSubscriptionRepository
         MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.cancelSubscription,
       tribeSlug: query.tribeSlug,
     });
-    const traceContext = buildMemberSubscriptionPaymentTraceContext({
+    const traceContext = buildPaymentOperationTraceContext({
       operationKey,
       preapprovalId: context.mercado_pago_preapproval_id,
       priceId: context.price_id,
@@ -1381,7 +1363,7 @@ export class PostgresTribeMemberSubscriptionRepository
         MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.reconcileSubscription,
       tribeSlug: input.tribeSlug,
     });
-    const traceContext = buildMemberSubscriptionPaymentTraceContext({
+    const traceContext = buildPaymentOperationTraceContext({
       operationKey,
       preapprovalId: context.mercado_pago_preapproval_id,
       priceId: context.price_id,
@@ -1422,45 +1404,24 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
-    const accessToken = await resolveMercadoPagoAccessToken({
-      executeWithDatabase: this.executeWithDatabase,
-      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
-      storedToken: {
-        accessToken: context.access_token,
-        paymentIntegrationId: context.payment_integration_id,
-        refreshToken: context.refresh_token,
-        tokenExpiresAt: context.token_expires_at,
-        tribeId: context.tribe_id,
-      },
-    }).catch(() => null);
+    const accessToken =
+      await this.resolveAccessTokenForSubscriptionContext(context);
 
     if (!accessToken) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
 
-    let providerSubscription: MercadoPagoPreapprovalDetailsResult | null;
-    const operationKey = buildMemberSubscriptionOperationKey({
-      operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.confirmReturn,
-      tribeSlug: query.tribeSlug,
-    });
-    const traceContext = buildMemberSubscriptionPaymentTraceContext({
-      operationKey,
-      preapprovalId: query.providerSubscriptionId,
-      priceId: context.price_id,
-      providerPlanId: context.provider_plan_id,
-      requestId: this.requestId,
-      tribeSlug: query.tribeSlug,
-    });
+    const providerRead = await this.readReturnedPreapprovalDetails(
+      query,
+      { priceId: context.price_id, providerPlanId: context.provider_plan_id },
+      accessToken
+    );
 
-    try {
-      providerSubscription = await this.getMercadoPagoPreapprovalDetails({
-        accessToken,
-        preapprovalId: query.providerSubscriptionId,
-        ...(traceContext ? { traceContext } : {}),
-      });
-    } catch {
+    if (!providerRead) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
+
+    const { providerSubscription } = providerRead;
 
     // Parity with recoverMissingPlanCheckoutReturn: only attach a provider
     // preapproval that actually belongs to this pending checkout's price, so a
@@ -1494,6 +1455,47 @@ export class PostgresTribeMemberSubscriptionRepository
     };
   }
 
+  /**
+   * Reads the provider preapproval a member returned from checkout with.
+   *
+   * @param query - Returned tribe and provider subscription identifier.
+   * @param expectedPlan - Local price and provider plan the return should belong to.
+   * @param accessToken - Seller account token.
+   * @returns The provider details (null when absent), or null when the provider is unavailable.
+   */
+  private async readReturnedPreapprovalDetails(
+    query: PendingSubscriptionReturnQuery,
+    expectedPlan: { priceId: string | null; providerPlanId: string | null },
+    accessToken: string
+  ): Promise<{
+    providerSubscription: MercadoPagoPreapprovalDetailsResult | null;
+  } | null> {
+    const operationKey = buildMemberSubscriptionOperationKey({
+      operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.confirmReturn,
+      tribeSlug: query.tribeSlug,
+    });
+    const traceContext = buildPaymentOperationTraceContext({
+      operationKey,
+      preapprovalId: query.providerSubscriptionId,
+      priceId: expectedPlan.priceId,
+      providerPlanId: expectedPlan.providerPlanId,
+      requestId: this.requestId,
+      tribeSlug: query.tribeSlug,
+    });
+
+    try {
+      return {
+        providerSubscription: await this.getMercadoPagoPreapprovalDetails({
+          accessToken,
+          preapprovalId: query.providerSubscriptionId,
+          ...(traceContext ? { traceContext } : {}),
+        }),
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private async recoverMissingPlanCheckoutReturn(
     query: PendingSubscriptionReturnQuery
   ): Promise<TribeMemberSubscriptionStatusResult> {
@@ -1510,45 +1512,23 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
-    const accessToken = await resolveMercadoPagoAccessToken({
-      executeWithDatabase: this.executeWithDatabase,
-      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
-      storedToken: {
-        accessToken: context.access_token,
-        paymentIntegrationId: context.current_price_payment_integration_id,
-        refreshToken: context.refresh_token,
-        tokenExpiresAt: context.token_expires_at,
-        tribeId: context.tribe_id,
-      },
-    }).catch(() => null);
+    const accessToken = await this.resolveAccessTokenForCurrentPrice(context);
 
     if (!accessToken) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
 
-    let providerSubscription: MercadoPagoPreapprovalDetailsResult | null;
-    const operationKey = buildMemberSubscriptionOperationKey({
-      operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.confirmReturn,
-      tribeSlug: query.tribeSlug,
-    });
-    const traceContext = buildMemberSubscriptionPaymentTraceContext({
-      operationKey,
-      preapprovalId: query.providerSubscriptionId,
-      priceId: context.current_price_id,
-      providerPlanId: context.current_price_provider_plan_id,
-      requestId: this.requestId,
-      tribeSlug: query.tribeSlug,
-    });
+    const providerRead = await this.readReturnedPreapprovalDetails(
+      query,
+      { priceId: context.current_price_id, providerPlanId: context.current_price_provider_plan_id },
+      accessToken
+    );
 
-    try {
-      providerSubscription = await this.getMercadoPagoPreapprovalDetails({
-        accessToken,
-        preapprovalId: query.providerSubscriptionId,
-        ...(traceContext ? { traceContext } : {}),
-      });
-    } catch {
+    if (!providerRead) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
+
+    const { providerSubscription } = providerRead;
 
     if (
       providerSubscription?.preapprovalPlanId !==
@@ -1577,18 +1557,44 @@ export class PostgresTribeMemberSubscriptionRepository
   }
 
   private async resolveAccessTokenForSubscriptionContext(
-    context: SubscriptionReconciliationContextRow
+    context: StoredSellerTokenRow & { payment_integration_id: string | null }
+  ): Promise<string | null> {
+    return this.resolveSellerAccessToken({
+      accessToken: context.access_token,
+      paymentIntegrationId: context.payment_integration_id,
+      refreshToken: context.refresh_token,
+      tokenExpiresAt: context.token_expires_at,
+      tribeId: context.tribe_id,
+    });
+  }
+
+  private async resolveAccessTokenForCurrentPrice(
+    context: StoredSellerTokenRow & {
+      current_price_payment_integration_id: string | null;
+    }
+  ): Promise<string | null> {
+    return this.resolveSellerAccessToken({
+      accessToken: context.access_token,
+      paymentIntegrationId: context.current_price_payment_integration_id,
+      refreshToken: context.refresh_token,
+      tokenExpiresAt: context.token_expires_at,
+      tribeId: context.tribe_id,
+    });
+  }
+
+  /**
+   * Resolves the seller access token, treating refresh failures as unavailable.
+   *
+   * @param storedToken - Token state stored for the seller integration.
+   * @returns Usable access token, or null when the provider cannot be reached.
+   */
+  private async resolveSellerAccessToken(
+    storedToken: StoredMercadoPagoAccessToken
   ): Promise<string | null> {
     return resolveMercadoPagoAccessToken({
       executeWithDatabase: this.executeWithDatabase,
       refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
-      storedToken: {
-        accessToken: context.access_token,
-        paymentIntegrationId: context.payment_integration_id,
-        refreshToken: context.refresh_token,
-        tokenExpiresAt: context.token_expires_at,
-        tribeId: context.tribe_id,
-      },
+      storedToken,
     }).catch(() => null);
   }
 
@@ -2058,7 +2064,7 @@ export class PostgresTribeMemberSubscriptionRepository
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
+        traceContext: buildPaymentOperationTraceContext({
           operationKey,
           requestId: this.requestId,
           tribeSlug: input.tribeSlug,
@@ -2094,16 +2100,10 @@ export class PostgresTribeMemberSubscriptionRepository
           ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked
           : TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked;
 
-      logMemberSubscriptionPaymentResult({
-        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-        result: retryRejectionStatus,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
-          operationKey,
-          priceId: context?.current_price_id,
-          providerPlanId: context?.current_price_provider_plan_id,
-          requestId: this.requestId,
-          tribeSlug: input.tribeSlug,
-        }),
+      this.logCheckoutStartResult(retryRejectionStatus, {
+        context,
+        operationKey,
+        tribeSlug: input.tribeSlug,
       });
 
       return { status: retryRejectionStatus };
@@ -2133,34 +2133,55 @@ export class PostgresTribeMemberSubscriptionRepository
       !context.current_price_currency ||
       !context.current_price_name
     ) {
-      logMemberSubscriptionPaymentResult({
-        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
-          operationKey,
-          priceId: context?.current_price_id,
-          providerPlanId: context?.current_price_provider_plan_id,
-          requestId: this.requestId,
-          tribeSlug: input.tribeSlug,
-        }),
+      this.logCheckoutStartResult(TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice, {
+        context,
+        operationKey,
+        tribeSlug: input.tribeSlug,
       });
 
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice };
     }
 
-    logMemberSubscriptionPaymentResult({
-      operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-      result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
-      traceContext: buildMemberSubscriptionPaymentTraceContext({
-        operationKey,
-        priceId: context.current_price_id,
-        providerPlanId: context.current_price_provider_plan_id,
-        requestId: this.requestId,
-        tribeSlug: input.tribeSlug,
-      }),
+    this.logCheckoutStartResult(TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked, {
+      context,
+      operationKey,
+      tribeSlug: input.tribeSlug,
     });
 
     return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+  }
+
+  /**
+   * Logs a checkout start outcome traced to the tribe's current price.
+   *
+   * @param result - Start outcome.
+   * @param trace - Start context (when resolved), operation key and tribe.
+   */
+  private logCheckoutStartResult(
+    result: string,
+    trace: {
+      context:
+        | {
+            current_price_id: string | null;
+            current_price_provider_plan_id: string | null;
+          }
+        | null
+        | undefined;
+      operationKey: string;
+      tribeSlug: string;
+    }
+  ): void {
+    logMemberSubscriptionPaymentResult({
+      operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
+      result,
+      traceContext: buildPaymentOperationTraceContext({
+        operationKey: trace.operationKey,
+        priceId: trace.context?.current_price_id,
+        providerPlanId: trace.context?.current_price_provider_plan_id,
+        requestId: this.requestId,
+        tribeSlug: trace.tribeSlug,
+      }),
+    });
   }
 
   /**
@@ -2182,16 +2203,10 @@ export class PostgresTribeMemberSubscriptionRepository
       context.existing_membership_status_reason !==
         TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
     ) {
-      logMemberSubscriptionPaymentResult({
-        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
-          operationKey,
-          priceId: context.current_price_id,
-          providerPlanId: context.current_price_provider_plan_id,
-          requestId: this.requestId,
-          tribeSlug: input.tribeSlug,
-        }),
+      this.logCheckoutStartResult(TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked, {
+        context,
+        operationKey,
+        tribeSlug: input.tribeSlug,
       });
 
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked };
@@ -2230,7 +2245,7 @@ export class PostgresTribeMemberSubscriptionRepository
         operation:
           MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckoutAlreadyActive,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
+        traceContext: buildPaymentOperationTraceContext({
           operationKey: alreadyActiveOperationKey,
           preapprovalId: context.existing_live_provider_subscription_id,
           priceId: context.current_price_id,
@@ -2264,7 +2279,7 @@ export class PostgresTribeMemberSubscriptionRepository
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
+        traceContext: buildPaymentOperationTraceContext({
           operationKey,
           preapprovalId: context.existing_provider_subscription_id,
           priceId: context.current_price_id,
@@ -2332,16 +2347,10 @@ export class PostgresTribeMemberSubscriptionRepository
         tribeId: context.tribe_id,
       });
 
-      logMemberSubscriptionPaymentResult({
-        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
-          operationKey,
-          priceId: context.current_price_id,
-          providerPlanId: context.current_price_provider_plan_id,
-          requestId: this.requestId,
-          tribeSlug: input.tribeSlug,
-        }),
+      this.logCheckoutStartResult(TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending, {
+        context,
+        operationKey,
+        tribeSlug: input.tribeSlug,
       });
 
       return {
@@ -2353,16 +2362,10 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     if (!reservation.reserved_subscription_id) {
-      logMemberSubscriptionPaymentResult({
-        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
-          operationKey,
-          priceId: context.current_price_id,
-          providerPlanId: context.current_price_provider_plan_id,
-          requestId: this.requestId,
-          tribeSlug: input.tribeSlug,
-        }),
+      this.logCheckoutStartResult(TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked, {
+        context,
+        operationKey,
+        tribeSlug: input.tribeSlug,
       });
 
       return { result: { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked } };
@@ -2385,7 +2388,7 @@ export class PostgresTribeMemberSubscriptionRepository
     input: StartSubscriptionCheckoutInput,
     context: ReadySubscriptionStartContext,
     reservedSubscriptionId: string,
-    checkoutTraceContext: ReturnType<typeof buildMemberSubscriptionPaymentTraceContext>
+    checkoutTraceContext: ReturnType<typeof buildPaymentOperationTraceContext>
   ): Promise<{
     accessToken: string;
     providerSubscription: { checkoutUrl: string; providerSubscriptionId: string };
@@ -2395,17 +2398,7 @@ export class PostgresTribeMemberSubscriptionRepository
     // is the core of the fix: the provider subscription is linked to the local
     // pending row up front, so a verified webhook can activate the membership
     // even if the member never returns to the app from the provider checkout.
-    const accessToken = await resolveMercadoPagoAccessToken({
-      executeWithDatabase: this.executeWithDatabase,
-      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
-      storedToken: {
-        accessToken: context.access_token,
-        paymentIntegrationId: context.current_price_payment_integration_id,
-        refreshToken: context.refresh_token,
-        tokenExpiresAt: context.token_expires_at,
-        tribeId: context.tribe_id,
-      },
-    }).catch(() => null);
+    const accessToken = await this.resolveAccessTokenForCurrentPrice(context);
 
     if (!accessToken) {
       // Release the just-reserved pending row so an immediate retry can reserve
@@ -2484,7 +2477,7 @@ export class PostgresTribeMemberSubscriptionRepository
     operationKey: string,
     reservedSubscriptionId: string
   ): Promise<TribeMemberSubscriptionStartResult> {
-    const checkoutTraceContext = buildMemberSubscriptionPaymentTraceContext({
+    const checkoutTraceContext = buildPaymentOperationTraceContext({
       operationKey,
       priceId: context.current_price_id,
       providerPlanId: context.current_price_provider_plan_id,
@@ -2702,7 +2695,7 @@ export class PostgresTribeMemberSubscriptionRepository
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-        traceContext: buildMemberSubscriptionPaymentTraceContext({
+        traceContext: buildPaymentOperationTraceContext({
           operationKey: input.operationKey,
           priceId: input.priceId,
           providerPlanId: input.providerPlanId,
@@ -2758,7 +2751,7 @@ export class PostgresTribeMemberSubscriptionRepository
       }
 
       const operationKeyPrefix = `${MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.webhook}:${command.resourceId}`;
-      const traceContext = buildMemberSubscriptionPaymentTraceContext({
+      const traceContext = buildPaymentOperationTraceContext({
         operationKey: operationKeyPrefix,
         preapprovalId: command.resourceId,
         priceId: context.price_id,

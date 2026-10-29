@@ -1,0 +1,36 @@
+// Thin, muted scrollbars for scrollable strips and panes.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/scrollbar";
+//   .Block__pane { @include scrollbar.thin-vertical; }
+
+// WebKit track and thumb; `$border-width` insets the thumb inside the track.
+@mixin thin-thumb($border-width) {
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: $border-width solid transparent;
+    border-radius: 999rem;
+    background-color: color-mix(in oklab, var(--muted-foreground) 34%, transparent);
+    background-clip: content-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--muted-foreground) 48%, transparent);
+  }
+}
+
+// Vertical pane with a thin scrollbar and a stable gutter, so content does not shift when it appears.
+@mixin thin-vertical {
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 34%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    width: 0.45rem;
+  }
+
+  @include thin-thumb(0.15rem);
+}

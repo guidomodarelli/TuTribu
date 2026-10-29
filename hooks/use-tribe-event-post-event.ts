@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
 
+import { loadTribeEventOccurrenceAfterMutations } from "@/lib/events/tribe-event-occurrence-load";
 import {
   trackTribeEventOccurrenceMutation,
   waitForTribeEventOccurrenceMutations,
@@ -175,45 +176,38 @@ function useTribeEventPostEventLoad(state: TribeEventPostEventState, { onRecordi
     // A save or reaction started by a previous opening of this occurrence may
     // still be committing: load after it so the detail never shows the state
     // it is about to replace.
-    waitForTribeEventOccurrenceMutations(occurrenceTarget)
-      .then(() =>
-        abortController.signal.aborted
-          ? null
-          : fetchTribeEventPostEventRequest(occurrenceTarget, abortController.signal)
-      )
-      .then((result) => {
-        if (!result || abortController.signal.aborted) {
-          return;
-        }
-
-        if (result.isSuccess) {
-          reactionIntentRef.current = null;
-          reactionScopeRef.current += 1;
-          setVisibleReactions(result.postEvent.reactions);
-          setLoadState({
-            postEvent: result.postEvent,
-            status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded,
-          });
-          // The abort guard above drops answers of a superseded load (reload,
-          // occurrence change, or unmount), so only the latest state reports.
-          reportLoadedRecordingAvailability(result.postEvent.recording !== null);
-        } else {
-          setLoadState({
-            message: result.message ?? COPY.loadFailure,
-            status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
-          });
-        }
-      })
-      .catch(() => {
-        // Aborted requests are the expected cleanup; any other failure is a
-        // network error shown with the safe fallback copy.
-        if (!abortController.signal.aborted) {
+    loadTribeEventOccurrenceAfterMutations(
+      () => waitForTribeEventOccurrenceMutations(occurrenceTarget),
+      (signal) => fetchTribeEventPostEventRequest(occurrenceTarget, signal),
+      abortController.signal,
+      {
+        onLoaded: (result) => {
+          if (result.isSuccess) {
+            reactionIntentRef.current = null;
+            reactionScopeRef.current += 1;
+            setVisibleReactions(result.postEvent.reactions);
+            setLoadState({
+              postEvent: result.postEvent,
+              status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded,
+            });
+            // Answers of a superseded load (reload, occurrence change, or
+            // unmount) are dropped, so only the latest state reports.
+            reportLoadedRecordingAvailability(result.postEvent.recording !== null);
+          } else {
+            setLoadState({
+              message: result.message ?? COPY.loadFailure,
+              status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
+            });
+          }
+        },
+        onNetworkFailure: () => {
           setLoadState({
             message: COPY.loadFailure,
             status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error,
           });
-        }
-      });
+        },
+      }
+    );
 
     return () => abortController.abort();
   }, [eventId, originalStartsAt, reactionIntentRef, reactionScopeRef, reloadCount, setLoadState, setVisibleReactions, tribeSlug]);

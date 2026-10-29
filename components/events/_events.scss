@@ -1,0 +1,99 @@
+// Shared pieces of the event modules (agenda, calendar, event detail panels and dialogs).
+//
+// Each module keeps its own BEM block; these mixins only repeat the controls, links, panels and feedback
+// that the event screens show the same way.
+//
+// Usage (path relative to the module):
+//   @use "../events";
+//   .Block__error { @include events.inline-error; }
+
+@use "../../src/styles/motion";
+@use "../styles/interaction";
+
+// Bordered control that tints on hover and shrinks on press; `$hover-background` and `$pressed-scale`
+// tune each control.
+@mixin pressable($hover-background, $pressed-scale) {
+  -webkit-tap-highlight-color: transparent;
+
+  @include motion.interactive;
+
+  &:hover {
+    border-color: color-mix(in oklab, var(--foreground) 24%, var(--border));
+    background: $hover-background;
+  }
+
+  &:active {
+    transform: scale($pressed-scale);
+  }
+
+  @include interaction.focus-outline;
+}
+
+// Underlined text link whose `$underline-color` darkens to the text color on hover; `$transitions`
+// lists the properties that animate.
+@mixin underline-link($underline-color, $transitions...) {
+  text-decoration: underline;
+  text-decoration-color: $underline-color;
+  text-underline-offset: 0.2em;
+
+  @include motion.interactive($transitions...);
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    border-radius: 0.2rem;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+// Section of the event detail split by a top border, with its heading, body, muted copy and error.
+@mixin detail-panel {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+
+  &__heading {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  &__body {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__muted {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__error {
+    @include inline-error;
+  }
+}
+
+// Error message flagged by a destructive left rule.
+@mixin inline-error {
+  margin: 0;
+  border-left: 3px solid var(--destructive);
+  color: var(--destructive);
+  font-size: 0.9rem;
+  padding-left: 0.75rem;
+}
+
+// Right-aligned action row at the end of a dialog form.
+@mixin dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}

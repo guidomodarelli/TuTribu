@@ -3,8 +3,14 @@
 import { type SubmitEvent, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, Input, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
+import { Button, Checkbox, Dialog, DialogContent, Input, Textarea } from "@golfo/ui";
 
+import {
+  findTribeEventEndFieldsIssue,
+  TRIBE_EVENT_CONDITIONAL_FIELD_MOTION,
+  type TribeEventFormValidationIssue,
+} from "@/components/events/tribe-event-end-fields";
+import { TribeEventStartsTimeInput } from "@/components/events/tribe-event-starts-time-input";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
@@ -56,22 +62,9 @@ const FIELD_ID = {
 /** Id of a form control that a validation message can point at. */
 type ExceptionFormFieldId = (typeof FIELD_ID)[keyof typeof FIELD_ID];
 
-/**
- * Validation failure of the move form: the Spanish message and the control
- * it belongs to, which is marked invalid and focused.
- */
-type ExceptionFormValidationIssue = {
-  fieldId: ExceptionFormFieldId;
-  message: string;
-};
+/** Validation failure of the form, pointing at one of its controls. */
+type ExceptionFormValidationIssue = TribeEventFormValidationIssue<ExceptionFormFieldId>;
 
-/** Opacity-only fade for the end date that appears with «Termina otro día». */
-const CONDITIONAL_FIELD_MOTION = {
-  animate: { opacity: 1 },
-  exit: { opacity: 0, transition: { duration: MOTION_TIMING.exit, ease: MOTION_EASE } },
-  initial: { opacity: 0 },
-  transition: { duration: MOTION_TIMING.enter, ease: MOTION_EASE },
-} as const;
 const INPUT_TYPE = {
   date: "date",
   time: "time",
@@ -93,8 +86,6 @@ const COPY = {
   endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin (opcional)",
   invalidEnd: "La hora de fin debe ser posterior al inicio.",
-  missingEndDate: "Elegí la fecha de fin o destildá «Termina otro día».",
-  missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   missingSchedule: "Elegí la nueva fecha y la hora de inicio.",
   moveDescription: (dateLabel: string) =>
     `Solo se mueve la fecha del ${dateLabel}. Las respuestas de asistencia se conservan.`,
@@ -103,7 +94,6 @@ const COPY = {
   reasonLabel: "Motivo (opcional)",
   reasonPlaceholder: "Se muestra junto a la fecha.",
   saving: "Guardando…",
-  startsTimeLabel: "Hora de inicio",
 } as const;
 
 function createInitialValues(occurrence: TribeEventOccurrenceResult | null): ExceptionFormValues {
@@ -185,14 +175,10 @@ function buildMovePayload(
     };
   }
 
-  // A checked «Termina otro día» with no date would silently save a same-day
-  // end, so the chosen next-day end must be explicit.
-  if (endsOnAnotherDay && !values.endsDate) {
-    return { issue: { fieldId: FIELD_ID.endsDate, message: COPY.missingEndDate } };
-  }
+  const endFieldsIssue = findTribeEventEndFieldsIssue(values, endsOnAnotherDay, FIELD_ID);
 
-  if (values.endsDate && !values.endsTime) {
-    return { issue: { fieldId: FIELD_ID.endsTime, message: COPY.missingEndTime } };
+  if (endFieldsIssue) {
+    return { issue: endFieldsIssue };
   }
 
   const newEndsAt = values.endsTime
@@ -346,14 +332,11 @@ function MoveScheduleFields({
         onChange={(event) => updateStartField("date", event.currentTarget.value)}
       />
       <div className={styles.TribeEventOccurrenceExceptionDialog__row}>
-        <Input
+        <TribeEventStartsTimeInput
           error={getFieldError(FIELD_ID.startsTime)}
           id={FIELD_ID.startsTime}
-          label={COPY.startsTimeLabel}
-          required
-          type={INPUT_TYPE.time}
           value={values.startsTime}
-          onChange={(event) => updateStartField("startsTime", event.currentTarget.value)}
+          onValueChange={(value) => updateStartField("startsTime", value)}
         />
         <Input
           error={getFieldError(FIELD_ID.endsTime)}
@@ -366,7 +349,7 @@ function MoveScheduleFields({
       </div>
       <AnimatePresence initial={false}>
         {endsOnAnotherDay ? (
-          <m.div key={FIELD_ID.endsDate} {...CONDITIONAL_FIELD_MOTION}>
+          <m.div key={FIELD_ID.endsDate} {...TRIBE_EVENT_CONDITIONAL_FIELD_MOTION}>
             {/* No native `min`: an earlier end must reach the Spanish
                 inline error instead of a browser-language bubble. */}
             <Input

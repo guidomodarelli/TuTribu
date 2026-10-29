@@ -1,6 +1,5 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
-import { createRequestModules } from "@/src/modules/setup";
 import {
   TRIBE_SUPPORT_CHANNEL,
   TRIBE_SUPPORT_SAVE_STATUS,
@@ -13,12 +12,18 @@ import {
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import type {
   TribeSupportChannel,
   TribeSupportSettings,
 } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { isPayloadObject } from "@/app/api/request-body-fields";
 
 const SUPPORT_ROUTE_LOG = {
   feature: "tribes",
@@ -46,40 +51,20 @@ const SUPPORT_ROUTE_RESPONSE = {
     "No pudimos guardar el botón de soporte. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
 const SUPPORT_MESSAGE_MAX_LENGTH = 1000;
-
-function createJsonResponse(
-  body: Record<string, unknown>,
-  status: number
-): Response {
-  return Response.json(body, { status });
-}
 
 function createHiddenSupportResponse(reason: string): Response {
   if (reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden) {
-    return createJsonResponse(
+    return createRouteJsonResponse(
       { message: SUPPORT_ROUTE_RESPONSE.accessForbiddenMessage },
       HTTP_STATUS.forbidden
     );
   }
 
-  return createJsonResponse(
+  return createRouteJsonResponse(
     { message: SUPPORT_ROUTE_RESPONSE.notFoundMessage },
     HTTP_STATUS.notFound
   );
-}
-
-function isPayloadObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function readTrimmedText(value: unknown): string | null {
@@ -116,70 +101,49 @@ function serializeSettings(settings: TribeSupportSettings) {
   };
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: SUPPORT_ROUTE_LOG.feature,
+  operation: SUPPORT_ROUTE_LOG.operation,
+  unauthorizedMessage: SUPPORT_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function GET(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: SUPPORT_ROUTE_LOG.feature,
-    operation: SUPPORT_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: SUPPORT_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  try {
-    const accessResult = await modules.tribes.useCases.getTribePageAccess({
-      // Support contact stays reachable for basic academy members.
-      allowWithoutCommunityAccess: true,
-      isAuthenticated: true,
-      slug,
-    });
-
-    if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-      return createHiddenSupportResponse(accessResult.reason);
-    }
-
-    const settings = await modules.tribes.useCases.getTribeSupport({
-      tribeSlug: slug,
-    });
-
-    return createJsonResponse(
-      { settings: settings ? serializeSettings(settings) : null },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      error,
-      message: SUPPORT_ROUTE_LOG.getFailureMessage,
-      metadata: {
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: SUPPORT_ROUTE_LOG.getFailureMessage,
+      metadata: { slug },
+      responseMessage: SUPPORT_ROUTE_RESPONSE.unexpectedGetMessage,
+    },
+    async ({ modules }) => {
+      const accessResult = await modules.tribes.useCases.getTribePageAccess({
+        // Support contact stays reachable for basic academy members.
+        allowWithoutCommunityAccess: true,
+        isAuthenticated: true,
         slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+      });
 
-    return createJsonResponse(
-      { message: SUPPORT_ROUTE_RESPONSE.unexpectedGetMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
+        return createHiddenSupportResponse(accessResult.reason);
+      }
+
+      const settings = await modules.tribes.useCases.getTribeSupport({
+        tribeSlug: slug,
+      });
+
+      return createRouteJsonResponse(
+        { settings: settings ? serializeSettings(settings) : null },
+        HTTP_STATUS.ok
+      );
+    }
+  );
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type SaveTribeSupportResult = Awaited<
   ReturnType<RequestModules["tribes"]["useCases"]["saveTribeSupport"]>
@@ -188,7 +152,7 @@ type SaveTribeSupportResult = Awaited<
 function createPutResultResponse(result: SaveTribeSupportResult): Response {
   switch (result.status) {
     case TRIBE_SUPPORT_SAVE_STATUS.updated:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: SUPPORT_ROUTE_RESPONSE.savedMessage,
           settings: result.settings
@@ -198,13 +162,13 @@ function createPutResultResponse(result: SaveTribeSupportResult): Response {
         HTTP_STATUS.ok
       );
     case TRIBE_SUPPORT_SAVE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: SUPPORT_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case TRIBE_SUPPORT_SAVE_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: SUPPORT_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -245,79 +209,54 @@ function readSupportContact(
 
 export async function PUT(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: SUPPORT_ROUTE_LOG.feature,
-    operation: SUPPORT_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: SUPPORT_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: SUPPORT_ROUTE_LOG.saveFailureMessage,
+      metadata: { slug },
+      responseMessage: SUPPORT_ROUTE_RESPONSE.unexpectedSaveMessage,
+    },
+    async ({ modules }) => {
+      const parsedBody: unknown = await request.json().catch(() => ({}));
 
-  try {
-    const parsedBody: unknown = await request.json().catch(() => ({}));
+      if (!isPayloadObject(parsedBody)) {
+        return createRouteJsonResponse(
+          { message: SUPPORT_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (!isPayloadObject(parsedBody)) {
-      return createJsonResponse(
-        { message: SUPPORT_ROUTE_RESPONSE.invalidBodyMessage },
-        HTTP_STATUS.badRequest
-      );
+      const channel = parsedBody.channel;
+
+      if (!isSupportChannel(channel)) {
+        return createRouteJsonResponse(
+          { message: SUPPORT_ROUTE_RESPONSE.invalidChannelMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      const contact = readSupportContact(parsedBody);
+
+      if ("errorMessage" in contact) {
+        return createRouteJsonResponse(
+          { message: contact.errorMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
+
+      const result = await modules.tribes.useCases.saveTribeSupport({
+        channel,
+        message: contact.message,
+        phoneNumber: contact.phoneNumber,
+        tribeSlug: slug,
+      });
+
+      return createPutResultResponse(result);
     }
-
-    const channel = parsedBody.channel;
-
-    if (!isSupportChannel(channel)) {
-      return createJsonResponse(
-        { message: SUPPORT_ROUTE_RESPONSE.invalidChannelMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const contact = readSupportContact(parsedBody);
-
-    if ("errorMessage" in contact) {
-      return createJsonResponse(
-        { message: contact.errorMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const result = await modules.tribes.useCases.saveTribeSupport({
-      channel,
-      message: contact.message,
-      phoneNumber: contact.phoneNumber,
-      tribeSlug: slug,
-    });
-
-    return createPutResultResponse(result);
-  } catch (error) {
-    logger.error({
-      error,
-      message: SUPPORT_ROUTE_LOG.saveFailureMessage,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: SUPPORT_ROUTE_RESPONSE.unexpectedSaveMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

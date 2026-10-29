@@ -4,8 +4,8 @@ import {
 } from "@/src/modules/messages/constants/message-round";
 import {
   isAttachmentAssetId,
-  isValidAttachmentUploadDeclaration,
-  normalizeAttachmentFileName,
+  normalizeAttachmentFileDrafts,
+  normalizeAttachmentUploadRequest,
 } from "@/src/modules/shared/application/attachments/attachment-upload-validation";
 import type { MessageFileDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
@@ -55,27 +55,11 @@ export type NormalizedMessageFileDrafts =
 export function normalizeMessageFileDrafts(
   drafts: MessageFileDraftCommand[] | null | undefined
 ): NormalizedMessageFileDrafts {
-  const rawDrafts = drafts ?? [];
+  const files = normalizeAttachmentFileDrafts(drafts, MESSAGE_FILES.maxCount);
 
-  if (rawDrafts.length > MESSAGE_FILES.maxCount) {
-    return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-  }
-
-  const files: MessageFileAttachmentDraft[] = [];
-  const seenAssetIds = new Set<string>();
-
-  for (const draft of rawDrafts) {
-    const assetId = draft.assetId.trim();
-
-    if (!isAttachmentAssetId(assetId) || seenAssetIds.has(assetId)) {
-      return { status: MESSAGE_MUTATION_STATUS.invalidFile };
-    }
-
-    seenAssetIds.add(assetId);
-    files.push({ assetId, sortOrder: files.length });
-  }
-
-  return { files, status: NORMALIZED_MESSAGE_FILES_STATUS.valid };
+  return files
+    ? { files, status: NORMALIZED_MESSAGE_FILES_STATUS.valid }
+    : { status: MESSAGE_MUTATION_STATUS.invalidFile };
 }
 
 export function createMessageFileUpload({
@@ -84,26 +68,13 @@ export function createMessageFileUpload({
   return async (
     command: CreateMessageFileUploadCommand
   ): Promise<MessageFileUploadCreationResult> => {
-    const fileName = normalizeAttachmentFileName(command.fileName);
-    const mimeType = command.mimeType.trim().toLowerCase();
+    const upload = normalizeAttachmentUploadRequest(command);
 
-    if (
-      !isValidAttachmentUploadDeclaration({
-        fileName,
-        fileSizeBytes: command.fileSizeBytes,
-        mimeType,
-      })
-    ) {
+    if (!upload) {
       return { status: MESSAGE_MUTATION_STATUS.invalidFile };
     }
 
-    return messageFileRepository.createUpload({
-      fileName,
-      fileSizeBytes: command.fileSizeBytes,
-      mimeType,
-      tribeSlug: command.tribeSlug.trim(),
-      userId: command.userId.trim(),
-    });
+    return messageFileRepository.createUpload(upload);
   };
 }
 

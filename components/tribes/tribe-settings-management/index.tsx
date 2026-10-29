@@ -2,9 +2,16 @@
 
 import { useId, useState } from "react";
 import Image from "next/image";
-import { ImageIcon, ImageOffIcon, UploadIcon } from "lucide-react";
-import { toast, Button, Input, PresenceSwap, buttonClassName, cn } from "@golfo/ui";
+import { ImageIcon, ImageOffIcon } from "lucide-react";
+import { toast, Button, Input, PresenceSwap, cn } from "@golfo/ui";
 
+import { TribeImageUploadButton } from "@/components/tribes/tribe-image-upload-button";
+import { useUploadingTargets } from "@/hooks/use-uploading-targets";
+import {
+  buildTribeImagesEndpoint,
+  readTribeImageReservation,
+  releaseTribeImageReservation,
+} from "@/lib/tribes/tribe-image-reservation";
 import type { TribeIdentityResult } from "@/src/modules/tribes/application/results/tribe-identity-result";
 import styles from "./styles.module.scss";
 
@@ -33,9 +40,7 @@ const TRIBE_SETTINGS_COPY = {
   saveSuccess: "Ajustes actualizados.",
   savingButton: "Guardando...",
   title: "Ajustes",
-  uploadButton: "Subir imagen",
   uploadSuccess: "Imagen subida. Guardá los cambios para aplicarla.",
-  uploadingButton: "Subiendo...",
   uploadLimitHint: (maxMegabytes: number) =>
     `JPG, PNG, GIF o WebP de hasta ${maxMegabytes} MB.`,
   uploadTooLargeError: (maxMegabytes: number) =>
@@ -45,16 +50,12 @@ const TRIBE_SETTINGS_COPY = {
 
 const SETTINGS_ROUTE = {
   apiPrefix: "/api/tribes/",
-  imagesSegment: "/images",
-  pathSeparator: "/",
   settingsSegment: "/settings",
 } as const;
 
 const SETTINGS_REQUEST = {
   contentTypeHeader: "Content-Type",
-  deleteMethod: "DELETE",
   fileFormField: "file",
-  imageAcceptTypes: "image/*",
   jsonContentType: "application/json",
   postMethod: "POST",
   putMethod: "PUT",
@@ -165,10 +166,6 @@ function buildSettingsEndpoint(tribeSlug: string): string {
   );
 }
 
-function buildImagesEndpoint(tribeSlug: string): string {
-  return SETTINGS_ROUTE.apiPrefix + tribeSlug + SETTINGS_ROUTE.imagesSegment;
-}
-
 function isHttpUrl(value: string): boolean {
   try {
     const parsedUrl = new URL(value);
@@ -191,25 +188,16 @@ async function uploadTribeImage(
   imageFile: File
 ): Promise<string> {
   const reserveResponse = await fetchSettingsEndpoint(
-    buildImagesEndpoint(tribeSlug),
+    buildTribeImagesEndpoint(tribeSlug),
     { method: SETTINGS_REQUEST.postMethod },
     TRIBE_SETTINGS_COPY.fallbackUploadError
   );
-  const reserveBody = (await reserveResponse.json().catch(() => ({}))) as {
-    deliveryUrl?: string;
-    imageId?: string;
-    message?: string;
-    uploadUrl?: string;
-  };
+  const { message, reservation } =
+    await readTribeImageReservation(reserveResponse);
 
-  if (
-    !reserveResponse.ok ||
-    !reserveBody.uploadUrl ||
-    !reserveBody.deliveryUrl ||
-    !reserveBody.imageId
-  ) {
+  if (!reservation) {
     throw new TribeSettingsRequestError(
-      reserveBody.message ?? TRIBE_SETTINGS_COPY.fallbackUploadError
+      message ?? TRIBE_SETTINGS_COPY.fallbackUploadError
     );
   }
 
@@ -218,25 +206,18 @@ async function uploadTribeImage(
   formData.append(SETTINGS_REQUEST.fileFormField, imageFile);
 
   const uploadResponse = await fetchSettingsEndpoint(
-    reserveBody.uploadUrl,
+    reservation.uploadUrl,
     { body: formData, method: SETTINGS_REQUEST.postMethod },
     TRIBE_SETTINGS_COPY.fallbackUploadError
   );
 
   if (!uploadResponse.ok) {
-    void fetch(
-      buildImagesEndpoint(tribeSlug) +
-        SETTINGS_ROUTE.pathSeparator +
-        reserveBody.imageId,
-      { method: SETTINGS_REQUEST.deleteMethod }
-    ).catch(() => {
-      // Deliberate no-op: the reservation stays a draft and the sweep reclaims it.
-    });
+    releaseTribeImageReservation(tribeSlug, reservation.imageId);
 
     throw new TribeSettingsRequestError(TRIBE_SETTINGS_COPY.fallbackUploadError);
   }
 
-  return reserveBody.deliveryUrl;
+  return reservation.deliveryUrl;
 }
 
 async function submitIdentityUpdate(
@@ -265,39 +246,6 @@ async function submitIdentityUpdate(
   }
 
   return responseBody.message ?? TRIBE_SETTINGS_COPY.saveSuccess;
-}
-
-type ImageUploadButtonProps = {
-  isUploading: boolean;
-  onFileSelected: (imageFile: File | undefined) => void;
-};
-
-/**
- * Outline button that wraps a visually hidden file input so the whole control
- * stays keyboard and screen-reader accessible while looking like a button.
- * The label mirrors the focus ring of the hidden input.
- */
-function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
-  return (
-    <label className={buttonClassName({ variant: "secondary", className: styles.TribeSettingsManagement__uploadButton })} aria-busy={isUploading || undefined} data-disabled={isUploading ? true : undefined}>
-        <UploadIcon />
-        {isUploading
-          ? TRIBE_SETTINGS_COPY.uploadingButton
-          : TRIBE_SETTINGS_COPY.uploadButton}
-        <input
-          accept={SETTINGS_REQUEST.imageAcceptTypes}
-          className={styles.TribeSettingsManagement__uploadInput}
-          disabled={isUploading}
-          onChange={(event) => {
-            const [selectedFile] = event.target.files ?? [];
-
-            event.target.value = "";
-            onFileSelected(selectedFile);
-          }}
-          type="file"
-        />
-      </label>
-  );
 }
 
 /** Visual variant of an identity image field. */
@@ -513,7 +461,9 @@ function IdentityImageField({
             placeholder={TRIBE_SETTINGS_COPY.urlPlaceholder}
             value={url}
           />
-          <ImageUploadButton
+          <TribeImageUploadButton
+            aria-busy={isUploading || undefined}
+            className={styles.TribeSettingsManagement__uploadButton}
             isUploading={isUploading}
             onFileSelected={onFileSelected}
           />
@@ -531,23 +481,8 @@ function IdentityImageField({
  * @returns Targets being uploaded and the upload handler.
  */
 function useIdentityImageUploads(tribeSlug: string) {
-  const [uploadingTargets, setUploadingTargets] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const { setUploadingTarget, uploadingTargets } = useUploadingTargets();
 
-  const setUploadingTarget = (target: string, isUploading: boolean) => {
-    setUploadingTargets((currentTargets) => {
-      const nextTargets = new Set(currentTargets);
-
-      if (isUploading) {
-        nextTargets.add(target);
-      } else {
-        nextTargets.delete(target);
-      }
-
-      return nextTargets;
-    });
-  };
   const handleImageFileUpload = async (
     target: IdentityImageVariant,
     imageFile: File | undefined,

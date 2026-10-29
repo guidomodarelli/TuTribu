@@ -5,6 +5,8 @@ import {
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
+import { readStringField } from "@/app/api/request-body-fields";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const CHANNEL_ROUTE_FIELD = {
   emoji: "emoji",
@@ -37,35 +39,17 @@ const CHANNEL_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos guardar el canal. Intentá de nuevo.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  created: 201,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
+type RouteObservation = ReturnType<typeof createRouteObservation>;
 
-function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
-
-export async function GET(
+/**
+ * Opens the observed request scope of a channel route: the route observation,
+ * request modules correlated with its request id, and the signed-in member.
+ * Without a session it answers 401 and logs the blocked outcome.
+ */
+async function openChannelRouteScope(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  input: { blockedLogMessage: string; slug: string }
 ) {
-  const { slug } = await context.params;
   const routeObservation = createRouteObservation({
     feature: CHANNEL_ROUTE_LOG.feature,
     operation: CHANNEL_ROUTE_LOG.operation,
@@ -77,19 +61,73 @@ export async function GET(
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    return routeObservation.createJsonResponse(
-      { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized,
-      {
-        message: CHANNEL_ROUTE_LOG.listBlockedMessage,
-        metadata: {
-          slug,
-        },
-        outcome: "unauthorized",
-        level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
-      }
-    );
+    return {
+      isOpen: false,
+      response: routeObservation.createJsonResponse(
+        { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
+        HTTP_STATUS.unauthorized,
+        {
+          message: input.blockedLogMessage,
+          metadata: {
+            slug: input.slug,
+          },
+          outcome: "unauthorized",
+          level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
+        }
+      ),
+    } as const;
   }
+
+  return { authenticatedMember, isOpen: true, modules, routeObservation } as const;
+}
+
+/** Logs an unexpected channel route failure and answers the safe 500. */
+function respondWithChannelRouteError(
+  routeObservation: RouteObservation,
+  input: {
+    error: unknown;
+    logMessage: string;
+    responseMessage: string;
+    slug: string;
+    viewerId: string;
+  }
+): Response {
+  routeObservation.logRouteError({
+    message: input.logMessage,
+    error: input.error,
+    metadata: {
+      slug: input.slug,
+      viewerId: input.viewerId,
+    },
+    outcome: "error",
+    status: HTTP_STATUS.serverError,
+  });
+
+  return routeObservation.createJsonResponse(
+    { message: input.responseMessage },
+    HTTP_STATUS.serverError
+  );
+}
+
+export async function GET(
+  request: Request,
+  context: {
+    params: Promise<{
+      slug: string;
+    }>;
+  }
+) {
+  const { slug } = await context.params;
+  const scope = await openChannelRouteScope(request, {
+    blockedLogMessage: CHANNEL_ROUTE_LOG.listBlockedMessage,
+    slug,
+  });
+
+  if (!scope.isOpen) {
+    return scope.response;
+  }
+
+  const { authenticatedMember, modules, routeObservation } = scope;
 
   try {
     const result = await modules.messages.useCases.listTribeChannels({
@@ -107,21 +145,13 @@ export async function GET(
       outcome: "success",
     });
   } catch (error) {
-    routeObservation.logRouteError({
-      message: CHANNEL_ROUTE_LOG.listFailureMessage,
+    return respondWithChannelRouteError(routeObservation, {
       error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-      outcome: "error",
-      status: HTTP_STATUS.serverError,
+      logMessage: CHANNEL_ROUTE_LOG.listFailureMessage,
+      responseMessage: CHANNEL_ROUTE_RESPONSE.unexpectedListMessage,
+      slug,
+      viewerId: authenticatedMember.id,
     });
-
-    return routeObservation.createJsonResponse(
-      { message: CHANNEL_ROUTE_RESPONSE.unexpectedListMessage },
-      HTTP_STATUS.serverError
-    );
   }
 }
 
@@ -193,30 +223,16 @@ export async function POST(
   }
 ) {
   const { slug } = await context.params;
-  const routeObservation = createRouteObservation({
-    feature: CHANNEL_ROUTE_LOG.feature,
-    operation: CHANNEL_ROUTE_LOG.operation,
-    request,
+  const scope = await openChannelRouteScope(request, {
+    blockedLogMessage: CHANNEL_ROUTE_LOG.createFailureMessage,
+    slug,
   });
-  const modules = await createRequestModules({
-    requestId: routeObservation.requestId,
-  });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return routeObservation.createJsonResponse(
-      { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized,
-      {
-        message: CHANNEL_ROUTE_LOG.createFailureMessage,
-        metadata: {
-          slug,
-        },
-        outcome: "unauthorized",
-        level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
-      }
-    );
+  if (!scope.isOpen) {
+    return scope.response;
   }
+
+  const { authenticatedMember, modules, routeObservation } = scope;
 
   try {
     const body: unknown = await request.json().catch(() => null);
@@ -232,20 +248,12 @@ export async function POST(
       viewerId: authenticatedMember.id,
     });
   } catch (error) {
-    routeObservation.logRouteError({
-      message: CHANNEL_ROUTE_LOG.createFailureMessage,
+    return respondWithChannelRouteError(routeObservation, {
       error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-      outcome: "error",
-      status: HTTP_STATUS.serverError,
+      logMessage: CHANNEL_ROUTE_LOG.createFailureMessage,
+      responseMessage: CHANNEL_ROUTE_RESPONSE.unexpectedMessage,
+      slug,
+      viewerId: authenticatedMember.id,
     });
-
-    return routeObservation.createJsonResponse(
-      { message: CHANNEL_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
   }
 }

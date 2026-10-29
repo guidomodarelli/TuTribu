@@ -11,6 +11,11 @@ import {
   createJsonResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  parseRouteRequestParts,
+  type RouteInputPart,
+  type RouteInputRejection,
+} from "@/src/modules/shared/infrastructure/http/route-input";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 /**
@@ -45,14 +50,6 @@ const TRIBE_EVENT_ROUTE_INPUT_LOG = {
   rejectedMessage: "Tribe event route input rejected",
 } as const;
 
-const TRIBE_EVENT_ROUTE_INPUT_PART = {
-  body: "body",
-  params: "params",
-  query: "query",
-} as const;
-
-type TribeEventRouteInputPart =
-  (typeof TRIBE_EVENT_ROUTE_INPUT_PART)[keyof typeof TRIBE_EVENT_ROUTE_INPUT_PART];
 
 const TRIBE_EVENT_INPUT_ISSUE_MESSAGE: Record<TribeEventInputIssue, string> = {
   [TRIBE_EVENT_INPUT_ISSUE.invalidAttendance]: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage,
@@ -85,36 +82,6 @@ const TRIBE_EVENT_INPUT_ISSUE_MESSAGE: Record<TribeEventInputIssue, string> = {
 };
 
 /**
- * Query string as a plain object: one string per key, or an array when the
- * key is repeated, so the schema decides whether repetition is allowed.
- */
-function readQueryObject(request: Request): Record<string, string | string[]> {
-  const { searchParams } = new URL(request.url);
-  const query: Record<string, string | string[]> = {};
-
-  for (const key of new Set(searchParams.keys())) {
-    const values = searchParams.getAll(key);
-
-    query[key] = values.length === 1 ? values[0] : values;
-  }
-
-  return query;
-}
-
-/**
- * Parsed JSON body, or `undefined` when the body is missing or not JSON, which
- * the body schema rejects like any other unusable shape.
- */
-async function readJsonBody(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    // Unparseable JSON is expected client input, rejected by the schema below.
-    return undefined;
-  }
-}
-
-/**
  * Safe Spanish copy for the first issue. Every schema rule declares its
  * category; an undeclared message falls back to the generic invalid input.
  */
@@ -128,9 +95,9 @@ function resolveRejectionMessage(issues: readonly z.core.$ZodIssue[]): string {
 
 function rejectInput(
   logger: ServerLogger,
-  part: TribeEventRouteInputPart,
+  part: RouteInputPart,
   error: z.ZodError
-): { isValid: false; response: Response } {
+): RouteInputRejection {
   logger.warn({
     message: TRIBE_EVENT_ROUTE_INPUT_LOG.rejectedMessage,
     metadata: {
@@ -161,33 +128,10 @@ export async function parseTribeEventRouteInput<TParams, TQuery, TBody = undefin
   request: Request;
   schemas: TribeEventRouteInputSchemas<TParams, TQuery, TBody>;
 }): Promise<TribeEventRouteInput<TParams, TQuery, TBody>> {
-  const { logger, request, schemas } = input;
-  const params = schemas.params.safeParse(await input.params);
-
-  if (!params.success) {
-    return rejectInput(logger, TRIBE_EVENT_ROUTE_INPUT_PART.params, params.error);
-  }
-
-  const query = schemas.query.safeParse(readQueryObject(request));
-
-  if (!query.success) {
-    return rejectInput(logger, TRIBE_EVENT_ROUTE_INPUT_PART.query, query.error);
-  }
-
-  if (!schemas.body) {
-    return {
-      body: undefined as TBody,
-      isValid: true,
-      params: params.data,
-      query: query.data,
-    };
-  }
-
-  const body = schemas.body.safeParse(await readJsonBody(request));
-
-  if (!body.success) {
-    return rejectInput(logger, TRIBE_EVENT_ROUTE_INPUT_PART.body, body.error);
-  }
-
-  return { body: body.data, isValid: true, params: params.data, query: query.data };
+  return parseRouteRequestParts({
+    params: input.params,
+    reject: (part, error) => rejectInput(input.logger, part, error),
+    request: input.request,
+    schemas: input.schemas,
+  });
 }

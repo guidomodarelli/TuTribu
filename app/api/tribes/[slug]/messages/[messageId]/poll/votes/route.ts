@@ -1,9 +1,13 @@
 import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const MESSAGE_POLL_VOTE_LOG = {
   feature: "messages",
@@ -24,21 +28,6 @@ const MESSAGE_POLL_VOTE_RESPONSE = {
   unauthorizedMessage: "Inicia sesion para votar.",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
-
 type SubmitMessagePollVoteResult = Awaited<
   ReturnType<RequestModules["messages"]["useCases"]["submitMessagePollVote"]>
 >;
@@ -48,7 +37,7 @@ function createPostResultResponse(result: SubmitMessagePollVoteResult, slug: str
     case MESSAGE_MUTATION_STATUS.voted:
       revalidateTribeRoundCache(slug);
 
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message: MESSAGE_POLL_VOTE_RESPONSE.successMessage,
           poll: result.poll,
@@ -56,87 +45,67 @@ function createPostResultResponse(result: SubmitMessagePollVoteResult, slug: str
         HTTP_STATUS.ok
       );
     case MESSAGE_MUTATION_STATUS.invalidPoll:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: MESSAGE_POLL_VOTE_RESPONSE.invalidPollMessage },
         HTTP_STATUS.badRequest
       );
     case MESSAGE_MUTATION_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case MESSAGE_MUTATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: MESSAGE_POLL_VOTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
   }
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: MESSAGE_POLL_VOTE_LOG.feature,
+  operation: MESSAGE_POLL_VOTE_LOG.operation,
+  unauthorizedMessage: MESSAGE_POLL_VOTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      messageId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ messageId: string }>
 ) {
   const { messageId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: MESSAGE_POLL_VOTE_LOG.feature,
-    operation: MESSAGE_POLL_VOTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: MESSAGE_POLL_VOTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: MESSAGE_POLL_VOTE_LOG.voteFailureMessage,
+      metadata: { messageId, slug },
+      responseMessage: MESSAGE_POLL_VOTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ member, modules }) => {
+      if (!isUuidRouteParam(messageId)) {
+        return createRouteJsonResponse(
+          { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      }
 
-  if (!isUuidRouteParam(messageId)) {
-    return createJsonResponse(
-      { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
-      HTTP_STATUS.notFound
-    );
-  }
-
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const rawOptionIds = body?.[MESSAGE_POLL_VOTE_FIELD.optionIds];
-  const optionIds = Array.isArray(rawOptionIds)
-    ? rawOptionIds.filter(
-        (optionId: unknown): optionId is string => typeof optionId === "string"
-      )
-    : [];
-  try {
-    const result = await modules.messages.useCases.submitMessagePollVote({
-      messageId,
-      optionIds,
-      tribeSlug: slug,
-      userId: authenticatedMember.id,
-    });
-
-    return createPostResultResponse(result, slug);
-  } catch (error) {
-    logger.error({
-      message: MESSAGE_POLL_VOTE_LOG.voteFailureMessage,
-      error,
-      metadata: {
+      const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+      const rawOptionIds = body?.[MESSAGE_POLL_VOTE_FIELD.optionIds];
+      const optionIds = Array.isArray(rawOptionIds)
+        ? rawOptionIds.filter(
+            (optionId: unknown): optionId is string => typeof optionId === "string"
+          )
+        : [];
+      const result = await modules.messages.useCases.submitMessagePollVote({
         messageId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+        optionIds,
+        tribeSlug: slug,
+        userId: member.id,
+      });
 
-    return createJsonResponse(
-      { message: MESSAGE_POLL_VOTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPostResultResponse(result, slug);
+    }
+  );
 }

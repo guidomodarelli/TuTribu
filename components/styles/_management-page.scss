@@ -1,0 +1,183 @@
+// Shared layout and typography for the tribe management pages (channels, invitations, settings, story).
+//
+// Each page keeps its own BEM block; these mixins only give the pieces the same hierarchy: a display title,
+// sections split by a top border with an intro column, counters, bordered lists and empty states.
+//
+// Usage (path relative to the module):
+//   @use "../../styles/management-page";
+//   .Block { @include management-page.page; }
+//   .Block__title { @include management-page.title; }
+
+@mixin page {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 2.25rem);
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0 1.5rem;
+}
+
+@mixin heading-group {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+@mixin title {
+  color: var(--foreground);
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+@mixin description {
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+@mixin section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+@mixin section-intro {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  min-width: 0;
+}
+
+@mixin section-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@mixin section-title {
+  color: var(--foreground);
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+@mixin section-description {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 36ch;
+}
+
+@mixin count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+@mixin list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+// Row of a bordered list; `$gap` and `$padding-block` set its density.
+@mixin list-item($gap, $padding-block) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $gap;
+  padding: $padding-block 0;
+  border-bottom: 1px solid var(--border);
+}
+
+// Empty state framed by the list borders; `$padding-block` sets its height.
+@mixin empty($padding-block) {
+  display: grid;
+  gap: 0.25rem;
+  padding: $padding-block 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+@mixin empty-title {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+@mixin empty-hint {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+// Placeholder shown inside an image preview frame before an image is picked.
+@mixin media-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+@mixin media-placeholder-icon {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+@mixin media-placeholder-label {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+// Element sets: emit the rules of several elements of the including block at once, so each page
+// only declares what it adds on top.
+
+@mixin heading-elements {
+  &__title {
+    @include title;
+  }
+
+  &__description {
+    @include description;
+  }
+}
+
+@mixin section-elements {
+  &__section {
+    @include section;
+  }
+
+  &__sectionIntro {
+    @include section-intro;
+  }
+
+  &__sectionTitle {
+    @include section-title;
+  }
+
+  &__sectionDescription {
+    @include section-description;
+  }
+}

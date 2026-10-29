@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import { toast } from "@golfo/ui";
 import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
+import { authorizeInitialViewer } from "@/hooks/verify-initial-viewer";
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-import-browser-client";
 import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
@@ -72,14 +73,7 @@ function useAllowlistImportReads(state: AllowlistImportState) {
     setErrorMessage(null); writeToastRef.current.announce({ kind: "error", message });
   }, [setErrorMessage, writeToastRef]);
   /** @param signal - Current cancellable action. @param scope - Render generation. @returns Current native identity; stale data can never replace a new account's view. */
-  const authorize = useCallback(async (signal: AbortSignal, scope: number) => {
-    if (!initial || !live(signal, scope)) return false;
-    const viewer = await client.viewer(signal);
-    if (!live(signal, scope)) return false;
-    if (viewer.status === "aborted") return false;
-    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { authorityLostRef.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); return false; }
-    return true;
-  }, [authorityLostRef, client, initial, live, setAccessLost, setConfirmed, setErrorMessage, setPrivateVisible, setReady]);
+  const authorize = useCallback((signal: AbortSignal, scope: number) => authorizeInitialViewer({ client, initial, live, onViewerChanged: () => { authorityLostRef.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); } }, signal, scope), [authorityLostRef, client, initial, live, setAccessLost, setConfirmed, setErrorMessage, setPrivateVisible, setReady]);
   /** Drops the saved resource the server no longer has, unless an original still needs it. */
   const forgetUnavailableImport = useCallback(() => {
     snapshotRef.current = null; setSnapshot(null);

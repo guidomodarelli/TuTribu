@@ -104,6 +104,31 @@ function formatCompletedLessons(completedLessonCount: number): string {
 }
 
 /**
+ * Description (when the course has one) and the meta line of a course card.
+ *
+ * @param props - Course description and the meta copy.
+ * @returns The card summary.
+ */
+function CourseCardSummary({
+  description,
+  meta,
+}: {
+  description: string | null;
+  meta: string;
+}) {
+  return (
+    <>
+      {description ? (
+        <p className={styles.TribeCoursesCatalog__cardDescription}>
+          {description}
+        </p>
+      ) : null}
+      <p className={styles.TribeCoursesCatalog__cardMeta}>{meta}</p>
+    </>
+  );
+}
+
+/**
  * Catalog card of an academy course the viewer cannot open. It only carries
  * catalog metadata and links to the academy page (offer and next step).
  *
@@ -122,22 +147,7 @@ function LockedAcademyCourseCard({
       className={styles.TribeCoursesCatalog__card}
       href={ROUTES.tribes.academy(tribeSlug)}
     >
-      <div className={styles.TribeCoursesCatalog__coverFrame}>
-        {course.coverImageUrl ? (
-          <Image
-            alt=""
-            className={styles.TribeCoursesCatalog__coverImage}
-            fill
-            sizes="(min-width: 64rem) 20rem, 100vw"
-            src={course.coverImageUrl}
-            unoptimized
-          />
-        ) : (
-          <div aria-hidden className={styles.TribeCoursesCatalog__coverFallback}>
-            {course.title.slice(0, 1).toUpperCase()}
-          </div>
-        )}
-      </div>
+      <CourseCardCover course={course} />
       <div className={styles.TribeCoursesCatalog__cardBody}>
         <h2 className={styles.TribeCoursesCatalog__cardTitle}>
           {course.title}
@@ -145,16 +155,14 @@ function LockedAcademyCourseCard({
             {CATALOG_COPY.academyBadge}
           </span>
         </h2>
-        {course.description ? (
-          <p className={styles.TribeCoursesCatalog__cardDescription}>
-            {course.description}
-          </p>
-        ) : null}
-        <p className={styles.TribeCoursesCatalog__cardMeta}>
-          {course.viewerAccess.completedLessonCount > 0
-            ? formatCompletedLessons(course.viewerAccess.completedLessonCount)
-            : CATALOG_COPY.academyLockedDescription}
-        </p>
+        <CourseCardSummary
+          description={course.description}
+          meta={
+            course.viewerAccess.completedLessonCount > 0
+              ? formatCompletedLessons(course.viewerAccess.completedLessonCount)
+              : CATALOG_COPY.academyLockedDescription
+          }
+        />
         <span className={styles.TribeCoursesCatalog__cardCta}>
           {CATALOG_COPY.academyCta}
           <ArrowRight aria-hidden className={styles.TribeCoursesCatalog__cardCtaIcon} />
@@ -195,7 +203,11 @@ type CourseCardProps = {
  * @param props.course - Course whose cover is shown.
  * @returns The course cover frame.
  */
-function CourseCardCover({ course }: Pick<CourseCardProps, "course">) {
+function CourseCardCover({
+  course,
+}: {
+  course: Pick<CourseCardProps["course"], "coverImageUrl" | "title">;
+}) {
   return (
     <div className={styles.TribeCoursesCatalog__coverFrame}>
       {course.coverImageUrl ? (
@@ -249,14 +261,10 @@ function CourseCard({ course, onCourseClick, tribeSlug }: CourseCardProps) {
             </span>
           ) : null}
         </h2>
-        {course.description ? (
-          <p className={styles.TribeCoursesCatalog__cardDescription}>
-            {course.description}
-          </p>
-        ) : null}
-        <p className={styles.TribeCoursesCatalog__cardMeta}>
-          {formatLessonCount(lessonCount)}
-        </p>
+        <CourseCardSummary
+          description={course.description}
+          meta={formatLessonCount(lessonCount)}
+        />
         <div
           aria-label={CATALOG_COPY.progressLabel}
           aria-valuemax={PERCENT_MAX}

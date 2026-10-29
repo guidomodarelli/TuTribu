@@ -6,18 +6,14 @@
  * @module academy-members-route
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import {
+  createAcademyFailureResponse,
+  handleAcademyRoute,
+  type AcademyTribeRouteContext,
+} from "@/app/api/tribes/[slug]/academy-route-scope";
 import { toAcademyMembersPageDto } from "@/src/modules/product-access/application/results/academy-dto-mappers";
 import { academyMembersPageDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
-import {
-  ACADEMY_HTTP_STATUS,
-  ACADEMY_ROUTE_MESSAGE,
-  createAcademyJsonResponse,
-  createAcademyPublicResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
-  readAcademyQuery,
-} from "@/src/modules/product-access/infrastructure/api/academy-route-http";
+import { ACADEMY_HTTP_STATUS } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import {
   academyMembersQuerySchema,
   academyTribeParamsSchema,
@@ -25,64 +21,31 @@ import {
 
 const OPERATION = "academy-members";
 
-export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
+export async function GET(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Academy members read failed",
+      operation: OPERATION,
+      schemas: { params: academyTribeParamsSchema, query: academyMembersQuerySchema },
+    },
+    async ({ modules, params, query, respond }) => {
+      const result = await modules.productAccess.useCases.listAcademyMembers({
+        page: query.page,
+        search: query.search ?? null,
+        tribeSlug: params.slug,
+      });
 
-  if (!scope.isOpen) {
-    return scope.response;
-  }
+      if (result.status !== "ok") {
+        return createAcademyFailureResponse(result.status);
+      }
 
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  const query = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "query",
-    schema: academyMembersQuerySchema,
-    value: readAcademyQuery(request),
-  });
-
-  if (!query.isValid) {
-    return query.response;
-  }
-
-  try {
-    const result = await scope.modules.productAccess.useCases.listAcademyMembers({
-      page: query.data.page,
-      search: query.data.search ?? null,
-      tribeSlug: params.data.slug,
-    });
-
-    if (result.status !== "ok") {
-      const isForbidden = result.status === "forbidden";
-
-      return createAcademyJsonResponse(
-        { message: isForbidden ? ACADEMY_ROUTE_MESSAGE.forbidden : ACADEMY_ROUTE_MESSAGE.notFound },
-        isForbidden ? ACADEMY_HTTP_STATUS.forbidden : ACADEMY_HTTP_STATUS.notFound
+      return respond(
+        toAcademyMembersPageDto(result.page, query.page),
+        academyMembersPageDtoSchema,
+        ACADEMY_HTTP_STATUS.ok
       );
     }
-
-    return createAcademyPublicResponse({
-      body: toAcademyMembersPageDto(result.page, query.data.page),
-      logger: scope.logger,
-      metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-      schema: academyMembersPageDtoSchema,
-      status: ACADEMY_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Academy members read failed",
-      metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
-    });
-  }
+  );
 }

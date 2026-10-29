@@ -1,4 +1,6 @@
 @use "../../../src/styles/motion";
+@use "../courses";
+@use "../../styles/interaction";
 
 @include motion.define-keyframes;
 
@@ -26,24 +28,9 @@
   }
 
   &__backLink {
-    @include motion.interactive(color);
-
-    border-radius: calc(var(--radius-md) - 2px);
-    color: var(--muted-foreground);
     font-size: 0.8125rem;
-    text-decoration: none;
-    text-underline-offset: 0.2rem;
 
-    &:hover {
-      color: var(--foreground);
-      text-decoration: underline;
-    }
-
-    &:focus-visible {
-      color: var(--foreground);
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
+    @include courses.back-link;
   }
 
   &__emptyState {
@@ -62,12 +49,7 @@
   }
 
   &__courseItem {
-    display: grid;
-    gap: 0.75rem;
-    padding: 1rem 1.125rem;
-    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
-    border-radius: var(--radius-lg);
-    background-color: var(--card);
+    @include courses.card;
     min-width: 0;
   }
 
@@ -119,12 +101,7 @@
   &__pendingBadge {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem 0.5rem;
-    border-radius: 999rem;
-    background-color: var(--muted);
-    color: var(--muted-foreground);
-    font-size: 0.6875rem;
-    font-weight: 500;
+    @include courses.status-pill(var(--muted));
   }
 
   &__actions {
@@ -153,20 +130,11 @@
       background-color: var(--muted);
     }
 
-    &:focus-visible {
-      outline: none;
-      border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
-    }
+    @include interaction.focus-ring;
   }
 
   &__form {
-    display: grid;
-    gap: 0.75rem;
-    padding: 1rem 1.125rem;
-    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
-    border-radius: var(--radius-lg);
-    background-color: var(--card);
+    @include courses.card;
 
     // Inside a course row the row already frames the form, which replaces the
     // summary in place and enters softly.

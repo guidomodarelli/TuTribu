@@ -3,8 +3,15 @@
 import { type Dispatch, type SetStateAction, type SubmitEvent, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
+import { Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea } from "@golfo/ui";
 
+import {
+  findTribeEventEndFieldsIssue,
+  TRIBE_EVENT_CONDITIONAL_FIELD_MOTION,
+  type TribeEventFormValidationIssue,
+} from "@/components/events/tribe-event-end-fields";
+import { TribeEventFormActions } from "@/components/events/tribe-event-form-actions";
+import { TribeEventStartsTimeInput } from "@/components/events/tribe-event-starts-time-input";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
@@ -135,26 +142,9 @@ const FIELD_ID = {
 /** Id of a form control that a validation message can point at. */
 type EventFormFieldId = (typeof FIELD_ID)[keyof typeof FIELD_ID];
 
-/**
- * Validation failure shown under the control it belongs to: the Spanish
- * message and that control, which is marked invalid, described by the message
- * and focused so the manager lands on what to fix.
- */
-type EventFormValidationIssue = {
-  fieldId: EventFormFieldId;
-  message: string;
-};
+/** Validation failure of the form, pointing at one of its controls. */
+type EventFormValidationIssue = TribeEventFormValidationIssue<EventFormFieldId>;
 
-/**
- * Fade for fields that appear with a choice ("Termina otro día", a
- * repetition): opacity only, so the two-column row does not shift sideways.
- */
-const CONDITIONAL_FIELD_MOTION = {
-  animate: { opacity: 1 },
-  exit: { opacity: 0, transition: { duration: MOTION_TIMING.exit, ease: MOTION_EASE } },
-  initial: { opacity: 0 },
-  transition: { duration: MOTION_TIMING.enter, ease: MOTION_EASE },
-} as const;
 const INPUT_TYPE = {
   date: "date",
   time: "time",
@@ -169,11 +159,6 @@ const INPUT_MODE = {
  * again with the same limits.
  */
 const CAPACITY_PATTERN = /^\d+$/;
-const BUTTON_ATTRIBUTE = {
-  typeButton: "button",
-  typeSubmit: "submit",
-  variantGhost: "ghost",
-} as const;
 const RECURRENCE_OPTIONS = [
   TRIBE_EVENT_RECURRENCE_FREQUENCY.none,
   TRIBE_EVENT_RECURRENCE_FREQUENCY.weekly,
@@ -192,7 +177,6 @@ const COPY = {
   approveButton: "Aprobar y publicar",
   approveDescription: "Revisá y completá los datos antes de publicar el encuentro propuesto.",
   approveTitle: "Aprobar propuesta",
-  cancelButton: "Cancelar",
   capacityEditHint: "Bajar el cupo no quita a nadie que ya confirmó.",
   capacityHint: "Si se completa, las nuevas respuestas quedan en lista de espera.",
   capacityLabel: "Cupo máximo (opcional)",
@@ -212,13 +196,10 @@ const COPY = {
   invalidRecurrenceUntil: "La repetición debe terminar después de la fecha de inicio.",
   meetingUrlLabel: "Link de reunión",
   meetingUrlPlaceholder: "https://meet.google.com/…",
-  missingEndDate: "Elegí la fecha de fin o destildá «Termina otro día».",
-  missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   recurrenceFrequencyLabel: "Repetición",
   recurrenceUntilLabel: "Repetir hasta (opcional)",
   saveButton: "Guardar evento",
   savingButton: "Guardando…",
-  startsTimeLabel: "Hora de inicio",
   titleLabel: "Título",
 } as const;
 
@@ -419,14 +400,10 @@ function buildPayload(
 
   const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
 
-  // A checked «Termina otro día» with no date would silently save a same-day
-  // end, so the chosen next-day end must be explicit.
-  if (endsOnAnotherDay && !values.endsDate) {
-    return { issue: { fieldId: FIELD_ID.endsDate, message: COPY.missingEndDate } };
-  }
+  const endFieldsIssue = findTribeEventEndFieldsIssue(values, endsOnAnotherDay, FIELD_ID);
 
-  if (values.endsDate && !values.endsTime) {
-    return { issue: { fieldId: FIELD_ID.endsTime, message: COPY.missingEndTime } };
+  if (endFieldsIssue) {
+    return { issue: endFieldsIssue };
   }
 
   const endsAt = values.endsTime
@@ -717,13 +694,10 @@ function EventScheduleFields({ form, getFieldError }: EventFormFieldsProps) {
           value={values.date}
           onChange={(event) => form.updateDate(event.currentTarget.value)}
         />
-        <Input
+        <TribeEventStartsTimeInput
           id={FIELD_ID.startsTime}
-          label={COPY.startsTimeLabel}
-          required
-          type={INPUT_TYPE.time}
           value={values.startsTime}
-          onChange={(event) => form.updateStartsTime(event.currentTarget.value)}
+          onValueChange={form.updateStartsTime}
         />
       </div>
       <div className={styles.TribeEventFormDialog__row}>
@@ -739,7 +713,7 @@ function EventScheduleFields({ form, getFieldError }: EventFormFieldsProps) {
           {endsOnAnotherDay ? (
             <m.div
               key={FIELD_ID.endsDate}
-              {...CONDITIONAL_FIELD_MOTION}
+              {...TRIBE_EVENT_CONDITIONAL_FIELD_MOTION}
             >
               <Input
                 error={getFieldError(FIELD_ID.endsDate)}
@@ -786,7 +760,7 @@ function EventRecurrenceFields({ form, getFieldError }: EventFormFieldsProps) {
         {isRecurring ? (
           <m.div
             key={FIELD_ID.recurrenceUntil}
-            {...CONDITIONAL_FIELD_MOTION}
+            {...TRIBE_EVENT_CONDITIONAL_FIELD_MOTION}
           >
             <Input
               error={getFieldError(FIELD_ID.recurrenceUntil)}
@@ -855,18 +829,13 @@ type EventFormActionsProps = Pick<TribeEventFormDialogProps, "isSaving" | "onClo
 /** Cancel and submit buttons of the form. */
 function EventFormActions({ isSaving, onClose, submitLabel }: EventFormActionsProps) {
   return (
-    <div className={styles.TribeEventFormDialog__actions}>
-      <Button
-        type={BUTTON_ATTRIBUTE.typeButton}
-        variant={BUTTON_ATTRIBUTE.variantGhost}
-        onClick={onClose}
-      >
-        {COPY.cancelButton}
-      </Button>
-      <Button disabled={isSaving} type={BUTTON_ATTRIBUTE.typeSubmit}>
-        {isSaving ? COPY.savingButton : submitLabel}
-      </Button>
-    </div>
+    <TribeEventFormActions
+      className={styles.TribeEventFormDialog__actions}
+      isSaving={isSaving}
+      onClose={onClose}
+      savingLabel={COPY.savingButton}
+      submitLabel={submitLabel}
+    />
   );
 }
 

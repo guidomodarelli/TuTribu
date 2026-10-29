@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import type { ReactNode } from "react";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -17,6 +18,7 @@ import {
   TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
 } from "@/src/modules/tribes/constants/tribe-invitations";
 import styles from "./page.module.scss";
+import { readFirstSearchParamValue } from "@/app/search-params";
 
 const INVITATION_PAGE_COPY = {
   acceptButton: "Aceptar invitación",
@@ -89,7 +91,14 @@ function buildSignInRedirectPath(slug: string, token: string): string {
   return buildSignInRedirectUrl(ROUTES.tribes.invitation(slug, token));
 }
 
-function renderInvitationStatus(title: string, description: string) {
+type InvitationPanelProps = {
+  children?: ReactNode;
+  description: string;
+  title: string;
+};
+
+/** Invitation page layout: eyebrow, title, description and the step's content. */
+function InvitationPanel({ children, description, title }: InvitationPanelProps) {
   return (
     <main className={styles.TribeInvitationPage}>
       <section className={styles.TribeInvitationPage__content}>
@@ -98,46 +107,36 @@ function renderInvitationStatus(title: string, description: string) {
         </p>
         <h1 className={styles.TribeInvitationPage__title}>{title}</h1>
         <p className={styles.TribeInvitationPage__description}>{description}</p>
+        {children}
       </section>
     </main>
   );
+}
+
+/** Form whose single submit button runs an invitation server action. */
+function InvitationActionForm({ action, label }: { action: () => Promise<void>; label: string }) {
+  return (
+    <form action={action} className={styles.TribeInvitationPage__form}>
+      <Button type={INVITATION_PAGE_FORM.submitButtonType}>{label}</Button>
+    </form>
+  );
+}
+
+function renderInvitationStatus(title: string, description: string) {
+  return <InvitationPanel description={description} title={title} />;
 }
 
 function renderAlreadySubscribedStatus(slug: string) {
   return (
-    <main className={styles.TribeInvitationPage}>
-      <section className={styles.TribeInvitationPage__content}>
-        <p className={styles.TribeInvitationPage__eyebrow}>
-          {INVITATION_PAGE_COPY.eyebrow}
-        </p>
-        <h1 className={styles.TribeInvitationPage__title}>
-          {INVITATION_PAGE_COPY.alreadySubscribedTitle}
-        </h1>
-        <p className={styles.TribeInvitationPage__description}>
-          {INVITATION_PAGE_COPY.alreadySubscribedDescription}
-        </p>
-        <ButtonLink href={ROUTES.tribes.bySlug(slug)}>
-          {INVITATION_PAGE_COPY.alreadySubscribedButton}
-        </ButtonLink>
-      </section>
-    </main>
+    <InvitationPanel
+      description={INVITATION_PAGE_COPY.alreadySubscribedDescription}
+      title={INVITATION_PAGE_COPY.alreadySubscribedTitle}
+    >
+      <ButtonLink href={ROUTES.tribes.bySlug(slug)}>
+        {INVITATION_PAGE_COPY.alreadySubscribedButton}
+      </ButtonLink>
+    </InvitationPanel>
   );
-}
-
-function readFirstSearchParamValue(
-  searchParamValue: string | string[] | undefined
-): string | null {
-  if (typeof searchParamValue === "string") {
-    return searchParamValue;
-  }
-
-  if (Array.isArray(searchParamValue)) {
-    const firstStringValue = searchParamValue.find((value) => value.trim().length > 0);
-
-    return firstStringValue ?? null;
-  }
-
-  return null;
 }
 
 function buildInvitationStatusPath(
@@ -254,13 +253,11 @@ function renderSubscriptionOffer(
   );
 }
 
-/** @param input - Existing route arrival, never a membership or policy permission. @returns Navigation to common admission for academy, or the classic owner's confirmed outcome. */
-export async function acceptInvitationAction({
-  slug,
-  token,
-}: AcceptInvitationActionInput) {
-  "use server";
-
+/**
+ * Resolves the signed-in member of an invitation server action; without a
+ * session (or member) it redirects to sign in and back to the invitation.
+ */
+async function requireInvitationMember(slug: string, token: string) {
   const session = await getSession();
 
   if (!session) {
@@ -273,6 +270,18 @@ export async function acceptInvitationAction({
   if (!authenticatedMember) {
     redirect(buildSignInRedirectPath(slug, token));
   }
+
+  return { authenticatedMember, modules };
+}
+
+/** @param input - Existing route arrival, never a membership or policy permission. @returns Navigation to common admission for academy, or the classic owner's confirmed outcome. */
+export async function acceptInvitationAction({
+  slug,
+  token,
+}: AcceptInvitationActionInput) {
+  "use server";
+
+  const { modules } = await requireInvitationMember(slug, token);
 
   const result = await modules.tribes.useCases.acceptTribeInvitation({
     token,
@@ -300,18 +309,7 @@ export async function startInvitationSubscriptionAction({
 }: AcceptInvitationActionInput) {
   "use server";
 
-  const session = await getSession();
-
-  if (!session) {
-    redirect(buildSignInRedirectPath(slug, token));
-  }
-
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    redirect(buildSignInRedirectPath(slug, token));
-  }
+  const { authenticatedMember, modules } = await requireInvitationMember(slug, token);
 
   const idempotencyKey = buildInvitationSubscriptionIdempotencyKey({
     memberId: authenticatedMember.id,
@@ -348,57 +346,33 @@ function InvitationPayment({
   subscriptionOffer,
 }: InvitationPaymentProps) {
   return (
-    <main className={styles.TribeInvitationPage}>
-      <section className={styles.TribeInvitationPage__content}>
-        <p className={styles.TribeInvitationPage__eyebrow}>
-          {INVITATION_PAGE_COPY.eyebrow}
-        </p>
-        <h1 className={styles.TribeInvitationPage__title}>
-          {INVITATION_PAGE_COPY.paymentTitle}
-        </h1>
-        <p className={styles.TribeInvitationPage__description}>
-          {INVITATION_PAGE_COPY.paymentDescription}
-        </p>
-        {renderSubscriptionOffer(subscriptionOffer)}
-        {canStartSubscription ? (
-          <form
-            action={startSubscription}
-            className={styles.TribeInvitationPage__form}
-          >
-            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-              {INVITATION_PAGE_COPY.paymentButton}
-            </Button>
-          </form>
-        ) : null}
-      </section>
-    </main>
+    <InvitationPanel
+      description={INVITATION_PAGE_COPY.paymentDescription}
+      title={INVITATION_PAGE_COPY.paymentTitle}
+    >
+      {renderSubscriptionOffer(subscriptionOffer)}
+      {canStartSubscription ? (
+        <InvitationActionForm
+          action={startSubscription}
+          label={INVITATION_PAGE_COPY.paymentButton}
+        />
+      ) : null}
+    </InvitationPanel>
   );
 }
 
 /** Last step of a free invitation: the button that joins the tribe. */
 function InvitationConfirmation({ acceptInvitation: acceptInvitationWithToken }: { acceptInvitation: () => Promise<void> }) {
   return (
-    <main className={styles.TribeInvitationPage}>
-      <section className={styles.TribeInvitationPage__content}>
-        <p className={styles.TribeInvitationPage__eyebrow}>
-          {INVITATION_PAGE_COPY.eyebrow}
-        </p>
-        <h1 className={styles.TribeInvitationPage__title}>
-          {INVITATION_PAGE_COPY.confirmationTitle}
-        </h1>
-        <p className={styles.TribeInvitationPage__description}>
-          {INVITATION_PAGE_COPY.confirmationDescription}
-        </p>
-        <form
-          action={acceptInvitationWithToken}
-          className={styles.TribeInvitationPage__form}
-        >
-          <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-            {INVITATION_PAGE_COPY.continueButton}
-          </Button>
-        </form>
-      </section>
-    </main>
+    <InvitationPanel
+      description={INVITATION_PAGE_COPY.confirmationDescription}
+      title={INVITATION_PAGE_COPY.confirmationTitle}
+    >
+      <InvitationActionForm
+        action={acceptInvitationWithToken}
+        label={INVITATION_PAGE_COPY.continueButton}
+      />
+    </InvitationPanel>
   );
 }
 

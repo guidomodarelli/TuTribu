@@ -1,7 +1,4 @@
 import { COURSE_MUTATION_STATUS } from "@/src/modules/courses/constants/courses";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import {
   COURSE_ROUTE_FIELD,
   COURSE_ROUTE_LOG,
@@ -9,86 +6,69 @@ import {
   HTTP_STATUS,
   createJsonResponse,
   mapMutationStatusResponse,
+  readCourseRequestBody,
   readLessonFilesField,
   readNumberField,
   readStringField,
   readUuidValue,
 } from "../../../route-helpers";
+import { runCourseRoute } from "../../../course-route-scope";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ moduleId: string; slug: string }> }
 ) {
   const { moduleId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: COURSE_ROUTE_LOG.feature,
-    operation: COURSE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: COURSE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return runCourseRoute(
+    request,
+    {
+      logMessage: COURSE_ROUTE_LOG.createLessonFailureMessage,
+      metadata: { moduleId, slug },
+      responseMessage: COURSE_ROUTE_RESPONSE.unexpectedCreateMessage,
+    },
+    async ({ member, modules }) => {
+      const courseModuleId = readUuidValue(moduleId);
 
-  const courseModuleId = readUuidValue(moduleId);
+      if (!courseModuleId) {
+        return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
+      }
 
-  if (!courseModuleId) {
-    return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
-  }
+      const body = await readCourseRequestBody(request);
+      const files = readLessonFilesField(body);
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const files = readLessonFilesField(body);
+      if (files === null) {
+        return createJsonResponse(
+          { message: COURSE_ROUTE_RESPONSE.invalidFileMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-    if (files === null) {
-      return createJsonResponse(
-        { message: COURSE_ROUTE_RESPONSE.invalidFileMessage },
-        HTTP_STATUS.badRequest
-      );
+      const result = await modules.courses.useCases.createLesson({
+        courseModuleId,
+        description: readStringField(body, COURSE_ROUTE_FIELD.description),
+        externalVideoUrl: readStringField(
+          body,
+          COURSE_ROUTE_FIELD.externalVideoUrl
+        ),
+        ...(files !== undefined ? { files } : {}),
+        sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),
+        title: readStringField(body, COURSE_ROUTE_FIELD.title),
+        tribeSlug: slug,
+        userId: member.id,
+      });
+
+      if (result.status === COURSE_MUTATION_STATUS.created) {
+        return createJsonResponse(
+          {
+            lesson: result.lesson,
+            message: COURSE_ROUTE_RESPONSE.createSuccessMessage,
+          },
+          HTTP_STATUS.created
+        );
+      }
+
+      return mapMutationStatusResponse(result.status);
     }
-
-    const result = await modules.courses.useCases.createLesson({
-      courseModuleId,
-      description: readStringField(body, COURSE_ROUTE_FIELD.description),
-      externalVideoUrl: readStringField(
-        body,
-        COURSE_ROUTE_FIELD.externalVideoUrl
-      ),
-      ...(files !== undefined ? { files } : {}),
-      sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),
-      title: readStringField(body, COURSE_ROUTE_FIELD.title),
-      tribeSlug: slug,
-      userId: authenticatedMember.id,
-    });
-
-    if (result.status === COURSE_MUTATION_STATUS.created) {
-      return createJsonResponse(
-        {
-          lesson: result.lesson,
-          message: COURSE_ROUTE_RESPONSE.createSuccessMessage,
-        },
-        HTTP_STATUS.created
-      );
-    }
-
-    return mapMutationStatusResponse(result.status);
-  } catch (error) {
-    logger.error({
-      message: COURSE_ROUTE_LOG.createLessonFailureMessage,
-      error,
-      metadata: { moduleId, slug, viewerId: authenticatedMember.id },
-    });
-
-    return createJsonResponse(
-      { message: COURSE_ROUTE_RESPONSE.unexpectedCreateMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

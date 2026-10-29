@@ -1,8 +1,13 @@
 import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
-import { createRequestModules } from "@/src/modules/setup";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { readInvitationReferralMetadata } from "./invitation-request-body";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const INVITATION_ROUTE_LOG = {
   createFailureMessage: "Tribe invitation creation failed",
@@ -25,26 +30,8 @@ const INVITATION_ROUTE_RESPONSE = {
 } as const;
 
 const INVITATION_ROUTE_FIELD = {
-  campaignName: "campaignName",
-  channel: "channel",
-  referrerHandle: "referrerHandle",
   subscriptionAssociation: "subscriptionAssociation",
 } as const;
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  created: 201,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
 
 function readSubscriptionAssociation(body: unknown): unknown {
   if (!body || typeof body !== "object") {
@@ -56,81 +43,39 @@ function readSubscriptionAssociation(body: unknown): unknown {
   ];
 }
 
-function readInvitationReferralMetadata(body: unknown): {
-  campaignName: unknown;
-  channel: unknown;
-  referrerHandle: unknown;
-} {
-  if (!body || typeof body !== "object") {
-    return {
-      campaignName: undefined,
-      channel: undefined,
-      referrerHandle: undefined,
-    };
-  }
-
-  const bodyRecord = body as Record<string, unknown>;
-
-  return {
-    campaignName: bodyRecord[INVITATION_ROUTE_FIELD.campaignName],
-    channel: bodyRecord[INVITATION_ROUTE_FIELD.channel],
-    referrerHandle: bodyRecord[INVITATION_ROUTE_FIELD.referrerHandle],
-  };
-}
+const MEMBER_ROUTE_SCOPE = {
+  feature: INVITATION_ROUTE_LOG.feature,
+  operation: INVITATION_ROUTE_LOG.operation,
+  unauthorizedMessage: INVITATION_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
 
 export async function GET(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: INVITATION_ROUTE_LOG.feature,
-    operation: INVITATION_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: INVITATION_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  try {
-    return createJsonResponse(
-      {
-        invitations: await modules.tribes.useCases.listTribeInvitations({
-          baseUrl: resolvePublicAppBaseUrl(),
-          tribeSlug: slug,
-        }),
-      },
-      HTTP_STATUS.ok
-    );
-  } catch (error) {
-    logger.error({
-      message: INVITATION_ROUTE_LOG.listFailureMessage,
-      error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: INVITATION_ROUTE_RESPONSE.unexpectedListMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: INVITATION_ROUTE_LOG.listFailureMessage,
+      metadata: { slug },
+      responseMessage: INVITATION_ROUTE_RESPONSE.unexpectedListMessage,
+    },
+    async ({ modules }) => {
+      return createRouteJsonResponse(
+        {
+          invitations: await modules.tribes.useCases.listTribeInvitations({
+            baseUrl: resolvePublicAppBaseUrl(),
+            tribeSlug: slug,
+          }),
+        },
+        HTTP_STATUS.ok
+      );
+    }
+  );
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type CreateTribeInvitationResult = Awaited<
   ReturnType<RequestModules["tribes"]["useCases"]["createTribeInvitation"]>
@@ -139,7 +84,7 @@ type CreateTribeInvitationResult = Awaited<
 function createPostResultResponse(result: CreateTribeInvitationResult): Response {
   switch (result.status) {
     case TRIBE_INVITATION_STATUS.created:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           invitation: result.invitation,
           invitationUrl: result.invitationUrl,
@@ -148,23 +93,23 @@ function createPostResultResponse(result: CreateTribeInvitationResult): Response
         HTTP_STATUS.created
       );
     case TRIBE_INVITATION_STATUS.invalid:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: INVITATION_ROUTE_RESPONSE.invalidInputMessage },
         HTTP_STATUS.badRequest
       );
     case TRIBE_INVITATION_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: INVITATION_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     case TRIBE_INVITATION_STATUS.setupRequired:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: INVITATION_ROUTE_RESPONSE.setupRequiredMessage },
         HTTP_STATUS.serviceUnavailable
       );
     case TRIBE_INVITATION_STATUS.forbidden:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: INVITATION_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
@@ -173,55 +118,31 @@ function createPostResultResponse(result: CreateTribeInvitationResult): Response
 
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: INVITATION_ROUTE_LOG.feature,
-    operation: INVITATION_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: INVITATION_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: INVITATION_ROUTE_LOG.createFailureMessage,
+      metadata: { slug },
+      responseMessage: INVITATION_ROUTE_RESPONSE.unexpectedCreateMessage,
+    },
+    async ({ modules }) => {
+      const body: unknown = await request.json().catch(() => null);
+      const referralMetadata = readInvitationReferralMetadata(body);
+      const result = await modules.tribes.useCases.createTribeInvitation({
+        baseUrl: resolvePublicAppBaseUrl(),
+        campaignName: referralMetadata.campaignName,
+        channel: referralMetadata.channel,
+        referrerHandle: referralMetadata.referrerHandle,
+        subscriptionAssociation: readSubscriptionAssociation(body),
+        tribeSlug: slug,
+      });
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const referralMetadata = readInvitationReferralMetadata(body);
-    const result = await modules.tribes.useCases.createTribeInvitation({
-      baseUrl: resolvePublicAppBaseUrl(),
-      campaignName: referralMetadata.campaignName,
-      channel: referralMetadata.channel,
-      referrerHandle: referralMetadata.referrerHandle,
-      subscriptionAssociation: readSubscriptionAssociation(body),
-      tribeSlug: slug,
-    });
-
-    return createPostResultResponse(result);
-  } catch (error) {
-    logger.error({
-      message: INVITATION_ROUTE_LOG.createFailureMessage,
-      error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: INVITATION_ROUTE_RESPONSE.unexpectedCreateMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPostResultResponse(result);
+    }
+  );
 }

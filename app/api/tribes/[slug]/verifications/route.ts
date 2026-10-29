@@ -6,7 +6,11 @@
  * @module tribe-verifications-route
  */
 
-import { openAcademyRouteScope } from "@/app/api/tribes/[slug]/academy-route-scope";
+import {
+  createAcademyFailureResponse,
+  handleAcademyRoute,
+  type AcademyTribeRouteContext,
+} from "@/app/api/tribes/[slug]/academy-route-scope";
 import {
   toMemberVerificationDto,
   toReviewQueueItemDto,
@@ -19,13 +23,7 @@ import {
 import { ACADEMY_ROUTE_COPY } from "@/src/modules/product-access/constants/academy-route-copy";
 import {
   ACADEMY_HTTP_STATUS,
-  ACADEMY_ROUTE_MESSAGE,
   createAcademyJsonResponse,
-  createAcademyPublicResponse,
-  createAcademyUnexpectedResponse,
-  parseAcademyRouteInput,
-  readAcademyJsonBody,
-  readAcademyQuery,
 } from "@/src/modules/product-access/infrastructure/api/academy-route-http";
 import {
   academyTribeParamsSchema,
@@ -35,169 +33,92 @@ import {
 
 const OPERATION = "member-verifications";
 
-export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
+export async function GET(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Member verifications read failed",
+      operation: OPERATION,
+      schemas: { params: academyTribeParamsSchema, query: verificationListQuerySchema },
+    },
+    async ({ modules, params, query, respond }) => {
+      if (query.scope === "own") {
+        const verifications =
+          await modules.memberVerifications.useCases.listOwnMemberVerifications({
+            tribeSlug: params.slug,
+          });
 
-  if (!scope.isOpen) {
-    return scope.response;
-  }
+        return respond(
+          { scope: "own", verifications: verifications.map(toMemberVerificationDto) },
+          ownVerificationsDtoSchema,
+          ACADEMY_HTTP_STATUS.ok
+        );
+      }
 
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  const query = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "query",
-    schema: verificationListQuerySchema,
-    value: readAcademyQuery(request),
-  });
-
-  if (!query.isValid) {
-    return query.response;
-  }
-
-  const metadata = { requestId: scope.requestId, tribeSlug: params.data.slug };
-
-  try {
-    if (query.data.scope === "own") {
-      const verifications =
-        await scope.modules.memberVerifications.useCases.listOwnMemberVerifications({
-          tribeSlug: params.data.slug,
-        });
-
-      return createAcademyPublicResponse({
-        body: { scope: "own", verifications: verifications.map(toMemberVerificationDto) },
-        logger: scope.logger,
-        metadata,
-        schema: ownVerificationsDtoSchema,
-        status: ACADEMY_HTTP_STATUS.ok,
+      const queue = await modules.memberVerifications.useCases.listVerificationReviewQueue({
+        page: query.page,
+        search: query.search ?? null,
+        status: query.status ?? null,
+        tribeSlug: params.slug,
       });
-    }
 
-    const queue = await scope.modules.memberVerifications.useCases.listVerificationReviewQueue({
-      page: query.data.page,
-      search: query.data.search ?? null,
-      status: query.data.status ?? null,
-      tribeSlug: params.data.slug,
-    });
+      if ("status" in queue) {
+        return createAcademyFailureResponse(queue.status);
+      }
 
-    if ("status" in queue) {
-      const isForbidden = queue.status === "forbidden";
-
-      return createAcademyJsonResponse(
-        { message: isForbidden ? ACADEMY_ROUTE_MESSAGE.forbidden : ACADEMY_ROUTE_MESSAGE.notFound },
-        isForbidden ? ACADEMY_HTTP_STATUS.forbidden : ACADEMY_HTTP_STATUS.notFound
+      return respond(
+        {
+          items: queue.items.map(toReviewQueueItemDto),
+          page: query.page,
+          scope: "review",
+          total: queue.total,
+        },
+        reviewQueueDtoSchema,
+        ACADEMY_HTTP_STATUS.ok
       );
     }
-
-    return createAcademyPublicResponse({
-      body: {
-        items: queue.items.map(toReviewQueueItemDto),
-        page: query.data.page,
-        scope: "review",
-        total: queue.total,
-      },
-      logger: scope.logger,
-      metadata,
-      schema: reviewQueueDtoSchema,
-      status: ACADEMY_HTTP_STATUS.ok,
-    });
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Member verifications read failed",
-      metadata,
-    });
-  }
+  );
 }
 
-export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const scope = await openAcademyRouteScope({ operation: OPERATION, request });
+export async function POST(request: Request, context: AcademyTribeRouteContext) {
+  return handleAcademyRoute(
+    request,
+    context,
+    {
+      failureMessage: "Member verification request failed",
+      operation: OPERATION,
+      schemas: { body: verificationRequestBodySchema, params: academyTribeParamsSchema },
+    },
+    async ({ body, modules, params, requestId, respond }) => {
+      const result = await modules.memberVerifications.useCases.requestMemberVerification({
+        correlationId: requestId,
+        declaredEmail: body.declaredEmail,
+        providerId: body.providerId,
+        tribeSlug: params.slug,
+      });
 
-  if (!scope.isOpen) {
-    return scope.response;
-  }
+      if (
+        result.status === "created" ||
+        result.status === "reopened" ||
+        result.status === "unchanged"
+      ) {
+        return respond(
+          toMemberVerificationDto(result.verification),
+          memberVerificationDtoSchema,
+          result.status === "unchanged" ? ACADEMY_HTTP_STATUS.ok : ACADEMY_HTTP_STATUS.created,
+          { result: result.status }
+        );
+      }
 
-  const params = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "params",
-    schema: academyTribeParamsSchema,
-    value: await context.params,
-  });
-
-  if (!params.isValid) {
-    return params.response;
-  }
-
-  const body = parseAcademyRouteInput({
-    logger: scope.logger,
-    part: "body",
-    schema: verificationRequestBodySchema,
-    value: await readAcademyJsonBody(request),
-  });
-
-  if (!body.isValid) {
-    return body.response;
-  }
-
-  const metadata = { requestId: scope.requestId, tribeSlug: params.data.slug };
-
-  try {
-    const result = await scope.modules.memberVerifications.useCases.requestMemberVerification({
-      correlationId: scope.requestId,
-      declaredEmail: body.data.declaredEmail,
-      providerId: body.data.providerId,
-      tribeSlug: params.data.slug,
-    });
-
-    switch (result.status) {
-      case "created":
-      case "reopened":
-      case "unchanged":
-        return createAcademyPublicResponse({
-          body: toMemberVerificationDto(result.verification),
-          logger: scope.logger,
-          metadata: { ...metadata, result: result.status },
-          schema: memberVerificationDtoSchema,
-          status: result.status === "unchanged" ? ACADEMY_HTTP_STATUS.ok : ACADEMY_HTTP_STATUS.created,
-        });
-      case "provider_unavailable":
+      if (result.status === "provider_unavailable") {
         return createAcademyJsonResponse(
           { message: ACADEMY_ROUTE_COPY.providerUnavailable },
           ACADEMY_HTTP_STATUS.unprocessable
         );
-      case "invalid_input":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.invalidInput },
-          ACADEMY_HTTP_STATUS.badRequest
-        );
-      case "forbidden":
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.forbidden },
-          ACADEMY_HTTP_STATUS.forbidden
-        );
-      case "not_found":
-      default:
-        return createAcademyJsonResponse(
-          { message: ACADEMY_ROUTE_MESSAGE.notFound },
-          ACADEMY_HTTP_STATUS.notFound
-        );
+      }
+
+      return createAcademyFailureResponse(result.status);
     }
-  } catch (error) {
-    return createAcademyUnexpectedResponse({
-      error,
-      logger: scope.logger,
-      message: "Member verification request failed",
-      metadata,
-    });
-  }
+  );
 }

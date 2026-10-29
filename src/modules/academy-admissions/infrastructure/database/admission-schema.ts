@@ -1,7 +1,8 @@
 /** Projects admission-owned SQL tables; versioned migrations own RLS, triggers and deferred timing. */
 import { ADMISSION_PRIVATE_DATA_RETENTION } from "../../constants/admission-retention";
 import { sql } from "drizzle-orm";
-import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, type AnyPgColumn, type PgTableExtraConfigValue } from "drizzle-orm/pg-core";
+import { binaryData } from "@/src/modules/shared/infrastructure/database/schema-columns";
+import { boolean, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, type AnyPgColumn, type PgTableExtraConfigValue } from "drizzle-orm/pg-core";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";
@@ -35,10 +36,26 @@ type AdmissionSchemaParents = {
   membershipEffects: () => AdmissionMembershipSchemaReferences;
 };
 
-/** Maps only the PostgreSQL binary representation consumed by the adapter. */
-const binaryData = customType<{ data: Uint8Array; driverData: Buffer }>({
-  dataType: () => "bytea", toDriver: (value) => Buffer.from(value), fromDriver: (value) => new Uint8Array(value),
-});
+/** Intent identity shared by live and retired admission operations. */
+function operationIntentColumns() {
+  return {
+    operationType: text("operation_type").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    intentFingerprint: binaryData("intent_fingerprint").notNull(),
+    fingerprintKeyId: text("fingerprint_key_id").notNull(),
+  };
+}
+
+/** Event facts shared by live and retired admission audit events. */
+function auditEventFactColumns() {
+  return {
+    eventType: text("event_type").notNull(),
+    rule: text("rule"),
+    cause: text("cause"),
+    resourceVersion: integer("resource_version"),
+    metadata: jsonb("metadata").notNull().default({}),
+  };
+}
 
 /**
  * Names one parent relationship exactly as the versioned SQL artifact.
@@ -145,10 +162,7 @@ function createRetiredOperationsTable({ tables }: AdmissionTableContext) {
     id: uuid("id").primaryKey(),
     tribeId: uuid("tribe_id").notNull().references(() => tables().tribeNamespaces.tribeId),
     actorReferenceId: uuid("actor_reference_id").notNull(),
-    operationType: text("operation_type").notNull(),
-    idempotencyKey: uuid("idempotency_key").notNull(),
-    intentFingerprint: binaryData("intent_fingerprint").notNull(),
-    fingerprintKeyId: text("fingerprint_key_id").notNull(),
+    ...operationIntentColumns(),
     state: text("state").notNull(),
     version: integer("version").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
@@ -175,11 +189,7 @@ function createRetiredAuditEventsTable({ tables }: AdmissionTableContext) {
     tribeLifecycleOperationId: uuid("tribe_lifecycle_operation_id"),
     resourceType: text("resource_type").notNull(),
     resourceId: uuid("resource_id"),
-    eventType: text("event_type").notNull(),
-    rule: text("rule"),
-    cause: text("cause"),
-    resourceVersion: integer("resource_version"),
-    metadata: jsonb("metadata").notNull().default({}),
+    ...auditEventFactColumns(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   }, (table): PgTableExtraConfigValue[] => [
@@ -474,8 +484,8 @@ function createDecisionsTable({ parents, tables }: AdmissionTableContext) {
  */
 function createOperationsTable({ parents }: AdmissionTableContext) {
   return pgTable("academy_admission_operations", {
-    id: uuid("id").defaultRandom().primaryKey(), actorUserId: text("actor_user_id"), actorReferenceId: uuid("actor_reference_id").notNull().defaultRandom(), minimizedAt: timestamp("minimized_at", { withTimezone: true }), tribeId: uuid("tribe_id").notNull(), operationType: text("operation_type").notNull(), idempotencyKey: uuid("idempotency_key").notNull(),
-    intentFingerprint: binaryData("intent_fingerprint").notNull(), fingerprintKeyId: text("fingerprint_key_id").notNull(), state: text("state").notNull().default("started"), verificationPurpose:text("verification_purpose"),
+    id: uuid("id").defaultRandom().primaryKey(), actorUserId: text("actor_user_id"), actorReferenceId: uuid("actor_reference_id").notNull().defaultRandom(), minimizedAt: timestamp("minimized_at", { withTimezone: true }), tribeId: uuid("tribe_id").notNull(), ...operationIntentColumns(),
+    state: text("state").notNull().default("started"), verificationPurpose:text("verification_purpose"),
     leaseOwner: uuid("lease_owner"), leaseUntil: timestamp("lease_until", { withTimezone: true }), version: integer("version").notNull().default(1), publicResult: jsonb("public_result"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`), completedAt: timestamp("completed_at", { withTimezone: true }),
   }, (table): PgTableExtraConfigValue[] => [
@@ -536,7 +546,7 @@ function createImportRowsTable({ tables }: AdmissionTableContext) {
 function createAuditEventsTable({ parents, tables }: AdmissionTableContext) {
   return pgTable("academy_admission_audit_events", {
     id: uuid("id").defaultRandom().primaryKey(), tribeId: uuid("tribe_id").notNull(), actorUserId: text("actor_user_id"), resourceType: text("resource_type").notNull(), resourceId: uuid("resource_id"),
-    operationId: uuid("operation_id"), tribeLifecycleOperationId: uuid("tribe_lifecycle_operation_id"), eventType: text("event_type").notNull(), rule: text("rule"), cause: text("cause"), resourceVersion: integer("resource_version"), metadata: jsonb("metadata").notNull().default({}),
+    operationId: uuid("operation_id"), tribeLifecycleOperationId: uuid("tribe_lifecycle_operation_id"), ...auditEventFactColumns(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   }, (table): PgTableExtraConfigValue[] => [
     parentReference("admission_audit_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), parentReference("admission_audit_actor_fkey",table.actorUserId,parents.users.id,"set null"),

@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../events";
 
 .TribeEventAgendaItem {
   display: grid;
@@ -71,23 +72,7 @@
     border: 1px solid var(--border);
     border-radius: 0.5rem;
     color: var(--foreground);
-    -webkit-tap-highlight-color: transparent;
-
-    @include motion.interactive;
-
-    &:hover {
-      border-color: color-mix(in oklab, var(--foreground) 24%, var(--border));
-      background: var(--accent);
-    }
-
-    &:active {
-      transform: scale(0.94);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
+    @include events.pressable(var(--accent), 0.94);
 
     svg {
       width: 1rem;
@@ -112,22 +97,9 @@
     padding: 0;
     text-align: left;
     overflow-wrap: anywhere;
-    text-decoration: underline;
-    text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
-    text-underline-offset: 0.2em;
     -webkit-tap-highlight-color: transparent;
 
-    @include motion.interactive(text-decoration-color, color);
-
-    &:hover {
-      text-decoration-color: currentColor;
-    }
-
-    &:focus-visible {
-      border-radius: 0.2rem;
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
+    @include events.underline-link(color-mix(in oklab, currentColor 40%, transparent), text-decoration-color, color);
   }
 
   &__time--cancelled,

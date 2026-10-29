@@ -1,24 +1,8 @@
 @use "../../../src/styles/motion";
+@use "../events";
 
 .TribeEventPostEventPanel {
-  display: grid;
-  gap: 0.75rem;
-  min-width: 0;
-  border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
-
-  &__heading {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-
-  &__body {
-    display: grid;
-    gap: 0.75rem;
-    min-width: 0;
-  }
+  @include events.detail-panel;
 
   &__retry {
     justify-self: start;
@@ -38,20 +22,6 @@
     width: 1rem;
     height: 1rem;
     color: var(--muted-foreground);
-  }
-
-  &__muted {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 0.9rem;
-  }
-
-  &__error {
-    margin: 0;
-    border-left: 3px solid var(--destructive);
-    color: var(--destructive);
-    font-size: 0.9rem;
-    padding-left: 0.75rem;
   }
 
   &__recording,
@@ -94,20 +64,7 @@
     color: var(--primary);
     font-size: 0.9rem;
     overflow-wrap: anywhere;
-    text-decoration: underline;
-    text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
-    text-underline-offset: 0.2em;
-    @include motion.interactive(color, text-decoration-color);
-
-    &:hover {
-      text-decoration-color: currentColor;
-    }
-
-    &:focus-visible {
-      border-radius: 0.2rem;
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
+    @include events.underline-link(color-mix(in oklab, var(--primary) 40%, transparent), color, text-decoration-color);
   }
 
   &__linkIcon {

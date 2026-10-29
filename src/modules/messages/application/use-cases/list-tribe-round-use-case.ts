@@ -5,6 +5,11 @@ import type {
   TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
+import {
+  applyTribeRoundViewerState,
+  normalizeTribeRoundChannelSlug,
+  normalizeTribeRoundPage,
+} from "@/src/modules/messages/application/results/tribe-round-viewer-state";
 import type {
   ListMessageLikersQuery,
   ListMessageRepliesQuery,
@@ -31,13 +36,10 @@ function hidePollResults(poll: MessagePollResult): MessagePollResult {
   };
 }
 
-function applyViewerPollState({
-  poll,
-  selectedPollOptionIds,
-}: {
-  poll: MessagePollResult;
-  selectedPollOptionIds: Set<string>;
-}): MessagePollResult {
+function applyViewerPollState(
+  poll: MessagePollResult,
+  selectedPollOptionIds: Set<string>
+): MessagePollResult {
   const options = poll.options.map((option) => ({
     ...option,
     selectedByViewer: selectedPollOptionIds.has(option.id),
@@ -56,73 +58,14 @@ function applyViewerPollState({
   return pollWithViewerState;
 }
 
-function mergeTribeRoundWithViewerState({
-  sharedData,
-  viewerState,
-}: {
-  sharedData: TribeRoundSharedDataResult;
-  viewerState: Awaited<
-    ReturnType<MessageRoundReadRepository["listViewerStateByTribeSlug"]>
-  >;
-}): TribeRoundResult {
-  const likedMessageIds = new Set(viewerState.likedMessageIds);
-  const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
-  const canManageOwnMessages = viewerState.viewerPermissions.canCreateMessage;
-  const canDeleteStaffMessages = Boolean(
-    viewerState.viewerPermissions.canPinMessages
-  );
-
-  return {
-    activeChannelId: sharedData.activeChannelId,
-    channels: sharedData.channels,
-    messages: sharedData.messages.map((message) => {
-      const isViewerAuthor = message.author.id === viewerState.viewerId;
-
-      return {
-        ...message,
-        hasLoadedReplies: message.replyCount === 0,
-        likedByViewer: likedMessageIds.has(message.id),
-        permissions: {
-          canDelete:
-            (isViewerAuthor && canManageOwnMessages) || canDeleteStaffMessages,
-          canEdit: isViewerAuthor && canManageOwnMessages,
-        },
-        poll: message.poll
-          ? applyViewerPollState({
-              poll: message.poll,
-              selectedPollOptionIds,
-            })
-          : null,
-        replies: [],
-      };
-    }),
-    pagination: sharedData.pagination,
-    viewerPermissions: viewerState.viewerPermissions,
-  };
-}
-
-function normalizePage(page: number | undefined): number {
-  if (!Number.isInteger(page) || !page || page < 1) {
-    return 1;
-  }
-
-  return page;
-}
-
-function normalizeChannelSlug(channelSlug: string | null | undefined): string | null {
-  const normalizedChannelSlug = channelSlug?.trim() ?? "";
-
-  return normalizedChannelSlug.length > 0 ? normalizedChannelSlug : null;
-}
-
 export function listTribeRound({
   listCachedTribeRoundSharedData,
   messageRoundReadRepository,
 }: ListTribeRoundDependencies) {
   return async (query: ListTribeRoundQuery): Promise<TribeRoundResult> => {
     const normalizedQuery = {
-      channelSlug: normalizeChannelSlug(query.channelSlug),
-      page: normalizePage(query.page),
+      channelSlug: normalizeTribeRoundChannelSlug(query.channelSlug),
+      page: normalizeTribeRoundPage(query.page),
       tribeSlug: query.tribeSlug.trim(),
       viewerId: query.viewerId,
     };
@@ -135,10 +78,11 @@ export function listTribeRound({
     const viewerState =
       await messageRoundReadRepository.listViewerStateByTribeSlug(normalizedQuery);
 
-    return mergeTribeRoundWithViewerState({
+    return applyTribeRoundViewerState(
       sharedData,
       viewerState,
-    });
+      applyViewerPollState
+    );
   };
 }
 

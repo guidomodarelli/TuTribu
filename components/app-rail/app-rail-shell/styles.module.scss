@@ -1,3 +1,5 @@
+@use "../../styles/interaction";
+
 // Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the Arc
 // Pro license (https://uiarc.dev/license). Not covered by this project's license;
 // do not redistribute it on its own.
@@ -261,10 +263,7 @@ $app-rail-touch-target: 40px;
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition:
-      color var(--duration-fast) var(--ease-standard),
-      background-color var(--duration-fast) var(--ease-standard);
+    @include interaction.tap-colors;
 
     &:active {
       background: var(--row-active);

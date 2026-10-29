@@ -1,9 +1,7 @@
+import { HTTP_STATUS } from "@/app/api/route-http-status";
+
 const MESSAGE_POLL_ROUTE_RESPONSE = {
   unavailableMessage: "La encuesta forma parte del mensaje.",
-} as const;
-
-const HTTP_STATUS = {
-  notFound: 404,
 } as const;
 
 function createJsonResponse(body: Record<string, unknown>, status: number): Response {

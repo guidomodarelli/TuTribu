@@ -1,15 +1,11 @@
 import { createRequestModules } from "@/src/modules/setup";
 import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const SITEPING_IDENTITY_ROUTE = {
   feature: "siteping",
   operation: "siteping-identity",
-} as const;
-
-const HTTP_STATUS = {
-  ok: 200,
-  serverError: 500,
 } as const;
 
 export async function GET(request: Request) {

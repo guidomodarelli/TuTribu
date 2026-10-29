@@ -133,6 +133,9 @@ function mapSettings(row: SettingsRow): AcademySettings {
  * Locks the current user's membership for the rest of the transaction and
  * tells whether it is an active leader of the tribe.
  */
+/** Caller locked as an active leader of an existing tribe. */
+type LockedActiveLeader = { actorUserId: string | null; isLeader: boolean; tribeId: string };
+
 async function lockActiveLeader(
   database: RequestDatabase,
   tribeSlug: string
@@ -469,6 +472,33 @@ function buildAcademyMembersPageStatement(query: AcademyMembersPageQuery): SQL {
 export class PostgresProductAccessRepository implements ProductAccessRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
+  /**
+   * Runs a leader-only mutation in one transaction after locking the caller's
+   * active leadership of the tribe.
+   *
+   * @param tribeSlug - Tribe the mutation targets.
+   * @param mutate - Mutation run with the locked leader.
+   * @returns The mutation result, or `not_found`/`forbidden` when the caller cannot lead the tribe.
+   */
+  private async runAsActiveLeader<TResult>(
+    tribeSlug: string,
+    mutate: (database: RequestDatabase, actor: LockedActiveLeader) => Promise<TResult>
+  ): Promise<TResult | { status: "forbidden" } | { status: "not_found" }> {
+    return this.executeWithDatabase(async (database) => {
+      const actor = await lockActiveLeader(database, tribeSlug);
+
+      if (!actor.tribeId) {
+        return { status: "not_found" as const };
+      }
+
+      if (!actor.isLeader) {
+        return { status: "forbidden" as const };
+      }
+
+      return mutate(database, { ...actor, tribeId: actor.tribeId });
+    });
+  }
+
   async activateAcademy(command: ActivateAcademyCommand): Promise<ActivateAcademyResult> {
     return this.executeWithDatabase(async (database) => {
       // The definer function checks the active leader, locks the tribe and the
@@ -620,17 +650,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
   }
 
   async saveOffer(command: SaveAcademyOfferCommand): Promise<AcademySettingsMutationResult> {
-    return this.executeWithDatabase(async (database) => {
-      const actor = await lockActiveLeader(database, command.tribeSlug);
-
-      if (!actor.tribeId) {
-        return { status: "not_found" };
-      }
-
-      if (!actor.isLeader) {
-        return { status: "forbidden" };
-      }
-
+    return this.runAsActiveLeader(command.tribeSlug, async (database, actor) => {
       // config_version 0 means "no row yet": the first save creates it.
       const result = await database.execute(sql`
         with upserted as (
@@ -693,17 +713,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
   async setAvailability(
     command: SetAcademyAvailabilityCommand
   ): Promise<AcademySettingsMutationResult> {
-    return this.executeWithDatabase(async (database) => {
-      const actor = await lockActiveLeader(database, command.tribeSlug);
-
-      if (!actor.tribeId) {
-        return { status: "not_found" };
-      }
-
-      if (!actor.isLeader) {
-        return { status: "forbidden" };
-      }
-
+    return this.runAsActiveLeader(command.tribeSlug, async (database, actor) => {
       const current = await this.readSettingsInTransaction(database, actor.tribeId);
 
       if (current.accessModel !== TRIBE_ACCESS_MODEL.academy) {
@@ -844,17 +854,7 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
   }
 
   async revokeBonus(command: RevokeAcademyBonusCommand): Promise<RevokeAcademyBonusResult> {
-    return this.executeWithDatabase(async (database) => {
-      const actor = await lockActiveLeader(database, command.tribeSlug);
-
-      if (!actor.tribeId) {
-        return { status: "not_found" };
-      }
-
-      if (!actor.isLeader) {
-        return { status: "forbidden" };
-      }
-
+    return this.runAsActiveLeader(command.tribeSlug, async (database, actor) => {
       // Only leader bonuses are revoked here: paid periods follow the ledger.
       const result = await database.execute(sql`
         with target_grant as (

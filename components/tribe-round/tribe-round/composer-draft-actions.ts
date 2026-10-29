@@ -388,6 +388,38 @@ export const removeTransientMessageFileDraftsFromComposer = (controller: TribeRo
   );
 };
 
+/**
+ * Releases the upload of an image draft the author removed meanwhile.
+ * @returns Whether the draft was removed, so the upload must stop.
+ */
+const releaseDiscardedMessageImage = (
+  controller: TribeRoundController,
+  localId: string,
+  assetId: string | null
+): boolean => {
+  if (!controller.discardedMessageImageLocalIdsRef.current.delete(localId)) {
+    return false;
+  }
+
+  if (assetId && !controller.cleanedMessageImageAssetIdsRef.current.has(assetId)) {
+    controller.deleteMessageImageAsset(assetId);
+  }
+
+  return true;
+};
+
+const patchMessageImageDraft = (
+  controller: TribeRoundController,
+  localId: string,
+  patch: Partial<ComposerImageDraft>
+) => {
+  controller.setMessageImageDrafts((currentImages) =>
+    currentImages.map((image) =>
+      image.localId === localId ? { ...image, ...patch } : image
+    )
+  );
+};
+
 const uploadMessageImage = async (controller: TribeRoundController, file: File, localId: string) => {
   let createdAssetId: string | null = null;
 
@@ -403,24 +435,11 @@ const uploadMessageImage = async (controller: TribeRoundController, file: File, 
 
     createdAssetId = upload.assetId;
 
-    if (controller.discardedMessageImageLocalIdsRef.current.delete(localId)) {
-      if (!controller.cleanedMessageImageAssetIdsRef.current.has(upload.assetId)) {
-        controller.deleteMessageImageAsset(upload.assetId);
-      }
-
+    if (releaseDiscardedMessageImage(controller, localId, upload.assetId)) {
       return;
     }
 
-    controller.setMessageImageDrafts((currentImages) =>
-      currentImages.map((image) =>
-        image.localId === localId
-          ? {
-              ...image,
-              assetId: upload.assetId,
-            }
-          : image
-      )
-    );
+    patchMessageImageDraft(controller, localId, { assetId: upload.assetId });
 
     const formData = new FormData();
     formData.append("file", file);
@@ -434,57 +453,39 @@ const uploadMessageImage = async (controller: TribeRoundController, file: File, 
       throw new Error(TRIBE_ROUND_COPY.imageUploadError);
     }
 
-    if (controller.discardedMessageImageLocalIdsRef.current.delete(localId)) {
-      if (!controller.cleanedMessageImageAssetIdsRef.current.has(upload.assetId)) {
-        controller.deleteMessageImageAsset(upload.assetId);
-      }
-
+    if (releaseDiscardedMessageImage(controller, localId, upload.assetId)) {
       return;
     }
 
-    controller.setMessageImageDrafts((currentImages) =>
-      currentImages.map((image) =>
-        image.localId === localId
-          ? {
-              ...image,
-              status: COMPOSER_IMAGE_UPLOAD_STATUS.uploaded,
-            }
-          : image
-      )
-    );
+    patchMessageImageDraft(controller, localId, {
+      status: COMPOSER_IMAGE_UPLOAD_STATUS.uploaded,
+    });
   } catch {
-    if (controller.discardedMessageImageLocalIdsRef.current.delete(localId)) {
-      if (
-        createdAssetId &&
-        !controller.cleanedMessageImageAssetIdsRef.current.has(createdAssetId)
-      ) {
-        controller.deleteMessageImageAsset(createdAssetId);
-      }
-
+    if (releaseDiscardedMessageImage(controller, localId, createdAssetId)) {
       return;
     }
 
-    controller.setMessageImageDrafts((currentImages) =>
-      currentImages.map((image) =>
-        image.localId === localId
-          ? {
-              ...image,
-              ...(createdAssetId ? { assetId: createdAssetId } : {}),
-              status: COMPOSER_IMAGE_UPLOAD_STATUS.error,
-            }
-          : image
-      )
-    );
+    patchMessageImageDraft(controller, localId, {
+      ...(createdAssetId ? { assetId: createdAssetId } : {}),
+      status: COMPOSER_IMAGE_UPLOAD_STATUS.error,
+    });
     toast.error(TRIBE_ROUND_COPY.imageUploadError);
   }
+};
+
+/** Takes the files picked in a file input and clears it, so picking the same files again still fires. */
+const takeSelectedFiles = (event: ChangeEvent<HTMLInputElement>): File[] => {
+  const selectedFiles = Array.from(event.currentTarget.files ?? []);
+
+  event.currentTarget.value = "";
+
+  return selectedFiles;
 };
 
 export const handleMessageImageSelection = (controller: TribeRoundController, 
   event: ChangeEvent<HTMLInputElement>
 ) => {
-  const selectedFiles = Array.from(event.currentTarget.files ?? []);
-
-  event.currentTarget.value = "";
+  const selectedFiles = takeSelectedFiles(event);
 
   if (selectedFiles.length === 0) {
     return;
@@ -653,9 +654,7 @@ const uploadMessageFile = async (controller: TribeRoundController, file: File, l
 export const handleMessageFileSelection = (controller: TribeRoundController, 
   event: ChangeEvent<HTMLInputElement>
 ) => {
-  const selectedFiles = Array.from(event.currentTarget.files ?? []);
-
-  event.currentTarget.value = "";
+  const selectedFiles = takeSelectedFiles(event);
 
   if (selectedFiles.length === 0) {
     return;

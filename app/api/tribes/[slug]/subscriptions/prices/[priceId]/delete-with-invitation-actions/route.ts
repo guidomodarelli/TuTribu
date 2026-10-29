@@ -1,7 +1,11 @@
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const DELETE_WITH_ACTIONS_ROUTE_LOG = {
   failureMessage:
@@ -28,20 +32,6 @@ const DELETE_WITH_ACTIONS_FIELD = {
   invitationActions: "invitationActions",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  serviceUnavailable: 503,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
 function readInvitationActions(body: unknown): unknown {
   if (!body || typeof body !== "object") {
     return null;
@@ -52,8 +42,6 @@ function readInvitationActions(body: unknown): unknown {
   ];
 }
 
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
-
 type DeleteTribeSubscriptionPriceWithInvitationActionsResult = Awaited<
   ReturnType<RequestModules["subscriptions"]["useCases"]["deleteTribeSubscriptionPriceWithInvitationActions"]>
 >;
@@ -61,7 +49,7 @@ type DeleteTribeSubscriptionPriceWithInvitationActionsResult = Awaited<
 function createPostResultResponse(result: DeleteTribeSubscriptionPriceWithInvitationActionsResult, priceId: string): Response {
   switch (result.status) {
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           deletedPriceId: priceId,
           message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.deletedMessage,
@@ -69,17 +57,17 @@ function createPostResultResponse(result: DeleteTribeSubscriptionPriceWithInvita
         HTTP_STATUS.ok
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.invalidInputMessage },
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.hasSubscribersMessage },
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         {
           message:
             DELETE_WITH_ACTIONS_ROUTE_RESPONSE.missingIntegrationMessage,
@@ -87,7 +75,7 @@ function createPostResultResponse(result: DeleteTribeSubscriptionPriceWithInvita
         HTTP_STATUS.serviceUnavailable
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
@@ -100,65 +88,46 @@ function createPostResultResponse(result: DeleteTribeSubscriptionPriceWithInvita
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
     default:
-      return createJsonResponse(
+      return createRouteJsonResponse(
         { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.forbiddenMessage },
         HTTP_STATUS.forbidden
       );
   }
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: DELETE_WITH_ACTIONS_ROUTE_LOG.feature,
+  operation: DELETE_WITH_ACTIONS_ROUTE_LOG.operation,
+  unauthorizedMessage: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.unauthorizedMessage,
+  withRequestId: true,
+} as const;
+
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      priceId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ priceId: string }>
 ) {
   const { priceId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: DELETE_WITH_ACTIONS_ROUTE_LOG.feature,
-    operation: DELETE_WITH_ACTIONS_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules({ requestId });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: DELETE_WITH_ACTIONS_ROUTE_LOG.failureMessage,
+      metadata: { priceId, slug },
+      responseMessage: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const body: unknown = await request.json().catch(() => null);
+      const result =
+        await modules.subscriptions.useCases.deleteTribeSubscriptionPriceWithInvitationActions(
+          {
+            invitationActions: readInvitationActions(body),
+            priceId,
+            tribeSlug: slug,
+          }
+        );
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const result =
-      await modules.subscriptions.useCases.deleteTribeSubscriptionPriceWithInvitationActions(
-        {
-          invitationActions: readInvitationActions(body),
-          priceId,
-          tribeSlug: slug,
-        }
-      );
-
-    return createPostResultResponse(result, priceId);
-  } catch (error) {
-    logger.error({
-      message: DELETE_WITH_ACTIONS_ROUTE_LOG.failureMessage,
-      error,
-      metadata: {
-        priceId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPostResultResponse(result, priceId);
+    }
+  );
 }

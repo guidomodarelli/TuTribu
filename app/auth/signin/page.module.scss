@@ -1,11 +1,7 @@
+@use "../auth-page";
+
 .SignInPage {
-  margin-inline: auto;
-  display: flex;
-  min-height: 100svh;
-  width: 100%;
-  max-width: 32rem;
-  align-items: center;
-  padding: clamp(1.5rem, 6vw, 3rem) 1rem;
+  @include auth-page.page;
 
   // Sign-in panel surface: a plain section, since @golfo/ui's `Card` is a
   // content card that reacts to hover.
@@ -18,10 +14,8 @@
     color: var(--foreground);
     font-size: 0.875rem;
     background-color: color-mix(in oklab, var(--card) 95%, transparent);
-    padding: clamp(1.25rem, 5vw, 2rem);
+    @include auth-page.card;
     box-shadow: 0 24px 64px -40px oklch(0.2 0 0 / 55%);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
   }
 
   &__cardHeader {
@@ -43,23 +37,5 @@
     filter: blur(48px);
   }
 
-  &__eyebrow {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
-  }
-
-  &__title {
-    margin-top: 0.75rem;
-    font-size: 1.5rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-  }
-
-  &__description {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    line-height: 1.5rem;
-    color: var(--muted-foreground);
-  }
+  @include auth-page.heading-elements;
 }

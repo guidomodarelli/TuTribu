@@ -1,6 +1,7 @@
 /** Validates shared UI integration against the real production build in both browser engines. */
-import { defineConfig, devices, webkit } from "@playwright/test";
+import { defineConfig, webkit } from "@playwright/test";
 
+import { BROWSER_ENGINE_PROJECTS } from "./tests/e2e/support/browser-engine-projects";
 import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
 import { UI_TEST_ORIGIN, UI_TEST_PORT } from "./scripts/e2e/ui-test-environment.mjs";
 
@@ -26,10 +27,5 @@ export default defineConfig({
     url: UI_TEST_ORIGIN,
     reuseExistingServer: false,
   },
-  projects: [
-    { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "chromium-mobile", use: { ...devices["Pixel 7"] } },
-    { name: "webkit-desktop", use: { ...devices["Desktop Safari"] } },
-    { name: "webkit-mobile", use: { ...devices["iPhone 13"] } },
-  ],
+  projects: BROWSER_ENGINE_PROJECTS,
 });

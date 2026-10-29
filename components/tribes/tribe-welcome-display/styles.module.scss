@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../welcome";
 
 @include motion.define-keyframes;
 
@@ -51,24 +52,7 @@ $tribe-welcome-display-icon-size: 1.125rem;
     font-weight: 500;
   }
 
-  &__benefit {
-    background: var(--accent);
-    border: 1px solid var(--border);
-    border-radius: 0.625rem;
-    color: var(--foreground);
-    font-size: 0.95rem;
-    line-height: 1.5;
-    margin: 0;
-    padding: 0.75rem 0.875rem;
-  }
-
-  &__benefitEyebrow {
-    color: var(--muted-foreground);
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-  }
+  @include welcome.benefit-elements;
 
   &__title {
     font-family: var(--font-display), var(--font-sans), sans-serif;
@@ -125,50 +109,13 @@ $tribe-welcome-display-icon-size: 1.125rem;
   }
 
   &__linkCard {
-    align-items: center;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    color: var(--foreground);
-    cursor: pointer;
-    display: flex;
     font: inherit;
-    gap: 0.75rem;
-    justify-content: space-between;
-    padding: 0.875rem 1rem;
-    text-align: left;
     text-decoration: none;
-    width: 100%;
 
-    @include motion.interactive(background-color, border-color, box-shadow, opacity);
-
-    &:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    &[aria-busy="true"] {
-      cursor: progress;
-      opacity: 1;
-    }
+    @include welcome.choice-card(0.7, background-color, border-color, box-shadow, opacity);
   }
 
-  @media (hover: hover) {
-    &__linkCard:hover:not(:disabled) {
-      background: var(--accent);
-      border-color: color-mix(in oklab, var(--ring) 55%, var(--border));
-    }
-
-    &__linkCard:hover:not(:disabled) &__linkCardIcon {
-      color: var(--foreground);
-      transform: translate(2px, -2px);
-    }
-  }
+  @include welcome.choice-card-hover(linkCard, linkCardIcon);
 
   &__linkCardText {
     display: grid;

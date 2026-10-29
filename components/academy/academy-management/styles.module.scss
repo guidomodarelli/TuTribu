@@ -1,4 +1,6 @@
 @use "../../../src/styles/motion";
+@use "../../styles/typography";
+@use "../academy";
 
 @include motion.define-keyframes;
 
@@ -52,19 +54,12 @@ $academy-management-wide: 48rem;
   }
 
   &__eyebrow {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 0.8125rem;
-    font-weight: 500;
+    @include academy.eyebrow;
   }
 
   &__title {
-    margin: 0;
+    @include typography.display-title(clamp(1.75rem, 5vw, 2.5rem), 1.15);
     color: var(--foreground);
-    font-family: var(--font-display), var(--font-sans), sans-serif;
-    font-size: clamp(1.75rem, 5vw, 2.5rem);
-    font-weight: 500;
-    line-height: 1.15;
     overflow-wrap: anywhere;
   }
 
@@ -137,10 +132,7 @@ $academy-management-wide: 48rem;
 
   &__warning {
     padding: 0.625rem 0.75rem;
-    border-inline-start: 3px solid var(--primary);
-    border-radius: min(var(--radius-md), 0.5rem);
-    background-color: color-mix(in oklab, var(--primary) 8%, transparent);
-    color: var(--foreground);
+    @include academy.primary-notice;
   }
 
   &__shortcuts {

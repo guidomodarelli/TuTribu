@@ -1,8 +1,11 @@
 import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
-import { createRequestModules } from "@/src/modules/setup";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  createRouteJsonResponse,
+  handleMemberRoute,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const INVITATION_ASSOCIATION_ROUTE_LOG = {
   feature: "tribes",
@@ -25,19 +28,6 @@ const INVITATION_ASSOCIATION_ROUTE_FIELD = {
   subscriptionAssociation: "subscriptionAssociation",
 } as const;
 
-const HTTP_STATUS = {
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  ok: 200,
-  serverError: 500,
-  unauthorized: 401,
-} as const;
-
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
 function readSubscriptionAssociation(body: unknown): unknown {
   if (!body || typeof body !== "object") {
     return null;
@@ -48,82 +38,62 @@ function readSubscriptionAssociation(body: unknown): unknown {
   ];
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: INVITATION_ASSOCIATION_ROUTE_LOG.feature,
+  operation: INVITATION_ASSOCIATION_ROUTE_LOG.operation,
+  unauthorizedMessage: INVITATION_ASSOCIATION_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function PATCH(
   request: Request,
-  context: {
-    params: Promise<{
-      invitationId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ invitationId: string }>
 ) {
   const { invitationId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: INVITATION_ASSOCIATION_ROUTE_LOG.feature,
-    operation: INVITATION_ASSOCIATION_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: INVITATION_ASSOCIATION_ROUTE_LOG.updateFailureMessage,
+      metadata: { invitationId, slug },
+      responseMessage: INVITATION_ASSOCIATION_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ modules }) => {
+      const body: unknown = await request.json().catch(() => null);
+      const result =
+        await modules.tribes.useCases.updateTribeInvitationSubscriptionAssociation({
+          baseUrl: resolvePublicAppBaseUrl(),
+          invitationId,
+          subscriptionAssociation: readSubscriptionAssociation(body),
+          tribeSlug: slug,
+        });
 
-  try {
-    const body: unknown = await request.json().catch(() => null);
-    const result =
-      await modules.tribes.useCases.updateTribeInvitationSubscriptionAssociation({
-        baseUrl: resolvePublicAppBaseUrl(),
-        invitationId,
-        subscriptionAssociation: readSubscriptionAssociation(body),
-        tribeSlug: slug,
-      });
-
-    switch (result.status) {
-      case TRIBE_INVITATION_STATUS.updated:
-        return createJsonResponse(
-          {
-            invitation: result.invitation,
-            message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.updatedMessage,
-          },
-          HTTP_STATUS.ok
-        );
-      case TRIBE_INVITATION_STATUS.invalid:
-        return createJsonResponse(
-          { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.invalidInputMessage },
-          HTTP_STATUS.badRequest
-        );
-      case TRIBE_INVITATION_STATUS.notFound:
-        return createJsonResponse(
-          { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      case TRIBE_INVITATION_STATUS.forbidden:
-      default:
-        return createJsonResponse(
-          { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
-        );
+      switch (result.status) {
+        case TRIBE_INVITATION_STATUS.updated:
+          return createRouteJsonResponse(
+            {
+              invitation: result.invitation,
+              message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.updatedMessage,
+            },
+            HTTP_STATUS.ok
+          );
+        case TRIBE_INVITATION_STATUS.invalid:
+          return createRouteJsonResponse(
+            { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.invalidInputMessage },
+            HTTP_STATUS.badRequest
+          );
+        case TRIBE_INVITATION_STATUS.notFound:
+          return createRouteJsonResponse(
+            { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.notFoundMessage },
+            HTTP_STATUS.notFound
+          );
+        case TRIBE_INVITATION_STATUS.forbidden:
+        default:
+          return createRouteJsonResponse(
+            { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.forbiddenMessage },
+            HTTP_STATUS.forbidden
+          );
+      }
     }
-  } catch (error) {
-    logger.error({
-      message: INVITATION_ASSOCIATION_ROUTE_LOG.updateFailureMessage,
-      error,
-      metadata: {
-        invitationId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
-
-    return createJsonResponse(
-      { message: INVITATION_ASSOCIATION_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+  );
 }

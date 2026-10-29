@@ -1,0 +1,20 @@
+// Shared pieces of the academy modules (home, management).
+//
+// Usage (path relative to the module):
+//   @use "../academy";
+//   .Block__eyebrow { @include academy.eyebrow; }
+
+@mixin eyebrow {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+// Notice flagged by a primary left rule over a faint primary tint; each module sets its own padding.
+@mixin primary-notice {
+  border-inline-start: 3px solid var(--primary);
+  border-radius: min(var(--radius-md), 0.5rem);
+  background-color: color-mix(in oklab, var(--primary) 8%, transparent);
+  color: var(--foreground);
+}

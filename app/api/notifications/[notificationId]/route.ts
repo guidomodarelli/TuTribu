@@ -9,10 +9,8 @@ import {
   NOTIFICATION_ROUTE_HTTP_STATUS,
   NOTIFICATION_ROUTE_RESPONSE,
   createNotificationJsonResponse,
-  createNotificationPublicResponse,
-  parseNotificationRouteInput,
 } from "@/src/modules/notifications/infrastructure/api/notification-route-http";
-import { resolveNotificationRouteSession } from "@/app/api/notifications/notification-route-session";
+import { handleNotificationRoute } from "@/app/api/notifications/notification-route-session";
 
 const NOTIFICATION_MARK_READ_ROUTE_LOG = {
   failureMessage: "Notification mark as read failed",
@@ -29,58 +27,33 @@ type NotificationRouteContext = {
  * unknown) notification answers 404 without revealing whether it exists.
  */
 export async function PATCH(request: Request, context: NotificationRouteContext): Promise<Response> {
-  const session = await resolveNotificationRouteSession(request, {
-    operation: NOTIFICATION_MARK_READ_ROUTE_LOG.operation,
-    unexpectedFailureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedMarkMessage,
-  });
-
-  if (!session.isResolved) {
-    return session.response;
-  }
-
-  const { logger, modules } = session;
-  const input = await parseNotificationRouteInput({
-    logger,
-    params: context.params,
+  return handleNotificationRoute(
     request,
-    schemas: {
-      body: notificationMarkReadBodySchema,
-      params: notificationRouteParamsSchema,
-      query: notificationEmptyQuerySchema,
+    context.params,
+    {
+      failureLogMessage: NOTIFICATION_MARK_READ_ROUTE_LOG.failureMessage,
+      operation: NOTIFICATION_MARK_READ_ROUTE_LOG.operation,
+      readMetadata: ({ notificationId }) => ({ notificationId }),
+      schemas: {
+        body: notificationMarkReadBodySchema,
+        params: notificationRouteParamsSchema,
+        query: notificationEmptyQuerySchema,
+      },
+      unexpectedFailureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedMarkMessage,
     },
-  });
+    async ({ modules, params, respond }) => {
+      const result = await modules.notifications.useCases.markNotificationRead({
+        notificationId: params.notificationId,
+      });
 
-  if (!input.isValid) {
-    return input.response;
-  }
+      if (result.status !== NOTIFICATION_MUTATION_STATUS.marked) {
+        return createNotificationJsonResponse(
+          { message: NOTIFICATION_ROUTE_RESPONSE.notificationNotFoundMessage },
+          NOTIFICATION_ROUTE_HTTP_STATUS.notFound
+        );
+      }
 
-  const metadata = { ...session.metadata, notificationId: input.params.notificationId };
-
-  try {
-    const result = await modules.notifications.useCases.markNotificationRead({
-      notificationId: input.params.notificationId,
-    });
-
-    if (result.status !== NOTIFICATION_MUTATION_STATUS.marked) {
-      return createNotificationJsonResponse(
-        { message: NOTIFICATION_ROUTE_RESPONSE.notificationNotFoundMessage },
-        NOTIFICATION_ROUTE_HTTP_STATUS.notFound
-      );
+      return respond({ unreadCount: result.unreadCount }, notificationMarkReadResponseSchema);
     }
-
-    return createNotificationPublicResponse({
-      body: { unreadCount: result.unreadCount },
-      failureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedMarkMessage,
-      logger,
-      metadata,
-      schema: notificationMarkReadResponseSchema,
-    });
-  } catch (error) {
-    logger.error({ error, message: NOTIFICATION_MARK_READ_ROUTE_LOG.failureMessage, metadata });
-
-    return createNotificationJsonResponse(
-      { message: NOTIFICATION_ROUTE_RESPONSE.unexpectedMarkMessage },
-      NOTIFICATION_ROUTE_HTTP_STATUS.serverError
-    );
-  }
+  );
 }

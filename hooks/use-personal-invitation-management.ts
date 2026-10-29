@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@golfo/ui";
 import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
+import { INITIAL_VIEWER_CHECK, verifyInitialViewer } from "@/hooks/verify-initial-viewer";
 import type { PersonalInvitationManagementPageState, PersonalInvitationManagementBrowserQuery } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import type { PersonalInvitationManagementDraft, PersonalInvitationManagementReference } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
@@ -52,11 +53,10 @@ function useManagementCore(workflow: ManagementState) {
   const close = useCallback(() => { closedRef.current = true; setPrivateVisible(false); setReady(false); setConfirmed(false); setInvitationUrl(null); setPhase(PHASE.closed); setErrorMessage(COPY.account); }, [closedRef, setConfirmed, setErrorMessage, setInvitationUrl, setPhase, setPrivateVisible, setReady]);
   /** @param signal - This observation's lifetime. @param scope - Mounted generation. @returns Whether the actual native viewer still owns this page. */
   const authorize = useCallback(async (signal: AbortSignal, scope: number) => {
-    if (!initial || closedRef.current || !live(signal, scope)) return false;
-    const viewer = await client.viewer(signal);
-    if (!live(signal, scope) || viewer.status === "aborted") return false;
-    if (viewer.status !== "ready" || viewer.value?.id !== initial.viewerId) { close(); return false; }
-    return true;
+    if (!initial || closedRef.current) return false;
+    const check = await verifyInitialViewer({ client, viewerId: initial.viewerId, live }, signal, scope);
+    if (check === INITIAL_VIEWER_CHECK.changed) { close(); return false; }
+    return check === INITIAL_VIEWER_CHECK.current;
   }, [client, close, closedRef, initial, live]);
   /** @param reference - Original progress or confirmed absence. @returns Whether storage accepted the reference before dispatch. */
   const persist = useCallback((reference: PersonalInvitationManagementReference | null) => {

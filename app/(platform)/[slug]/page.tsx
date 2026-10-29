@@ -41,6 +41,7 @@ import {
 import { SubscriptionReturnStatusContainer } from "./subscription-return-status-container";
 import { resolveTribePageAccess } from "./tribe-page-access";
 import styles from "./page.module.scss";
+import { readFirstSearchParamValue } from "@/app/search-params";
 
 const TRIBE_PAGE_LOG_REASON = {
   unexpectedEventRepositoryError: "unexpected_event_repository_error",
@@ -119,24 +120,6 @@ type TribePageProps = {
   }>;
   searchParams?: Promise<TribePageSearchParams>;
 };
-
-function readFirstSearchParamValue(
-  searchParamValue: string | string[] | undefined
-): string | null {
-  if (typeof searchParamValue === "string") {
-    return searchParamValue;
-  }
-
-  if (Array.isArray(searchParamValue)) {
-    const firstStringValue = searchParamValue.find(
-      (value) => value.trim().length > 0
-    );
-
-    return firstStringValue ?? null;
-  }
-
-  return null;
-}
 
 function readPositiveIntegerSearchParam(
   searchParamValue: string | string[] | undefined

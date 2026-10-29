@@ -1,3 +1,13 @@
+import { readBodyField, readStringField } from "@/app/api/request-body-fields";
+
+export { readStringField };
+
+/**
+ * Reads a field that may be omitted. The use case validates its value, and
+ * `undefined` means "not sent" (keep the stored value on update).
+ */
+export const readOptionalField = readBodyField;
+
 export const COURSE_ROUTE_LOG = {
   createCourseFailureMessage: "Course creation failed",
   createCourseModuleFailureMessage: "Course module creation failed",
@@ -97,29 +107,41 @@ export function createJsonResponse(
   return Response.json(body, { status });
 }
 
-export function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
+/**
+ * Reads the JSON body of a course request; a malformed body becomes `null`.
+ *
+ * @param request - Incoming request.
+ * @returns The parsed body, or null.
+ */
+export function readCourseRequestBody(request: Request): Promise<unknown> {
+  return request.json().catch(() => null);
+}
 
-  const value = (body as Record<string, unknown>)[field];
-  return typeof value === "string" ? value : "";
+/** 404 answered when the course content cannot be found. */
+export function createCourseNotFoundResponse(): Response {
+  return createJsonResponse(
+    { message: COURSE_ROUTE_RESPONSE.notFoundMessage },
+    HTTP_STATUS.notFound
+  );
 }
 
 /**
- * Reads a field that may be omitted. The use case validates its value, and
- * `undefined` means "not sent" (keep the stored value on update).
+ * Answers a non-success status of a lesson engagement or comment use case:
+ * 404 when the content is missing, otherwise 403 with the route copy.
  *
- * @param body - Parsed request body.
- * @param field - Field name.
- * @returns The raw value, or undefined when absent.
+ * @param status - Use case status.
+ * @param forbiddenMessage - Copy of the 403 answer.
+ * @returns The JSON response.
  */
-export function readOptionalField(body: unknown, field: string): unknown {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return undefined;
+export function mapCourseAccessStatusResponse(
+  status: string,
+  forbiddenMessage: string
+): Response {
+  if (status === COURSE_MUTATION_STATUS.notFound) {
+    return createCourseNotFoundResponse();
   }
 
-  return (body as Record<string, unknown>)[field];
+  return createJsonResponse({ message: forbiddenMessage }, HTTP_STATUS.forbidden);
 }
 
 export function readNumberField(body: unknown, field: string): number {

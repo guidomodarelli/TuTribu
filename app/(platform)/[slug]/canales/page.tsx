@@ -1,18 +1,12 @@
-import { notFound } from "next/navigation";
 
 import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { requireTribeManagerMembership } from "../tribe-manager-page-access";
 
 const CHANNEL_MANAGEMENT_PAGE_LOG = {
   operation: "tribe-channel-management-page",
   resolveChannelsFailureMessage: "Failed to resolve tribe channels",
-} as const;
-
-const CHANNEL_MANAGER_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
 } as const;
 
 export default async function TribeChannelsPage({
@@ -30,25 +24,7 @@ export default async function TribeChannelsPage({
       slug,
     });
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
-
-  if (
-    currentMembership?.role !== CHANNEL_MANAGER_ROLE.leader &&
-    currentMembership?.role !== CHANNEL_MANAGER_ROLE.guardian
-  ) {
-    notFound();
-  }
-
-  const membershipStatus =
-    await modules.tribes.useCases.getCurrentTribeMembershipStatus(
-      tribe.slug
-    );
-
-  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
-    notFound();
-  }
+  await requireTribeManagerMembership(modules, tribe.slug);
 
   const channelResult = await modules.messages.useCases
     .listTribeChannels({

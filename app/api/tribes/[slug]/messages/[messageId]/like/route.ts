@@ -3,9 +3,12 @@ import { z } from "zod";
 import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  handleMemberRoute,
+  type RequestModules,
+  type TribeRouteContext,
+} from "@/app/api/member-route-scope";
+import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const TOGGLE_MESSAGE_LIKE_ROUTE_LOG = {
   feature: "messages",
@@ -20,15 +23,6 @@ const TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE = {
   successMessage: "Reaccion actualizada.",
   unexpectedMessage: "No pudimos actualizar la reaccion. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para reaccionar.",
-} as const;
-
-const HTTP_STATUS = {
-  ok: 200,
-  badRequest: 400,
-  forbidden: 403,
-  notFound: 404,
-  serverError: 500,
-  unauthorized: 401,
 } as const;
 
 /** Optional body: the desired state makes the write idempotent; no body keeps the historical toggle. */
@@ -54,8 +48,6 @@ function createJsonResponse(
 ): Response {
   return Response.json(body, { status });
 }
-
-type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type ToggleMessageLikeResult = Awaited<
   ReturnType<RequestModules["messages"]["useCases"]["toggleMessageLike"]>
@@ -89,71 +81,51 @@ function createPostResultResponse(result: ToggleMessageLikeResult, slug: string)
   }
 }
 
+const MEMBER_ROUTE_SCOPE = {
+  feature: TOGGLE_MESSAGE_LIKE_ROUTE_LOG.feature,
+  operation: TOGGLE_MESSAGE_LIKE_ROUTE_LOG.operation,
+  unauthorizedMessage: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.unauthorizedMessage,
+} as const;
+
 export async function POST(
   request: Request,
-  context: {
-    params: Promise<{
-      messageId: string;
-      slug: string;
-    }>;
-  }
+  context: TribeRouteContext<{ messageId: string }>
 ) {
   const { messageId, slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: TOGGLE_MESSAGE_LIKE_ROUTE_LOG.feature,
-    operation: TOGGLE_MESSAGE_LIKE_ROUTE_LOG.operation,
-    requestId,
-  });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  return handleMemberRoute(
+    request,
+    MEMBER_ROUTE_SCOPE,
+    {
+      logMessage: TOGGLE_MESSAGE_LIKE_ROUTE_LOG.toggleFailureMessage,
+      metadata: { messageId, slug },
+      responseMessage: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.unexpectedMessage,
+    },
+    async ({ member, modules }) => {
+      if (!isUuidRouteParam(messageId)) {
+        return createJsonResponse(
+          { message: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      }
 
-  if (!isUuidRouteParam(messageId)) {
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.notFoundMessage },
-      HTTP_STATUS.notFound
-    );
-  }
+      const liked = await readDesiredLike(request);
 
-  const liked = await readDesiredLike(request);
+      if (liked === null) {
+        return createJsonResponse(
+          { message: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.invalidBodyMessage },
+          HTTP_STATUS.badRequest
+        );
+      }
 
-  if (liked === null) {
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.invalidBodyMessage },
-      HTTP_STATUS.badRequest
-    );
-  }
-
-  try {
-    const result = await modules.messages.useCases.toggleMessageLike({
-      tribeSlug: slug,
-      messageId,
-      userId: authenticatedMember.id,
-      ...(liked === undefined ? {} : { liked }),
-    });
-
-    return createPostResultResponse(result, slug);
-  } catch (error) {
-    logger.error({
-      message: TOGGLE_MESSAGE_LIKE_ROUTE_LOG.toggleFailureMessage,
-      error,
-      metadata: {
+      const result = await modules.messages.useCases.toggleMessageLike({
+        tribeSlug: slug,
         messageId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
-    });
+        userId: member.id,
+        ...(liked === undefined ? {} : { liked }),
+      });
 
-    return createJsonResponse(
-      { message: TOGGLE_MESSAGE_LIKE_ROUTE_RESPONSE.unexpectedMessage },
-      HTTP_STATUS.serverError
-    );
-  }
+      return createPostResultResponse(result, slug);
+    }
+  );
 }
