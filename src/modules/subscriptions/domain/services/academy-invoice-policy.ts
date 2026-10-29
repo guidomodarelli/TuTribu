@@ -84,7 +84,7 @@ const PROVIDER_PAYMENT_STATUS = {
 } as const;
 const PARTIALLY_REFUNDED_DETAIL = "partially_refunded";
 
-export const ACADEMY_INVOICE_REVIEW_REASON = {
+const ACADEMY_INVOICE_REVIEW_REASON = {
   ambiguousCycle: "ambiguous_cycle",
   amountMismatch: "amount_mismatch",
   missingDebitDate: "missing_debit_date",
@@ -107,7 +107,7 @@ function parseOptionalDate(value: string | null): Date | null {
  * @param invoice - Verified invoice.
  * @returns Ledger payment status.
  */
-export function mapInvoicePaymentStatus(
+function mapInvoicePaymentStatus(
   invoice: Pick<VerifiedAcademyInvoice, "paymentStatus" | "paymentStatusDetail">
 ): AcademyLedgerPaymentStatus {
   switch (invoice.paymentStatus) {

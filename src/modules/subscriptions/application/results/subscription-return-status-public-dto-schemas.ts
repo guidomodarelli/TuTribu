@@ -37,11 +37,3 @@ export const subscriptionReturnStatusSchema = z.discriminatedUnion("status", [
     status: z.literal(SUBSCRIPTION_RETURN_STATUS.resolved),
   }),
 ]) satisfies z.ZodType<SubscriptionReturnStatusResult>;
-
-export const subscriptionReturnStatusMessageSchema = z.object({
-  message: z.string(),
-});
-
-export type SubscriptionReturnStatusResponse = z.infer<
-  typeof subscriptionReturnStatusSchema
->;

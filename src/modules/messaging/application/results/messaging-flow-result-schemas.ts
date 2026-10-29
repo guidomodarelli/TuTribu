@@ -28,9 +28,3 @@ export const verificationResultSchema = z.discriminatedUnion("purpose", [
 ]);
 /** Transport read models never authorize contact verification or reveal a message body. */
 export const messageDeliverySchema = z.object({ id: z.uuid(), state: z.enum(MESSAGE_DELIVERY_STATE), purpose: z.enum([ADMISSION_VERIFICATION_PURPOSE.admission, ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic, "admission_notification"]), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), createdAt: z.iso.datetime({ offset: true }), safeReason: z.enum(MESSAGING_ERROR_CODE).optional() });
-
-/** Own parsed DTOs consumed by props and browser adapters. */
-export type MessagingConnectionDto = z.infer<typeof messagingConnectionSchema>;
-export type ProviderResourcePageDto = z.infer<typeof providerResourcePageSchema>;
-export type VerificationChallengeDto = z.infer<typeof verificationChallengeSchema>;
-export type VerificationResultDto = z.infer<typeof verificationResultSchema>;

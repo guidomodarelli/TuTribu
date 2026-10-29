@@ -29,7 +29,7 @@ export function emailTimeZoneFor(email: AdmissionNotificationEmailSettingsView, 
 }
 
 /** @param email - Current tribe email, or null for a viewer without that authority. @param draft - Edited fields. @returns Whether the tribe email differs from what is saved. */
-export function hasEmailChange(email: AdmissionNotificationEmailSettingsView | null, draft: AdmissionNotificationEmailSettingsDraft): boolean {
+function hasEmailChange(email: AdmissionNotificationEmailSettingsView | null, draft: AdmissionNotificationEmailSettingsDraft): boolean {
   return email !== null && (draft.enabled !== email.enabled || emailTimeZoneFor(email, draft) !== email.timeZone);
 }
 

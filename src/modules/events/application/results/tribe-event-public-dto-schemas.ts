@@ -53,7 +53,7 @@ const attendeePreviewSchema = z.object({
   name: z.string(),
 });
 
-export const tribeEventAttendanceSummarySchema = z.object({
+const tribeEventAttendanceSummarySchema = z.object({
   goingCount: nonNegativeCountSchema,
   goingPreview: z.array(attendeePreviewSchema),
   maybeCount: nonNegativeCountSchema,
@@ -62,7 +62,7 @@ export const tribeEventAttendanceSummarySchema = z.object({
   waitlistedCount: nonNegativeCountSchema,
 }) satisfies z.ZodType<TribeEventAttendanceSummaryResult>;
 
-export const tribeEventOccurrenceSchema = z.object({
+const tribeEventOccurrenceSchema = z.object({
   attendance: tribeEventAttendanceSummarySchema,
   capacity: z.int().positive().nullable(),
   description: z.string().nullable(),
@@ -82,7 +82,7 @@ export const tribeEventOccurrenceSchema = z.object({
   title: z.string(),
 }) satisfies z.ZodType<TribeEventOccurrenceResult>;
 
-export const tribeEventSchema = z.object({
+const tribeEventSchema = z.object({
   capacity: z.int().positive().nullable(),
   description: z.string().nullable(),
   endsAt: instantSchema.nullable(),
@@ -135,7 +135,7 @@ export const tribeEventFailureResponseSchema = tribeEventMessageResponseSchema.e
 /**
  * Allowlisted streak counts: non-negative integers only.
  */
-export const tribeEventAttendanceStreakCountsSchema = z.object({
+const tribeEventAttendanceStreakCountsSchema = z.object({
   attendedCount: nonNegativeCountSchema,
   occurrenceCount: nonNegativeCountSchema,
 }) satisfies z.ZodType<TribeEventAttendanceStreakResult>;
@@ -243,7 +243,7 @@ const attendeeSchema = z.object({
   status: attendanceStatusSchema,
 });
 
-export const tribeEventAttendanceReportSchema = z.object({
+const tribeEventAttendanceReportSchema = z.object({
   attendeeGroups: z.object({
     going: z.array(attendeeSchema),
     maybe: z.array(attendeeSchema),
@@ -278,7 +278,7 @@ export const tribeEventExceptionResponseSchema = z.object({
   occurrences: z.array(tribeEventOccurrenceSchema),
 });
 
-export const tribeEventProposalSchema = z.object({
+const tribeEventProposalSchema = z.object({
   createdAt: instantSchema,
   description: z.string().nullable(),
   durationMinutes: z.int().positive(),
@@ -321,19 +321,9 @@ export const tribeEventProposalApprovalResponseSchema = z.object({
   proposal: tribeEventProposalSchema,
 });
 
-export type TribeEventMessageResponse = z.infer<typeof tribeEventMessageResponseSchema>;
 export type TribeEventFailureResponse = z.infer<typeof tribeEventFailureResponseSchema>;
 export type TribeEventAttendanceStreakMutationFragment = z.infer<
   typeof tribeEventAttendanceStreakMutationFragmentSchema
->;
-export type TribeEventSaveResponse = z.infer<typeof tribeEventSaveResponseSchema>;
-export type TribeEventDeleteResponse = z.infer<typeof tribeEventDeleteResponseSchema>;
-export type TribeEventAttendanceStreakResponse = z.infer<
-  typeof tribeEventAttendanceStreakResponseSchema
->;
-export type TribeEventAttendanceResponse = z.infer<typeof tribeEventAttendanceResponseSchema>;
-export type TribeEventAttendanceReportResponse = z.infer<
-  typeof tribeEventAttendanceReportResponseSchema
 >;
 
 /**
@@ -342,7 +332,7 @@ export type TribeEventAttendanceReportResponse = z.infer<
  */
 const FEED_URL_PROTOCOL_PATTERN = /^https?$/;
 
-export const tribeEventCalendarFeedSubscriptionSchema = z.object({
+const tribeEventCalendarFeedSubscriptionSchema = z.object({
   createdAt: instantSchema,
   /** Opaque id of the active token row, echoed back when regenerating. */
   id: z.guid(),
@@ -373,10 +363,3 @@ export const tribeEventCalendarFeedRevokeResponseSchema = z.object({
   message: z.string(),
   subscription: z.null(),
 });
-
-export type TribeEventCalendarFeedStatusResponse = z.infer<
-  typeof tribeEventCalendarFeedStatusResponseSchema
->;
-export type TribeEventCalendarFeedIssueResponse = z.infer<
-  typeof tribeEventCalendarFeedIssueResponseSchema
->;

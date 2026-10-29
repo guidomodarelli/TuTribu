@@ -35,7 +35,7 @@ export async function readRolledBackGuardOutcome(database: AcademyAdmissionTestD
 }
 
 /** @param leader - Seeded leader. @returns The statement that locks each guarded row, so a holder or a `NOWAIT` probe can target it. */
-export function leaderGuardLockStatements(leader: Leader): Record<GuardLockedRow, (nowait: boolean) => SQL> {
+function leaderGuardLockStatements(leader: Leader): Record<GuardLockedRow, (nowait: boolean) => SQL> {
   const mode = (nowait: boolean) => sql.raw(nowait ? "for update nowait" : "for update");
   return {
     tribe: (nowait) => sql`select id from public.tribes where id=${leader.tribeId} ${mode(nowait)}`,
@@ -51,7 +51,7 @@ export function leaderGuardLockStatements(leader: Leader): Record<GuardLockedRow
  * @param database - Owned branch. @param leader - Seeded leader. @param rows - Rows to probe.
  * @returns Which of them another transaction holds right now: a `NOWAIT` lock fails on a held row and takes and releases a free one.
  */
-export async function probeHeldRows(database: AcademyAdmissionTestDatabase, leader: Leader, rows: readonly GuardLockedRow[]): Promise<Record<string, boolean>> {
+async function probeHeldRows(database: AcademyAdmissionTestDatabase, leader: Leader, rows: readonly GuardLockedRow[]): Promise<Record<string, boolean>> {
   const statements = leaderGuardLockStatements(leader), held: Record<string, boolean> = {};
   for (const row of rows) {
     held[row] = await database.withContext(leader.fixture.own, async (transaction) => {
@@ -67,7 +67,7 @@ export async function probeHeldRows(database: AcademyAdmissionTestDatabase, lead
 }
 
 /** @param database - Owned branch. @param leader - Seeded leader. @returns Whether another transaction holds the tribe `FOR UPDATE`: a `FOR SHARE NOWAIT` probe conflicts only with that. */
-export async function isTribeHeldExclusively(database: AcademyAdmissionTestDatabase, leader: Leader): Promise<boolean> {
+async function isTribeHeldExclusively(database: AcademyAdmissionTestDatabase, leader: Leader): Promise<boolean> {
   return database.withContext(leader.fixture.own, async (transaction) => { await transaction.execute(sql`select id from public.tribes where id=${leader.tribeId} for share nowait`); return false; })
     .catch((error: unknown) => { if (readPostgresTestDiagnostics(error).sqlStates.includes(VALIDATION.lockNotAvailableCode)) return true; throw error; });
 }

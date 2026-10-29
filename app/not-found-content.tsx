@@ -33,7 +33,7 @@ async function resolveAuthenticatedMemberForNotFoundPage(
   }
 }
 
-export function NotFoundSignInAction() {
+function NotFoundSignInAction() {
   return (
     <ButtonLink href={ROUTES.auth.signIn} size="lg" variant="secondary">
       Iniciar sesión

@@ -10,10 +10,7 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionPublicError } from "./admission-errors";
 import { ADMISSION_INVITATION_PUBLIC_PATH_PREFIX, ADMISSION_PUBLIC_URL_PROTOCOL } from "@/src/modules/academy-admissions/constants/admission-management-contract";
 
-export { admissionRequestSchema, admissionReviewSchema, admissionOverviewSchema, admissionOutcomeSchema, admissionBatchResultSchema, createAdmissionOperationStateSchema } from "./admission-flow-result-schemas";
-export type { AdmissionRequestDto, AdmissionReviewDto, AdmissionOverviewDto, AdmissionOutcomeDto, AdmissionBatchResultDto, OperationStateDto } from "./admission-flow-result-schemas";
 export { admissionPolicySchema, allowlistImportSchema } from "./admission-management-result-schemas";
-export type { AdmissionPolicyDto, AllowlistImportDto } from "./admission-management-result-schemas";
 
 const resourceIdSchema = z.uuid();
 const versionSchema = z.int().positive();
@@ -51,9 +48,6 @@ export function createPersonalInvitationCreationSchema(trustedOrigin: string) {
       && tokenPath.length > 0 && !tokenPath.includes("/") && !url.search && !url.hash;
   }) });
 }
-/** Typed own metadata used by props and browser consumers. */
-export type AllowlistEntryDto = z.infer<typeof allowlistEntrySchema>;
-export type PersonalInvitationDto = z.infer<typeof personalInvitationSchema>;
 
 /** Public error copy comes only from the own catalogue, never an upstream exception message. */
 export const admissionPublicErrorSchema = z.object({

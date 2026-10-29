@@ -5,7 +5,6 @@ import type {
   CourseModuleDeletionResult as DomainCourseModuleDeletionResult,
   CourseModuleResult as DomainCourseModuleResult,
   CourseModuleUpdateResult as DomainCourseModuleUpdateResult,
-  CourseModuleViewerAccessResult as DomainCourseModuleViewerAccessResult,
   CourseModuleWithLessonsResult as DomainCourseModuleWithLessonsResult,
   CourseResult as DomainCourseResult,
   CourseTreeResult as DomainCourseTreeResult,
@@ -32,9 +31,6 @@ export type CourseResult = DomainCourseResult;
 export type CourseWithModulesResult = DomainCourseWithModulesResult;
 
 export type CourseModuleResult = DomainCourseModuleResult;
-
-export type CourseModuleViewerAccessResult =
-  DomainCourseModuleViewerAccessResult;
 
 export type LessonResult = DomainLessonResult;
 

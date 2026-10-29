@@ -8,4 +8,3 @@ export const admissionReviewPageSchema = z.object({
   items: z.array(admissionReviewSchema).max(ADMISSION_QUERY_LIMIT.maximumPageSize),
   nextCursor: z.string().min(1).max(ADMISSION_QUERY_LIMIT.cursorCharacters).nullable(),
 });
-export type AdmissionReviewPageDto = z.infer<typeof admissionReviewPageSchema>;

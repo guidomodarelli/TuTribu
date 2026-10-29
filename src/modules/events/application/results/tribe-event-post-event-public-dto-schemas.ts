@@ -24,7 +24,7 @@ const countSchema = z.int().nonnegative();
 const webUrlSchema = z.url({ protocol: /^https?$/ }).max(TRIBE_EVENT_POST_EVENT_LIMIT.urlMaxLength);
 const reactionSchema = z.enum(TRIBE_EVENT_OCCURRENCE_REACTION);
 
-export const tribeEventReactionSummarySchema = z.object({
+const tribeEventReactionSummarySchema = z.object({
   counts: z.object({
     [TRIBE_EVENT_OCCURRENCE_REACTION.fire]: countSchema,
     [TRIBE_EVENT_OCCURRENCE_REACTION.neutral]: countSchema,
@@ -118,9 +118,5 @@ export const tribeEventCommentResponseSchema = z.object({
   message: z.string(),
 });
 
-export type TribeEventPostEventResponse = z.infer<typeof tribeEventPostEventResponseSchema>;
-export type TribeEventPostEventSaveResponse = z.infer<typeof tribeEventPostEventSaveResponseSchema>;
-export type TribeEventReactionResponse = z.infer<typeof tribeEventReactionResponseSchema>;
 export type TribeEventConversationResponse = z.infer<typeof tribeEventConversationResponseSchema>;
-export type TribeEventCommentResponse = z.infer<typeof tribeEventCommentResponseSchema>;
 export type TribeEventComment = z.infer<typeof tribeEventCommentSchema>;

@@ -6,7 +6,7 @@ import { ADMISSION_QUERY_LIMIT } from "./admission-public-contract";
 import { ADMISSION_REVIEW_HISTORY_ACTOR, ADMISSION_REVIEW_HISTORY_EVENT } from "./admission-review-history";
 
 /** Explicit public facts exclude actor identifiers, arbitrary causes and metadata. */
-export const admissionReviewHistoryItemSchema = z.strictObject({
+const admissionReviewHistoryItemSchema = z.strictObject({
   id: z.uuid(), eventType: z.enum(ADMISSION_REVIEW_HISTORY_EVENT),
   fromStatus: z.enum(ADMISSION_REQUEST_STATUS).nullable(), toStatus: z.enum(ADMISSION_REQUEST_STATUS).nullable(),
   resourceVersion: z.int().positive().max(Number.MAX_SAFE_INTEGER).nullable(), actorKind: z.enum(ADMISSION_REVIEW_HISTORY_ACTOR), createdAt: z.iso.datetime({ precision: 3 }),

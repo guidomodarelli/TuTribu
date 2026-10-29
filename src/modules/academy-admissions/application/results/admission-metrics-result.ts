@@ -4,7 +4,6 @@ import { admissionMetricsResultSchema } from "../../constants/admission-metrics-
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 
-export type { AdmissionMetricPhase, AdmissionMetricRunOperation } from "../../domain/entities/admission-metric-dimensions";
 export { admissionMetricsResultSchema } from "../../constants/admission-metrics-schemas";
 
 /** Application-owned public result, distinct from a provider DTO or persistence record. */

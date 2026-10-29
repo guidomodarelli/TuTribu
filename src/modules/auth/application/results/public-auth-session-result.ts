@@ -14,7 +14,7 @@ export type PublicAuthSignInResult = { user: PublicAuthUser; redirect?: boolean;
 /** Guards only selected own output fields; never a provider response or database row. */
 export const publicAuthSessionMetadataSchema: z.ZodType<PublicAuthSessionMetadata> = z.strictObject({ id: z.string().min(1), userId: z.string().min(1), expiresAt: z.iso.datetime(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(), ipAddress: z.string().nullable(), userAgent: z.string().nullable() });
 /** Guards selected account output without carrying provider credentials or profile payloads. */
-export const publicAuthUserSchema: z.ZodType<PublicAuthUser> = z.strictObject({ id: z.string().min(1), name: z.string(), email: z.string().min(1), emailVerified: z.boolean(), image: z.string().nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime() });
+const publicAuthUserSchema: z.ZodType<PublicAuthUser> = z.strictObject({ id: z.string().min(1), name: z.string(), email: z.string().min(1), emailVerified: z.boolean(), image: z.string().nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime() });
 /** Validates the minimized own HTTP contract after mapping, including an unauthenticated null. */
 export const publicAuthSessionResultSchema: z.ZodType<PublicAuthSessionResult> = z.strictObject({ session: publicAuthSessionMetadataSchema, user: publicAuthUserSchema }).nullable();
 /** Guards the own selected sign-in result after the native SDK has already authenticated and set cookies. */

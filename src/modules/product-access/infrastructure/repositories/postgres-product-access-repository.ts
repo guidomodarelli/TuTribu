@@ -51,14 +51,14 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
-export const ACADEMY_AUDIT_ACTION = {
+const ACADEMY_AUDIT_ACTION = {
   availabilityChanged: "academy_availability_changed",
   bonusGranted: "academy_bonus_granted",
   bonusRevoked: "academy_bonus_revoked",
   offerSaved: "academy_offer_saved",
 } as const;
 
-export const ACADEMY_AUDIT_ENTITY = {
+const ACADEMY_AUDIT_ENTITY = {
   grant: "member_access_grant",
   settings: "tribe_academy_settings",
 } as const;

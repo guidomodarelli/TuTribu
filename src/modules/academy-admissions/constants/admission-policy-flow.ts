@@ -79,10 +79,6 @@ export const ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON = {
   admission_recovery_locked: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
 } as const satisfies Record<AdmissionPolicyBlockReason, AdmissionPolicyBlockResolution>;
 
-/** Reasons only the TuTribu team can resolve; the flow never offers to publish while one is present. */
-export const ADMISSION_POLICY_PLATFORM_REASONS = (Object.keys(ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON) as AdmissionPolicyBlockReason[])
-  .filter((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] === ADMISSION_POLICY_BLOCK_RESOLUTION.platform);
-
 /** @param reason - Blocking reason. @returns Whether the TuTribu team, not the leader, has to resolve it. */
 export function isAdmissionPolicyPlatformReason(reason: AdmissionPolicyBlockReason): boolean {
   return ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] === ADMISSION_POLICY_BLOCK_RESOLUTION.platform;

@@ -60,7 +60,7 @@ export type VerificationAuditWriter = (
   }
 ) => Promise<void>;
 
-export const VERIFICATION_AUDIT_ACTION = {
+const VERIFICATION_AUDIT_ACTION = {
   decided: "member_verification_decided",
   providerSaved: "verification_provider_saved",
   requested: "member_verification_requested",

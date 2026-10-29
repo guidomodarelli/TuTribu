@@ -7,7 +7,7 @@
 import { afterEach, expect } from "vitest";
 
 /** Development warnings React logs instead of throwing; each one is a real bug in the rendered component. */
-export const REACT_DEVELOPMENT_WARNING_PATTERNS: readonly RegExp[] = [
+const REACT_DEVELOPMENT_WARNING_PATTERNS: readonly RegExp[] = [
   /is changing (?:from )?(?:an )?uncontrolled .*to (?:be )?controlled/i,
   /is changing (?:from )?(?:a )?controlled .*to (?:be )?uncontrolled/i,
   /Each child in a list should have a unique "key" prop/,

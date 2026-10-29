@@ -132,7 +132,3 @@ export const verificationProviderBodySchema = z.object({
   key: z.string().min(1).max(VERIFICATION_PROVIDER_LIMITS.keyMaxLength),
   linkUrl: z.string().max(VERIFICATION_PROVIDER_LIMITS.linkUrlMaxLength).default(""),
 });
-
-export const academySubscriptionCancelQuerySchema = z.object({
-  product: z.literal("academy"),
-});

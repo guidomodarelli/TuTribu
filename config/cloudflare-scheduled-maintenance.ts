@@ -88,7 +88,7 @@ export function resolveMaintenancePathForCron(cron: string): string {
  * @param maintenancePath - Maintenance route to re-enter.
  * @returns A `GET` request carrying the `Bearer` cron token.
  */
-export function buildMaintenanceCronRequest(
+function buildMaintenanceCronRequest(
   cronSecret: string,
   maintenancePath: string
 ): Request {

@@ -1,9 +1,5 @@
 /** Fixes route operation names independently of browser inputs and raw URLs. @module admission-http-constants */
 /** Names implemented HTTP operations independently of client-supplied action or role fields. */
 export const ADMISSION_HTTP_OPERATION = { overview: "admission-overview", own: "admission-own-request", submit: "admission-submit", cancel: "admission-cancel", decide: "admission-decision", decideBatch: "admission-batch-decision", operation: "admission-operation", retry: "admission-allow-retry", reviewList: "admission-review-list", reviewDetail: "admission-review-detail", legacyJoin: "admission-academy-join", policyRead: "admission-policy-read", policyPreflight: "admission-policy-preflight", policyInitialize: "admission-policy-initialize", policyUpdate: "admission-policy-update", policyActivate: "admission-policy-activate", policyPause: "admission-policy-pause", challengeIssue: "admission-challenge-issue", challengeSelect: "admission-challenge-select", challengeVerify: "admission-challenge-verify", challengeResend: "admission-challenge-resend", proofApply: "admission-proof-apply", allowlistList: "admission-allowlist-list", allowlistRead: "admission-allowlist-read", allowlistCreate: "admission-allowlist-create", allowlistUpdate: "admission-allowlist-update" } as const;
-/** Browser mutations must originate from this same application origin. */
-export const ADMISSION_ORIGIN_HEADER = "origin";
-/** Next's request URL may use fetchHostname; browser authority is the native Host header. */
-export const ADMISSION_HOST_HEADER = "host";
 /** Names leader-only observation surfaces without accepting browser operation labels. */
 export const ADMISSION_OBSERVABILITY_HTTP_OPERATION = { activity: "admission-activity", metrics: "admission-metrics" } as const;

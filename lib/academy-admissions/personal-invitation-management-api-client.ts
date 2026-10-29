@@ -102,4 +102,3 @@ export function createPersonalInvitationManagementApiClient(options: { fetch?: t
     },
   };
 }
-export const personalInvitationManagementApiClient = createPersonalInvitationManagementApiClient();

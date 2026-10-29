@@ -28,5 +28,3 @@ export const notificationRouteParamsSchema = z.object({
 export const notificationMarkReadBodySchema = z.object({
   isRead: z.literal(true, { error: NOTIFICATION_INPUT_ISSUE.invalidInput }),
 });
-
-export type NotificationMarkReadRequestBody = z.infer<typeof notificationMarkReadBodySchema>;

@@ -51,7 +51,7 @@ const notificationBaseShape = {
   tribe: tribeSchema,
 };
 
-export const notificationItemSchema = z.discriminatedUnion("type", [
+const notificationItemSchema = z.discriminatedUnion("type", [
   z.object({
     ...notificationBaseShape,
     admission: z.object({ requestId: z.uuid(), audience: z.enum(ADMISSION_NOTIFICATION_AUDIENCE) }),
@@ -94,5 +94,3 @@ export const notificationMessageResponseSchema = z.object({
 });
 
 export type NotificationInboxResponse = z.infer<typeof notificationInboxSchema>;
-export type NotificationUnreadCountResponse = z.infer<typeof notificationUnreadCountSchema>;
-export type NotificationMarkReadResponse = z.infer<typeof notificationMarkReadResponseSchema>;

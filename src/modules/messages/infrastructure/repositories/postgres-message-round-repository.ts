@@ -193,7 +193,7 @@ export function createMessageMediaFromRows(
  * @param fileRows - Attached file rows (with their `sort_order`).
  * @returns File results sorted ascending by `sortOrder`.
  */
-export function createMessageFilesFromRows(
+function createMessageFilesFromRows(
   fileRows: MessageFileRow[] | null | undefined
 ): MessageFileResult[] {
   return (fileRows ?? [])
@@ -628,7 +628,7 @@ function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
   };
 }
 
-export function mapRowsToLikers(rows: MessageLikerRow[]): TribeRoundLikersResult {
+function mapRowsToLikers(rows: MessageLikerRow[]): TribeRoundLikersResult {
   const status = rows[0]?.status_result;
 
   if (status === MESSAGE_MUTATION_STATUS.notFound) {

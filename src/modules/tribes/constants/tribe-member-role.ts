@@ -6,7 +6,7 @@ export const TRIBE_MEMBER_ROLE = {
   tribemate: "tribemate",
 } as const;
 
-export const TRIBE_MEMBER_PRIVILEGED_ROLES = new Set<TribeMemberRole>([
+const TRIBE_MEMBER_PRIVILEGED_ROLES = new Set<TribeMemberRole>([
   TRIBE_MEMBER_ROLE.guardian,
   TRIBE_MEMBER_ROLE.leader,
 ]);

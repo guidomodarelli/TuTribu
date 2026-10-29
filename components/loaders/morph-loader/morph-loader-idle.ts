@@ -23,7 +23,7 @@ const SQUARE_LOOP = { periodSeconds: 0.9, easedFraction: 0.8, tuck: 8 };
 export type StrokeOffsets = Partial<StrokePose>[];
 
 /** Cubic ease in and out on a 0 to 1 progress. */
-export function smoothStep(progress: number): number {
+function smoothStep(progress: number): number {
   return progress * progress * (SMOOTHSTEP_CUBIC - SMOOTHSTEP_SLOPE * progress);
 }
 

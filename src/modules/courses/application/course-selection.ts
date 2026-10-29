@@ -13,7 +13,7 @@ export type CourseSelectionQuery = {
  * @param courseId - Requested course identifier.
  * @returns The matching course, or `null` when it is not visible.
  */
-export function findCourseById(
+function findCourseById(
   courses: readonly CourseWithModulesResult[],
   courseId: string
 ): CourseWithModulesResult | null {
@@ -27,7 +27,7 @@ export function findCourseById(
  * @param lessonId - Requested lesson identifier.
  * @returns The owning course, or `null` when no visible course has the lesson.
  */
-export function findCourseByLessonId(
+function findCourseByLessonId(
   courses: readonly CourseWithModulesResult[],
   lessonId: string
 ): CourseWithModulesResult | null {

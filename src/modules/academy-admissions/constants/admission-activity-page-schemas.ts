@@ -6,9 +6,8 @@ import { admissionTribeParamsSchema } from "./admission-route-input";
 import { ADMISSION_QUERY_LIMIT } from "./admission-public-contract";
 import { ADMISSION_ACTIVITY_RESOURCE } from "./admission-activity";
 import { ADMISSION_ACTIVITY_PAGE_KIND } from "./admission-activity-browser";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "./admission-errors";
 import { messagingUsagePolicyStateSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
-import type { AdmissionActivityPageSelection, AdmissionActivityReadyPageState, AdmissionActivityPageState } from "../application/results/admission-activity-page-state";
+import type { AdmissionActivityPageSelection, AdmissionActivityReadyPageState } from "../application/results/admission-activity-page-state";
 
 /** Native routing and user-selected filters are validated together before opening composition. */
 export const admissionActivityPageInputSchema = z.strictObject({ params: admissionTribeParamsSchema, query: admissionActivityQuerySchema });
@@ -24,9 +23,3 @@ export const admissionActivityReadyPageStateSchema: z.ZodType<AdmissionActivityR
   selection: admissionActivityPageSelectionSchema, activity: admissionActivityPageSchema,
   metrics: admissionMetricsResultSchema, currentUsage: messagingUsagePolicyStateSchema,
 }).refine((value) => value.activity.tribeId === value.tribeId && value.metrics.tribeId === value.tribeId);
-/** SSR failure copy comes from the same closed catalog as the corresponding API response. */
-export const admissionActivityPageStateSchema: z.ZodType<AdmissionActivityPageState> = z.union([
-  admissionActivityReadyPageStateSchema,
-  z.strictObject({ kind: z.literal(ADMISSION_ACTIVITY_PAGE_KIND.unavailable), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((value) => value.message === ADMISSION_ERROR_MESSAGE[value.code]),
-]);
-
