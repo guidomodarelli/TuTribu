@@ -93,12 +93,11 @@ export class PostgresAdmissionOperationRepository {
    * @returns The completed original, registered progress, or the renewed claim for the next block.
    */
   private async runChunkStep<Result>({ database, command, schema, claim, mutate }: { database: RequestDatabase; command: AdmissionOperationCommand; schema: z.ZodType<Result>; claim: Extract<OperationClaim<Result>, { state: "claimed" }>; mutate: (database: RequestDatabase, ledgerId: string) => Promise<{ completed: false } | { completed: true; result: unknown }> }): Promise<OperationClaim<Result>> {
+    const original = await this.readLockedOriginal(database, command);
+    if (!original) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
+    if (!original.matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
     await this.assertAuthorized(database, command);
-    const row = await this.readLocked(database, command);
-    if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-    const fingerprint = await this.readFingerprint(database);
-    if (!await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
-    await this.assertAuthorized(database, command);
+    const { row } = original;
     if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
     const now = await clock(database);
     if (row.lease_owner !== claim.owner || row.version !== claim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
@@ -197,6 +196,34 @@ export class PostgresAdmissionOperationRepository {
     return (await database.execute<OperationRow>(sql`select id,state,version,lease_owner,lease_until,fingerprint_key_id,intent_fingerprint,public_result from public.academy_admission_operations where actor_user_id=${command.actorUserId} and tribe_id=${command.tribeId} and operation_type=${command.operationType} and idempotency_key=${command.idempotencyKey} for update`)).rows[0];
   }
 
+  /**
+   * Authorizes, locks the exact original and checks its intent fingerprint; callers decide what a missing row or a mismatch means.
+   * @param database - Current transaction.
+   * @param command - Original command.
+   * @returns The locked row and whether it carries this intent, or null when no original exists.
+   */
+  private async readLockedOriginal(database: RequestDatabase, command: AdmissionOperationCommand): Promise<{ row: OperationRow; matches: boolean } | null> {
+    await this.assertAuthorized(database, command);
+    const row = await this.readLocked(database, command);
+    if (!row) return null;
+    const fingerprint = await this.readFingerprint(database);
+    return { row, matches: await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint) };
+  }
+
+  /**
+   * Re-authorizes after the fingerprint await, then rejects a different intent under the same client key.
+   * @param database - Current transaction.
+   * @param command - Original command.
+   * @param original - Locked row and its fingerprint verdict.
+   * @returns The locked row of this exact intent.
+   * @throws AdmissionOperationError for lost authority or an idempotency conflict.
+   */
+  private async confirmLockedOriginal(database: RequestDatabase, command: AdmissionOperationCommand, original: { row: OperationRow; matches: boolean }): Promise<OperationRow> {
+    await this.assertAuthorized(database, command);
+    if (!original.matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
+    return original.row;
+  }
+
   /** Validates only the stored own public DTO before emitting it, not the surrounding PostgreSQL row. */
   private project<Result>(command: AdmissionOperationCommand, row: OperationRow, schema: z.ZodType<Result>): AdmissionOperationResult<Result> {
     if (row.state !== OPERATION_STATE.completed) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
@@ -244,14 +271,9 @@ export class PostgresAdmissionOperationRepository {
    */
   async read<Result>(command: AdmissionOperationCommand, schema: z.ZodType<Result>): Promise<AdmissionOperationResult<Result> | null> {
     return this.executeWithDatabase(async (database) => {
-      await this.assertAuthorized(database, command);
-      const row = await this.readLocked(database, command);
-      if (!row) return null;
-      const fingerprint = await this.readFingerprint(database);
-      const matches = await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint);
-      await this.assertAuthorized(database, command);
-      if (!matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
-      return this.project(command, row, schema);
+      const original = await this.readLockedOriginal(database, command);
+      if (!original) return null;
+      return this.project(command, await this.confirmLockedOriginal(database, command, original), schema);
     });
   }
 
@@ -309,13 +331,9 @@ export class PostgresAdmissionOperationRepository {
     if (claim.state !== "claimed") return claim;
     try {
       return await this.executeWithDatabase(async (database) => {
-        await this.assertAuthorized(database, command);
-        const row = await this.readLocked(database, command);
-        if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-        const fingerprint = await this.readFingerprint(database);
-        const matches = await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint);
-        await this.assertAuthorized(database, command);
-        if (!matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
+        const original = await this.readLockedOriginal(database, command);
+        if (!original) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
+        const row = await this.confirmLockedOriginal(database, command, original);
         if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
         const now = await clock(database);
         if (row.lease_owner !== claim.owner || row.version !== claim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };

@@ -1,6 +1,7 @@
 /** Composes existing leader-only reads without loading keys, writing configuration or replacing history. @module get-admission-activity-page-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
-import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
+import { confirmSameAdmissionAccount } from "./admission-account-continuity";
+import { runScopedAdmissionRead } from "./admission-tribe-scope";
 import type { ManageMessagingUsageUseCases } from "@/src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases";
 import type { GetAdmissionActivityAndMetricsUseCases } from "./get-admission-activity-and-metrics-use-cases";
 import type { ResolveAdmissionTribeUseCase } from "./resolve-admission-tribe-use-case";
@@ -9,8 +10,6 @@ import { admissionActivityReadyPageStateSchema } from "../../constants/admission
 import { ADMISSION_ACTIVITY_PAGE_KIND } from "../../constants/admission-activity-browser";
 import { ADMISSION_ACTIVITY_QUERY } from "../../constants/admission-activity";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
-import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
-import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { admissionFailure } from "../results/admission-errors";
 
 /** The same native account is shared by each independently authorized existing owner. */
@@ -28,12 +27,7 @@ export class GetAdmissionActivityPageUseCase {
    * @returns Own current settings, observed aggregates and the original bounded history as separate facts.
    */
   async execute(query: { slug: string; requestId: string; filters: AdmissionActivityFilters }) {
-    try {
-      const first = await this.accounts.getAuthenticatedAccount();
-      if (!first || !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
-      if (!tribe.ok) return tribe;
-      const scope = { tribeId: tribe.value.tribeId, requestId: query.requestId };
+    return runScopedAdmissionRead({ accounts: this.accounts, clock: this.clock, routing: this.readers.resolveTribe }, query, async ({ first, scope }) => {
       const currentUsage = await this.readers.usage.read(scope);
       if (!currentUsage.ok) {
         const code = Object.values(ADMISSION_ERROR_CODE).find((candidate) => candidate === currentUsage.failure.code) ?? ADMISSION_ERROR_CODE.unexpectedFailure;
@@ -43,8 +37,7 @@ export class GetAdmissionActivityPageUseCase {
       if (!metrics.ok) return metrics;
       const activity = await this.readers.observations.activity({ ...query.filters, ...scope });
       if (!activity.ok) return activity;
-      const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (current?.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      const { current, now } = await confirmSameAdmissionAccount(this.accounts, first, this.clock);
       const cursor = query.filters.cursor;
       return { ok: true as const, value: admissionActivityReadyPageStateSchema.parse({
         kind: ADMISSION_ACTIVITY_PAGE_KIND.ready, slug: query.slug, tribeId: scope.tribeId, viewerId: current.userId, renderedAt: now.toISOString(),
@@ -55,6 +48,6 @@ export class GetAdmissionActivityPageUseCase {
         },
         activity: activity.value, metrics: metrics.value, currentUsage: currentUsage.value,
       }) };
-    } catch (error) { return admissionOperationFailure(error); }
+    });
   }
 }

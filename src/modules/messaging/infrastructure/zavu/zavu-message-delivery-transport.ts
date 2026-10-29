@@ -1,6 +1,5 @@
 /** Sends one already prepared private message with fixed SDK scope and portable own receipts. @module zavu-message-delivery-transport */
 import "server-only";
-import Zavu from "@zavudev/sdk";
 import type { MessageSendParams } from "@zavudev/sdk/resources/messages";
 import type { AuthorizedDeliveryMessagingContext } from "../../domain/repositories/messaging-repositories";
 import type { MessageDeliveryReceipt } from "../../domain/repositories/message-delivery-repository";
@@ -12,6 +11,7 @@ import { MESSAGING_DISPATCH_DEFAULT } from "../../constants/messaging-dispatch";
 import { MESSAGING_PUBLIC_CHANNEL } from "../../constants/messaging-public-contract";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { normalizeMessagingProviderFailure } from "../api/messaging-route-http";
+import { createScopedZavuClient } from "./zavu-scoped-client";
 import { assertPreparedMessageDeliveryScope, type PreparedMessageDeliveryMaterial } from "../message-delivery-preparation";
 
 /** Keeps SDK content local to infrastructure; routing, sender, credential and idempotency stay with the original intent. */
@@ -28,14 +28,14 @@ export class ZavuMessageDeliveryTransport {
     assertPreparedMessageDeliveryScope(context, prepared);
     const intent = prepared.intent;
     const params: MessageSendParams = { to: intent.recipient, channel: intent.channel, [ZAVU_DELIVERY_HEADER.sender]: intent.senderId, fallbackEnabled: false, idempotencyKey: intent.idempotencyKey, messageType: content.messageType, text: content.text, subject: content.subject, content: content.content };
-    const scopedFetch: typeof globalThis.fetch = async (input, init) => {
-      const request = new Request(input, init), url = new URL(request.url);
-      if (url.origin !== ZAVU_DELIVERY_ENDPOINT.origin || url.pathname !== ZAVU_DELIVERY_ENDPOINT.path || url.search || request.method !== ZAVU_DELIVERY_TRANSPORT.method) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-      const headers = new Headers({ [ZAVU_DELIVERY_HEADER.authorization]: `${ZAVU_DELIVERY_TRANSPORT.authorizationPrefix}${prepared.credential}`, [ZAVU_DELIVERY_HEADER.sender]: intent.senderId, [ZAVU_DELIVERY_HEADER.contentType]: ZAVU_DELIVERY_TRANSPORT.json, [ZAVU_DELIVERY_HEADER.accept]: ZAVU_DELIVERY_TRANSPORT.json, [ZAVU_DELIVERY_HEADER.requestId]: context.requestId });
-      // Preserve the original deadline when SDK intermediate Request signals are collected.
-      return this.fetch(new Request(request, { headers, redirect: ZAVU_DELIVERY_TRANSPORT.redirect }), { signal: init?.signal ?? request.signal });
-    };
-    const client = new Zavu({ apiKey: prepared.credential, baseURL: ZAVU_DELIVERY_ENDPOINT.origin, fetch: scopedFetch, timeout: this.timeoutMs, maxRetries: ZAVU_DELIVERY_TRANSPORT.maximumRetries, logLevel: ZAVU_DELIVERY_TRANSPORT.logLevel });
+    const client = createScopedZavuClient({
+      credential: prepared.credential, timeoutMs: this.timeoutMs, send: (input, init) => this.fetch(input, init),
+      admit: (request) => {
+        const url = new URL(request.url);
+        if (url.origin !== ZAVU_DELIVERY_ENDPOINT.origin || url.pathname !== ZAVU_DELIVERY_ENDPOINT.path || url.search || request.method !== ZAVU_DELIVERY_TRANSPORT.method) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+      },
+      headers: { [ZAVU_DELIVERY_HEADER.sender]: intent.senderId, [ZAVU_DELIVERY_HEADER.contentType]: ZAVU_DELIVERY_TRANSPORT.json, [ZAVU_DELIVERY_HEADER.accept]: ZAVU_DELIVERY_TRANSPORT.json, [ZAVU_DELIVERY_HEADER.requestId]: context.requestId },
+    });
     try {
       return classifyProviderMessage((await client.messages.send(params, { signal })).message, intent);
     } catch (error) {

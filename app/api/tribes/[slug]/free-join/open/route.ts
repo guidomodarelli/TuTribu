@@ -14,7 +14,7 @@ import {
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
-import { isPayloadObject } from "@/app/api/request-body-fields";
+import { readPayloadObjectBody } from "@/app/api/request-body-fields";
 
 const OPEN_FREE_JOIN_ROUTE_LOG = {
   failureMessage: "Tribe open free join toggle failed",
@@ -52,12 +52,9 @@ export async function PUT(
       responseMessage: OPEN_FREE_JOIN_ROUTE_RESPONSE.unexpectedMessage,
     },
     async ({ modules }) => {
-      const parsedBody: unknown = await request.json().catch(() => ({}));
+      const parsedBody = await readPayloadObjectBody(request);
 
-      if (
-        !isPayloadObject(parsedBody) ||
-        typeof parsedBody.enabled !== "boolean"
-      ) {
+      if (!parsedBody || typeof parsedBody.enabled !== "boolean") {
         return createRouteJsonResponse(
           { message: OPEN_FREE_JOIN_ROUTE_RESPONSE.invalidBodyMessage },
           HTTP_STATUS.badRequest

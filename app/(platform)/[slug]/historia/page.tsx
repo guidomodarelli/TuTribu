@@ -25,6 +25,7 @@ import {
 } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { Metadata } from "next";
 import { resolveTribePageAccess } from "../tribe-page-access";
+import { findCurrentTribeMembership } from "../tribe-manager-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_STORY_PAGE = {
@@ -303,9 +304,7 @@ async function renderMemberTribeStory(
     notFound();
   }
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
+  const currentMembership = await findCurrentTribeMembership(modules, tribe.slug);
   const canEdit =
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
     currentMembership?.role === TRIBE_MEMBER_ROLE.leader;

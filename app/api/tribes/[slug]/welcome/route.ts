@@ -14,16 +14,13 @@ import type {
   TribeWelcomeRuleResult,
 } from "@/src/modules/tribes/application/results/tribe-welcome-result";
 import {
-  TRIBE_PAGE_ACCESS_REASON,
-  TRIBE_PAGE_ACCESS_STATUS,
-} from "@/src/modules/tribes/application/results/tribe-page-access-result";
-import {
   createRouteJsonResponse,
   handleGuardedMemberRoute,
   type RequestModules,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { respondToHiddenAcademyFreePage } from "../academy-free-page-access";
 import { isPayloadObject } from "@/app/api/request-body-fields";
 
 const WELCOME_ROUTE_LOG = {
@@ -55,20 +52,6 @@ const ALLOWED_EXTERNAL_URL_PROTOCOL = {
 const BADGE_LABEL_MAX_LENGTH = 30;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function createHiddenWelcomeResponse(reason: string): Response {
-  if (reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden) {
-    return createRouteJsonResponse(
-      { message: WELCOME_ROUTE_RESPONSE.accessForbiddenMessage },
-      HTTP_STATUS.forbidden
-    );
-  }
-
-  return createRouteJsonResponse(
-    { message: WELCOME_ROUTE_RESPONSE.notFoundMessage },
-    HTTP_STATUS.notFound
-  );
-}
 
 function isWelcomeLinkType(
   value: unknown
@@ -278,16 +261,16 @@ export async function GET(
       responseMessage: WELCOME_ROUTE_RESPONSE.unexpectedGetMessage,
     },
     async ({ modules }) => {
-      const accessResult = await modules.tribes.useCases.getTribePageAccess({
-        // Onboarding (welcome rules and the external WhatsApp group) is part of
-        // the academy free allowlist.
-        allowWithoutCommunityAccess: true,
-        isAuthenticated: true,
+      // Onboarding (welcome rules and the external WhatsApp group) is part of
+      // the academy free allowlist.
+      const hiddenResponse = await respondToHiddenAcademyFreePage(
+        modules,
         slug,
-      });
+        WELCOME_ROUTE_RESPONSE
+      );
 
-      if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-        return createHiddenWelcomeResponse(accessResult.reason);
+      if (hiddenResponse) {
+        return hiddenResponse;
       }
 
       return createRouteJsonResponse(

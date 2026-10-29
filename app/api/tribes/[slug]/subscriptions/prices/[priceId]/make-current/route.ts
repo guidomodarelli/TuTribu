@@ -7,10 +7,10 @@
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   createRouteJsonResponse,
-  handleMemberRoute,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { handlePriceMemberRoute } from "../price-member-route";
 
 const CURRENT_PRICE_ROUTE_LOG = {
   failureMessage: "Tribe subscription current price update failed",
@@ -26,27 +26,15 @@ const CURRENT_PRICE_ROUTE_RESPONSE = {
   unexpectedMessage: "No pudimos marcar el precio como actual. Intentá de nuevo.",
 } as const;
 
-const MEMBER_ROUTE_SCOPE = {
-  feature: CURRENT_PRICE_ROUTE_LOG.feature,
-  operation: CURRENT_PRICE_ROUTE_LOG.operation,
-  unauthorizedMessage: CURRENT_PRICE_ROUTE_RESPONSE.unauthorizedMessage,
-} as const;
-
 export async function POST(
   request: Request,
   context: TribeRouteContext<{ priceId: string }>
 ) {
-  const { priceId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handlePriceMemberRoute(
     request,
-    MEMBER_ROUTE_SCOPE,
-    {
-      logMessage: CURRENT_PRICE_ROUTE_LOG.failureMessage,
-      metadata: { priceId, slug },
-      responseMessage: CURRENT_PRICE_ROUTE_RESPONSE.unexpectedMessage,
-    },
-    async ({ modules }) => {
+    context,
+    { log: CURRENT_PRICE_ROUTE_LOG, response: CURRENT_PRICE_ROUTE_RESPONSE },
+    async ({ modules, priceId, slug }) => {
       const result =
         await modules.subscriptions.useCases.makeTribeSubscriptionPriceCurrent({
           priceId,

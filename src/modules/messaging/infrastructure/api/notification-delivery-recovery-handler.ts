@@ -7,11 +7,10 @@ import type { AdmissionFailure } from "@/src/modules/academy-admissions/applicat
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { hasAllowedRequestOrigin } from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import { HTTP_STATUS } from "@/src/constants/http-status";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { notificationDeliveryRecoveryInputSchema, notificationRecoveryEmptyQuerySchema, NOTIFICATION_DELIVERY_RECOVERY_HTTP_OPERATION } from "../../constants/notification-delivery-recovery-http";
 import { messagingFailure } from "../../application/results/messaging-errors";
-import { createMessagingRouteBoundary } from "./messaging-route-http";
+import { createMessagingRouteBoundary, messagingOperationHttpStatus } from "./messaging-route-http";
 import { messagingDeliveryParamsSchema } from "./messaging-request-schemas";
 
 /** Composition roots expose only current routing and the original DB-only mutation. */
@@ -54,7 +53,7 @@ export function createNotificationDeliveryRecoveryHandler(open: () => Promise<No
         const result = parsed.data.result;
         if (result.originalDeliveryId.toLowerCase() !== params.value.deliveryId.toLowerCase() || result.targetConnectionId.toLowerCase() !== body.value.targetConnectionId.toLowerCase() || result.originalVersion !== body.value.expectedVersion + 1 || result.recoveryDeliveryId.toLowerCase() === result.originalDeliveryId.toLowerCase()) return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
       }
-      return boundary.success(schema, parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
+      return boundary.success(schema, parsed.data, messagingOperationHttpStatus(parsed.data.state));
     } catch (error) { return boundary.unexpected(error); }
   };
 }

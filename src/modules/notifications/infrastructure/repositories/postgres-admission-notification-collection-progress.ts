@@ -4,9 +4,9 @@ import { sql } from "drizzle-orm";
 import { MICROSECONDS_PER_SECOND } from "@/src/constants/time";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { toAdmissionNotificationOperationError } from "./admission-notification-operation-failure";
 import { ADMISSION_NOTIFICATION_COLLECTED, ADMISSION_NOTIFICATION_COLLECTION_EXISTING, ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE, ADMISSION_NOTIFICATION_COLLECTION_BUCKET_CLOSED } from "../../constants/admission-notification-collection";
 import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_SUPPRESSED_STATUS, ADMISSION_NOTIFICATION_TIMING } from "../../constants/admission-notification-groups";
 import type { AdmissionNotificationCollectionProgress, AdmissionNotificationCollectionPageCommand, AdmissionNotificationCollectionPageResult, AdmissionNotificationCollectionProgressSnapshot } from "../../domain/repositories/admission-notification-collection-progress";
@@ -178,9 +178,7 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
         return result;
       });
     } catch (error) {
-      if (error instanceof AdmissionOperationError) throw error;
-      if (error instanceof MessagingCryptographyError) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete, { cause: error });
-      throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: error });
+      throw toAdmissionNotificationOperationError(error);
     }
   }
 }

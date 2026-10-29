@@ -1,13 +1,14 @@
 /** Builds one native current-account page snapshot through read-only application ports. @module get-admission-page-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
-import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { GetAdmissionOverviewUseCase } from "./get-admission-overview-use-case";
 import type { GetOwnAdmissionUseCases } from "./get-own-admission-use-cases";
 import type { ResolveAdmissionTribeUseCase } from "./resolve-admission-tribe-use-case";
 import { admissionPageStateSchema } from "../results/admission-page-state";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
+import { ownAdmissionSnapshot } from "../results/own-admission-snapshot";
+import { readLiveAdmissionAccount, confirmSameAdmissionAccount } from "./admission-account-continuity";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import type { LegacyAdmissionInvitationReader } from "../../domain/repositories/legacy-admission-invitation-reader";
 import { ADMISSION_OVERVIEW_STATE } from "../../constants/admission-public-contract";
@@ -21,19 +22,15 @@ export class GetAdmissionPageUseCase {
   /** @param query - Validated slug, optional exact request id and correlation. @returns An allowlisted page snapshot with a deterministic clock or safe Spanish failure. */
   async execute(query: { slug: string; requestId: string; admissionRequestId?: string; legacyInvitationToken?: string }) {
     try {
-      const first = await this.accounts.getAuthenticatedAccount();
-      if (first && !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      const first = await readLiveAdmissionAccount(this.accounts, this.clock);
       const overview = await this.readers.overview.execute({ slug: query.slug, requestId: query.requestId });
       if (!overview.ok) throw new AdmissionOperationError(overview.failure.code);
       if (query.legacyInvitationToken && first && overview.value.request?.status !== ADMISSION_REQUEST_STATUS.pending && (overview.value.state === ADMISSION_OVERVIEW_STATE.available || overview.value.state === ADMISSION_OVERVIEW_STATE.verificationRequired)) {
         await this.assertLegacyArrival(query, first, query.legacyInvitationToken);
       }
       const request = query.admissionRequestId ? await this.readExactRequest(query, first, query.admissionRequestId) : overview.value.request ?? null;
-      const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!keepsInitialAccount(first, current, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      const parsed = admissionPageStateSchema.safeParse({ kind: "ready", overview: overview.value, request, viewerId: first?.userId ?? null, renderedAt: now.toISOString() });
-      if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      return { ok: true as const, value: parsed.data };
+      const { now } = await confirmSameAdmissionAccount(this.accounts, first, this.clock);
+      return ownAdmissionSnapshot(admissionPageStateSchema, { kind: "ready", overview: overview.value, request, viewerId: first?.userId ?? null, renderedAt: now.toISOString() });
     } catch (error) {
       return admissionOperationFailure(error);
     }
@@ -57,10 +54,4 @@ export class GetAdmissionPageUseCase {
     if (!exact.value) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     return exact.value;
   }
-}
-
-/** @returns Whether the account read after the facts is the same live session as before, or the read stays anonymous. */
-function keepsInitialAccount(first: AuthenticatedAccount | null, current: AuthenticatedAccount | null, now: Date): boolean {
-  if (!first) return current === null;
-  return current?.userId === first.userId && current.session.id === first.session.id && isAuthenticatedSessionLive(current.session.expiresAt, now);
 }

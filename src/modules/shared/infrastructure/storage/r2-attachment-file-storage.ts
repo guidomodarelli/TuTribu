@@ -24,6 +24,13 @@ export type AttachmentFileRepositoryOptions = {
   storageFactory?: (environment: CloudflareR2Environment) => FileObjectStorage;
 };
 
+/** Pre-deletion state an attachment row returns to after a failed remote delete. */
+export type AttachmentDeletionRollback = {
+  assetId: string;
+  sortOrder: number | null;
+  status: string;
+};
+
 /** Attachment row whose uploaded object may still need its size verified. */
 type UploadedAttachmentFileRow = {
   file_size_bytes: number | string;

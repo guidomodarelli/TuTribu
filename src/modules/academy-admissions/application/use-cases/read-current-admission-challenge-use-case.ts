@@ -1,8 +1,8 @@
 /** Derives native account/contact and reads only a safe candidate for explicit resend. @module read-current-admission-challenge-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
-import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
+import { requireLiveAdmissionAccount } from "./admission-account-continuity";
+import { normalizeApplicantContact } from "./admission-applicant-contact";
 import type { AdmissionCurrentChallengeReader } from "../../domain/repositories/admission-current-challenge-reader";
-import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "../../constants/admission-contact";
@@ -21,10 +21,8 @@ export class ReadCurrentAdmissionChallengeUseCase {
   /** @param input - Boundary-validated proposed contact and prior request lineage. @returns Minimal current selection or a safe failure; no code is emitted. */
   async execute(input: ReadCurrentAdmissionChallengeInput) {
     try {
-      const account = await this.accounts.getAuthenticatedAccount();
-      if (!account || !isAuthenticatedSessionLive(account.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      if (input.country && !input.phone) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      const normalized = normalizeAdmissionContact(input.phone ? { type: ADMISSION_CONTACT_TYPE.phone, value: input.phone, country: input.country } : { type: ADMISSION_CONTACT_TYPE.email, value: account.normalizedEmail });
+      const account = await requireLiveAdmissionAccount(this.accounts, this.clock);
+      const normalized = normalizeApplicantContact(input, account);
       if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid || normalized.contact.type === ADMISSION_CONTACT_TYPE.email && input.channel !== MESSAGING_PUBLIC_CHANNEL.email || normalized.contact.type === ADMISSION_CONTACT_TYPE.phone && input.channel === MESSAGING_PUBLIC_CHANNEL.email) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const result = await this.reader.readCurrent({ userId: account.userId, sessionId: account.session.id, tribeId: input.tribeId, requestId: input.requestId, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, previousRequestId: input.previousRequestId, expectedPolicyVersion: input.expectedPolicyVersion, contact: normalized.contact, channel: input.channel });
       const parsed = admissionCurrentChallengeSelectionSchema.safeParse(result);

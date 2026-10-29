@@ -262,6 +262,21 @@ function buildInsertAnnotationQuery(
   `;
 }
 
+/**
+ * @param query - Project and optional type, status, URL and search filters.
+ * @returns Condition matching the queried feedback, without rows whose GitHub issue is being or was deleted.
+ */
+function visibleFeedbackCondition(query: SitepingFeedbackQuery) {
+  return sql`project_name = ${query.projectName}
+          and (${query.type ?? null}::text is null or type = ${query.type ?? null})
+          and (${query.status ?? null}::text is null or status = ${query.status ?? null})
+          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending}
+          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted}
+          and (${query.url ?? null}::text is null or url = ${query.url ?? null})
+          and (${query.urlPattern ?? null}::text is null or url_pattern = ${query.urlPattern ?? null})
+          and (${query.search ?? null}::text is null or message ilike '%' || ${query.search ?? null} || '%')`;
+}
+
 export class PostgresSitepingFeedbackRepository
   implements SitepingFeedbackRepository
 {
@@ -397,14 +412,7 @@ export class PostgresSitepingFeedbackRepository
       const rows = await database.execute(sql`
         select *
         from public.siteping_feedbacks
-        where project_name = ${query.projectName}
-          and (${query.type ?? null}::text is null or type = ${query.type ?? null})
-          and (${query.status ?? null}::text is null or status = ${query.status ?? null})
-          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending}
-          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted}
-          and (${query.url ?? null}::text is null or url = ${query.url ?? null})
-          and (${query.urlPattern ?? null}::text is null or url_pattern = ${query.urlPattern ?? null})
-          and (${query.search ?? null}::text is null or message ilike '%' || ${query.search ?? null} || '%')
+        where ${visibleFeedbackCondition(query)}
         order by created_at desc
         limit ${limit}
         offset ${offset}
@@ -412,14 +420,7 @@ export class PostgresSitepingFeedbackRepository
       const countRows = await database.execute(sql`
         select count(*)::int as total
         from public.siteping_feedbacks
-        where project_name = ${query.projectName}
-          and (${query.type ?? null}::text is null or type = ${query.type ?? null})
-          and (${query.status ?? null}::text is null or status = ${query.status ?? null})
-          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending}
-          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted}
-          and (${query.url ?? null}::text is null or url = ${query.url ?? null})
-          and (${query.urlPattern ?? null}::text is null or url_pattern = ${query.urlPattern ?? null})
-          and (${query.search ?? null}::text is null or message ilike '%' || ${query.search ?? null} || '%')
+        where ${visibleFeedbackCondition(query)}
       `);
       const feedbackRows = rows.rows as FeedbackRow[];
       const feedbacks = await Promise.all(

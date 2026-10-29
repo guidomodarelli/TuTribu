@@ -115,3 +115,20 @@ export function createOwnJsonRouteBoundary<Failure extends { code: string; cause
     },
   };
 }
+
+/** Closed public projection of one own failure. */
+type OwnPublicFailure<Failure extends { code: string; retryAt?: string; operation?: unknown }> = Pick<Failure, "code" | "retryAt" | "operation"> & { message: string; requestId: string };
+
+/**
+ * @param failure - Own closed failure.
+ * @param requestId - Correlation of this request.
+ * @param copy - The owner's status and public message of each closed code.
+ * @returns Its status and public error body, adding the retry instant and operation only when the failure has them.
+ */
+export function projectOwnPublicFailure<Failure extends { code: string; retryAt?: string; operation?: unknown }>(failure: Failure, requestId: string, copy: { status: Readonly<Record<Failure["code"], number>>; message: Readonly<Record<Failure["code"], string>> }): { status: number; body: OwnPublicFailure<Failure> } {
+  return { status: copy.status[failure.code as Failure["code"]], body: {
+    code: failure.code, message: copy.message[failure.code as Failure["code"]], requestId,
+    ...(failure.retryAt !== undefined ? { retryAt: failure.retryAt } : {}),
+    ...(failure.operation !== undefined ? { operation: failure.operation } : {}),
+  } };
+}

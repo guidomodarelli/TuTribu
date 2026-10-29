@@ -6,10 +6,6 @@ import {
   TRIBE_STORY_MEDIA_TYPE,
   TRIBE_STORY_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-story";
-import {
-  TRIBE_PAGE_ACCESS_REASON,
-  TRIBE_PAGE_ACCESS_STATUS,
-} from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import type { TribeStoryResult } from "@/src/modules/tribes/application/results/tribe-story-result";
 import type { SaveTribeStoryMediaItem } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 import {
@@ -19,6 +15,7 @@ import {
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { respondToHiddenAcademyFreePage } from "../academy-free-page-access";
 import { isHttpUrl, isPayloadObject, readTrimmedText } from "@/app/api/request-body-fields";
 
 const STORY_ROUTE_LOG = {
@@ -51,20 +48,6 @@ const STORY_ROUTE_RESPONSE = {
 type MediaValidationResult =
   | { errorMessage: string; ok: false }
   | { media: SaveTribeStoryMediaItem[]; ok: true };
-
-function createHiddenStoryResponse(reason: string): Response {
-  if (reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden) {
-    return createRouteJsonResponse(
-      { message: STORY_ROUTE_RESPONSE.accessForbiddenMessage },
-      HTTP_STATUS.forbidden
-    );
-  }
-
-  return createRouteJsonResponse(
-    { message: STORY_ROUTE_RESPONSE.notFoundMessage },
-    HTTP_STATUS.notFound
-  );
-}
 
 type StoryMediaItemRead = { errorMessage: string } | { item: SaveTribeStoryMediaItem };
 
@@ -232,14 +215,14 @@ export async function GET(
       responseMessage: STORY_ROUTE_RESPONSE.unexpectedGetMessage,
     },
     async ({ modules }) => {
-      const accessResult = await modules.tribes.useCases.getTribePageAccess({
-        allowWithoutCommunityAccess: true,
-        isAuthenticated: true,
+      const hiddenResponse = await respondToHiddenAcademyFreePage(
+        modules,
         slug,
-      });
+        STORY_ROUTE_RESPONSE
+      );
 
-      if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-        return createHiddenStoryResponse(accessResult.reason);
+      if (hiddenResponse) {
+        return hiddenResponse;
       }
 
       const story = await modules.tribes.useCases.getTribeStory({

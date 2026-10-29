@@ -18,7 +18,7 @@ import {
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
-import { resolveTribePageAccess } from "../tribe-page-access";
+import { resolveTribePageAccess, type TribeSlugPageProps } from "../tribe-page-access";
 
 const SUBSCRIPTION_PAGE_LOG = {
   operation: "tribe-subscription-page",
@@ -74,13 +74,7 @@ function resolveSubscriptionPaymentStatus(input: {
   return null;
 }
 
-export default async function TribeSubscriptionPage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeSubscriptionPage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const access = await resolveTribePageAccess({
     // Billing stays reachable so every member can manage their own charges.

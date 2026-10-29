@@ -2,7 +2,8 @@
 import "server-only";
 import type { z } from "zod";
 import type { ManageAdmissionPolicyUseCases } from "../../application/use-cases/manage-admission-policy-use-cases";
-import { type AdmissionFailure, admissionFailure  } from "../../application/results/admission-errors";
+import { admissionFailure } from "../../application/results/admission-errors";
+import type { AdmissionTribeRouting, AdmissionTribeScope } from "../../application/use-cases/admission-tribe-scope";
 import { admissionPolicyMutationResultSchema } from "../../application/results/admission-policy-result-schemas";
 import { createAdmissionOperationStateSchema } from "../../application/results/admission-flow-result-schemas";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
@@ -10,20 +11,19 @@ import { ADMISSION_HTTP_OPERATION } from "../../constants/admission-http";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
-import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
+import { openAdmissionTribeCommand } from "./admission-route-steps";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema, admissionPolicyInitializationSchema, admissionPolicyUpdateSchema, admissionPolicyActivationSchema, admissionPolicyPauseSchema } from "./admission-request-schemas";
 
 /** Framework composition supplies only application ports; no browser actor or authority enters them. */
 export type AdmissionPolicyCommandServices = {
-  resolveTribe: { execute(query: { slug: string; requestId: string }): Promise<{ ok: true; value: { tribeId: string } } | { ok: false; failure: AdmissionFailure }> };
+  resolveTribe: AdmissionTribeRouting;
   policy: Pick<ManageAdmissionPolicyUseCases, "initialize" | "update" | "activate" | "pause">;
 };
 type PolicyRouteContext = { params: Promise<{ slug: string }> };
 type PolicyCommandIdentity = { operationId: string };
-type PolicyCommandScope = { tribeId: string; requestId: string };
 type PolicyCommandResponse = Awaited<ReturnType<ManageAdmissionPolicyUseCases["initialize"]>>;
 /** One policy command: its diagnostic operation, body schema and application call. */
-type PolicyCommand<Input extends PolicyCommandIdentity> = { operation: string; schema: z.ZodType<Input>; execute: (services: AdmissionPolicyCommandServices, input: Input & PolicyCommandScope) => Promise<PolicyCommandResponse> };
+type PolicyCommand<Input extends PolicyCommandIdentity> = { operation: string; schema: z.ZodType<Input>; execute: (services: AdmissionPolicyCommandServices, input: Input & AdmissionTribeScope) => Promise<PolicyCommandResponse> };
 
 /** @returns Whether a completed original belongs to this policy, commits the expected version, and matches what initialization or activation must produce. */
 function isConsistentPolicyResult({ result, tribeId, body, operation }: { result: z.infer<typeof admissionPolicyMutationResultSchema>; tribeId: string; body: PolicyCommandIdentity; operation: string }): boolean {
@@ -39,21 +39,13 @@ export function createAdmissionPolicyCommandHandlers(open: () => Promise<Admissi
   async function command<Input extends PolicyCommandIdentity>(request: Request, context: PolicyRouteContext, { operation, schema, execute }: PolicyCommand<Input>): Promise<Response> {
     const boundary = createAdmissionRouteBoundary({ request, operation });
     try {
-      if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-      const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-      if (!params.usable) return params.response;
-      const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-      if (!query.usable) return query.response;
-      const body = await boundary.readBody(schema);
-      if (!body.usable) return body.response;
-      const services = await open(), requestId = boundary.requestContext.requestId;
-      const identity = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!identity.ok) return boundary.failure(identity.failure);
-      const result = await execute(services, { ...body.value, tribeId: identity.value.tribeId, requestId });
+      const route = await openAdmissionTribeCommand(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema, body: schema }, open);
+      if ("response" in route) return route.response;
+      const result = await execute(route.services, { ...route.body, ...route.scope });
       if (!result.ok) return boundary.failure(result.failure);
       const parsed = createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema).safeParse(result.value);
-      if (!parsed.success || parsed.data.operationId.toLowerCase() !== body.value.operationId.toLowerCase()
-        || parsed.data.state === OPERATION_STATE.completed && !isConsistentPolicyResult({ result: parsed.data.result, tribeId: identity.value.tribeId, body: body.value, operation })) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+      if (!parsed.success || parsed.data.operationId.toLowerCase() !== route.body.operationId.toLowerCase()
+        || parsed.data.state === OPERATION_STATE.completed && !isConsistentPolicyResult({ result: parsed.data.result, tribeId: route.scope.tribeId, body: route.body, operation })) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
       return boundary.success(createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema), parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
     } catch (error) { return boundary.unexpected(error); }
   }

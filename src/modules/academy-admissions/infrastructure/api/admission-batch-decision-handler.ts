@@ -11,7 +11,7 @@ import { ADMISSION_BATCH_ITEM_STATUS, ADMISSION_DECISION } from "../../constants
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
-import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
+import { openAdmissionTribeCommand } from "./admission-route-steps";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema, admissionBatchDecisionSchema } from "./admission-request-schemas";
 
 /** Composition supplies only canonical tenant routing and the atomic application owner. */
@@ -35,25 +35,18 @@ export function createAdmissionBatchDecisionHandler(open: () => Promise<Admissio
     /** @returns A safe contract failure without publishing any row from an unrelated original. */
     const unusable = () => boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
     try {
-      if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-      const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-      if (!params.usable) return params.response;
-      const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-      if (!query.usable) return query.response;
-      const body = await boundary.readBody(admissionBatchDecisionSchema);
-      if (!body.usable) return body.response;
-      const services = await open(), requestId = boundary.requestContext.requestId;
-      const tribe = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!tribe.ok) return boundary.failure(tribe.failure);
-      const result = await services.decideBatch.execute({
-        operationId: body.value.operationId.toLowerCase(), confirmed: body.value.confirmed, decision: body.value.decision,
-        internalReason: body.value.internalReason, externalMessage: body.value.externalMessage ?? null,
-        tribeId: tribe.value.tribeId, requestId,
-        items: body.value.items.map((item) => ({ admissionRequestId: item.requestId, expectedVersion: item.expectedVersion })),
+      const route = await openAdmissionTribeCommand(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema, body: admissionBatchDecisionSchema }, open);
+      if ("response" in route) return route.response;
+      const { body } = route, { tribeId, requestId } = route.scope;
+      const result = await route.services.decideBatch.execute({
+        operationId: body.operationId.toLowerCase(), confirmed: body.confirmed, decision: body.decision,
+        internalReason: body.internalReason, externalMessage: body.externalMessage ?? null,
+        tribeId, requestId,
+        items: body.items.map((item) => ({ admissionRequestId: item.requestId, expectedVersion: item.expectedVersion })),
       });
       if (!result.ok) return boundary.failure(result.failure);
       const parsed = admissionBatchResultSchema.safeParse(result.value);
-      if (!parsed.success || !matchesBatchSelection(parsed.data, body.value)) return unusable();
+      if (!parsed.success || !matchesBatchSelection(parsed.data, body)) return unusable();
       return boundary.success(admissionBatchResultSchema, parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
     } catch (error) { return boundary.unexpected(error); }
   };

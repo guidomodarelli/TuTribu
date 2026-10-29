@@ -1,18 +1,17 @@
 import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
-import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
 import {
   createRouteJsonResponse,
-  handleMemberRoute,
   type RequestModules,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { handleMessageMemberRoute } from "../../message-member-route";
 
 const MESSAGE_POLL_VOTE_LOG = {
   feature: "messages",
   operation: "submit-message-poll-vote",
-  voteFailureMessage: "Message poll vote failed",
+  failureMessage: "Message poll vote failed",
 } as const;
 
 const MESSAGE_POLL_VOTE_FIELD = {
@@ -63,34 +62,15 @@ function createPostResultResponse(result: SubmitMessagePollVoteResult, slug: str
   }
 }
 
-const MEMBER_ROUTE_SCOPE = {
-  feature: MESSAGE_POLL_VOTE_LOG.feature,
-  operation: MESSAGE_POLL_VOTE_LOG.operation,
-  unauthorizedMessage: MESSAGE_POLL_VOTE_RESPONSE.unauthorizedMessage,
-} as const;
-
 export async function POST(
   request: Request,
   context: TribeRouteContext<{ messageId: string }>
 ) {
-  const { messageId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handleMessageMemberRoute(
     request,
-    MEMBER_ROUTE_SCOPE,
-    {
-      logMessage: MESSAGE_POLL_VOTE_LOG.voteFailureMessage,
-      metadata: { messageId, slug },
-      responseMessage: MESSAGE_POLL_VOTE_RESPONSE.unexpectedMessage,
-    },
-    async ({ member, modules }) => {
-      if (!isUuidRouteParam(messageId)) {
-        return createRouteJsonResponse(
-          { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
-        );
-      }
-
+    context,
+    { log: MESSAGE_POLL_VOTE_LOG, response: MESSAGE_POLL_VOTE_RESPONSE },
+    async ({ member, messageId, modules, slug }) => {
       const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
       const rawOptionIds = body?.[MESSAGE_POLL_VOTE_FIELD.optionIds];
       const optionIds = Array.isArray(rawOptionIds)

@@ -10,7 +10,7 @@ import { ADMISSION_WHATSAPP_HTTP_OPERATION } from "../../constants/admission-wha
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
-import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
+import { openAdmissionTribeCommand } from "./admission-route-steps";
 import { admissionRequestParamsSchema, admissionEmptyQuerySchema, admissionWhatsappNumberUpdateSchema } from "./admission-request-schemas";
 
 /** Composition exposes only application operations, with no infrastructure or body-supplied actor. */
@@ -21,21 +21,14 @@ export function createAdmissionWhatsappNumberHandler(open: () => Promise<Admissi
   return async (request: Request, context: { params: Promise<{ slug: string; requestId: string }> }): Promise<Response> => {
     const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_WHATSAPP_HTTP_OPERATION });
     try {
-      if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-      const params = boundary.input("params", admissionRequestParamsSchema, await context.params);
-      if (!params.usable) return params.response;
-      const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-      if (!query.usable) return query.response;
-      const body = await boundary.readBody(admissionWhatsappNumberUpdateSchema);
-      if (!body.usable) return body.response;
-      const services = await open(), requestId = boundary.requestContext.requestId;
-      const identity = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!identity.ok) return boundary.failure(identity.failure);
-      const result = await services.updateWhatsappNumber.execute({ ...body.value, tribeId: identity.value.tribeId, admissionRequestId: params.value.requestId, requestId });
+      const route = await openAdmissionTribeCommand(boundary, { request, params: context.params }, { params: admissionRequestParamsSchema, query: admissionEmptyQuerySchema, body: admissionWhatsappNumberUpdateSchema }, open);
+      if ("response" in route) return route.response;
+      const { body, params } = route, { tribeId, requestId } = route.scope;
+      const result = await route.services.updateWhatsappNumber.execute({ ...body, tribeId, admissionRequestId: params.requestId, requestId });
       if (!result.ok) return boundary.failure(result.failure);
       const schema = createAdmissionOperationStateSchema(admissionWhatsappNumberResultSchema);
       const parsed = schema.safeParse(result.value);
-      if (!parsed.success || parsed.data.operationId !== body.value.operationId || parsed.data.state === OPERATION_STATE.completed && (parsed.data.result.admissionRequestId.toLowerCase() !== params.value.requestId.toLowerCase() || parsed.data.result.version !== body.value.expectedVersion + (parsed.data.result.changed ? 1 : 0))) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+      if (!parsed.success || parsed.data.operationId !== body.operationId || parsed.data.state === OPERATION_STATE.completed && (parsed.data.result.admissionRequestId.toLowerCase() !== params.requestId.toLowerCase() || parsed.data.result.version !== body.expectedVersion + (parsed.data.result.changed ? 1 : 0))) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
       return boundary.success(schema, parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
     } catch (error) { return boundary.unexpected(error); }
   };

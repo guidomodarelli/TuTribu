@@ -14,7 +14,7 @@ import {
   isPrivilegedTribeMemberRole,
 } from "@/src/modules/tribes/constants/tribe-member-role";
 import { ROUTES } from "@/src/constants/routes";
-import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { resolveVisibleTribePageAccess, type TribeSlugPageProps } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_TRIBE_PAGE = {
@@ -165,13 +165,7 @@ async function loadWelcomeBadges({ access, members, slug }: WelcomeBadgesInput):
   return buildWelcomeBadges(welcome, selections, members);
 }
 
-export default async function TribeTribePage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeTribePage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({

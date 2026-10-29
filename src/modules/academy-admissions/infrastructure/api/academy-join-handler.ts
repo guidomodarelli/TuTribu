@@ -7,7 +7,7 @@ import type { AcademyPublicOffer } from "@/src/modules/product-access/domain/rep
 import type { AdmissionMutationServices } from "./admission-mutation-handlers";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema, admissionSubmissionSchema } from "./admission-request-schemas";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
-import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
+import { readAdmissionCommandInput } from "./admission-route-steps";
 import { respondToAdmissionSubmission } from "./admission-submission-response";
 import { admissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { ADMISSION_HTTP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-http";
@@ -41,22 +41,18 @@ export function createAcademyJoinHandler(open: () => Promise<AcademyJoinServices
   return async (request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> => {
     const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_HTTP_OPERATION.legacyJoin });
     try {
-      if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-      const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-      if (!params.usable) return params.response;
-      const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-      if (!query.usable) return query.response;
-      const body = await boundary.readBody(joinBodySchema, { emptyBodyValue: {} });
-      if (!body.usable) return body.response;
+      const input = await readAdmissionCommandInput(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema, body: joinBodySchema, emptyBody: { emptyBodyValue: {} } });
+      if ("response" in input) return input.response;
+      const { body, params: { slug } } = input;
       const services = await open();
       if (!await services.getViewer()) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.authenticationRequired));
-      if (body.value.explicit) {
-        const result = await services.joinEntry({ ...body.value.intent, tribeSlug: params.value.slug, requestId: boundary.requestContext.requestId });
-        return respondToAdmissionSubmission(boundary, params.value.slug, body.value.intent.operationId, result);
+      if (body.explicit) {
+        const result = await services.joinEntry({ ...body.intent, tribeSlug: slug, requestId: boundary.requestContext.requestId });
+        return respondToAdmissionSubmission(boundary, slug, body.intent.operationId, result);
       }
-      const offer = await services.offer({ tribeSlug: params.value.slug });
+      const offer = await services.offer({ tribeSlug: slug });
       if (offer?.admissionRequiresRequest) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.invalidInput));
-      const result = await services.joinLegacy({ tribeSlug: params.value.slug });
+      const result = await services.joinLegacy({ tribeSlug: slug });
       const response = legacyResponse[result.status];
       return boundary.success(legacyAcademyJoinSchema, { status: result.status, message: response.message }, response.status);
     } catch (error) { return boundary.unexpected(error); }

@@ -18,11 +18,10 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { authorizeMessagingUsage } from "./postgres-messaging-usage-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import type { MessagingUsageDatabaseExecutor } from "./messaging-usage-database-executor";
 import { createAdmissionUsageAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import { PostgresAdmissionAuditRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
-/** Binds all checkouts to the same current server principal, never body-selected identity. */
-type UsageDatabaseExecutor = <Result>(context: MessagingUsageContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Consumed PostgreSQL configuration columns, not a runtime schema for a database row. */
 type PolicyRow = MessagingUsagePolicyRow;
 
@@ -32,7 +31,7 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
    * @param execute - Guarded current-actor executor used independently for claim, effect and reconciliation.
    * @param readSecurityConfig - Local keyring reader for the shared operation ledger; no provider call under locks.
    */
-  constructor(private readonly execute: UsageDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  constructor(private readonly execute: MessagingUsageDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
 
   /** Reads only the exact tribe's configuration, acquiring its row lock after authority and the ledger. */
   private async readLocked(database: RequestDatabase, tribeId: string, mutation: boolean): Promise<PolicyRow | undefined> {

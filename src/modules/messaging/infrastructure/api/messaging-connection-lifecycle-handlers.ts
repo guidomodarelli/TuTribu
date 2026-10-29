@@ -10,9 +10,8 @@ import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGING_CONNECTION_STATE } from "../../constants/messaging-connection";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import { HTTP_STATUS } from "@/src/constants/http-status";
 import { hasAllowedRequestOrigin } from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
-import { createMessagingRouteBoundary } from "./messaging-route-http";
+import { createMessagingRouteBoundary, messagingOperationHttpStatus } from "./messaging-route-http";
 import { messagingConnectionParamsSchema, messagingConnectionSuspendSchema, messagingConnectionDisconnectSchema } from "./messaging-request-schemas";
 
 /** Framework roots supply inward-facing use cases only; metadata actions do not compose SDK/SecretStore. */
@@ -53,7 +52,7 @@ export function createMessagingConnectionLifecycleHandlers(open:()=>Promise<Mess
       const schema=createAdmissionOperationStateSchema(messagingConnectionLifecycleResultSchema),parsed=schema.safeParse(outcome.value);
       if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
       if(parsed.data.state===OPERATION_STATE.completed&&!confirmsLifecycleExpectation(parsed.data.result,lifecycleExpectation(body,params.value.connectionId)))return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
-      return boundary.success(schema,parsed.data,parsed.data.state===OPERATION_STATE.started?HTTP_STATUS.accepted:HTTP_STATUS.ok);
+      return boundary.success(schema,parsed.data,messagingOperationHttpStatus(parsed.data.state));
     }catch(error){return boundary.unexpected(error);}
   };
   return{

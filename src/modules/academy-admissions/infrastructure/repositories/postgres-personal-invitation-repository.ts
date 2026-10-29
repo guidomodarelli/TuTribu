@@ -5,6 +5,7 @@ import { ADMISSION_ADMINISTRATIVE_SURFACE } from "../../constants/admission-admi
 import { recordAdmissionAdministrativeExposure } from "./postgres-admission-administrative-exposure";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
+import { settleAdmissionOriginal } from "./admission-original-outcome";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { type ReauthenticationOperation, REAUTHENTICATION_OPERATION  } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -96,9 +97,7 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
       catch (recoveryError) { throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: intent.operationId, cause: new AggregateError([error, recoveryError], "Personal invitation original commit recovery failed", { cause: error }) }); }
       if (original?.state !== OPERATION_STATE.completed) throw error;
     }
-    if (original.state === OPERATION_STATE.started) return original;
-    if ("outcome" in original.result) throw new AdmissionOperationError(original.result.code, { ...(refusalCause !== undefined ? { cause: refusalCause } : {}), operationId: original.operationId, operationState: OPERATION_STATE.completed });
-    return { ...original, result: original.result };
+    return settleAdmissionOriginal<PersonalInvitationMutationResult>(original, refusalCause);
   }
 
   /** @param intent - Explicit issuance/replacement and restrictions. @returns Initial token only after a newly acknowledged original commit; replay or lost COMMIT response returns metadata alone. */

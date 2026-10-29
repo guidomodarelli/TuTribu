@@ -6,32 +6,22 @@ import type { AdmissionVerificationHttpOutcome } from "./admission-contact-verif
 import { admissionCurrentChallengeInputSchema } from "../../constants/admission-current-challenge-input";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema } from "../../constants/admission-route-input";
 import { ADMISSION_HTTP_OPERATION } from "../../constants/admission-http";
-import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
-import { admissionFailure } from "../../application/results/admission-errors";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
-import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
+import { openAdmissionTribeCommand, respondWithAdmissionResult } from "./admission-route-steps";
+import type { AdmissionTribeRouting } from "../../application/use-cases/admission-tribe-scope";
 import type { RequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 
 /** Native composition provides only a reader and canonical tribe routing. */
-export type AdmissionCurrentChallengeServices = { currentChallenge: { execute(input: ReadCurrentAdmissionChallengeInput): Promise<AdmissionVerificationHttpOutcome> }; resolveTribe: { execute(input: { slug: string; requestId: string }): Promise<{ ok: true; value: { tribeId: string } } | Extract<AdmissionVerificationHttpOutcome, { ok: false }>> } };
+export type AdmissionCurrentChallengeServices = { currentChallenge: { execute(input: ReadCurrentAdmissionChallengeInput): Promise<AdmissionVerificationHttpOutcome> }; resolveTribe: AdmissionTribeRouting };
 
 /** @param open - DB-only native composition. @returns A POST read whose contact never appears in query URLs and which cannot send a code. */
 export function createAdmissionCurrentChallengeHandler(open: (context: RequestContext) => Promise<AdmissionCurrentChallengeServices>) {
   return async function POST(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> {
     const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_HTTP_OPERATION.challengeSelect });
     try {
-      if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-      const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-      if (!params.usable) return params.response;
-      const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-      if (!query.usable) return query.response;
-      const body = await boundary.readBody(admissionCurrentChallengeInputSchema);
-      if (!body.usable) return body.response;
-      const services = await open(boundary.requestContext), requestId = boundary.requestContext.requestId;
-      const tribe = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!tribe.ok) return boundary.failure(tribe.failure);
-      const outcome = await services.currentChallenge.execute({ ...body.value, tribeId: tribe.value.tribeId, requestId });
-      return outcome.ok ? boundary.success(admissionCurrentChallengeSelectionSchema, outcome.value) : boundary.failure(outcome.failure);
+      const route = await openAdmissionTribeCommand(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema, body: admissionCurrentChallengeInputSchema }, () => open(boundary.requestContext));
+      if ("response" in route) return route.response;
+      return respondWithAdmissionResult(boundary, admissionCurrentChallengeSelectionSchema, await route.services.currentChallenge.execute({ ...route.body, ...route.scope }));
     } catch (error) { return boundary.unexpected(error); }
   };
 }

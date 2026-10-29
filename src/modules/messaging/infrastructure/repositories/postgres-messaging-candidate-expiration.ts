@@ -1,33 +1,26 @@
 /** Retires abandoned candidate versions atomically under current backend authority without reading keys or sending messages. @module postgres-messaging-candidate-expiration */
 import "server-only";
 import { sql } from "drizzle-orm";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingCandidateExpiration, MessagingCandidateExpirationResult } from "../../domain/repositories/messaging-candidate-expiration";
 import { assessMessagingCandidateExpiration } from "../../domain/policies/messaging-candidate-expiration";
-import { MessagingCandidateExpirationError } from "../../domain/errors/messaging-candidate-expiration-error";
+import { MessagingCandidateExpirationError, type MessagingCandidateExpirationErrorCode } from "../../domain/errors/messaging-candidate-expiration-error";
 import { MESSAGING_CANDIDATE_MAINTENANCE, MESSAGING_EXPIRED_CANDIDATE_PURGE_WINDOW_MS } from "../../constants/messaging-candidate-expiration";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGING_CONNECTION_STATE } from "../../constants/messaging-connection";
 import { MESSAGING_CANDIDATE_IDLE_LIFETIME_MS } from "../../constants/messaging-secret-access";
 import { retireDiagnosticChallenges } from "./postgres-retired-diagnostic-challenges";
+import { GuardedMessagingMaintenance } from "./guarded-messaging-maintenance";
 
-/** Uses the caller's guarded maintenance transaction and publishes only after its confirmed commit. */
-export type CandidateExpirationDatabaseExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
-/** Rechecks host authority/recovery; an optional transaction supports authoritative own maintenance gates. */
-export type CandidateExpirationGate = (database?: RequestDatabase) => Promise<boolean>;
 /** Contains only the exact current locked resource metadata used by this adapter. */
 type CandidateResource = { connection_id: string; tribe_id: string; candidate_version: number; connection_version: number; is_selected: boolean; selected_version: number | null; is_candidate: boolean; state: string; connection_retired_at: Date | string | null; resource_retired_at: Date | string | null; last_activity_at: Date | string; secret_ref: string | null };
 
 /** Keeps independent candidate and selected versions distinct, including both slots on one connection. */
-export class PostgresMessagingCandidateExpiration implements MessagingCandidateExpiration {
-  /** @param execute - Existing guarded maintenance executor. @param authorize - Current private backend authority. @param readRecoveryLock - Current restore gate without loading a keyring. */
-  constructor(private readonly execute: CandidateExpirationDatabaseExecutor, private readonly authorize: CandidateExpirationGate, private readonly readRecoveryLock: CandidateExpirationGate) {}
+export class PostgresMessagingCandidateExpiration extends GuardedMessagingMaintenance<MessagingCandidateExpirationErrorCode> implements MessagingCandidateExpiration {
+  protected readonly recoveryLockedCode: MessagingCandidateExpirationErrorCode = MESSAGING_ERROR_CODE.connectionIncomplete;
 
-  /** @param database - Current protected transaction when available. @returns After the current authority and recovery gates permit this operation. @throws MessagingCandidateExpirationError when either gate is unavailable. */
-  private async assertAuthority(database?: RequestDatabase): Promise<void> {
-    if (!await this.authorize(database)) throw new MessagingCandidateExpirationError(MESSAGING_ERROR_CODE.permissionDenied);
-    if (await this.readRecoveryLock(database)) throw new MessagingCandidateExpirationError(MESSAGING_ERROR_CODE.connectionIncomplete);
-    if (!await this.authorize(database)) throw new MessagingCandidateExpirationError(MESSAGING_ERROR_CODE.permissionDenied);
+  /** @param code - Closed gate failure. @returns The candidate expiration error for it. */
+  protected gateFailure(code: MessagingCandidateExpirationErrorCode): Error {
+    return new MessagingCandidateExpirationError(code);
   }
 
   /** @param command - Backend-owned bounded batch. @returns Confirmed retired/purged counts without private resources. @throws MessagingCandidateExpirationError for invalid bounds, withdrawn authority or an indeterminate commit. */

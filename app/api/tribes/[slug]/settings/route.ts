@@ -6,7 +6,7 @@ import {
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
-import { isHttpUrl, isPayloadObject, readTrimmedText } from "@/app/api/request-body-fields";
+import { isHttpUrl, readPayloadObjectBody, readTrimmedText } from "@/app/api/request-body-fields";
 
 const SETTINGS_ROUTE_LOG = {
   feature: "tribes",
@@ -52,9 +52,9 @@ export async function PUT(
       responseMessage: SETTINGS_ROUTE_RESPONSE.unexpectedSaveMessage,
     },
     async ({ modules }) => {
-      const parsedBody: unknown = await request.json().catch(() => ({}));
+      const parsedBody = await readPayloadObjectBody(request);
 
-      if (!isPayloadObject(parsedBody)) {
+      if (!parsedBody) {
         return createRouteJsonResponse(
           { message: SETTINGS_ROUTE_RESPONSE.invalidBodyMessage },
           HTTP_STATUS.badRequest

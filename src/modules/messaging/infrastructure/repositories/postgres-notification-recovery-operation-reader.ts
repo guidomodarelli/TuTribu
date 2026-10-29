@@ -1,7 +1,7 @@
 /** Reads original recovery state without keyrings, provider RPC, new leases or writes. @module postgres-notification-recovery-operation-reader */
 import "server-only";
 import { sql } from "drizzle-orm";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { MessagingUsageDatabaseExecutor } from "./messaging-usage-database-executor";
 import type { NotificationRecoveryOperationReader } from "../../domain/repositories/notification-recovery-operation-reader";
 import type { MessagingUsageContext } from "../../domain/repositories/messaging-usage-operations";
 import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
@@ -14,7 +14,7 @@ type RecoveryOperationRow = { state: string; idempotency_key: string; public_res
 /** Limits the lookup to this exact actor, tribe and recovery namespace while retaining current role/session locks. */
 export class PostgresNotificationRecoveryOperationReader implements NotificationRecoveryOperationReader {
   /** @param execute - Existing current actor's guarded native read executor. */
-  constructor(private readonly execute: <Result>(context: MessagingUsageContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>) {}
+  constructor(private readonly execute: MessagingUsageDatabaseExecutor) {}
 
   /** @param context - Server-derived current actor/session/tribe. @param operationId - Original caller UUID. @returns Only the original public state or absence, never private intent, key, lease or provider metadata. */
   async read(context: MessagingUsageContext, operationId: string): Promise<unknown> {

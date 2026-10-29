@@ -1,8 +1,9 @@
 /** Authenticates complete grouped notification content with exact native clocks and retained keys. @module admission-notification-email-intent-mac */
 import "server-only";
-import { MESSAGING_CRYPTO, MESSAGING_CRYPTO_ERROR, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MESSAGING_CRYPTO, MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { readOperationPayloadKeyring } from "@/src/modules/messaging/infrastructure/encryption/operation-payload-keyring";
 import { ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT, ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_FORMAT, ADMISSION_NOTIFICATION_EMAIL_INTENT_LEGACY_MAC_DOMAIN, ADMISSION_NOTIFICATION_EMAIL_INTENT_MAC_DOMAIN, ADMISSION_NOTIFICATION_EMAIL_PAYER_BINDING_DOMAIN, ADMISSION_NOTIFICATION_EMAIL_RECIPIENT_BINDING_DOMAIN } from "../../constants/admission-notification-email-intent";
 import type { AdmissionNotificationEmailIntent, AdmissionNotificationEmailIntentContext, AdmissionNotificationEmailIntentScope, AdmissionNotificationEmailSealingContext, BoundAdmissionNotificationEmailIntent, OriginalAdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
 import { projectAdmissionNotificationEmailContent } from "../../domain/policies/project-admission-notification-email-content";
@@ -22,14 +23,7 @@ function isBoundIntent(intent: AdmissionNotificationEmailIntent): intent is Boun
  * @returns Exact sign/verify operations; neither operation persists or returns the trusted destination.
  */
 export function createAdmissionNotificationEmailIntentMac(config: MessagingSecurityConfig) {
-  const ring = config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload];
-  /** @param keyId - Original active/retained payload key. @returns Current private material. @throws MessagingCryptographyError when recovery or retained-key availability closes. */
-  const key = (keyId: string) => {
-    if (config.recoveryLocked) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked);
-    const material = ring.keys.get(keyId);
-    if (!material) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyUnavailable);
-    return material;
-  };
+  const { ring, key } = readOperationPayloadKeyring(config);
   /** @param context - Exact native delivery scope. @returns After representable original clocks are confirmed. @throws MessagingCryptographyError for an invalid original lifetime. */
   const assertLifetime = (context: AdmissionNotificationEmailIntentScope): void => {
     if (!Number.isSafeInteger(context.createdAtMicroseconds) || !Number.isSafeInteger(context.deadlineAtMicroseconds) || context.deadlineAtMicroseconds <= context.createdAtMicroseconds) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.contextMismatch);

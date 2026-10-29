@@ -1,11 +1,11 @@
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   createRouteJsonResponse,
-  handleMemberRoute,
   type RequestModules,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { handlePriceMemberRoute } from "../price-member-route";
 
 const DELETE_WITH_ACTIONS_ROUTE_LOG = {
   failureMessage:
@@ -95,28 +95,15 @@ function createPostResultResponse(result: DeleteTribeSubscriptionPriceWithInvita
   }
 }
 
-const MEMBER_ROUTE_SCOPE = {
-  feature: DELETE_WITH_ACTIONS_ROUTE_LOG.feature,
-  operation: DELETE_WITH_ACTIONS_ROUTE_LOG.operation,
-  unauthorizedMessage: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.unauthorizedMessage,
-  withRequestId: true,
-} as const;
-
 export async function POST(
   request: Request,
   context: TribeRouteContext<{ priceId: string }>
 ) {
-  const { priceId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handlePriceMemberRoute(
     request,
-    MEMBER_ROUTE_SCOPE,
-    {
-      logMessage: DELETE_WITH_ACTIONS_ROUTE_LOG.failureMessage,
-      metadata: { priceId, slug },
-      responseMessage: DELETE_WITH_ACTIONS_ROUTE_RESPONSE.unexpectedMessage,
-    },
-    async ({ modules }) => {
+    context,
+    { log: DELETE_WITH_ACTIONS_ROUTE_LOG, response: DELETE_WITH_ACTIONS_ROUTE_RESPONSE, withRequestId: true },
+    async ({ modules, priceId, slug }) => {
       const body: unknown = await request.json().catch(() => null);
       const result =
         await modules.subscriptions.useCases.deleteTribeSubscriptionPriceWithInvitationActions(

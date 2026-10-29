@@ -5,6 +5,7 @@ import { ADMISSION_ADMINISTRATIVE_SURFACE } from "../../constants/admission-admi
 import { recordAdmissionAdministrativeExposure } from "./postgres-admission-administrative-exposure";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
+import { settleAdmissionOriginal } from "./admission-original-outcome";
 import type { z } from "zod";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
@@ -105,9 +106,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
       if (recovered?.state !== OPERATION_STATE.completed) throw error;
       original = recovered;
     }
-    if (original.state === OPERATION_STATE.started) return original;
-    if ("outcome" in original.result) throw new AdmissionOperationError(original.result.code, { operationId: original.operationId, operationState: OPERATION_STATE.completed });
-    return { ...original, result: original.result };
+    return settleAdmissionOriginal<AllowlistImportReference>(original);
   }
   /** @param context - Current leader of the native tenant. @param importId - Own exact preview. @returns Authorized original rows/current progress without a write scope. */
   async read(context: AuthorizedAdmissionContext, importId: string) {
@@ -135,9 +134,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
       const effect = await this.knownEffect(database, () => this.confirmStep(database, ledgerId, input, selectedRows));
       return "outcome" in effect ? { completed: true, result: effect } : effect;
     });
-    if (original.state === OPERATION_STATE.started) return original;
-    if ("outcome" in original.result) throw new AdmissionOperationError(original.result.code, { operationId: original.operationId, operationState: OPERATION_STATE.completed });
-    return { ...original, result: original.result };
+    return settleAdmissionOriginal<AllowlistImportConfirmationResult>(original);
   }
   /** @param database - One original transaction. @param ledgerId - Actual current claim. @param input - Immutable public command/native actor. @param selectedRows - Stable explicit row ids. @returns One bounded block or the immutable final public snapshot. */
   private async confirmStep(database: RequestDatabase, ledgerId: string, input: Parameters<AllowlistImportRepository["confirm"]>[0], selectedRows: number[]): Promise<{ completed: false } | { completed: true; result: AllowlistImportConfirmationResult }> {

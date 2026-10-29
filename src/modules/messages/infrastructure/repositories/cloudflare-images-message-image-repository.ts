@@ -28,6 +28,7 @@ import {
   selectBooleanResult,
   type DatabaseExecutor,
 } from "@/src/modules/shared/infrastructure/database/database-executor";
+import type { AttachmentDeletionRollback } from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-storage";
 
 type Fetcher = typeof fetch;
 
@@ -850,11 +851,7 @@ export class CloudflareImagesMessageImageRepository
     assetId,
     sortOrder,
     status,
-  }: {
-    assetId: string;
-    sortOrder: number | null;
-    status: string;
-  }): Promise<boolean> {
+  }: AttachmentDeletionRollback): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         update public.message_images

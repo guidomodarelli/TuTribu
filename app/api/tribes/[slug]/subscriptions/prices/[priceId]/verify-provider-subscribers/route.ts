@@ -10,12 +10,12 @@ import {
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   createRouteJsonResponse,
-  handleMemberRoute,
   type RequestModules,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { createProviderSyncFailureResponse } from "../../../provider-sync-route-responses";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { handlePriceMemberRoute } from "../price-member-route";
 
 const PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG = {
   failureMessage: "Tribe subscription provider subscribers verification failed",
@@ -58,13 +58,6 @@ function createPostResultResponse(result: ReconcileTribeSubscriptionProviderSubs
   return createProviderSyncFailureResponse(result.status, PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE);
 }
 
-const MEMBER_ROUTE_SCOPE = {
-  feature: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG.feature,
-  operation: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG.operation,
-  unauthorizedMessage: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.unauthorizedMessage,
-  withRequestId: true,
-} as const;
-
 /**
  * Reconciles real Mercado Pago subscribers for a tribe price.
  *
@@ -76,17 +69,11 @@ export async function POST(
   request: Request,
   context: TribeRouteContext<{ priceId: string }>
 ) {
-  const { priceId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handlePriceMemberRoute(
     request,
-    MEMBER_ROUTE_SCOPE,
-    {
-      logMessage: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG.failureMessage,
-      metadata: { priceId, slug },
-      responseMessage: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE.unexpectedMessage,
-    },
-    async ({ modules }) => {
+    context,
+    { log: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG, response: PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE, withRequestId: true },
+    async ({ modules, priceId, slug }) => {
       const result =
         await modules.subscriptions.useCases
           .reconcileTribeSubscriptionProviderSubscribers({

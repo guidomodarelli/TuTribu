@@ -1,30 +1,27 @@
 /** Publishes informational cutover blockers without creating a claim, reading secrets or granting activation. @module admission-preflight-query-handler */
 import "server-only";
 import type { AdmissionFailure } from "../../application/results/admission-errors";
+import type { AdmissionTribeRouting, AdmissionTribeScope } from "../../application/use-cases/admission-tribe-scope";
 import { admissionPreflightResultSchema } from "../../application/results/admission-preflight-result-schema";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
+import { openAdmissionTribeRoute, respondWithAdmissionResult } from "./admission-route-steps";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema } from "./admission-request-schemas";
 import { ADMISSION_HTTP_OPERATION } from "../../constants/admission-http";
 
-type PreflightQueryServices = {
-  resolveTribe: { execute(query: { slug: string; requestId: string }): Promise<{ ok: true; value: { tribeId: string } } | { ok: false; failure: AdmissionFailure }> };
-  preflight: { execute(query: { tribeId: string; requestId: string }): Promise<{ ok: true; value: unknown } | { ok: false; failure: AdmissionFailure }> };
+/** Readonly aggregate blockers of one resolved tribe; shared by the GET route and the SSR loader. */
+export type AdmissionPreflightServices = {
+  resolveTribe: AdmissionTribeRouting;
+  preflight: { execute(query: AdmissionTribeScope): Promise<{ ok: true; value: unknown } | { ok: false; failure: AdmissionFailure }> };
 };
 
 /** @param open - Current native read composition after validation. @returns GET of aggregate blockers. */
-export function createAdmissionPreflightQueryHandler(open: () => Promise<PreflightQueryServices>) {
+export function createAdmissionPreflightQueryHandler(open: () => Promise<AdmissionPreflightServices>) {
   return async function GET(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> {
     const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_HTTP_OPERATION.policyPreflight });
     try {
-      const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-      if (!params.usable) return params.response;
-      const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-      if (!query.usable) return query.response;
-      const services = await open(), requestId = boundary.requestContext.requestId;
-      const identity = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!identity.ok) return boundary.failure(identity.failure);
-      const result = await services.preflight.execute({ tribeId: identity.value.tribeId, requestId });
-      return result.ok ? boundary.success(admissionPreflightResultSchema, result.value) : boundary.failure(result.failure);
+      const route = await openAdmissionTribeRoute(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema }, open);
+      if ("response" in route) return route.response;
+      return respondWithAdmissionResult(boundary, admissionPreflightResultSchema, await route.services.preflight.execute(route.scope));
     } catch (error) { return boundary.unexpected(error); }
   };
 }

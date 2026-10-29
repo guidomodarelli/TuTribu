@@ -3,14 +3,11 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingConnectionLifecycleActions, MessagingConnectionLifecycleContext, MessagingConnectionLifecycleDependencies, MessagingConnectionLifecycleInput } from "../../domain/repositories/messaging-connection-lifecycle";
-import type { MessagingConnectionLifecycleExecutor } from "./postgres-messaging-connection-suspension";
+import { runMessagingConnectionLifecycle, type MessagingConnectionLifecycleExecutor } from "./messaging-connection-lifecycle-ledger";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
-import { messagingConnectionLifecycleResultSchema, type MessagingConnectionLifecycleResult } from "../../application/results/messaging-connection-lifecycle-result";
-import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
+import type { MessagingConnectionLifecycleResult } from "../../application/results/messaging-connection-lifecycle-result";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { MessagingConnectionOperationError } from "../../domain/errors/messaging-connection-operation-error";
-import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGING_CONNECTION_STATE } from "../../constants/messaging-connection";
 import { MESSAGING_CONNECTION_REPLACEMENT } from "../../constants/messaging-connection-replacement";
 import { MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON } from "../../constants/messaging-connection-retirement";
@@ -18,7 +15,6 @@ import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 import { assessMessagingConnectionRetirement } from "../../domain/policies/messaging-connection-retirement";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { authorizeMessagingLifecycleResource } from "./postgres-messaging-lifecycle-authorizer";
-import { executeMessagingLedger } from "./execute-messaging-ledger";
 import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 import { purgeVerificationMaterial } from "./postgres-verification-material-maintenance";
@@ -31,9 +27,7 @@ export class PostgresMessagingConnectionDisconnection implements Pick<MessagingC
   private authorize(database:RequestDatabase,context:MessagingConnectionLifecycleContext){return authorizeMessagingLifecycleResource(database,context,REAUTHENTICATION_OPERATION.disconnectMessagingConnection);}
   /** @param context - Current connection-scoped local authority. @param input - Original confirmed resource CAS. @returns Original local retirement metadata, preserving accepted/unknown accounting and external revocation as a separate action. */
   async disconnect(context:MessagingConnectionLifecycleContext,input:MessagingConnectionLifecycleInput){
-    const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}};
-    const ledger=new PostgresAdmissionOperationRepository((run)=>executeMessagingLedger(()=>this.execute(context,run)),async(database)=>{await this.authorize(database,context);return true;},this.readSecurityConfig);
-    try{return await ledger.run(command,messagingConnectionLifecycleResultSchema,async(database,ledgerId)=>{
+    return runMessagingConnectionLifecycle({execute:this.execute,readSecurityConfig:this.readSecurityConfig,context,operationType:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,operationId:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed},authorize:(database)=>this.authorize(database,context),effect:async(database,ledgerId)=>{
       if(!(input.confirmed as boolean))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const row=await this.authorize(database,context);
       if(row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
@@ -52,9 +46,6 @@ export class PostgresMessagingConnectionDisconnection implements Pick<MessagingC
       await this.authorize(database,context);
       await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,connectionId:row.id,version:row.version+1,state:MESSAGING_CONNECTION_STATE.disconnected,configurationVersion:row.selected_version??row.candidate_version,previous:{state:row.state,version:row.version,configurationVersion:row.selected_version??row.candidate_version},channel:null,rule:MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON,cause:MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON,createdAt:now}));
       return{id:row.id,version:row.version+1,state:MESSAGING_CONNECTION_STATE.disconnected,reason:null,changed:true};
-    });}catch(error){
-      const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:MESSAGING_ERROR_CODE.unexpectedFailure;
-      throw new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId===input.operationId?{operationId:input.operationId}:{})});
-    }
+    }});
   }
 }

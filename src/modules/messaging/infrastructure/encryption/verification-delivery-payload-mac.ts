@@ -1,9 +1,9 @@
 /** Protects the exact immutable verification-delivery tuple without storing plaintext code or credentials. @module verification-delivery-payload-mac */
 import "server-only";
 import { VERIFICATION_FROZEN_PAYLOAD_DOMAIN } from "@/src/modules/academy-admissions/constants/verification-issuance";
-import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE, MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import { MessagingCryptographyError } from "./messaging-cryptography-error";
+import { readOperationPayloadKeyring } from "./operation-payload-keyring";
 
 /** Encodes the original platform fingerprint as lowercase hexadecimal, two digits per byte. */
 const FINGERPRINT_HEX_RADIX = 16;
@@ -27,13 +27,7 @@ function data(keyId: string, context: VerificationDeliveryPayloadContext, config
  * @returns Sign/verify operations without a plaintext or mutable client cache.
  */
 export function createVerificationDeliveryPayloadMac(config: MessagingSecurityConfig) {
-  const ring = config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload];
-  const key = (keyId: string) => {
-    if (config.recoveryLocked) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked);
-    const current = ring.keys.get(keyId);
-    if (!current) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyUnavailable);
-    return current;
-  };
+  const { ring, key } = readOperationPayloadKeyring(config);
   return {
     /** @param context - Original immutable tuple. @returns Active key id and MAC, without secret material. */
     async sign(context: VerificationDeliveryPayloadContext) { const keyId = ring.activeKeyId; return { keyId, mac: new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm,key(keyId),data(keyId,context,config))) }; },

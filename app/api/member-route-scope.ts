@@ -224,6 +224,50 @@ export async function handleMemberRoute(
   );
 }
 
+/**
+ * Log and response copy of a member route whose wiring comes from one log
+ * entry (feature, operation and failure message) and one response entry
+ * (401 and 500 copy).
+ */
+export type MemberRouteCopy = {
+  log: { failureMessage: string; feature: string; operation: string };
+  response: { unauthorizedMessage: string; unexpectedMessage: string };
+  withRequestId?: boolean;
+};
+
+/**
+ * Runs a member route wired from its log and response copy: the log feature
+ * and operation, the 401 copy, the failure log message and the safe 500 copy.
+ *
+ * @param request - Incoming request.
+ * @param copy - Log and response copy of the route.
+ * @param metadata - Log metadata of the route (the viewer id is appended).
+ * @param handle - Route body run with the open scope.
+ * @returns The route response.
+ */
+export function handleMemberRouteWithCopy(
+  request: Request,
+  copy: MemberRouteCopy,
+  metadata: Record<string, unknown>,
+  handle: (scope: OpenMemberRouteScope) => Promise<Response>
+): Promise<Response> {
+  return handleMemberRoute(
+    request,
+    {
+      feature: copy.log.feature,
+      operation: copy.log.operation,
+      unauthorizedMessage: copy.response.unauthorizedMessage,
+      ...(copy.withRequestId ? { withRequestId: true } : {}),
+    },
+    {
+      logMessage: copy.log.failureMessage,
+      metadata,
+      responseMessage: copy.response.unexpectedMessage,
+    },
+    handle
+  );
+}
+
 /** Copy and HTTP status answered for one use case status. */
 export type StatusMessage = { message: string; status: number };
 

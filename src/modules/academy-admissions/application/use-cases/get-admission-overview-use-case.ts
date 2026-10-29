@@ -1,10 +1,10 @@
 /** Projects public/own admission entry state without claiming work or consuming a link. @module get-admission-overview-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
-import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
-import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { AdmissionOverviewReader, AdmissionOverviewFacts } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
 import { admissionOverviewSchema, admissionOwnRequestSchema } from "../results/admission-flow-result-schemas";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
+import { ownAdmissionSnapshot } from "../results/own-admission-snapshot";
+import { readLiveAdmissionAccount, confirmSameAdmissionAccount } from "./admission-account-continuity";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -25,12 +25,6 @@ function requiresAnotherAccount(facts: AdmissionOverviewFacts["allowlistEligibil
   if (!facts) return false;
   const evaluated = evaluateAdmissionPreview(facts);
   return evaluated.outcome === ADMISSION_OUTCOME.denied && ACCOUNT_CHANGE_DENIAL_REASONS.has(evaluated.reason);
-}
-
-/** @returns Whether the account read after the facts is the same live session as before, or the read stays anonymous. */
-function keepsInitialAccount(first: AuthenticatedAccount | null, current: AuthenticatedAccount | null, now: Date): boolean {
-  if (!first) return current === null;
-  return current?.userId === first.userId && current.session.id === first.session.id && isAuthenticatedSessionLive(current.session.expiresAt, now);
 }
 
 type AdmissionOverviewPresentation = {
@@ -72,21 +66,17 @@ export class GetAdmissionOverviewUseCase {
   /** @param query - Boundary-validated tribe slug and safe correlation. @returns Safe overview or a closed failure, without any new request, operation or message. */
   async execute(query: { slug: string; requestId: string }) {
     try {
-      const first = await this.accounts.getAuthenticatedAccount();
-      if (first && !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      const first = await readLiveAdmissionAccount(this.accounts, this.clock);
       const scope = first ? { userId: first.userId, sessionId: first.session.id } : null;
       const facts = await this.reader.readOverview(query, scope);
-      const current = await this.accounts.getAuthenticatedAccount(), now = this.clock();
-      if (!keepsInitialAccount(first, current, now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      const { now } = await confirmSameAdmissionAccount(this.accounts, first, this.clock);
       if (facts?.tribe.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       if (!scope && (facts.membership !== null || facts.request !== null)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const request = facts.request === null ? null : admissionOwnRequestSchema.parse(facts.request);
       const membership = facts.membership;
       const membershipEligibility = evaluateAcademyMembershipEligibility(membership);
       const { state, nextAction, safeMessage } = presentAdmissionOverview({ facts, request, membershipEligibility, signedIn: scope !== null, now });
-      const parsed = admissionOverviewSchema.safeParse({ tribe: { slug: facts.tribe.slug, name: facts.tribe.name, accessModel: facts.tribe.accessModel }, policy: facts.policy, state, nextAction, safeMessage, ...(request ? { request } : {}), ...(scope && facts.policy?.requiresAdditionalVerification && facts.verification ? { verification: facts.verification } : {}) });
-      if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      return { ok: true as const, value: parsed.data };
+      return ownAdmissionSnapshot(admissionOverviewSchema, { tribe: { slug: facts.tribe.slug, name: facts.tribe.name, accessModel: facts.tribe.accessModel }, policy: facts.policy, state, nextAction, safeMessage, ...(request ? { request } : {}), ...(scope && facts.policy?.requiresAdditionalVerification && facts.verification ? { verification: facts.verification } : {}) });
     } catch (error) { return admissionOperationFailure(error); }
   }
 }

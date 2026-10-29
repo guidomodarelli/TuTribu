@@ -6,11 +6,10 @@ import type {AdmissionFailure} from "@/src/modules/academy-admissions/applicatio
 import {createAdmissionOperationStateSchema} from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import {messagingCredentialValidationSchema} from "@/src/modules/messaging/application/results/messaging-credential-validation-result";
 import {messagingConnectionParamsSchema,messagingConnectionValidateSchema} from "./messaging-request-schemas";
-import {createMessagingRouteBoundary} from "./messaging-route-http";
+import {createMessagingRouteBoundary,messagingOperationHttpStatus} from "./messaging-route-http";
 import {messagingFailure} from "@/src/modules/messaging/application/results/messaging-errors";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_HTTP_OPERATION} from "@/src/modules/messaging/constants/messaging-http";
-import {HTTP_STATUS} from "@/src/constants/http-status";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {hasAllowedRequestOrigin} from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
 
@@ -39,7 +38,7 @@ export function createMessagingCredentialValidationHandler(open:()=>Promise<Mess
         if(parsed.data.result.id.toLowerCase()!==params.value.connectionId.toLowerCase()||parsed.data.result.version!==body.value.expectedVersion+1)return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
         if(parsed.data.result.failureCode)return boundary.failure(messagingFailure(parsed.data.result.failureCode,{operation:{operationId:body.value.operationId,state:OPERATION_STATE.completed}}));
       }
-      return boundary.success(schema,parsed.data,parsed.data.state===OPERATION_STATE.started?HTTP_STATUS.accepted:HTTP_STATUS.ok);
+      return boundary.success(schema,parsed.data,messagingOperationHttpStatus(parsed.data.state));
     }catch(error){return boundary.unexpected(error);}
   };
 }

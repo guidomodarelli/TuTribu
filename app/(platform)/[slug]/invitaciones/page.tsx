@@ -2,8 +2,8 @@
 import { TribeInvitationManagement } from "@/components/tribes/tribe-invitation-management";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import { ROUTES } from "@/src/constants/routes";
-import { resolveVisibleTribePageAccess } from "../tribe-page-access";
-import { requireTribeManagerMembership } from "../tribe-manager-page-access";
+import type { resolveVisibleTribePageAccess, TribeSlugPageProps } from "../tribe-page-access";
+import { resolveTribeManagerPageAccess } from "../tribe-manager-page-access";
 
 const INVITATION_MANAGEMENT_PAGE_LOG = {
   operation: "tribe-invitation-management-page",
@@ -36,22 +36,14 @@ function toAvailablePrices(prices: TribeSubscriptionPrices) {
     }));
 }
 
-export default async function TribeInvitationsPage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeInvitationsPage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
-    await resolveVisibleTribePageAccess({
+    await resolveTribeManagerPageAccess({
       callbackPath: ROUTES.tribes.invitations(slug),
       operation: INVITATION_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });
-
-  await requireTribeManagerMembership(modules, tribe.slug);
 
   const [invitations, pricesListing] = await Promise.all([
     modules.tribes.useCases

@@ -1,13 +1,13 @@
 /** Composes existing candidate, credential and OTP owners on one guarded transaction. @module postgres-messaging-retention-repository */
 import "server-only";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecretRetention, MessagingSecretRetentionCommand, MessagingSecretRetentionResult } from "../../domain/repositories/messaging-secret-retention";
-import { MessagingRetentionError } from "../../domain/errors/messaging-retention-error";
+import { MessagingRetentionError, type MessagingRetentionErrorCode } from "../../domain/errors/messaging-retention-error";
 import { MessagingCandidateExpirationError } from "../../domain/errors/messaging-candidate-expiration-error";
 import { MessagingSecretMaterialError } from "../../domain/errors/messaging-secret-material-error";
 import { MessagingDeliveryStorageError } from "../../domain/errors/messaging-delivery-storage-error";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
-import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseExecutor, type CandidateExpirationGate } from "./postgres-messaging-candidate-expiration";
+import { PostgresMessagingCandidateExpiration } from "./postgres-messaging-candidate-expiration";
+import { GuardedMessagingMaintenance, type CandidateExpirationDatabaseExecutor } from "./guarded-messaging-maintenance";
 import { PostgresSecretMaterialMaintenance } from "./postgres-secret-material-maintenance";
 import { PostgresVerificationMaterialMaintenance } from "./postgres-verification-material-maintenance";
 
@@ -20,15 +20,13 @@ function retentionFailureCode(error: unknown) {
 }
 
 /** Ensures a late OTP/restore failure also rolls back earlier candidate and credential mutations. */
-export class PostgresMessagingRetentionRepository implements MessagingSecretRetention {
-  /** @param execute - Original guarded backend transaction. @param authorize - Live private principal. @param readRecoveryLock - Current key-independent recovery stop. */
-  constructor(private readonly execute: CandidateExpirationDatabaseExecutor, private readonly authorize: CandidateExpirationGate, private readonly readRecoveryLock: CandidateExpirationGate) {}
+export class PostgresMessagingRetentionRepository extends GuardedMessagingMaintenance<MessagingRetentionErrorCode> implements MessagingSecretRetention {
+  /** A current key-independent recovery stop leaves cleanup unavailable. */
+  protected readonly recoveryLockedCode: MessagingRetentionErrorCode = MESSAGING_ERROR_CODE.resourceUnavailable;
 
-  /** @param database - Current transaction when acquired. @returns After both current gates permit cleanup. @throws MessagingRetentionError when private authority or recovery requires a stop. */
-  private async assertAuthority(database?: RequestDatabase): Promise<void> {
-    if (!await this.authorize(database)) throw new MessagingRetentionError(MESSAGING_ERROR_CODE.permissionDenied);
-    if (await this.readRecoveryLock(database)) throw new MessagingRetentionError(MESSAGING_ERROR_CODE.resourceUnavailable);
-    if (!await this.authorize(database)) throw new MessagingRetentionError(MESSAGING_ERROR_CODE.permissionDenied);
+  /** @param code - Closed gate failure. @returns The retention error for it. */
+  protected gateFailure(code: MessagingRetentionErrorCode): Error {
+    return new MessagingRetentionError(code);
   }
 
   /** @param command - Application-validated ceilings with independent leaf/SQL guards. @returns Only the counts confirmed by the outer commit. @throws MessagingRetentionError retaining the private leaf/commit cause, without retry. */

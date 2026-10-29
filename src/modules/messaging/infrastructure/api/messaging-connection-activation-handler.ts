@@ -9,9 +9,8 @@ import {messagingFailure} from "@/src/modules/messaging/application/results/mess
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
-import {HTTP_STATUS} from "@/src/constants/http-status";
 import {hasAllowedRequestOrigin} from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
-import {createMessagingRouteBoundary} from "./messaging-route-http";
+import {createMessagingRouteBoundary,messagingOperationHttpStatus} from "./messaging-route-http";
 import {messagingConnectionParamsSchema,messagingConnectionActivateSchema} from "./messaging-request-schemas";
 
 /** Only application activation and canonical routing cross into the framework entrypoint. */
@@ -34,7 +33,7 @@ export function createMessagingConnectionActivationHandler(open:()=>Promise<Mess
       const schema=createAdmissionOperationStateSchema(messagingConnectionActivationSchema),parsed=schema.safeParse(outcome.value);
       if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
       if(parsed.data.state===OPERATION_STATE.completed&&(parsed.data.result.id.toLowerCase()!==params.value.connectionId.toLowerCase()||parsed.data.result.version!==body.value.expectedVersion+1))return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
-      return boundary.success(schema,parsed.data,parsed.data.state===OPERATION_STATE.started?HTTP_STATUS.accepted:HTTP_STATUS.ok);
+      return boundary.success(schema,parsed.data,messagingOperationHttpStatus(parsed.data.state));
     }catch(error){return boundary.unexpected(error);}
   };
 }
