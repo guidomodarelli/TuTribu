@@ -22,7 +22,8 @@ import { withPolicyReviewReturn } from "@/src/modules/academy-admissions/constan
 import { ROUTES } from "@/src/constants/routes";
 import { CommercialMembershipReview } from "@/components/academy-admissions/commercial-membership-review";
 import { useCommercialMembershipReview } from "./use-commercial-membership-review";
-import { blockReasons, createInitialDraft, draftBlock, hasCommercialReason, markPolicyFresh, pausePolicyWrites, policyValidationMessage, readPolicyCurrent, releasePolicyWork, resumePolicyWrites, retryPolicyOriginal, runFinalPolicyWrites, runPolicyWrite, startPolicyRecheck, type PolicyControls, type PolicyPhase, type PolicyReady, type PolicySession } from "./policy-workflow";
+import { blockReasons, createInitialDraft, draftBlock, hasCommercialReason, markPolicyFresh, pausePolicyWrites, policyValidationMessage, readPolicyCurrent, resumePolicyWrites, retryPolicyOriginal, runFinalPolicyWrites, runPolicyWrite, startPolicyRecheck, type PolicyControls, type PolicyPhase, type PolicyReady, type PolicySession } from "./policy-workflow";
+import { startPrivateReadLifecycle } from "../private-read-lifecycle";
 
 /** Only application props and own ports enter the workflow; no SDK identity is serialized. */
 type PolicyContainerProps = {
@@ -74,19 +75,12 @@ function usePolicyFlowState({ ready, client, savedDraft, initialStep, entryStep,
     setErrorMessage(null); void readCurrent(controller.signal);
   }, [readCurrent]);
 
-  useEffect(() => {
-    const controller = new AbortController(); readController.current = controller;
-    void Promise.resolve().then(() => {
-      if (controller.signal.aborted) return;
-      const initial = !mounted.current; mounted.current = true;
-      if (!initial) { setPrivateVisible(false); markPolicyFresh(controls, false); setConfirmed(false); }
-      return readCurrent(controller.signal, initial);
-    });
-    /** Activity/bfcache restoration must reload the original intention before any new write. */
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) { setPrivateVisible(false); markPolicyFresh(controls, false); setConfirmed(false); writeController.current?.abort(); busy.current = false; loaded.current = false; launchRead(); } };
-    window.addEventListener("pageshow", restored);
-    return () => { controller.abort(); releasePolicyWork(controls); window.removeEventListener("pageshow", restored); };
-  }, [readCurrent, launchRead, controls]);
+  /** Activity/bfcache restoration must reload the original intention before any new write. */
+  useEffect(() => startPrivateReadLifecycle(controls, {
+    mounted, readCurrent,
+    invalidate: () => { setPrivateVisible(false); markPolicyFresh(controls, false); setConfirmed(false); },
+    relaunch: launchRead,
+  }), [readCurrent, launchRead, controls]);
 
   return { state, draft, phase, step, editing, publishing, setPublishing, rechecking, confirmed, retryConfirmed, pauseOpen, pauseReason, errorMessage, statusMessage, failure, activationBlock, stage, pendingAction, permissionDenied, fresh, canRetry, privateVisible, launchRead, controls };
 }

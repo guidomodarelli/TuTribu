@@ -4,6 +4,7 @@ import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAu
 import { appendCreatedMessageDeliveryAudit, appendCancelledMessageDeliveryAudit, type CreatedMessageDeliveryAuditRow, type MessageDeliveryAuditRow } from "@/src/modules/messaging/infrastructure/repositories/postgres-message-delivery-audit";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
+import { isCurrentVerificationActor, readVerificationDatabaseNow } from "./verification-transaction-checks";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -94,23 +95,6 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
   constructor(private readonly database: RequestDatabase, private readonly authorize: (database: RequestDatabase, scope: VerificationChallengeScope) => Promise<boolean>, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly requestBudget: VerificationRequestBudget) {}
 
   /**
-   * Checks actual SQL identity and the owning operation's current authority.
-   * @param scope - Exact actor/tenant/contact purpose resolved by the owner.
-   * @returns Whether the current SQL actor and owner authorization still agree.
-   */
-  private async isAuthorized(scope: VerificationChallengeScope): Promise<boolean> {
-    return (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor === scope.userId && await this.authorize(this.database, scope);
-  }
-
-  /**
-   * Samples the authoritative clock after lock waits and asynchronous local cryptography.
-   * @returns The database timestamp used for the original immutable challenge lifetime.
-   */
-  private async now(): Promise<Date> {
-    return new Date((await this.database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-  }
-
-  /**
    * Holds policy/resource facts through commit without retrieving credentials or trusting a queue snapshot.
    * @param scope - Current own scope, already checked by the account/policy owner.
    * @returns Exact send facts or a closed own denial.
@@ -172,7 +156,7 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     let current: CurrentChallengeRow | undefined = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel,state,expires_at from public.contact_verification_challenges where user_id=${scope.userId} and tribe_id=${scope.tribeId} and contact_type=${scope.contact.type} and normalized_contact=${scope.contact.value} and purpose=${scope.purpose} and is_current`)).rows[0];
     /** A connection test is retaken from scratch once its previous code was confirmed or expired; that finished challenge is superseded below instead of blocking every later test to the same destination. */
     const finishedConnectionTest = scope.purpose === ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic && current !== undefined && command.expectedCurrentChallengeId === null
-      && (current.state === VERIFICATION_CHALLENGE_STATE.verified || new Date(current.expires_at) <= await this.now());
+      && (current.state === VERIFICATION_CHALLENGE_STATE.verified || new Date(current.expires_at) <= await readVerificationDatabaseNow(this.database));
     if (!finishedConnectionTest && (current?.id ?? null) !== command.expectedCurrentChallengeId) return { denial: ADMISSION_ERROR_CODE.challengeInvalidated };
     if (current) {
       await this.database.execute(sql`select id from public.message_deliveries where id=${current.delivery_id} and tribe_id=${scope.tribeId} for update`);
@@ -192,7 +176,7 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
    */
   private async supersedeChallenge(command: IssueContactVerificationCommand, current: CurrentChallengeRow): Promise<void> {
     const scope = command.scope;
-    const invalidatedAt = await this.now();
+    const invalidatedAt = await readVerificationDatabaseNow(this.database);
     const invalidatedProofs = (await this.database.execute<InvalidatedAdmissionProofAuditRow>(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${invalidatedAt},invalidation_reason=${VERIFICATION_RESEND_REASON} where challenge_id=${current.id} and status=${ADMISSION_PROOF_STATUS.available} returning id,challenge_id,verification_epoch,applied_request_id,invalidated_at`)).rows;
     await appendAdmissionProofInvalidationAudit(this.database, { tribeId: scope.tribeId, actorUserId: scope.userId, operationId: command.ledgerId, cause: VERIFICATION_RESEND_REASON }, { proofs: invalidatedProofs, channels: new Map([[current.id, current.channel]]), previousStates: ADMISSION_PROOF_STATUS.available });
     await this.database.execute(sql`update public.contact_verification_challenges set is_current=false,state=case when state=${VERIFICATION_CHALLENGE_STATE.verified} then state else ${VERIFICATION_CHALLENGE_STATE.invalidated} end,version=version+1,invalidated_at=coalesce(invalidated_at,${invalidatedAt}),invalidation_reason=coalesce(invalidation_reason,${VERIFICATION_RESEND_REASON}),code_mac=null,code_envelope_id=null where id=${current.id} and version=${current.version}`);
@@ -219,7 +203,7 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
   async issue(command: IssueContactVerificationCommand): Promise<ContactVerificationIssuanceResult> {
     const denied = (code: Extract<ContactVerificationIssuanceResult, { outcome: "denied" }>["code"]): ContactVerificationIssuanceResult => ({ outcome: VERIFICATION_ISSUANCE_OUTCOME.denied, code });
     const scope = command.scope;
-    if (!await this.isAuthorized(scope)) return denied(ADMISSION_ERROR_CODE.permissionDenied);
+    if (!await isCurrentVerificationActor(this.database, this.authorize, scope)) return denied(ADMISSION_ERROR_CODE.permissionDenied);
     if (isChannelMismatch(scope)) return denied(ADMISSION_ERROR_CODE.invalidInput);
     // Dispatch takes an exclusive tribe lock. Keep the reader's shared lock without upgrading it.
     await this.database.execute(sql`select id from public.tribes where id=${scope.tribeId} for share`);
@@ -231,14 +215,14 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     if ("denial" in locked) return denied(locked.denial);
     const current = locked.current;
     const config = await this.readSecurityConfig();
-    if (isIssuanceSecurityChanged(config, resource, scope.securityEpoch) || !await this.isAuthorized(scope)) return denied(ADMISSION_ERROR_CODE.connectionIncomplete);
+    if (isIssuanceSecurityChanged(config, resource, scope.securityEpoch) || !await isCurrentVerificationActor(this.database, this.authorize, scope)) return denied(ADMISSION_ERROR_CODE.connectionIncomplete);
     const challengeId = randomUUID(), deliveryId = randomUUID(), envelopeId = randomUUID();
     const diagnosticId = newDiagnosticId(scope);
     // The private global ledger id isolates client keys reused in another actor/tenant/type namespace.
     const budget = await this.requestBudget.consume({ scope, operationId: command.ledgerId, challengeId });
     if (!budget.allowed) return denied(budget.code);
     if (budget.replayed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
-    const createdAt = await this.now(), expiresAt = new Date(createdAt.getTime() + ADMISSION_LIMIT.verificationCodeValidityMs);
+    const createdAt = await readVerificationDatabaseNow(this.database), expiresAt = new Date(createdAt.getTime() + ADMISSION_LIMIT.verificationCodeValidityMs);
     const context = { ...scope, challengeId, createdAt, expiresAt };
     const code = generateVerificationCode();
     const signed = await createVerificationCodeMac(config).sign(code, context);
@@ -249,7 +233,7 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     const payloadFingerprint = payload.mac;
     const keyIds = { mac: signed.keyId, otp: envelope.keyId, payload: payloadKeyId, contact: budget.fingerprintKeyId };
     await this.assertCurrentSecurity(config, resource, keyIds);
-    if (!await this.isAuthorized(scope) || await this.now() >= expiresAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    if (!await isCurrentVerificationActor(this.database, this.authorize, scope) || await readVerificationDatabaseNow(this.database) >= expiresAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     if (current) await this.supersedeChallenge(command, current);
     const createdDelivery = (await this.database.execute<CreatedMessageDeliveryAuditRow>(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,contact_subject_id,recipient_ref,recipient_country,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) values (${deliveryId},${scope.tribeId},${scope.connectionId},${scope.connectionVersion},${config.environment},${config.securityEpoch},${scope.purpose},${diagnosticId ?? challengeId},${scope.userId},${budget.contactSubjectId},${challengeId},${scope.contact.type === ADMISSION_CONTACT_TYPE.phone ? scope.contact.country : null},${scope.channel},${command.ledgerId},${Buffer.from(payloadFingerprint)},${payloadKeyId},${JSON.stringify(frozenIntent)}::jsonb,${resource.usagePolicyVersion},${createdAt},${createdAt},${expiresAt}) returning id,state,version,connection_id,connection_version,channel,created_at`)).rows[0];
     await appendCreatedMessageDeliveryAudit(this.database, { tribeId: scope.tribeId, actorUserId: scope.userId, operationId: command.ledgerId }, createdDelivery, issuanceOperationType(command));
@@ -259,7 +243,7 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     await this.database.execute(sql`insert into public.verification_code_envelopes(id,tribe_id,connection_id,connection_version,challenge_id,delivery_id,environment,security_epoch,key_id,iv,ciphertext,created_at,expires_at) values (${envelopeId},${scope.tribeId},${scope.connectionId},${scope.connectionVersion},${challengeId},${deliveryId},${envelope.environment},${envelope.securityEpoch},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)},${createdAt},${expiresAt})`);
     if (diagnosticId) await this.database.execute(sql`insert into public.messaging_connection_diagnostics(id,tribe_id,connection_id,connection_version,leader_user_id,challenge_id,channel,sender_id,template_id,template_language,created_at) values (${diagnosticId},${scope.tribeId},${scope.connectionId},${scope.connectionVersion},${scope.userId},${challengeId},${scope.channel},${resource.senderId},${resource.templateId},${resource.templateLanguage},${createdAt})`);
     await this.assertCurrentSecurity(config, resource, keyIds);
-    if (!await this.isAuthorized(scope)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    if (!await isCurrentVerificationActor(this.database, this.authorize, scope)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     return { outcome: VERIFICATION_ISSUANCE_OUTCOME.issued, challengeId, deliveryId, diagnosticId, expiresAt, resendAllowedAt: new Date(createdAt.getTime() + ADMISSION_LIMIT.verificationResendWaitMs) };
   }
 }

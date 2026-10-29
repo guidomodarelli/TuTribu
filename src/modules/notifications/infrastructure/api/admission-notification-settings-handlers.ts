@@ -1,5 +1,6 @@
 /** Validates own notification settings requests and emits only scoped minimal public DTOs. @module admission-notification-settings-handlers */
 import "server-only";
+import type { z } from "zod";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { admissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
@@ -38,19 +39,40 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
     return query.usable ? { usable: true as const, value: params.value.slug } : query;
   }
 
+  /** @param boundary - This request's single validation/error owner. @param slug - Validated tenant slug. @returns The current composition and resolved tribe, or the safe failure response. */
+  async function resolveSelectedTribe(boundary: ReturnType<typeof createAdmissionRouteBoundary>, slug: string) {
+    const services = await open(), requestId = boundary.requestContext.requestId;
+    const tribe = await services.resolveTribe.execute({ slug, requestId });
+    return tribe.ok ? { usable: true as const, services, requestId, tribeId: tribe.value.tribeId } : { usable: false as const, response: boundary.failure(tribe.failure) };
+  }
+
+  /** @param boundary - This request's single validation/error owner. @param request - Original read request. @param context - Framework tenant params. @returns The resolved read scope, or its own safe response. */
+  async function openRead(boundary: ReturnType<typeof createAdmissionRouteBoundary>, request: Request, context: SettingsRouteContext) {
+    const selected = await selection(boundary, request, context);
+    return selected.usable ? resolveSelectedTribe(boundary, selected.value) : selected;
+  }
+
+  /** @param boundary - This request's single validation/error owner. @param request - Original same-origin change request. @param context - Framework tenant params. @param schema - Own command schema. @returns The resolved change scope with its validated command, or its own safe response; composition opens only after every input passes. */
+  async function openChange<Command>(boundary: ReturnType<typeof createAdmissionRouteBoundary>, request: Request, context: SettingsRouteContext, schema: z.ZodType<Command>) {
+    if (!hasAllowedAdmissionOrigin(request)) return { usable: false as const, response: boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied)) };
+    const selected = await selection(boundary, request, context);
+    if (!selected.usable) return selected;
+    const body = await boundary.readBody(schema);
+    if (!body.usable) return body;
+    const scope = await resolveSelectedTribe(boundary, selected.value);
+    return scope.usable ? { ...scope, command: body.value } : scope;
+  }
+
   return {
     /** @param request - Native current request. @param context - Framework tenant. @returns A current own frequency and capability hint without IDs or internal delivery cuts. */
     async readOwnPreference(request: Request, context: SettingsRouteContext): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION.preferenceRead });
       try {
-        const selected = await selection(boundary, request, context);
-        if (!selected.usable) return selected.response;
-        const services = await open(), requestId = boundary.requestContext.requestId;
-        const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
-        if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.preferences.read({ tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
+        const scope = await openRead(boundary, request, context);
+        if (!scope.usable) return scope.response;
+        const result = await scope.services.preferences.read({ tribeId: scope.tribeId, requestId: scope.requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
-        if (result.value.preference.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+        if (result.value.preference.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
         return bindViewer(boundary.success(admissionNotificationPreferenceReadResultSchema, { preference: toAdmissionNotificationPreferenceView(result.value.preference), canConfigureEmail: result.value.canConfigureEmail }), result);
       } catch (error) { return boundary.unexpected(error); }
     },
@@ -59,21 +81,15 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
     async changeOwnPreference(request: Request, context: SettingsRouteContext): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION.preferenceChange });
       try {
-        if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-        const selected = await selection(boundary, request, context);
-        if (!selected.usable) return selected.response;
-        const body = await boundary.readBody(admissionNotificationPreferenceChangeSchema);
-        if (!body.usable) return body.response;
-        const services = await open(), requestId = boundary.requestContext.requestId;
-        const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
-        if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.preferences.change({ ...body.value, tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
+        const scope = await openChange(boundary, request, context, admissionNotificationPreferenceChangeSchema);
+        if (!scope.usable) return scope.response;
+        const result = await scope.services.preferences.change({ ...scope.command, tribeId: scope.tribeId, requestId: scope.requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
-        if (result.value.status !== ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected && result.value.preference.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+        if (result.value.status !== ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected && result.value.preference.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
         const view = result.value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected
           ? { status: result.value.status, reason: result.value.reason }
           : { status: result.value.status, preference: toAdmissionNotificationPreferenceView(result.value.preference) };
-        const schema = admissionNotificationPreferenceChangeResultSchema.refine((value) => value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected || value.preference.mode === body.value.mode && value.preference.version === body.value.expectedVersion + (value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.changed ? 1 : 0));
+        const schema = admissionNotificationPreferenceChangeResultSchema.refine((value) => value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected || value.preference.mode === scope.command.mode && value.preference.version === scope.command.expectedVersion + (value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.changed ? 1 : 0));
         return bindViewer(boundary.success(schema, view), result);
       } catch (error) { return boundary.unexpected(error); }
     },
@@ -82,14 +98,11 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
     async readEmailSettings(request: Request, context: SettingsRouteContext): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION.emailRead });
       try {
-        const selected = await selection(boundary, request, context);
-        if (!selected.usable) return selected.response;
-        const services = await open(), requestId = boundary.requestContext.requestId;
-        const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
-        if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.email.read({ tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
+        const scope = await openRead(boundary, request, context);
+        if (!scope.usable) return scope.response;
+        const result = await scope.services.email.read({ tribeId: scope.tribeId, requestId: scope.requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
-        if (result.value.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+        if (result.value.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
         return bindViewer(boundary.success(admissionNotificationEmailSettingsViewSchema, toAdmissionNotificationEmailSettingsView(result.value)), result);
       } catch (error) { return boundary.unexpected(error); }
     },
@@ -98,19 +111,13 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
     async changeEmailSettings(request: Request, context: SettingsRouteContext): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION.emailChange });
       try {
-        if (!hasAllowedAdmissionOrigin(request)) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.permissionDenied));
-        const selected = await selection(boundary, request, context);
-        if (!selected.usable) return selected.response;
-        const body = await boundary.readBody(admissionNotificationEmailSettingsCommandSchema);
-        if (!body.usable) return body.response;
-        const services = await open(), requestId = boundary.requestContext.requestId;
-        const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
-        if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.email.change({ ...body.value, tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
+        const scope = await openChange(boundary, request, context, admissionNotificationEmailSettingsCommandSchema);
+        if (!scope.usable) return scope.response;
+        const result = await scope.services.email.change({ ...scope.command, tribeId: scope.tribeId, requestId: scope.requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
-        if (result.value.state === OPERATION_STATE.completed && result.value.result.status !== ADMISSION_EMAIL_SETTINGS_STATUS.rejected && result.value.result.settings.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+        if (result.value.state === OPERATION_STATE.completed && result.value.result.status !== ADMISSION_EMAIL_SETTINGS_STATUS.rejected && result.value.result.settings.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
         const view = toAdmissionNotificationEmailSettingsOperationView(result.value);
-        const schema = admissionNotificationEmailSettingsOperationSchema.refine((value) => value.operationId === body.value.operationId && (value.state === OPERATION_STATE.started || value.result.status === ADMISSION_EMAIL_SETTINGS_STATUS.rejected || value.result.settings.enabled === body.value.enabled && value.result.settings.timeZone === body.value.timeZone && value.result.settings.version === body.value.expectedVersion + (value.result.status === ADMISSION_EMAIL_SETTINGS_STATUS.changed ? 1 : 0)));
+        const schema = admissionNotificationEmailSettingsOperationSchema.refine((value) => value.operationId === scope.command.operationId && (value.state === OPERATION_STATE.started || value.result.status === ADMISSION_EMAIL_SETTINGS_STATUS.rejected || value.result.settings.enabled === scope.command.enabled && value.result.settings.timeZone === scope.command.timeZone && value.result.settings.version === scope.command.expectedVersion + (value.result.status === ADMISSION_EMAIL_SETTINGS_STATUS.changed ? 1 : 0)));
         return bindViewer(boundary.success(schema, view, view.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok), result);
       } catch (error) { return boundary.unexpected(error); }
     },

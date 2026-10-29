@@ -1,5 +1,7 @@
 /** Represents messaging failure facts without provider payloads in the public contract. */
 import type {MessagingErrorCode} from "../../domain/errors/messaging-error-code";
+import {MESSAGING_ERROR_CODE} from "../../constants/messaging-errors";
+import type { TribePageFailures } from "@/src/modules/shared/application/live-account-tribe-page-read";
 
 export type {MessagingErrorCode} from "../../domain/errors/messaging-error-code";
 export type MessagingFailure = {
@@ -16,4 +18,27 @@ export type MessagingPublicError = Omit<MessagingFailure, "cause" | "upstreamSta
  */
 export function messagingFailure(code: MessagingErrorCode, details: Omit<MessagingFailure, "code"> = {}): MessagingFailure {
   return { code, ...details };
+}
+
+/**
+ * @param failure - Canonical tenant routing failure of a messaging page.
+ * @returns The same failure when its code is a messaging code, otherwise an unexpected failure; the original stays as cause.
+ */
+export function messagingRoutingFailure(failure: { code: string }) {
+  return { ok: false as const, failure: messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === failure.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure, { cause: failure }) };
+}
+
+/** Own messaging operation error carrying its closed code. */
+type MessagingOperationErrorClass = new (code: MessagingErrorCode) => Error & { code: MessagingErrorCode };
+
+/**
+ * @param OperationError - The page's own operation error class.
+ * @returns Closed failures of a messaging leader page: that error for authentication, the routing failure, and any throw as its own code or an unexpected failure.
+ */
+export function messagingPageFailures(OperationError: MessagingOperationErrorClass): TribePageFailures<{ code: string }, ReturnType<typeof messagingRoutingFailure>, { ok: false; failure: MessagingFailure }> {
+  return {
+    authenticationRequired: () => new OperationError(MESSAGING_ERROR_CODE.authenticationRequired),
+    rejectTribe: messagingRoutingFailure,
+    closeFailure: (error) => ({ ok: false, failure: messagingFailure(error instanceof OperationError ? error.code : MESSAGING_ERROR_CODE.unexpectedFailure, { cause: error }) }),
+  };
 }

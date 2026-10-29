@@ -22,6 +22,13 @@ const TRIBE_PAGE_ACCESS_LOG = {
   resolveAccessFailureMessage: "Failed to resolve tribe access",
 } as const;
 
+/** Props of a page under `/[slug]` whose only dynamic segment is the tribe slug. */
+export type TribeSlugPageProps = {
+  params: Promise<{
+    slug: string;
+  }>;
+};
+
 type ResolveTribePageAccessOptions = {
   /**
    * Channel surfaces (the campfire) accept a member who reads a channel

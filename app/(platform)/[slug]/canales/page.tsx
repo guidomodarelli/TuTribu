@@ -1,30 +1,22 @@
 
 import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
 import { ROUTES } from "@/src/constants/routes";
-import { resolveVisibleTribePageAccess } from "../tribe-page-access";
-import { requireTribeManagerMembership } from "../tribe-manager-page-access";
+import type { TribeSlugPageProps } from "../tribe-page-access";
+import { resolveTribeManagerPageAccess } from "../tribe-manager-page-access";
 
 const CHANNEL_MANAGEMENT_PAGE_LOG = {
   operation: "tribe-channel-management-page",
   resolveChannelsFailureMessage: "Failed to resolve tribe channels",
 } as const;
 
-export default async function TribeChannelsPage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeChannelsPage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
-    await resolveVisibleTribePageAccess({
+    await resolveTribeManagerPageAccess({
       callbackPath: ROUTES.tribes.channels(slug),
       operation: CHANNEL_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });
-
-  await requireTribeManagerMembership(modules, tribe.slug);
 
   const channelResult = await modules.messages.useCases
     .listTribeChannels({

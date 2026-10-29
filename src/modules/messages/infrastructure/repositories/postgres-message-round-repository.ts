@@ -53,7 +53,8 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
-type MessageRoundSharedRow = {
+/** Author and channel columns of every row that carries a whole message. */
+export type MessageAuthorChannelRow = {
   author_id: string | null;
   author_image: string | null;
   author_name: string | null;
@@ -64,6 +65,9 @@ type MessageRoundSharedRow = {
   channel_name: string | null;
   channel_slug: string | null;
   channel_sort_order: number | string | null;
+};
+
+type MessageRoundSharedRow = MessageAuthorChannelRow & {
   like_count: number | string;
   reply_count: number | string;
   reply_authors_preview: ReplyAuthorPreviewRow[] | null;
@@ -543,15 +547,35 @@ function mapViewerStateRow(
   };
 }
 
-function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
-  const status = rows[0]?.status_result;
-
+/**
+ * Answers a message listing (replies, likers) that was not found or is not
+ * visible to the viewer.
+ *
+ * @param status - Status column of the first listing row.
+ * @returns The not-found or forbidden result, or null when the listing was found.
+ */
+function mapMessageListingFailure(
+  status: string | null | undefined
+):
+  | { status: typeof MESSAGE_MUTATION_STATUS.notFound }
+  | { status: typeof MESSAGE_MUTATION_STATUS.forbidden }
+  | null {
   if (status === MESSAGE_MUTATION_STATUS.notFound) {
     return { status: MESSAGE_MUTATION_STATUS.notFound };
   }
 
   if (status === MESSAGE_MUTATION_STATUS.forbidden || !status) {
     return { status: MESSAGE_MUTATION_STATUS.forbidden };
+  }
+
+  return null;
+}
+
+function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
+  const failure = mapMessageListingFailure(rows[0]?.status_result);
+
+  if (failure) {
+    return failure;
   }
 
   return {
@@ -565,14 +589,10 @@ function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
 }
 
 function mapRowsToLikers(rows: MessageLikerRow[]): TribeRoundLikersResult {
-  const status = rows[0]?.status_result;
+  const failure = mapMessageListingFailure(rows[0]?.status_result);
 
-  if (status === MESSAGE_MUTATION_STATUS.notFound) {
-    return { status: MESSAGE_MUTATION_STATUS.notFound };
-  }
-
-  if (status === MESSAGE_MUTATION_STATUS.forbidden || !status) {
-    return { status: MESSAGE_MUTATION_STATUS.forbidden };
+  if (failure) {
+    return failure;
   }
 
   return {

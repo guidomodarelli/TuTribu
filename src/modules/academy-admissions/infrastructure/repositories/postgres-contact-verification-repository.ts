@@ -4,6 +4,7 @@
  */
 import "server-only";
 import { sql } from "drizzle-orm";
+import { isCurrentVerificationActor, readVerificationDatabaseNow } from "./verification-transaction-checks";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";
@@ -82,31 +83,13 @@ export class PostgresContactVerificationRepository implements ContactVerificatio
   ) {}
 
   /**
-   * Checks the actual SQL actor and owner scope; an input userId is never authority.
-   * @param scope - Own scope to revalidate against the caller's current locked context.
-   * @returns Whether the actual actor still has the required owner authorization.
-   */
-  private async isAuthorized(scope: VerificationChallengeScope): Promise<boolean> {
-    const actor = (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    return actor === scope.userId && await this.authorize(this.database, scope);
-  }
-
-  /**
-   * Samples the database clock after lock waits and asynchronous local cryptography.
-   * @returns The current database timestamp, without relying on a browser or process clock.
-   */
-  private async now(): Promise<Date> {
-    return new Date((await this.database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-  }
-
-  /**
    * Validates one local code without relying on provider availability, country edits or remaining send quota.
    * @param command - Own authorized scope and operation-ledger-bound validation intent.
    * @returns Minimal stored transition, confirmed when the caller commits; protected material stays private.
    * @throws AdmissionOperationError on conflicting failure identity or an unexpected CAS, forcing rollback.
    */
   async validate(command: ValidateContactVerificationCommand): Promise<ContactVerificationResult> {
-    if (!await this.isAuthorized(command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    if (!await isCurrentVerificationActor(this.database, this.authorize, command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
     // Fix deployment scope from the authorized immutable version before account/challenge locks.
     const resource = (await this.database.execute<{ environment: string; security_epoch: string }>(sql`select environment,security_epoch from public.messaging_connection_versions where connection_id=${command.scope.connectionId} and tribe_id=${command.scope.tribeId} and version=${command.scope.connectionVersion} for share`)).rows[0];
     if (!resource) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
@@ -119,7 +102,7 @@ export class PostgresContactVerificationRepository implements ContactVerificatio
     if (!isSameDestination(row, command.scope.contact)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
     const challenge = challengeFromRow(row, command.scope.contact);
     const currentChallengeId = row.is_current ? row.id : null;
-    const initial = evaluateContactChallenge({ scope: command.scope, challenge, currentChallengeId, now: await this.now(), accountFailureBudgetAvailable: true });
+    const initial = evaluateContactChallenge({ scope: command.scope, challenge, currentChallengeId, now: await readVerificationDatabaseNow(this.database), accountFailureBudgetAvailable: true });
     if (!initial.allowed) return deniedVerification(initial.reason);
     const codeMac = row.code_mac;
     if (!codeMac) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
@@ -127,17 +110,17 @@ export class PostgresContactVerificationRepository implements ContactVerificatio
     await this.lockCodeEnvelope(row);
     const config = await this.readSecurityConfig();
     if (isValidationScopeUnavailable(config, resource, row)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
-    const beforeCrypto = await this.now();
+    const beforeCrypto = await readVerificationDatabaseNow(this.database);
     if (!await this.failureBudget.hasCapacity(command.scope.userId, beforeCrypto)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.accountRateLimited);
     const codeMatches = await createVerificationCodeMac(config).verify(command.code, { keyId: row.mac_key_id, mac: codeMac }, { ...challenge, challengeId: row.id });
     const currentConfig = await this.readSecurityConfig();
     if (macScopeChanged(currentConfig, config, row.mac_key_id)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
-    if (!await this.isAuthorized(command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
-    const accountFailureBudgetAvailable=await this.failureBudget.hasCapacity(command.scope.userId,await this.now());
+    if (!await isCurrentVerificationActor(this.database, this.authorize, command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    const accountFailureBudgetAvailable=await this.failureBudget.hasCapacity(command.scope.userId,await readVerificationDatabaseNow(this.database));
     const finalConfig=await this.readSecurityConfig();
     if (macScopeChanged(finalConfig, config, row.mac_key_id)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.unavailable);
-    if(!await this.isAuthorized(command.scope))return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
-    const now = await this.now();
+    if(!await isCurrentVerificationActor(this.database, this.authorize, command.scope))return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    const now = await readVerificationDatabaseNow(this.database);
     const proposal = proposeContactChallengeValidation({ scope: command.scope, challenge, currentChallengeId, now, accountFailureBudgetAvailable, codeMatches });
     if (proposal.outcome === VERIFICATION_TRANSITION_OUTCOME.denied) return deniedVerification(proposal.reason);
     return this.persistTransition({ row, proposal, now, identity });
@@ -153,7 +136,7 @@ export class PostgresContactVerificationRepository implements ContactVerificatio
     const replay = await this.failureBudget.readRecordedFailure(identity);
     if (replay === VERIFICATION_FAILURE_REPLAY_STATE.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
     if (replay !== VERIFICATION_FAILURE_REPLAY_STATE.recorded) return null;
-    if (!await this.isAuthorized(command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
+    if (!await isCurrentVerificationActor(this.database, this.authorize, command.scope)) return deniedVerification(VERIFICATION_CHALLENGE_REASON.scopeMismatch);
     return { outcome: VERIFICATION_TRANSITION_OUTCOME.wrongCode };
   }
 

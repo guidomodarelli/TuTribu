@@ -1,21 +1,18 @@
 /** Derives the current account and normalizes explicit admission intent before its atomic owner. @module submit-admission-use-case */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
-import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
+import { requireLiveAdmissionAccount } from "./admission-account-continuity";
+import { normalizeApplicantContact } from "./admission-applicant-contact";
 import type { AdmissionCommandWriter, AdmissionSubmissionIntent, AdmissionCommittedOutcome } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
-import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { normalizeAdmissionWhatsappNumber } from "../../domain/value-objects/admission-whatsapp-number";
+import type { AcademyAdmissionIntent } from "@/src/modules/tribes/domain/repositories/academy-admission-entry";
 
 /** The validated browser action cannot select email, actor, session, role, evidence or API credentials. */
-export type SubmitAdmissionInput = {
-  tribeId: string; requestId: string; operationId: string; expectedPolicyVersion: number; confirmed: true;
-  phone?: string; country?: string; proofId?: string; message?: string; invitationToken?: string; legacyInvitationToken?: string;
-  whatsappNumber?: string;
-};
+export type SubmitAdmissionInput = AcademyAdmissionIntent & { tribeId: string };
 
 /** The writer owns current opening, prior state, cadence, ledger/CAS and the final indivisible effect. */
 export class SubmitAdmissionUseCase<Result extends AdmissionCommittedOutcome = AdmissionCommittedOutcome> {
@@ -29,10 +26,8 @@ export class SubmitAdmissionUseCase<Result extends AdmissionCommittedOutcome = A
    */
   async execute(input: SubmitAdmissionInput) {
     try {
-      const account = await this.accounts.getAuthenticatedAccount();
-      if (!account || !isAuthenticatedSessionLive(account.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      if (input.country && !input.phone) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      const normalized = normalizeAdmissionContact(input.phone ? { type: ADMISSION_CONTACT_TYPE.phone, value: input.phone, country: input.country } : { type: ADMISSION_CONTACT_TYPE.email, value: account.normalizedEmail });
+      const account = await requireLiveAdmissionAccount(this.accounts, this.clock);
+      const normalized = normalizeApplicantContact(input, account);
       if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const source = admissionSubmissionSource(input);
       const intent: AdmissionSubmissionIntent = {

@@ -13,7 +13,8 @@ import { resolveMessagingRouteRecovery } from "@/lib/messaging/messaging-route-r
 import { ROUTES } from "@/src/constants/routes";
 import { messagingUsageBrowserClient } from "@/lib/messaging/messaging-usage-api-client";
 import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_WRITE_STEP as WRITE_STEP, type MessagingUsageBrowserPhase, type MessagingUsageWriteStep } from "@/src/modules/messaging/constants/messaging-usage";
-import { FIRST_STEP_INDEX, readUsageCurrent, releaseUsageWork, retryUsageOriginal, saveUsageValues, type MessagingUsageControls, type MessagingUsageWriter } from "./messaging-usage-workflow";
+import { FIRST_STEP_INDEX, readUsageCurrent, retryUsageOriginal, saveUsageValues, type MessagingUsageControls, type MessagingUsageWriter } from "./messaging-usage-workflow";
+import { startPrivateReadLifecycle } from "../private-read-lifecycle";
 
 /** Own state/ports are the only workflow dependencies serialized or injected here. */
 type UsageContainerProps = { initialState: MessagingUsagePageState; client?: MessagingUsageBrowserClient };
@@ -67,19 +68,12 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   }, [readCurrent]);
   /** The restore listener always relaunches with the latest read, without making it a subscription dependency. */
   const relaunchRead = useEffectEvent(() => launchRead());
-  useEffect(() => {
-    const controller = new AbortController(); readController.current = controller;
-    void Promise.resolve().then(() => {
-      if (controller.signal.aborted) return;
-      const initial = !mounted.current; mounted.current = true;
-      if (!initial) { setPrivateVisible(false); setFresh(false); setConfirmed(false); }
-      return readCurrent(controller.signal, initial);
-    });
-    /** Activity/bfcache restoration invalidates confirmation and reloads the original stored intent. */
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) { setPrivateVisible(false); setFresh(false); setConfirmed(false); writeController.current?.abort(); busy.current = false; loaded.current = false; relaunchRead(); } };
-    window.addEventListener("pageshow", restored);
-    return () => { controller.abort(); releaseUsageWork(controls); window.removeEventListener("pageshow", restored); };
-  }, [readCurrent, controls]);
+  /** Activity/bfcache restoration invalidates confirmation and reloads the original stored intent. */
+  useEffect(() => startPrivateReadLifecycle(controls, {
+    mounted, readCurrent,
+    invalidate: () => { setPrivateVisible(false); setFresh(false); setConfirmed(false); },
+    relaunch: () => { relaunchRead(); },
+  }), [readCurrent, controls]);
 
   if (!ready || !state || !draft) return <MessagingUsageUnavailable initialState={initialState} pathname={pathname} search={searchParams?.toString() ?? ""} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;

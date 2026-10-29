@@ -7,12 +7,12 @@
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   createRouteJsonResponse,
-  handleMemberRoute,
   type RequestModules,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { createProviderSyncFailureResponse } from "../../../provider-sync-route-responses";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { handlePriceMemberRoute } from "../price-member-route";
 
 const PROVIDER_PLAN_VERIFICATION_ROUTE_LOG = {
   failureMessage: "Tribe subscription provider plan verification failed",
@@ -57,13 +57,6 @@ function createPostResultResponse(result: VerifyTribeSubscriptionProviderPlanRes
   );
 }
 
-const MEMBER_ROUTE_SCOPE = {
-  feature: PROVIDER_PLAN_VERIFICATION_ROUTE_LOG.feature,
-  operation: PROVIDER_PLAN_VERIFICATION_ROUTE_LOG.operation,
-  unauthorizedMessage: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.unauthorizedMessage,
-  withRequestId: true,
-} as const;
-
 /**
  * Verifies one active provider plan for a tribe price.
  *
@@ -75,17 +68,11 @@ export async function POST(
   request: Request,
   context: TribeRouteContext<{ priceId: string }>
 ) {
-  const { priceId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handlePriceMemberRoute(
     request,
-    MEMBER_ROUTE_SCOPE,
-    {
-      logMessage: PROVIDER_PLAN_VERIFICATION_ROUTE_LOG.failureMessage,
-      metadata: { priceId, slug },
-      responseMessage: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.unexpectedMessage,
-    },
-    async ({ modules }) => {
+    context,
+    { log: PROVIDER_PLAN_VERIFICATION_ROUTE_LOG, response: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE, withRequestId: true },
+    async ({ modules, priceId, slug }) => {
       const result =
         await modules.subscriptions.useCases.verifyTribeSubscriptionProviderPlan({
           priceId,

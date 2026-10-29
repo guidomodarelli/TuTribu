@@ -458,8 +458,3 @@ export function startPolicyRecheck(session: PolicySession): void {
   controls.setRechecking(true); controls.setStatusMessage(null); controls.setErrorMessage(null);
   void recheckPolicyRequirements(session, controller);
 }
-
-/** Aborts reads and writes in flight and forgets the loaded original, so a later mount or restoration reads it again. @param controls - Stable controls. @returns Nothing. */
-export function releasePolicyWork(controls: PolicyControls): void {
-  controls.readController.current?.abort(); controls.writeController.current?.abort(); controls.loaded.current = false; controls.busy.current = false;
-}

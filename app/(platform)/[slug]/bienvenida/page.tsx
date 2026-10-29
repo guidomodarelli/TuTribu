@@ -4,7 +4,8 @@ import { TribeWelcomeManagement } from "@/components/tribes/tribe-welcome-manage
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { ROUTES } from "@/src/constants/routes";
-import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { resolveVisibleTribePageAccess, type TribeSlugPageProps } from "../tribe-page-access";
+import { findCurrentTribeMembership } from "../tribe-manager-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_WELCOME_PAGE = {
@@ -57,13 +58,7 @@ async function loadViewerSelections(
     .then((selections) => selections ?? null);
 }
 
-export default async function TribeWelcomePage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeWelcomePage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
@@ -83,9 +78,7 @@ export default async function TribeWelcomePage({
     notFound();
   }
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
+  const currentMembership = await findCurrentTribeMembership(modules, tribe.slug);
   const canEdit =
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
     currentMembership?.role === TRIBE_WELCOME_EDITOR_ROLE.leader;

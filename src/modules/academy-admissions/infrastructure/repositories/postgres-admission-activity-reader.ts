@@ -8,8 +8,7 @@ import { AdmissionOperationError } from "../../domain/errors/admission-operation
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { ADMISSION_ACTIVITY_QUERY } from "../../constants/admission-activity";
-import { canPerformAdmissionAction } from "../../domain/policies/admission-eligibility";
-import { PostgresAdmissionAuthorizationReader } from "./postgres-admission-authorization-reader";
+import { authorizeAdmissionAdministrativeReader } from "./authorize-admission-administrative-reader";
 import { mapAdmissionActivityStorage, mapAdmissionMetricsStorage, type AdmissionActivityStorageRow, type AdmissionMetricsStorage } from "./admission-activity-storage-mapper";
 
 /** Composition binds the current native account to every checkout. */
@@ -20,11 +19,7 @@ export class PostgresAdmissionActivityReader implements AdmissionActivityReader 
   constructor(private readonly execute: AdmissionActivityExecutor) {}
   /** @param database - Current transaction. @param scope - Actual account/session/tribe. @returns After native locks and live permission checks. */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope): Promise<void> {
-    const locked = (await database.execute<{ locked: boolean }>(sql`select public.lock_academy_admission_administrative_reader(${scope.tribeId},${scope.sessionId}) as locked where public.current_app_user_id()=${scope.userId}`)).rows[0]?.locked;
-    if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readAudit).getCurrentActor(scope.tribeId, scope.userId);
-    if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    if (!canPerformAdmissionAction(actor, ADMISSION_ACTION.readAudit, { tribeId: scope.tribeId })) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    await authorizeAdmissionAdministrativeReader(database, scope, ADMISSION_ACTION.readAudit);
     const current = (await database.execute<{ id: string }>(sql`select id from public.session where id=${scope.sessionId} and "userId"=${scope.userId} and "expiresAt">clock_timestamp()`)).rows[0];
     if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
   }

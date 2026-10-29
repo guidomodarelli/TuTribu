@@ -1,7 +1,7 @@
 /** Projects only current own notification metadata while native session/leader locks remain held. @module postgres-notification-delivery-catalog-reader */
 import "server-only";
 import { sql } from "drizzle-orm";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { MessagingUsageDatabaseExecutor } from "./messaging-usage-database-executor";
 import type { NotificationDeliveryCatalogReader, NotificationDeliveryCatalogPosition } from "../../domain/repositories/notification-delivery-catalog-reader";
 import type { MessagingUsageContext } from "../../domain/repositories/messaging-usage-operations";
 import type { NotificationDeliveryCatalogItem } from "../../application/results/notification-delivery-catalog-result";
@@ -15,7 +15,7 @@ type CatalogRow = { id: string; version: number; state: NotificationDeliveryCata
 /** Reads a stable bounded page; the owning tribe fence also serializes recovery lineage writes. */
 export class PostgresNotificationDeliveryCatalogReader implements NotificationDeliveryCatalogReader {
   /** @param execute - Existing original actor's protected native executor. */
-  constructor(private readonly execute: <Result>(context: MessagingUsageContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>) {}
+  constructor(private readonly execute: MessagingUsageDatabaseExecutor) {}
   /** @param context - Current own native actor/session/tribe. @param cursor - Previous own page position or latest. @returns Public projection only, without creating jobs or consulting an external provider. */
   async read(context: MessagingUsageContext, cursor: NotificationDeliveryCatalogPosition | null) {
     return this.execute(context, async (database) => {

@@ -7,7 +7,6 @@ import type { MessagingConnectionCreator, MessagingConnectionCreationContext, Me
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { messagingConnectionMutationSchema, type MessagingConnectionMutationResult } from "@/src/modules/messaging/application/results/messaging-connection-mutation-result";
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
-import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { MessagingConnectionOperationError } from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
@@ -19,18 +18,14 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { authorizeMessagingTribeManagement } from "./postgres-messaging-usage-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import { knownConnectionFailureCode, type MessagingContextDatabaseExecutor } from "./messaging-operation-failure-code";
 import { createAdmissionConnectionAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import { PostgresAdmissionAuditRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Keeps every phase tied to the actual current server account's guarded checkout. */
-export type MessagingConnectionCreationExecutor = <Result>(context:MessagingConnectionCreationContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
+export type MessagingConnectionCreationExecutor = MessagingContextDatabaseExecutor<MessagingConnectionCreationContext>;
 
 /** Creates only a draft candidate; selected state, policies, usage and provider configuration are independent. */
-/** @param error - Failure of the operation. @returns Its messaging code when known, otherwise an unexpected failure. */
-function knownFailureCode(error:unknown){
-  if(error instanceof AdmissionOperationError)return Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure;
-  return error instanceof MessagingCryptographyError?MESSAGING_ERROR_CODE.connectionIncomplete:MESSAGING_ERROR_CODE.unexpectedFailure;
-}
 
 /**
  * @param current - Security configuration read after a write.
@@ -127,7 +122,7 @@ export class PostgresMessagingConnectionRepository implements MessagingConnectio
         const recovered=await readOriginalResult(()=>ledger.read(command,messagingConnectionMutationSchema),error,input.operationId);
         if(recovered?.state==="completed")return recovered;
       }
-      const code=knownFailureCode(error);
+      const code=knownConnectionFailureCode(error);
       throw new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved?{operationId:input.operationId}:{})});
     }
   }

@@ -65,6 +65,25 @@ function storedAttachmentFileColumns() {
   };
 }
 
+/** Message link of a message attachment: kept as the deleted message id once its message is removed. */
+function messageAttachmentColumns() {
+  return {
+    messageId: uuid("message_id").references(() => messages.id, {
+      onDelete: "set null",
+    }),
+    deletedMessageId: uuid("deleted_message_id"),
+    uploadedBy: uploaderUserIdColumn(),
+  };
+}
+
+/** Manual position and visibility of a row a leader orders and hides. */
+function sortedActiveRowColumns() {
+  return {
+    sortOrder: integer("sort_order").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+  };
+}
+
 /** Index listing a tribe's rows in their manual `sort_order`. */
 function tribeSortOrderIndex(
   name: string,
@@ -347,8 +366,7 @@ export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {
   id: uuidPrimaryKeyColumn(),
   tribeId: tribeIdColumn(),
   label: text("label").notNull(),
-  sortOrder: integer("sort_order").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
+  ...sortedActiveRowColumns(),
   createdAt: createdAtColumn(),
   updatedAt: updatedAtColumn(),
 }, (table) => [
@@ -365,8 +383,7 @@ export const tribeWelcomeLinks = pgTable("tribe_welcome_links", {
   phoneNumber: text("phone_number"),
   message: text("message"),
   description: text("description"),
-  sortOrder: integer("sort_order").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
+  ...sortedActiveRowColumns(),
   createdAt: createdAtColumn(),
   updatedAt: updatedAtColumn(),
 }, (table) => [
@@ -446,11 +463,7 @@ export const messages = pgTable("messages", {
 export const messageImages = pgTable("message_images", {
   id: uuidPrimaryKeyColumn(),
   tribeId: tribeIdColumn(),
-  messageId: uuid("message_id").references(() => messages.id, {
-    onDelete: "set null",
-  }),
-  deletedMessageId: uuid("deleted_message_id"),
-  uploadedBy: uploaderUserIdColumn(),
+  ...messageAttachmentColumns(),
   cloudflareImageId: text("cloudflare_image_id").notNull(),
   deliveryUrl: text("delivery_url").notNull(),
   status: text("status").notNull().default("draft"),
@@ -512,11 +525,7 @@ export const pendingRemoteImageDeletions = pgTable(
 export const messageFiles = pgTable("message_files", {
   id: uuidPrimaryKeyColumn(),
   tribeId: tribeIdColumn(),
-  messageId: uuid("message_id").references(() => messages.id, {
-    onDelete: "set null",
-  }),
-  deletedMessageId: uuid("deleted_message_id"),
-  uploadedBy: uploaderUserIdColumn(),
+  ...messageAttachmentColumns(),
   ...storedAttachmentFileColumns(),
   createdAt: createdAtColumn(),
   updatedAt: updatedAtColumn(),
@@ -659,8 +668,7 @@ export const courses = pgTable("courses", {
   title: text("title").notNull(),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
-  sortOrder: integer("sort_order").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
+  ...sortedActiveRowColumns(),
   accessRequirement: text("access_requirement").notNull().default("membership"),
   createdAt: createdAtColumn(),
   updatedAt: updatedAtColumn(),
@@ -707,8 +715,7 @@ export const courseLessons = pgTable("course_lessons", {
   videoProvider: text("video_provider").notNull(),
   externalVideoId: text("external_video_id").notNull(),
   description: text("description"),
-  sortOrder: integer("sort_order").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
+  ...sortedActiveRowColumns(),
   // Occurrence whose recording originated the lesson ("Convertir en
   // lección"). A value pair, not a FK to events: courses stay independent of
   // the events schema. CHECK in 20260927123000_add_course_lesson_event_source.sql.

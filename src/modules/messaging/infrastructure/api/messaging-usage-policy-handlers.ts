@@ -6,12 +6,11 @@ import type { AdmissionFailure } from "@/src/modules/academy-admissions/applicat
 import { messagingFailure } from "../../application/results/messaging-errors";
 import { messagingUsagePolicyStateSchema, messagingUsagePolicySchema } from "../../application/results/messaging-public-result-schemas";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { createMessagingRouteBoundary } from "./messaging-route-http";
+import { createMessagingRouteBoundary, messagingOperationHttpStatus } from "./messaging-route-http";
 import { messagingTribeParamsSchema, messagingUsagePolicyCreateSchema, messagingUsagePolicyUpdateSchema } from "./messaging-request-schemas";
 import { hasAllowedRequestOrigin } from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGING_HTTP_OPERATION } from "../../constants/messaging-http";
-import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 
 /** The resolver is read-only; usage derives account and canonical leadership server-side. */
@@ -55,7 +54,7 @@ export function createMessagingUsagePolicyHandlers(open: () => Promise<Messaging
       if (!projected.success || projected.data.operationId.toLowerCase() !== body.value.operationId.toLowerCase()) return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
       if (projected.data.state === OPERATION_STATE.completed && "expectedVersion" in body.value && typeof body.value.expectedVersion === "number"
         && projected.data.result.version !== body.value.expectedVersion && projected.data.result.version !== body.value.expectedVersion + 1) return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
-      return boundary.success(resultSchema, projected.data, projected.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
+      return boundary.success(resultSchema, projected.data, messagingOperationHttpStatus(projected.data.state));
     } catch (error) { return boundary.unexpected(error); }
   }
 

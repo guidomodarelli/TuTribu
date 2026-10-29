@@ -21,18 +21,16 @@ import type {
   PrepareMessageFilesForAttachmentCommand,
   PreparedMessageFileAttachmentResult,
 } from "@/src/modules/messages/domain/repositories/message-file-repository";
+import { selectBooleanResult } from "@/src/modules/shared/infrastructure/database/database-executor";
 import {
-  selectBooleanResult,
-  type DatabaseExecutor,
-} from "@/src/modules/shared/infrastructure/database/database-executor";
+  R2AttachmentFileRepository,
+  type PendingRemoteAttachmentFileRow,
+} from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-repository";
 import {
-  createLazyFileObjectStorage,
   deleteRemoteAttachmentObjects,
   verifyUploadedDraftFileSizes,
-  type AttachmentFileLogger,
-  type AttachmentFileRepositoryOptions,
+  type AttachmentDeletionRollback,
 } from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-storage";
-import type { FileObjectStorage } from "@/src/modules/shared/infrastructure/storage/r2-file-object-storage";
 
 type TargetTribeRow = {
   can_write: boolean;
@@ -69,11 +67,6 @@ type MarkedMessageFileRow = {
   asset_id: string;
 };
 
-type PendingRemoteFileRow = {
-  asset_id: string;
-  storage_key: string;
-};
-
 type QueuedRemoteFileRow = {
   queue_id: string;
   storage_key: string;
@@ -87,10 +80,14 @@ const MESSAGE_FILE_LOG_RESULT = {
   failed: "failed",
 } as const;
 
-const MESSAGE_FILE_CLEANUP_LOG = {
-  pendingFailed: "Message file remote cleanup failed",
-  queuedFailed: "Queued file remote cleanup failed",
+const MESSAGE_FILE_LOG = {
+  fileIdKey: "assetId",
+  localDeleteMarkFailed: "Message file local delete mark failed",
+  pendingCleanupFailed: "Message file remote cleanup failed",
+  remoteDeleteFailed: "Message file remote delete failed",
 } as const;
+
+const QUEUED_FILE_CLEANUP_FAILED_LOG = "Queued file remote cleanup failed";
 
 const MESSAGE_FILE_STORAGE_KEY_PREFIX = "message-files";
 
@@ -108,17 +105,11 @@ function buildMessageFileStorageKey(tribeId: string, assetId: string): string {
  * authorization boundary, and the R2 calls go through the shared files-sdk
  * storage helper.
  */
-export class R2MessageFileRepository implements MessageFileRepository {
-  private readonly logger?: AttachmentFileLogger;
-  private readonly resolveStorage: () => FileObjectStorage | null;
-
-  constructor(
-    private readonly executeWithDatabase: DatabaseExecutor,
-    options: AttachmentFileRepositoryOptions = {}
-  ) {
-    this.logger = options.logger;
-    this.resolveStorage = createLazyFileObjectStorage(options.storageFactory);
-  }
+export class R2MessageFileRepository
+  extends R2AttachmentFileRepository<DeletePendingMessageFilesCommand>
+  implements MessageFileRepository
+{
+  protected readonly logCopy = MESSAGE_FILE_LOG;
 
   async createUpload(
     command: CreateMessageFileUploadCommand
@@ -250,7 +241,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
 
     if (!(await this.markFileDeleted(file.id))) {
       this.warnFileFailure(
-        "Message file local delete mark failed",
+        MESSAGE_FILE_LOG.localDeleteMarkFailed,
         file.id,
         command.tribeSlug
       );
@@ -259,40 +250,6 @@ export class R2MessageFileRepository implements MessageFileRepository {
     }
 
     return { status: MESSAGE_MUTATION_STATUS.deleted };
-  }
-
-  async deletePendingFiles(
-    command: DeletePendingMessageFilesCommand
-  ): Promise<void> {
-    const storage = this.resolveStorage();
-
-    if (!storage) {
-      return;
-    }
-
-    const files = await this.findPendingDeleteFiles(command);
-
-    await deleteRemoteAttachmentObjects(storage, files, {
-      confirmDeleted: async (file) => {
-        const wasMarked = await this.markFileDeleted(file.id);
-
-        if (!wasMarked) {
-          this.warnFileFailure(
-            "Message file local delete mark failed",
-            file.id,
-            command.tribeSlug
-          );
-        }
-
-        return wasMarked;
-      },
-      onRemoteFailure: (file) =>
-        this.warnFileFailure(
-          "Message file remote delete failed",
-          file.id,
-          command.tribeSlug
-        ),
-    });
   }
 
   /**
@@ -310,46 +267,18 @@ export class R2MessageFileRepository implements MessageFileRepository {
   async cleanupOrphanFiles(
     command: CleanupOrphanMessageFilesCommand
   ): Promise<CleanupOrphanMessageFilesResult> {
-    const result: CleanupOrphanMessageFilesResult = {
-      reclaimedDrafts: 0,
-      remoteDeletedPending: 0,
-      remoteDeletedQueued: 0,
-      remoteFailures: 0,
-    };
     const storage = this.resolveStorage();
 
     if (!storage) {
-      return result;
+      return {
+        reclaimedDrafts: 0,
+        remoteDeletedPending: 0,
+        remoteDeletedQueued: 0,
+        remoteFailures: 0,
+      };
     }
 
-    result.reclaimedDrafts = await this.reclaimAbandonedDrafts(
-      command.abandonedDraftTtlHours,
-      command.batchLimit
-    );
-
-    const pendingFiles = await this.listPendingRemoteDeletions(
-      command.batchLimit,
-      command.interactiveDeleteGraceMinutes
-    );
-
-    const pendingDeletion = await deleteRemoteAttachmentObjects(
-      storage,
-      pendingFiles,
-      {
-        confirmDeleted: (file) => this.confirmRemoteDeleted(file.asset_id),
-        onRemoteFailure: (file) =>
-          this.logger?.warn({
-            message: MESSAGE_FILE_CLEANUP_LOG.pendingFailed,
-            metadata: {
-              assetId: file.asset_id,
-              result: MESSAGE_FILE_LOG_RESULT.failed,
-            },
-          }),
-      }
-    );
-
-    result.remoteDeletedPending += pendingDeletion.confirmed;
-    result.remoteFailures += pendingDeletion.failures;
+    const pending = await this.sweepPendingFiles(storage, command);
 
     const queuedFiles = await this.listQueuedRemoteDeletions(
       command.batchLimit
@@ -362,7 +291,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         confirmDeleted: (queued) => this.dequeueRemoteDeletion(queued.queue_id),
         onRemoteFailure: (queued) =>
           this.logger?.warn({
-            message: MESSAGE_FILE_CLEANUP_LOG.queuedFailed,
+            message: QUEUED_FILE_CLEANUP_FAILED_LOG,
             metadata: {
               queueId: queued.queue_id,
               result: MESSAGE_FILE_LOG_RESULT.failed,
@@ -371,10 +300,12 @@ export class R2MessageFileRepository implements MessageFileRepository {
       }
     );
 
-    result.remoteDeletedQueued += queuedDeletion.confirmed;
-    result.remoteFailures += queuedDeletion.failures;
-
-    return result;
+    return {
+      reclaimedDrafts: pending.reclaimedDrafts,
+      remoteDeletedPending: pending.remoteDeletedPending,
+      remoteDeletedQueued: queuedDeletion.confirmed,
+      remoteFailures: pending.remoteFailures + queuedDeletion.failures,
+    };
   }
 
   async prepareForAttachment(
@@ -409,22 +340,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
     };
   }
 
-  private warnFileFailure(
-    message: string,
-    assetId: string,
-    tribeSlug: string
-  ): void {
-    this.logger?.warn({
-      message,
-      metadata: {
-        assetId,
-        result: MESSAGE_FILE_LOG_RESULT.failed,
-        tribeSlug,
-      },
-    });
-  }
-
-  private async confirmRemoteDeleted(assetId: string): Promise<boolean> {
+  protected async confirmRemoteDeleted(assetId: string): Promise<boolean> {
     return selectBooleanResult(
       this.executeWithDatabase,
       sql`
@@ -442,10 +358,10 @@ export class R2MessageFileRepository implements MessageFileRepository {
     );
   }
 
-  private async listPendingRemoteDeletions(
+  protected async listPendingRemoteDeletions(
     batchLimit: number,
     interactiveDeleteGraceMinutes: number
-  ): Promise<PendingRemoteFileRow[]> {
+  ): Promise<PendingRemoteAttachmentFileRow[]> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select asset_id, storage_key
@@ -455,7 +371,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
         )
       `);
 
-      return result.rows as PendingRemoteFileRow[];
+      return result.rows as PendingRemoteAttachmentFileRow[];
     });
   }
 
@@ -472,7 +388,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
     });
   }
 
-  private async reclaimAbandonedDrafts(
+  protected async reclaimAbandonedDrafts(
     ttlHours: number,
     batchLimit: number
   ): Promise<number> {
@@ -596,7 +512,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
     });
   }
 
-  private async findPendingDeleteFiles(
+  protected async findPendingDeleteFiles(
     command: DeletePendingMessageFilesCommand
   ): Promise<DeletableMessageFileRow[]> {
     return this.executeWithDatabase(async (database) => {
@@ -696,7 +612,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
     });
   }
 
-  private async markFileDeleted(assetId: string): Promise<boolean> {
+  protected async markFileDeleted(assetId: string): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         update public.message_files
@@ -741,11 +657,7 @@ export class R2MessageFileRepository implements MessageFileRepository {
     assetId,
     sortOrder,
     status,
-  }: {
-    assetId: string;
-    sortOrder: number | null;
-    status: string;
-  }): Promise<boolean> {
+  }: AttachmentDeletionRollback): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         update public.message_files

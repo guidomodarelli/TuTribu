@@ -8,6 +8,7 @@
 
 import type { z } from "zod";
 
+import { HTTP_STATUS } from "@/src/constants/http-status";
 import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
@@ -44,7 +45,7 @@ export function createPrivateNoStoreJsonResponse(body: unknown, status: number):
  * @param request - Incoming request.
  * @returns Query values by key.
  */
-function readRequestQueryObject(request: Request): Record<string, string | string[]> {
+export function readRequestQueryObject(request: Request): Record<string, string | string[]> {
   const { searchParams } = new URL(request.url);
   const query: Record<string, string | string[]> = {};
 
@@ -155,4 +156,105 @@ export function parsePublicDto<TDto>(input: {
   });
 
   return { success: false };
+}
+
+const PUBLIC_DTO_REJECTED_REASON = "public_dto_rejected";
+
+/** Request of a private JSON route, with its raw params, schemas and request logger. */
+export type PrivateJsonRouteRequest<TParams, TQuery, TBody = undefined> = {
+  logger: ServerLogger;
+  params: Promise<unknown>;
+  request: Request;
+  schemas: { body?: z.ZodType<TBody>; params: z.ZodType<TParams>; query: z.ZodType<TQuery> };
+};
+
+/** Candidate public DTO of a success response, with its schema, safe 500 copy, logger and safe log metadata. */
+export type PublicDtoResponseInput<TDto> = {
+  body: unknown;
+  failureMessage: string;
+  logger: ServerLogger;
+  metadata: Record<string, unknown>;
+  schema: z.ZodType<TDto>;
+};
+
+/** Log and response copy of a private JSON route boundary. */
+type PrivateJsonRouteBoundaryCopy = {
+  inputRejectedLogMessage: string;
+  publicDtoRejectedLogMessage: string;
+  /** Safe 400 copy for the message of the first rejected issue (`undefined` when there is none). */
+  readInputIssueMessage: (issueMessage: string | undefined) => string;
+};
+
+/**
+ * Input and output boundary of the JSON routes whose responses are per user
+ * or per viewer, so never cached: invalid input becomes a 400 with safe copy
+ * and a `warn` log that carries only issue paths and codes, and every success
+ * body is validated against its public allowlist (an unusable DTO is logged
+ * and becomes a safe 500).
+ *
+ * @param copy - Log messages and the safe copy of rejected input.
+ * @returns The input parser and the public response builder of the routes.
+ */
+export function createPrivateJsonRouteBoundary(copy: PrivateJsonRouteBoundaryCopy) {
+  function rejectInput(
+    logger: ServerLogger,
+    part: RouteInputPart,
+    error: z.ZodError
+  ): RouteInputRejection {
+    logger.warn({
+      message: copy.inputRejectedLogMessage,
+      metadata: { issues: summarizeValidationIssues(error.issues), part },
+    });
+
+    return {
+      isValid: false,
+      response: createPrivateNoStoreJsonResponse(
+        { message: copy.readInputIssueMessage(error.issues[0]?.message) },
+        HTTP_STATUS.badRequest
+      ),
+    };
+  }
+
+  return {
+    /**
+     * Validates params, query and (when the route takes one) body of a request.
+     *
+     * @param input - Request, raw route params, schemas, and request logger.
+     * @returns The typed parts, or the 400 response to return as is.
+     */
+    parseInput<TParams, TQuery, TBody = undefined>(input: PrivateJsonRouteRequest<TParams, TQuery, TBody>) {
+      return parseRouteRequestParts({
+        params: input.params,
+        reject: (part, error) => rejectInput(input.logger, part, error),
+        request: input.request,
+        schemas: input.schemas,
+      });
+    },
+
+    /**
+     * Sends only the parsed public DTO, or the safe 500 when it is unusable.
+     *
+     * @param input - Candidate body, schema, safe fallback copy, logger, and safe log metadata.
+     * @returns The validated JSON response or the safe server error.
+     */
+    createPublicResponse<TDto>(input: PublicDtoResponseInput<TDto>): Response {
+      const parsed = parsePublicDto({
+        body: input.body,
+        logMessage: copy.publicDtoRejectedLogMessage,
+        logger: input.logger,
+        metadata: input.metadata,
+        reason: PUBLIC_DTO_REJECTED_REASON,
+        schema: input.schema,
+      });
+
+      if (!parsed.success) {
+        return createPrivateNoStoreJsonResponse(
+          { message: input.failureMessage },
+          HTTP_STATUS.serverError
+        );
+      }
+
+      return createPrivateNoStoreJsonResponse(parsed.data, HTTP_STATUS.ok);
+    },
+  };
 }

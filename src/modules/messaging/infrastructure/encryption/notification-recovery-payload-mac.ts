@@ -1,9 +1,9 @@
 /** Protects a new immutable notification recovery intent with its own domain and retained payload key. @module notification-recovery-payload-mac */
 import "server-only";
-import { MESSAGING_CRYPTO, MESSAGING_CRYPTO_ERROR, MESSAGING_KEY_PURPOSE } from "../../constants/messaging-cryptography";
+import { MESSAGING_CRYPTO } from "../../constants/messaging-cryptography";
 import { NOTIFICATION_DELIVERY_RECOVERY_PAYLOAD_DOMAIN } from "../../constants/notification-delivery-recovery";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
-import { MessagingCryptographyError } from "./messaging-cryptography-error";
+import { readOperationPayloadKeyring } from "./operation-payload-keyring";
 
 /** Carries only locked immutable references; no code, credential or recipient address is persisted. */
 export type NotificationRecoveryPayloadContext = {
@@ -25,14 +25,7 @@ export type NotificationRecoveryPayloadContext = {
  * @returns Independent sign/verify operations for the exact new recovery intent.
  */
 export function createNotificationRecoveryPayloadMac(config: MessagingSecurityConfig) {
-  const ring = config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload];
-  /** @param keyId - Active or retained own key id. @returns Current private HMAC key. @throws MessagingCryptographyError when external recovery is closed or a key is absent. */
-  const key = (keyId: string) => {
-    if (config.recoveryLocked) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked);
-    const material = ring.keys.get(keyId);
-    if (!material) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyUnavailable);
-    return material;
-  };
+  const { ring, key } = readOperationPayloadKeyring(config);
   /** @param context - Locked immutable recovery tuple. @param keyId - Exact own active/retained key. @returns Fixed-order bytes independent of PostgreSQL jsonb object ordering. */
   const data = (context: NotificationRecoveryPayloadContext, keyId: string) => new TextEncoder().encode(JSON.stringify([
     NOTIFICATION_DELIVERY_RECOVERY_PAYLOAD_DOMAIN, keyId, config.environment, config.securityEpoch,

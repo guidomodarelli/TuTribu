@@ -21,18 +21,12 @@ import type {
   PrepareLessonFilesForAttachmentCommand,
   PreparedLessonFileAttachmentResult,
 } from "@/src/modules/courses/domain/repositories/lesson-file-repository";
+import { selectBooleanResult } from "@/src/modules/shared/infrastructure/database/database-executor";
 import {
-  selectBooleanResult,
-  type DatabaseExecutor,
-} from "@/src/modules/shared/infrastructure/database/database-executor";
-import {
-  createLazyFileObjectStorage,
-  deleteRemoteAttachmentObjects,
-  verifyUploadedDraftFileSizes,
-  type AttachmentFileLogger,
-  type AttachmentFileRepositoryOptions,
-} from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-storage";
-import type { FileObjectStorage } from "@/src/modules/shared/infrastructure/storage/r2-file-object-storage";
+  R2AttachmentFileRepository,
+  type PendingRemoteAttachmentFileRow,
+} from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-repository";
+import { verifyUploadedDraftFileSizes } from "@/src/modules/shared/infrastructure/storage/r2-attachment-file-storage";
 
 type ManageableTribeRow = {
   can_manage: boolean;
@@ -69,21 +63,15 @@ type MarkedLessonFileRow = {
   file_id: string;
 };
 
-type PendingRemoteLessonFileRow = {
-  asset_id: string;
-  storage_key: string;
-};
-
 type ReclaimedDraftsRow = {
   reclaimed: number | string;
 };
 
-const LESSON_FILE_LOG_RESULT = {
-  failed: "failed",
-} as const;
-
-const LESSON_FILE_CLEANUP_LOG = {
-  pendingFailed: "Lesson file remote cleanup failed",
+const LESSON_FILE_LOG = {
+  fileIdKey: "fileId",
+  localDeleteMarkFailed: "Lesson file local delete mark failed",
+  pendingCleanupFailed: "Lesson file remote cleanup failed",
+  remoteDeleteFailed: "Lesson file remote delete failed",
 } as const;
 
 const LESSON_FILE_STORAGE_KEY_PREFIX = "course-lesson-files";
@@ -101,17 +89,11 @@ function buildLessonFileStorageKey(tribeId: string, fileId: string): string {
  * whose row was abandoned or removed. Database access runs through the
  * request-scoped executor so RLS stays the authorization boundary.
  */
-export class R2LessonFileRepository implements LessonFileRepository {
-  private readonly logger?: AttachmentFileLogger;
-  private readonly resolveStorage: () => FileObjectStorage | null;
-
-  constructor(
-    private readonly executeWithDatabase: DatabaseExecutor,
-    options: AttachmentFileRepositoryOptions = {}
-  ) {
-    this.logger = options.logger;
-    this.resolveStorage = createLazyFileObjectStorage(options.storageFactory);
-  }
+export class R2LessonFileRepository
+  extends R2AttachmentFileRepository<DeletePendingLessonFilesCommand>
+  implements LessonFileRepository
+{
+  protected readonly logCopy = LESSON_FILE_LOG;
 
   async createUpload(
     command: CreateLessonFileUploadCommand
@@ -237,7 +219,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
 
     if (!(await this.markFileDeleted(file.id))) {
       this.warnFileFailure(
-        "Lesson file local delete mark failed",
+        LESSON_FILE_LOG.localDeleteMarkFailed,
         file.id,
         command.tribeSlug
       );
@@ -246,40 +228,6 @@ export class R2LessonFileRepository implements LessonFileRepository {
     }
 
     return { status: COURSE_MUTATION_STATUS.deleted };
-  }
-
-  async deletePendingFiles(
-    command: DeletePendingLessonFilesCommand
-  ): Promise<void> {
-    const storage = this.resolveStorage();
-
-    if (!storage) {
-      return;
-    }
-
-    const files = await this.findPendingDeleteFiles(command);
-
-    await deleteRemoteAttachmentObjects(storage, files, {
-      confirmDeleted: async (file) => {
-        const wasMarked = await this.markFileDeleted(file.id);
-
-        if (!wasMarked) {
-          this.warnFileFailure(
-            "Lesson file local delete mark failed",
-            file.id,
-            command.tribeSlug
-          );
-        }
-
-        return wasMarked;
-      },
-      onRemoteFailure: (file) =>
-        this.warnFileFailure(
-          "Lesson file remote delete failed",
-          file.id,
-          command.tribeSlug
-        ),
-    });
   }
 
   /**
@@ -295,47 +243,13 @@ export class R2LessonFileRepository implements LessonFileRepository {
   async cleanupOrphanFiles(
     command: CleanupOrphanLessonFilesCommand
   ): Promise<CleanupOrphanLessonFilesResult> {
-    const result: CleanupOrphanLessonFilesResult = {
-      reclaimedDrafts: 0,
-      remoteDeletedPending: 0,
-      remoteFailures: 0,
-    };
     const storage = this.resolveStorage();
 
     if (!storage) {
-      return result;
+      return { reclaimedDrafts: 0, remoteDeletedPending: 0, remoteFailures: 0 };
     }
 
-    result.reclaimedDrafts = await this.reclaimAbandonedDrafts(
-      command.abandonedDraftTtlHours,
-      command.batchLimit
-    );
-
-    const pendingFiles = await this.listPendingRemoteDeletions(
-      command.batchLimit,
-      command.interactiveDeleteGraceMinutes
-    );
-
-    const pendingDeletion = await deleteRemoteAttachmentObjects(
-      storage,
-      pendingFiles,
-      {
-        confirmDeleted: (file) => this.confirmRemoteDeleted(file.asset_id),
-        onRemoteFailure: (file) =>
-          this.logger?.warn({
-            message: LESSON_FILE_CLEANUP_LOG.pendingFailed,
-            metadata: {
-              fileId: file.asset_id,
-              result: LESSON_FILE_LOG_RESULT.failed,
-            },
-          }),
-      }
-    );
-
-    result.remoteDeletedPending += pendingDeletion.confirmed;
-    result.remoteFailures += pendingDeletion.failures;
-
-    return result;
+    return this.sweepPendingFiles(storage, command);
   }
 
   async prepareForAttachment(
@@ -370,22 +284,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
     };
   }
 
-  private warnFileFailure(
-    message: string,
-    fileId: string,
-    tribeSlug: string
-  ): void {
-    this.logger?.warn({
-      message,
-      metadata: {
-        fileId,
-        result: LESSON_FILE_LOG_RESULT.failed,
-        tribeSlug,
-      },
-    });
-  }
-
-  private async confirmRemoteDeleted(fileId: string): Promise<boolean> {
+  protected async confirmRemoteDeleted(fileId: string): Promise<boolean> {
     return selectBooleanResult(
       this.executeWithDatabase,
       sql`
@@ -394,10 +293,10 @@ export class R2LessonFileRepository implements LessonFileRepository {
     );
   }
 
-  private async listPendingRemoteDeletions(
+  protected async listPendingRemoteDeletions(
     batchLimit: number,
     interactiveDeleteGraceMinutes: number
-  ): Promise<PendingRemoteLessonFileRow[]> {
+  ): Promise<PendingRemoteAttachmentFileRow[]> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select asset_id, storage_key
@@ -407,11 +306,11 @@ export class R2LessonFileRepository implements LessonFileRepository {
         )
       `);
 
-      return result.rows as PendingRemoteLessonFileRow[];
+      return result.rows as PendingRemoteAttachmentFileRow[];
     });
   }
 
-  private async reclaimAbandonedDrafts(
+  protected async reclaimAbandonedDrafts(
     ttlHours: number,
     batchLimit: number
   ): Promise<number> {
@@ -528,7 +427,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
     });
   }
 
-  private async findPendingDeleteFiles(
+  protected async findPendingDeleteFiles(
     command: DeletePendingLessonFilesCommand
   ): Promise<DeletableLessonFileRow[]> {
     return this.executeWithDatabase(async (database) => {
@@ -622,7 +521,7 @@ export class R2LessonFileRepository implements LessonFileRepository {
     });
   }
 
-  private async markFileDeleted(fileId: string): Promise<boolean> {
+  protected async markFileDeleted(fileId: string): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         update public.course_lesson_files

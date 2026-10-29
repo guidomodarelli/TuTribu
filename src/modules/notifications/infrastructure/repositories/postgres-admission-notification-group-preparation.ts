@@ -6,11 +6,11 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { assertReconciledMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-reconciled-messaging-key-material";
-import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "@/src/modules/messaging/constants/notification-delivery-recovery";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { toAdmissionNotificationOperationError } from "./admission-notification-operation-failure";
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
 import { ADMISSION_REQUEST_HREF_PREFIX } from "@/src/modules/academy-admissions/constants/admission-mutation-presentation";
 import { ADMISSION_NOTIFICATION_AUDIENCE } from "../../constants/admission-notifications";
@@ -143,9 +143,7 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
         return { groupId: group.id, groupVersion: group.version + 1, status: ADMISSION_NOTIFICATION_PREPARATION_STATUS.queued, deliveryId, reason: null, replayed: false };
       });
     } catch (error) {
-      if (error instanceof AdmissionOperationError) throw error;
-      if (error instanceof MessagingCryptographyError) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete, { cause: error });
-      throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: error });
+      throw toAdmissionNotificationOperationError(error);
     }
   }
 }

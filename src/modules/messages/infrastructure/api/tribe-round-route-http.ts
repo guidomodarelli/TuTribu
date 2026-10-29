@@ -1,18 +1,13 @@
-import type { z } from "zod";
-
 import {
   TRIBE_ROUND_INPUT_ISSUE,
   type TribeRoundInputIssue,
 } from "@/src/modules/messages/infrastructure/api/schemas/tribe-round-request-schemas";
-import type { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import {
+  createPrivateJsonRouteBoundary,
   createPrivateNoStoreJsonResponse,
-  parsePublicDto,
-  parseRouteRequestParts,
-  type RouteInputPart,
-  type RouteInputRejection,
+  type PrivateJsonRouteRequest,
+  type PublicDtoResponseInput,
 } from "@/src/modules/shared/infrastructure/http/route-input";
-import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
 /**
  * HTTP wiring of `GET /api/tribes/[slug]/messages`: safe Spanish copy, the
@@ -20,8 +15,6 @@ import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/v
  * output validation. The round carries viewer state (likes, votes,
  * permissions), so responses are never cached.
  */
-
-type ServerLogger = ReturnType<typeof createServerLogger>;
 
 export const TRIBE_ROUND_ROUTE_HTTP_STATUS = {
   badRequest: 400,
@@ -41,7 +34,6 @@ export const TRIBE_ROUND_ROUTE_RESPONSE = {
 const TRIBE_ROUND_ROUTE_LOG = {
   inputRejectedMessage: "Tribe round route input rejected",
   publicDtoRejectedMessage: "Tribe round public DTO rejected",
-  publicDtoRejectedReason: "public_dto_rejected",
 } as const;
 
 const TRIBE_ROUND_INPUT_ISSUE_MESSAGE: Record<TribeRoundInputIssue, string> = {
@@ -64,30 +56,14 @@ function isTribeRoundInputIssue(value: string): value is TribeRoundInputIssue {
   return Object.hasOwn(TRIBE_ROUND_INPUT_ISSUE_MESSAGE, value);
 }
 
-function rejectInput(
-  logger: ServerLogger,
-  part: RouteInputPart,
-  error: z.ZodError
-): RouteInputRejection {
-  logger.warn({
-    message: TRIBE_ROUND_ROUTE_LOG.inputRejectedMessage,
-    metadata: { issues: summarizeValidationIssues(error.issues), part },
-  });
-
-  const firstIssueMessage = error.issues[0]?.message ?? TRIBE_ROUND_INPUT_ISSUE.invalidRoundPage;
-
-  return {
-    isValid: false,
-    response: createTribeRoundJsonResponse(
-      {
-        message: isTribeRoundInputIssue(firstIssueMessage)
-          ? TRIBE_ROUND_INPUT_ISSUE_MESSAGE[firstIssueMessage]
-          : TRIBE_ROUND_ROUTE_RESPONSE.invalidRoundPageMessage,
-      },
-      TRIBE_ROUND_ROUTE_HTTP_STATUS.badRequest
-    ),
-  };
-}
+const tribeRoundRouteBoundary = createPrivateJsonRouteBoundary({
+  inputRejectedLogMessage: TRIBE_ROUND_ROUTE_LOG.inputRejectedMessage,
+  publicDtoRejectedLogMessage: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedMessage,
+  readInputIssueMessage: (issueMessage = TRIBE_ROUND_INPUT_ISSUE.invalidRoundPage) =>
+    isTribeRoundInputIssue(issueMessage)
+      ? TRIBE_ROUND_INPUT_ISSUE_MESSAGE[issueMessage]
+      : TRIBE_ROUND_ROUTE_RESPONSE.invalidRoundPageMessage,
+});
 
 export type TribeRoundRouteInput<TParams, TQuery> =
   | { isValid: true; params: TParams; query: TQuery }
@@ -101,18 +77,10 @@ export type TribeRoundRouteInput<TParams, TQuery> =
  * @param input - Request, raw route params, schemas, and request logger.
  * @returns The typed input, or the 400 response to return as is.
  */
-export async function parseTribeRoundRouteInput<TParams, TQuery>(input: {
-  logger: ServerLogger;
-  params: Promise<unknown>;
-  request: Request;
-  schemas: { params: z.ZodType<TParams>; query: z.ZodType<TQuery> };
-}): Promise<TribeRoundRouteInput<TParams, TQuery>> {
-  const parsed = await parseRouteRequestParts({
-    params: input.params,
-    reject: (part, error) => rejectInput(input.logger, part, error),
-    request: input.request,
-    schemas: input.schemas,
-  });
+export async function parseTribeRoundRouteInput<TParams, TQuery>(
+  input: PrivateJsonRouteRequest<TParams, TQuery>
+): Promise<TribeRoundRouteInput<TParams, TQuery>> {
+  const parsed = await tribeRoundRouteBoundary.parseInput(input);
 
   return parsed.isValid
     ? { isValid: true, params: parsed.params, query: parsed.query }
@@ -128,28 +96,6 @@ export async function parseTribeRoundRouteInput<TParams, TQuery>(input: {
  * safe log metadata.
  * @returns The validated JSON response or the safe server error.
  */
-export function createTribeRoundPublicResponse<TDto>(input: {
-  body: unknown;
-  failureMessage: string;
-  logger: ServerLogger;
-  metadata: Record<string, unknown>;
-  schema: z.ZodType<TDto>;
-}): Response {
-  const parsed = parsePublicDto({
-    body: input.body,
-    logMessage: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedMessage,
-    logger: input.logger,
-    metadata: input.metadata,
-    reason: TRIBE_ROUND_ROUTE_LOG.publicDtoRejectedReason,
-    schema: input.schema,
-  });
-
-  if (!parsed.success) {
-    return createTribeRoundJsonResponse(
-      { message: input.failureMessage },
-      TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError
-    );
-  }
-
-  return createTribeRoundJsonResponse(parsed.data, TRIBE_ROUND_ROUTE_HTTP_STATUS.ok);
+export function createTribeRoundPublicResponse<TDto>(input: PublicDtoResponseInput<TDto>): Response {
+  return tribeRoundRouteBoundary.createPublicResponse(input);
 }

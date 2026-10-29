@@ -65,6 +65,20 @@ export function isPayloadObject(value: unknown): value is Record<string, unknown
 }
 
 /**
+ * Reads a JSON request body that must be a plain object.
+ *
+ * @param request - Incoming request.
+ * @returns The body object, or `null` when the body is unreadable or not a plain object.
+ */
+export async function readPayloadObjectBody(
+  request: Request
+): Promise<Record<string, unknown> | null> {
+  const parsedBody: unknown = await request.json().catch(() => ({}));
+
+  return isPayloadObject(parsedBody) ? parsedBody : null;
+}
+
+/**
  * Reads a non-blank text value, trimmed.
  *
  * @param value - Raw field value.

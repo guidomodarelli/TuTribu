@@ -8,10 +8,6 @@ import {
   WHATSAPP_PHONE_NON_DIGIT_PATTERN,
   WHATSAPP_VALIDATION_MESSAGE,
 } from "@/src/modules/tribes/constants/whatsapp-validation";
-import {
-  TRIBE_PAGE_ACCESS_REASON,
-  TRIBE_PAGE_ACCESS_STATUS,
-} from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import type {
   TribeSupportChannel,
   TribeSupportSettings,
@@ -23,7 +19,8 @@ import {
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
-import { isPayloadObject } from "@/app/api/request-body-fields";
+import { respondToHiddenAcademyFreePage } from "../academy-free-page-access";
+import { readPayloadObjectBody } from "@/app/api/request-body-fields";
 
 const SUPPORT_ROUTE_LOG = {
   feature: "tribes",
@@ -52,20 +49,6 @@ const SUPPORT_ROUTE_RESPONSE = {
 } as const;
 
 const SUPPORT_MESSAGE_MAX_LENGTH = 1000;
-
-function createHiddenSupportResponse(reason: string): Response {
-  if (reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden) {
-    return createRouteJsonResponse(
-      { message: SUPPORT_ROUTE_RESPONSE.accessForbiddenMessage },
-      HTTP_STATUS.forbidden
-    );
-  }
-
-  return createRouteJsonResponse(
-    { message: SUPPORT_ROUTE_RESPONSE.notFoundMessage },
-    HTTP_STATUS.notFound
-  );
-}
 
 function readTrimmedText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
@@ -122,15 +105,15 @@ export async function GET(
       responseMessage: SUPPORT_ROUTE_RESPONSE.unexpectedGetMessage,
     },
     async ({ modules }) => {
-      const accessResult = await modules.tribes.useCases.getTribePageAccess({
-        // Support contact stays reachable for basic academy members.
-        allowWithoutCommunityAccess: true,
-        isAuthenticated: true,
+      // Support contact stays reachable for basic academy members.
+      const hiddenResponse = await respondToHiddenAcademyFreePage(
+        modules,
         slug,
-      });
+        SUPPORT_ROUTE_RESPONSE
+      );
 
-      if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
-        return createHiddenSupportResponse(accessResult.reason);
+      if (hiddenResponse) {
+        return hiddenResponse;
       }
 
       const settings = await modules.tribes.useCases.getTribeSupport({
@@ -222,9 +205,9 @@ export async function PUT(
       responseMessage: SUPPORT_ROUTE_RESPONSE.unexpectedSaveMessage,
     },
     async ({ modules }) => {
-      const parsedBody: unknown = await request.json().catch(() => ({}));
+      const parsedBody = await readPayloadObjectBody(request);
 
-      if (!isPayloadObject(parsedBody)) {
+      if (!parsedBody) {
         return createRouteJsonResponse(
           { message: SUPPORT_ROUTE_RESPONSE.invalidBodyMessage },
           HTTP_STATUS.badRequest

@@ -12,31 +12,25 @@ import {AdmissionOperationError} from "@/src/modules/academy-admissions/domain/e
 import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";
 import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
 import {MessagingSecretAccessError} from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
-import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_CONNECTION_STATE} from "@/src/modules/messaging/constants/messaging-connection";
 import {MESSAGING_PUBLIC_CHANNEL,MESSAGING_GENERIC_CREDENTIAL_MASK,MESSAGING_CAPABILITY_PUBLIC_STATE} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {messagingConnectionConfigurationSchema} from "@/src/modules/messaging/application/results/messaging-connection-configuration-result";
 import {createMessagingSecretCipher} from "../encryption/messaging-secret-cipher";
-import {MessagingCryptographyError} from "../encryption/messaging-cryptography-error";
 import {authorizeMessagingSecret,messagingSecretLifetimeIsCurrent} from "./postgres-messaging-secret-authorizer";
 import {PostgresMessagingAuthorizationReader} from "./postgres-messaging-authorization-reader";
 import {executeMessagingLedger} from "./execute-messaging-ledger";
 import {retireDiagnosticChallenges} from "./postgres-retired-diagnostic-challenges";
+import {knownConnectionFailureCode,type MessagingContextDatabaseExecutor} from "./messaging-operation-failure-code";
 import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Uses only protected current native transactions; no callback can access the provider. */
-export type MessagingConfigurationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
+export type MessagingConfigurationDatabaseExecutor=MessagingContextDatabaseExecutor<AuthorizedMessagingContext>;
 /** Consumed immutable fields remain database-owned facts, not schema-validated upstream payloads. */
 type CurrentConfiguration={name:string;version:number;state:"draft"|"ready"|"active"|"degraded"|"suspended"|"disconnected";selected_version:number|null;candidate_version:number|null;is_selected:boolean;email_sender_id:string|null;sms_sender_id:string|null;whatsapp_sender_id:string|null;whatsapp_template_id:string|null;whatsapp_template_language:string|null};
 
 /** Replays before CAS and keeps selected versions untouched while replacing only the candidate configuration. */
-/** @param error - Failure of the operation. @returns Its messaging code when known, otherwise an unexpected failure. */
-function knownFailureCode(error:unknown){
-  if(error instanceof AdmissionOperationError)return Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure;
-  return error instanceof MessagingCryptographyError?MESSAGING_ERROR_CODE.connectionIncomplete:MESSAGING_ERROR_CODE.unexpectedFailure;
-}
 
 /** @returns The sender the stored version assigns to the channel. */
 function configuredSenderId(row:{email_sender_id:string|null;sms_sender_id:string|null;whatsapp_sender_id:string|null},channel:string):string|null{
@@ -76,7 +70,7 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
   /** @param error - Original private failure. @returns Safe typed metadata with genuinely registered progress only. */
   private failure(error:unknown){
     if(error instanceof MessagingConnectionOperationError)return error;
-    const code=knownFailureCode(error);
+    const code=knownConnectionFailureCode(error);
     return new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});
   }
   /** @param database - Authorized protected transaction. @param context - Exact originally resolved configuration. @param input - Current CAS intent. @returns Current immutable fields and semantic change, never an invented replacement of another candidate. */

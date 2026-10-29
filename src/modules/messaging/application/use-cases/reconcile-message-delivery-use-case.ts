@@ -14,6 +14,24 @@ import { messagingFailure } from "../results/messaging-errors";
 /** Binds authority to the original stored version and preserves the existing closed resolver outcome. */
 export type OriginalMessageContextResolver = { execute(query: OriginalMessageContextQuery): ReturnType<ResolveMessagingContextUseCase["execute"]> };
 
+/** Closed failure of a denied original context resolution. */
+type OriginalMessageContextFailure = Extract<Awaited<ReturnType<OriginalMessageContextResolver["execute"]>>, { allowed: false }>["failure"];
+
+/**
+ * @param resolver - Current exact leader/connection authority.
+ * @param reference - Original immutable message metadata.
+ * @param deny - Builds the caller's own error for a denied resolution.
+ * @returns Current native reconciliation authority bound to the original stored tribe, connection and version.
+ * @throws MessagingSecretAccessError when the current authority belongs to another resource or operation.
+ */
+export async function resolveOriginalReconciliationContext(resolver: OriginalMessageContextResolver, reference: MessageStatusReference, deny: (failure: OriginalMessageContextFailure) => Error): Promise<AuthorizedMessagingContext> {
+  const resolved = await resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, connectionVersion: reference.connectionVersion, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
+  if (!resolved.allowed) throw deny(resolved.failure);
+  const context = resolved.context;
+  if (context.tribeId !== reference.tribeId || context.connectionId !== reference.connectionId || context.connectionVersion !== reference.connectionVersion || context.resourceId !== reference.connectionId || context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+  return context;
+}
+
 /** Original account, context, reconciliation and lookup owners; the clock defaults to the host time. */
 export type ReconcileMessageDeliveryDependencies<Result> = { accounts: MessagingAccountProvider; resolver: OriginalMessageContextResolver; repository: MessageReconciliationRepository<Result>; lookup: MessageStatusLookup; clock?: () => Date };
 
@@ -29,10 +47,8 @@ export class ReconcileMessageDeliveryUseCase<Result> {
 
   /** @param reference - Native original reference. @param actor - Original server principal. @param session - Original session. @returns Current exact reconciliation authority. @throws MessagingSecretAccessError on revoked, changed or insufficient authority. */
   private async authorize(reference: MessageStatusReference, actor: string, session: string): Promise<AuthorizedMessagingContext> {
-    const resolved = await this.resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, connectionVersion: reference.connectionVersion, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
-    if (!resolved.allowed) throw new MessagingConnectionInspectionError(resolved.failure.code, { cause: resolved.failure.cause });
-    const context = resolved.context;
-    if (context.actorUserId !== actor || context.sessionId !== session || context.tribeId !== reference.tribeId || context.connectionId !== reference.connectionId || context.connectionVersion !== reference.connectionVersion || context.resourceId !== reference.connectionId || context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+    const context = await resolveOriginalReconciliationContext(this.resolver, reference, (failure) => new MessagingConnectionInspectionError(failure.code, { cause: failure.cause }));
+    if (context.actorUserId !== actor || context.sessionId !== session) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     return context;
   }
 

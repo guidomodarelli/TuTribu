@@ -21,6 +21,22 @@ type InvitationScope = { tribeId: string; requestId: string };
 /** Only explicit confirmed mutations carry an original operation identity. */
 type InvitationCommandScope = InvitationScope & { operationId: string; confirmed: true };
 
+/**
+ * @param written - Writer original of one rename/revoke.
+ * @param command - Confirmed operation, exact invitation and observed version.
+ * @returns The parsed original or registered progress.
+ * @throws AdmissionOperationError when the original belongs to another operation or its completed CAS is inconsistent.
+ */
+function confirmInvitationMutation(written: unknown, command: { operationId: string; invitationId: string; expectedVersion: number }) {
+  const result = personalInvitationMutationOperationSchema.parse(written);
+  if (result.operationId.toLowerCase() !== command.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (result.state === OPERATION_STATE.completed) {
+    const snapshot = result.result;
+    if (snapshot.invitationId.toLowerCase() !== command.invitationId.toLowerCase() || snapshot.created || snapshot.version !== command.expectedVersion + (snapshot.changed ? 1 : 0)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  }
+  return result;
+}
+
 /** Administrative history remains separate from recipient preview/redemption. */
 export class ManagePersonalInvitationsUseCases {
   /** @param resolver - Actual account/role/resource owner. @param reader - Private metadata-only reader. @param writer - Atomic original command owner; no provider transport is involved. */
@@ -67,12 +83,7 @@ export class ManagePersonalInvitationsUseCases {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations, resource: { kind: ADMISSION_RESOURCE_KIND.personalInvitation, id: input.invitationId }, sensitiveOperation: REAUTHENTICATION_OPERATION.renamePersonalInvitation });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       if (!Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
-      const result = personalInvitationMutationOperationSchema.parse(await this.writer.rename({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, invitationId: input.invitationId, expectedVersion: input.expectedVersion, internalName: normalizePersonalInvitationName(input.internalName) }));
-      if (result.operationId.toLowerCase() !== input.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      if (result.state === OPERATION_STATE.completed) {
-        const snapshot = result.result;
-        if (snapshot.invitationId.toLowerCase() !== input.invitationId.toLowerCase() || snapshot.created || snapshot.version !== input.expectedVersion + (snapshot.changed ? 1 : 0)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      }
+      const result = confirmInvitationMutation(await this.writer.rename({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, invitationId: input.invitationId, expectedVersion: input.expectedVersion, internalName: normalizePersonalInvitationName(input.internalName) }), input);
       return { ok: true as const, value: result, viewerId: authority.context.userId };
     } catch (error) { return personalInvitationOperationFailure(error, input.operationId); }
   }
@@ -82,12 +93,7 @@ export class ManagePersonalInvitationsUseCases {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations, resource: { kind: ADMISSION_RESOURCE_KIND.personalInvitation, id: input.invitationId }, sensitiveOperation: REAUTHENTICATION_OPERATION.revokePersonalInvitation });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       if (!Number.isInteger(input.expectedVersion) || input.expectedVersion <= 0 || !input.internalReason.trim() || input.internalReason.trim().length > ADMISSION_LIMIT.internalMessageCharacters) return { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.invalidInput) };
-      const result = personalInvitationMutationOperationSchema.parse(await this.writer.revoke({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, invitationId: input.invitationId, expectedVersion: input.expectedVersion, revokeRedeemedAuthorization: input.revokeRedeemedAuthorization, internalReason: input.internalReason.trim() }));
-      if (result.operationId.toLowerCase() !== input.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      if (result.state === OPERATION_STATE.completed) {
-        const snapshot = result.result;
-        if (snapshot.invitationId.toLowerCase() !== input.invitationId.toLowerCase() || snapshot.created || snapshot.version !== input.expectedVersion + (snapshot.changed ? 1 : 0)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      }
+      const result = confirmInvitationMutation(await this.writer.revoke({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, invitationId: input.invitationId, expectedVersion: input.expectedVersion, revokeRedeemedAuthorization: input.revokeRedeemedAuthorization, internalReason: input.internalReason.trim() }), input);
       return { ok: true as const, value: result, viewerId: authority.context.userId };
     } catch (error) { return personalInvitationOperationFailure(error, input.operationId); }
   }

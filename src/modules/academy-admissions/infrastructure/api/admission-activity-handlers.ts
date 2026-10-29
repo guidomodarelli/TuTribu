@@ -7,6 +7,7 @@ import { admissionMetricsResultSchema } from "../../constants/admission-metrics-
 import { ADMISSION_OBSERVABILITY_HTTP_OPERATION } from "../../constants/admission-http";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema } from "../../constants/admission-route-input";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
+import { openAdmissionTribeRoute, respondWithAdmissionResult } from "./admission-route-steps";
 
 /** Native composition supplies only inward-facing scoped queries. */
 export type AdmissionActivityServices = { resolveTribe: AdmissionQueryServices["resolveTribe"]; observations: Pick<GetAdmissionActivityAndMetricsUseCases, "activity" | "metrics"> };
@@ -17,30 +18,18 @@ export function createAdmissionActivityHandlers(open: () => Promise<AdmissionAct
     async activity(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_OBSERVABILITY_HTTP_OPERATION.activity });
       try {
-        const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-        if (!params.usable) return params.response;
-        const query = boundary.input("query", admissionActivityQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-        if (!query.usable) return query.response;
-        const services = await open(), requestId = boundary.requestContext.requestId;
-        const tribe = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-        if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.observations.activity({ ...query.value, tribeId: tribe.value.tribeId, requestId });
-        return result.ok ? boundary.success(admissionActivityPageSchema, result.value) : boundary.failure(result.failure);
+        const route = await openAdmissionTribeRoute(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionActivityQuerySchema }, open);
+        if ("response" in route) return route.response;
+        return respondWithAdmissionResult(boundary, admissionActivityPageSchema, await route.services.observations.activity({ ...route.query, ...route.scope }));
       } catch (error) { return boundary.unexpected(error); }
     },
     /** @param request - Native request. @param context - Current framework slug. @returns A private aggregate without account/contact labels or fake history. */
     async metrics(request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_OBSERVABILITY_HTTP_OPERATION.metrics });
       try {
-        const params = boundary.input("params", admissionTribeParamsSchema, await context.params);
-        if (!params.usable) return params.response;
-        const query = boundary.input("query", admissionEmptyQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-        if (!query.usable) return query.response;
-        const services = await open(), requestId = boundary.requestContext.requestId;
-        const tribe = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-        if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.observations.metrics({ tribeId: tribe.value.tribeId, requestId });
-        return result.ok ? boundary.success(admissionMetricsResultSchema, result.value) : boundary.failure(result.failure);
+        const route = await openAdmissionTribeRoute(boundary, { request, params: context.params }, { params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema }, open);
+        if ("response" in route) return route.response;
+        return respondWithAdmissionResult(boundary, admissionMetricsResultSchema, await route.services.observations.metrics(route.scope));
       } catch (error) { return boundary.unexpected(error); }
     },
   };

@@ -168,11 +168,6 @@ async function runUsageWriteSession({ checkViewer, controls }: MessagingUsageSes
   }
 }
 
-/** Aborts reads and writes in flight and forgets the loaded original, so a later mount or restoration reads it again. @param controls - Stable controls. @returns Nothing. */
-export function releaseUsageWork(controls: MessagingUsageControls): void {
-  controls.readController.current?.abort(); controls.writeController.current?.abort(); controls.busy.current = false; controls.loaded.current = false;
-}
-
 /** Announces only a configuration the server confirmed, then returns to the summary. @param controls - Stable controls. @param policy - Confirmed configuration. @returns Nothing. */
 function finishUsageSave(controls: MessagingUsageControls, policy: MessagingUsagePolicyDto): void {
   controls.setFresh(true); controls.setConfirmed(false); controls.setPartialSave(false); controls.setEditing(false); controls.setStep(FIRST_STEP_INDEX);

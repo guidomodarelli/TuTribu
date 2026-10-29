@@ -5,9 +5,8 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { AuthorizedMessagingContext, MessagingSecretStore } from "../../domain/repositories/messaging-repositories";
 import type { MessageStatusReference } from "../../domain/repositories/message-status-lookup";
 import type { MessageStatusPreparation, PreparedMessageStatusQuery } from "../zavu/message-status-preparation";
-import type { OriginalMessageContextResolver } from "../../application/use-cases/reconcile-message-delivery-use-case";
+import { resolveOriginalReconciliationContext, type OriginalMessageContextResolver } from "../../application/use-cases/reconcile-message-delivery-use-case";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
-import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGE_STATUS_LOOKUP_OPERATION } from "../../constants/message-reconciliation";
 import { MESSAGING_KEY_PURPOSE } from "../../constants/messaging-cryptography";
@@ -39,11 +38,7 @@ export class PostgresMessageStatusPreparation implements MessageStatusPreparatio
 
   /** @param reference - Original immutable message metadata from protected storage. @returns Current native authority, never authority selected by the reference itself. */
   private async resolve(reference: MessageStatusReference): Promise<AuthorizedMessagingContext> {
-    const resolved = await this.resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, connectionVersion: reference.connectionVersion, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
-    if (!resolved.allowed) throw new ZavuInspectionError(MESSAGE_STATUS_LOOKUP_OPERATION, resolved.failure);
-    const context = resolved.context;
-    if (context.tribeId !== reference.tribeId || context.connectionId !== reference.connectionId || context.connectionVersion !== reference.connectionVersion || context.resourceId !== reference.connectionId || context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-    return context;
+    return resolveOriginalReconciliationContext(this.resolver, reference, (failure) => new ZavuInspectionError(MESSAGE_STATUS_LOOKUP_OPERATION, failure));
   }
 
   /** @param context - Actual current native human scope. @param reference - Original stored message identity. @returns The original sender only after guarded storage and a clock sampled after waits. */

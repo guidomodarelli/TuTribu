@@ -8,7 +8,8 @@ import { PostgresMessagingProtectionKeyRotation, type MessagingProtectionKeyRota
 import { PurgeMessagingSecretsUseCase } from "./application/use-cases/purge-messaging-secrets-use-case";
 import { PostgresMessagingRetentionRepository } from "./infrastructure/repositories/postgres-messaging-retention-repository";
 import { ExpireMessagingCandidatesUseCase } from "./application/use-cases/expire-messaging-candidates-use-case";
-import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseExecutor, type CandidateExpirationGate } from "./infrastructure/repositories/postgres-messaging-candidate-expiration";
+import { PostgresMessagingCandidateExpiration } from "./infrastructure/repositories/postgres-messaging-candidate-expiration";
+import type { CandidateExpirationDatabaseExecutor, CandidateExpirationGate } from "./infrastructure/repositories/guarded-messaging-maintenance";
 import { type AuthenticatedFeatureDependencies, createTransactionAccountProvider, readCurrentFeatureSessionContext  } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "./infrastructure/config/messaging-security-config";

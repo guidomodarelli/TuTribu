@@ -2,6 +2,7 @@
 import "server-only";
 import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
 import { sql } from "drizzle-orm";
+import { isCurrentVerificationActor, readVerificationDatabaseNow } from "./verification-transaction-checks";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_PROOF_OPERATION, ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, ADMISSION_PROOF_APPLICATION_OUTCOME, ADMISSION_PROOF_APPLICATION_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "@/src/modules/academy-admissions/constants/admission-proof";
@@ -59,11 +60,6 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
    */
   constructor(private readonly database: RequestDatabase, private readonly authorize: (database: RequestDatabase, scope: VerificationChallengeScope) => Promise<boolean>, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
 
-  /** Checks SQL actor plus the current owner scope rather than trusting input identity or a previous read. */
-  private async isAuthorized(scope: VerificationChallengeScope): Promise<boolean> {
-    return (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor === scope.userId && await this.authorize(this.database, scope);
-  }
-
   /**
    * @param command - Original application command.
    * @param request - Locked own request, if any.
@@ -89,12 +85,12 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
   /** @param command - Original application command. @param config - Protection sampled before the effects. @throws AdmissionOperationError when recovery locked, the deployment scope moved or the actor lost authority after the write, forcing rollback. */
   private async assertProtectionUnchanged(command: ApplyAdmissionVerificationProofCommand, config: MessagingSecurityConfig): Promise<void> {
     const currentConfig = await this.readSecurityConfig();
-    if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !await this.isAuthorized(command.scope)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !await isCurrentVerificationActor(this.database, this.authorize, command.scope)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }
 
   /** @param scope - Proof scope to apply. @returns Whether it is an admission proof whose actor is currently authorized. */
   private async isAuthorizedAdmissionScope(scope: ApplyAdmissionVerificationProofCommand["scope"]): Promise<boolean> {
-    return scope.purpose === ADMISSION_VERIFICATION_PURPOSE.admission && await this.isAuthorized(scope);
+    return scope.purpose === ADMISSION_VERIFICATION_PURPOSE.admission && await isCurrentVerificationActor(this.database, this.authorize, scope);
   }
 
   /** @param command - Original application command. @returns The locked contact binding, if any, after the reservation is re-read, or a contact conflict. */
@@ -136,8 +132,8 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     if (bindingConflicts(binding, request.binding_id, command.scope.userId)) return denied(ADMISSION_ERROR_CODE.contactBindingConflict);
     const config = await this.readSecurityConfig();
     if (isProofSecurityChanged(config, resource, command.scope.securityEpoch)) return denied(ADMISSION_ERROR_CODE.proofUnavailable);
-    if (!await this.isAuthorized(command.scope)) return denied(ADMISSION_ERROR_CODE.permissionDenied);
-    const now = new Date((await this.database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
+    if (!await isCurrentVerificationActor(this.database, this.authorize, command.scope)) return denied(ADMISSION_ERROR_CODE.permissionDenied);
+    const now = await readVerificationDatabaseNow(this.database);
     if (now >= new Date(request.expires_at)) return denied(ADMISSION_ERROR_CODE.requestConflict);
     const proposal = proposeAdmissionProofApplication({ scope: command.scope, proof, requestId: request.id, now });
     if (proposal.outcome !== ADMISSION_PROOF_APPLICATION_OUTCOME.applied) return denied(ADMISSION_ERROR_CODE.proofUnavailable);

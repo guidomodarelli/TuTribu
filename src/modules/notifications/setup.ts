@@ -2,10 +2,8 @@
 import "server-only";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { ResolveAdmissionContextUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
-import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { createIdentityBoundExecutor } from "@/src/modules/academy-admissions/infrastructure/composition/identity-bound-executor";
 import { AdmissionNotificationPreferencesUseCases } from "./application/use-cases/admission-notification-preferences-use-cases";
 import { AdmissionNotificationEmailSettingsUseCases } from "./application/use-cases/admission-notification-email-settings-use-cases";
 import { GetAdmissionNotificationSettingsPageUseCase } from "./application/use-cases/get-admission-notification-settings-page-use-case";
@@ -89,12 +87,7 @@ export function buildNotificationsModule(
  * @returns Explicit read/write use cases without a provider client, dispatcher or implicit settings initialization.
  */
 export function buildAdmissionNotificationSettingsModule(dependencies: AuthenticatedFeatureDependencies, options: { resolver: Pick<ResolveAdmissionContextUseCase, "execute">; readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-  /** @param scope - Server-resolved account/session being rechecked before checkout. @param run - Native DB-only work with final owner authorization. @returns The guarded result or a current authentication denial. */
-  const execute = async <Result>(scope: { userId: string; sessionId: string }, run: (database: RequestDatabase) => Promise<Result>): Promise<Result> => {
-    const account = await dependencies.accounts.getAuthenticatedAccount();
-    if (account?.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    return dependencies.execute(account, run);
-  };
+  const execute = createIdentityBoundExecutor(dependencies);
   const useCases = {
     preferences: new AdmissionNotificationPreferencesUseCases(options.resolver, new PostgresAdmissionNotificationPreferenceRepository(execute)),
     email: new AdmissionNotificationEmailSettingsUseCases(options.resolver, new PostgresAdmissionNotificationEmailSettingsRepository(execute, options.readSecurityConfig)),

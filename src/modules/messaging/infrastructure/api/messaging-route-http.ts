@@ -2,10 +2,11 @@
 import "server-only";
 import { APIConnectionError, APIConnectionTimeoutError } from "@zavudev/sdk";
 import { HTTP_STATUS } from "@/src/constants/http-status";
+import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 import { messagingFailure, type MessagingFailure, type MessagingPublicError } from "@/src/modules/messaging/application/results/messaging-errors";
 import { messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
-import { createOwnJsonRouteBoundary, type OwnHttpDiagnostic } from "@/src/modules/shared/infrastructure/http/own-json-route-boundary";
+import { createOwnJsonRouteBoundary, type OwnHttpDiagnostic, projectOwnPublicFailure } from "@/src/modules/shared/infrastructure/http/own-json-route-boundary";
 import { MESSAGING_ERROR_HTTP_STATUS } from "./messaging-error-status";
 
 const MESSAGING_HTTP_FEATURE = "messaging";
@@ -68,10 +69,11 @@ export function createMessagingRouteBoundary(input: { request: Request; operatio
     invalidInput: () => messagingFailure(MESSAGING_ERROR_CODE.invalidInput),
     unusableContract: () => messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable),
     unexpectedFailure: (cause) => messagingFailure(MESSAGING_ERROR_CODE.unexpectedFailure, { cause }),
-    projectFailure: (failure, requestId) => ({ status: MESSAGING_ERROR_HTTP_STATUS[failure.code], body: {
-      code: failure.code, message: MESSAGING_ERROR_MESSAGE[failure.code], requestId,
-      ...(failure.retryAt !== undefined ? { retryAt: failure.retryAt } : {}),
-      ...(failure.operation !== undefined ? { operation: failure.operation } : {}),
-    } }),
+    projectFailure: (failure, requestId) => projectOwnPublicFailure(failure, requestId, { status: MESSAGING_ERROR_HTTP_STATUS, message: MESSAGING_ERROR_MESSAGE }),
   });
+}
+
+/** @param state - State of the original operation. @returns 202 while the original operation is still started, otherwise 200. */
+export function messagingOperationHttpStatus(state: string): number {
+  return state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok;
 }

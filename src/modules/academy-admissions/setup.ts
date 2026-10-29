@@ -46,6 +46,7 @@ import { ADMISSION_ACTION } from "./constants/admission-eligibility";
 import { GetOwnAdmissionUseCases } from "./application/use-cases/get-own-admission-use-cases";
 import { PostgresOwnAdmissionRequestReader } from "./infrastructure/repositories/postgres-own-admission-request-reader";
 import type { AdmissionCommandScope } from "./domain/repositories/admission-repositories";
+import { createIdentityBoundExecutor } from "./infrastructure/composition/identity-bound-executor";
 import { GetAdmissionOverviewUseCase } from "./application/use-cases/get-admission-overview-use-case";
 import { PostgresAdmissionOverviewReader } from "./infrastructure/repositories/postgres-admission-overview-reader";
 import { ResolveAdmissionTribeUseCase } from "./application/use-cases/resolve-admission-tribe-use-case";
@@ -179,16 +180,6 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
 
 /** Request-scoped composition shared by every admission module builder. */
 type AdmissionModuleContext = { dependencies: AuthenticatedFeatureDependencies; resolveContext: ReturnType<typeof createAdmissionContextResolver>; executeForAccount: ReturnType<typeof createIdentityBoundExecutor> };
-
-/** @param dependencies - Native current-account provider and protected executor owned by this request. @returns A guarded executor that rechecks the native account/session on every checkout; no account snapshot is retained. */
-function createIdentityBoundExecutor(dependencies: AuthenticatedFeatureDependencies) {
-  /** @param scope - Current account/session. @param run - DB-only work. @returns The guarded result. @throws AdmissionOperationError when the native account or session changed. */
-  return async <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => {
-    const account = await dependencies.accounts.getAuthenticatedAccount();
-    if (account?.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    return dependencies.execute(account, run);
-  };
-}
 
 /** @param dependencies - Native current-account provider and protected executor owned by this request. @returns Current context resolution through the native account. */
 function createAdmissionContextResolver(dependencies: AuthenticatedFeatureDependencies) {

@@ -5,6 +5,7 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { resolveSelectedCourse } from "@/src/modules/courses/application/course-selection";
 import { buildTribeCoursesRoute } from "@/lib/courses/course-lesson-route";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { findCurrentTribeMembership } from "../tribe-manager-page-access";
 
 const TRIBE_COURSES_PAGE = {
   operation: "tribe-courses-page",
@@ -53,9 +54,7 @@ export default async function TribeCoursesPage({
     notFound();
   }
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
+  const currentMembership = await findCurrentTribeMembership(modules, tribe.slug);
   const canManageCourses =
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
     currentMembership?.role === COURSE_MANAGER_ROLE.leader;

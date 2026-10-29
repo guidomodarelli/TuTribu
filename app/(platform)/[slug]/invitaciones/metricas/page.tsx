@@ -2,9 +2,9 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@golfo/ui";
 import type { TribeInvitationConversionMetricResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import { ROUTES } from "@/src/constants/routes";
-import { resolveVisibleTribePageAccess } from "../../tribe-page-access";
+import type { TribeSlugPageProps } from "../../tribe-page-access";
 import styles from "./styles.module.scss";
-import { requireTribeManagerMembership } from "../../tribe-manager-page-access";
+import { resolveTribeManagerPageAccess } from "../../tribe-manager-page-access";
 
 const INVITATION_METRICS_PAGE_COPY = {
   campaignFallback: "Sin campaña",
@@ -144,22 +144,14 @@ function InvitationMetricsTable({
   );
 }
 
-export default async function TribeInvitationMetricsPage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeInvitationMetricsPage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
-    await resolveVisibleTribePageAccess({
+    await resolveTribeManagerPageAccess({
       callbackPath: ROUTES.tribes.invitationMetrics(slug),
       operation: INVITATION_METRICS_PAGE_LOG.operation,
       slug,
     });
-
-  await requireTribeManagerMembership(modules, tribe.slug);
 
   const metrics = await modules.tribes.useCases
     .getTribeInvitationConversionMetrics({

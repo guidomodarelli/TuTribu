@@ -12,19 +12,25 @@ import {
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import {
   createRouteJsonResponse,
-  handleMemberRoute,
+  createStatusMessageResponse,
   type RequestModules,
   type TribeRouteContext,
 } from "@/app/api/member-route-scope";
 import { readOptionalStringField, readStringField } from "@/app/api/request-body-fields";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
+import { handlePriceMemberRoute } from "./price-member-route";
 
 const PRICE_ITEM_ROUTE_LOG = {
-  deleteFailureMessage: "Tribe subscription price deletion failed",
-  deleteOperation: "delete-tribe-subscription-price",
-  feature: "subscriptions",
-  updateOperation: "update-tribe-subscription-price",
-  updateFailureMessage: "Tribe subscription price update failed",
+  delete: {
+    failureMessage: "Tribe subscription price deletion failed",
+    feature: "subscriptions",
+    operation: "delete-tribe-subscription-price",
+  },
+  update: {
+    failureMessage: "Tribe subscription price update failed",
+    feature: "subscriptions",
+    operation: "update-tribe-subscription-price",
+  },
 } as const;
 
 const PRICE_ITEM_ROUTE_RESPONSE = {
@@ -117,6 +123,30 @@ function hasTrialFrequencyValidationError(body: unknown): boolean {
   );
 }
 
+/**
+ * Answers a failed update or deletion of a price: 503 while Mercado Pago is
+ * not connected, 404 when the price is missing, 403 otherwise.
+ *
+ * @param status - Failure status of the use case.
+ * @returns The JSON response.
+ */
+function createPriceItemFailureResponse(status: string): Response {
+  return createStatusMessageResponse(
+    status,
+    {
+      [TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration]: {
+        message: PRICE_ITEM_ROUTE_RESPONSE.missingIntegrationMessage,
+        status: HTTP_STATUS.serviceUnavailable,
+      },
+      [TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound]: {
+        message: PRICE_ITEM_ROUTE_RESPONSE.notFoundMessage,
+        status: HTTP_STATUS.notFound,
+      },
+    },
+    { message: PRICE_ITEM_ROUTE_RESPONSE.forbiddenMessage, status: HTTP_STATUS.forbidden }
+  );
+}
+
 type UpdateTribeSubscriptionPriceResult = Awaited<
   ReturnType<RequestModules["subscriptions"]["useCases"]["updateTribeSubscriptionPrice"]>
 >;
@@ -146,15 +176,7 @@ function createPatchResultResponse(result: UpdateTribeSubscriptionPriceResult, b
         HTTP_STATUS.badRequest
       );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      return createRouteJsonResponse(
-        { message: PRICE_ITEM_ROUTE_RESPONSE.missingIntegrationMessage },
-        HTTP_STATUS.serviceUnavailable
-      );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createRouteJsonResponse(
-        { message: PRICE_ITEM_ROUTE_RESPONSE.notFoundMessage },
-        HTTP_STATUS.notFound
-      );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
@@ -162,10 +184,7 @@ function createPatchResultResponse(result: UpdateTribeSubscriptionPriceResult, b
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
     default:
-      return createRouteJsonResponse(
-        { message: PRICE_ITEM_ROUTE_RESPONSE.forbiddenMessage },
-        HTTP_STATUS.forbidden
-      );
+      return createPriceItemFailureResponse(result.status);
   }
 }
 
@@ -173,22 +192,18 @@ export async function PATCH(
   request: Request,
   context: TribeRouteContext<{ priceId: string }>
 ) {
-  const { priceId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handlePriceMemberRoute(
     request,
+    context,
     {
-      feature: PRICE_ITEM_ROUTE_LOG.feature,
-      operation: PRICE_ITEM_ROUTE_LOG.updateOperation,
-      unauthorizedMessage: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage,
+      log: PRICE_ITEM_ROUTE_LOG.update,
+      response: {
+        unauthorizedMessage: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage,
+        unexpectedMessage: PRICE_ITEM_ROUTE_RESPONSE.unexpectedUpdateMessage,
+      },
       withRequestId: true,
     },
-    {
-      logMessage: PRICE_ITEM_ROUTE_LOG.updateFailureMessage,
-      metadata: { priceId, slug },
-      responseMessage: PRICE_ITEM_ROUTE_RESPONSE.unexpectedUpdateMessage,
-    },
-    async ({ modules }) => {
+    async ({ modules, priceId, slug }) => {
       const body: unknown = await request.json().catch(() => null);
       const result =
         await modules.subscriptions.useCases.updateTribeSubscriptionPrice({
@@ -259,15 +274,7 @@ async function createDeleteResultResponse(
       );
     }
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
-      return createRouteJsonResponse(
-        { message: PRICE_ITEM_ROUTE_RESPONSE.missingIntegrationMessage },
-        HTTP_STATUS.serviceUnavailable
-      );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound:
-      return createRouteJsonResponse(
-        { message: PRICE_ITEM_ROUTE_RESPONSE.notFoundMessage },
-        HTTP_STATUS.notFound
-      );
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.created:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.current:
@@ -276,10 +283,7 @@ async function createDeleteResultResponse(
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired:
     case TRIBE_SUBSCRIPTION_PRICE_STATUS.updated:
     default:
-      return createRouteJsonResponse(
-        { message: PRICE_ITEM_ROUTE_RESPONSE.forbiddenMessage },
-        HTTP_STATUS.forbidden
-      );
+      return createPriceItemFailureResponse(result.status);
   }
 }
 
@@ -287,22 +291,11 @@ export async function DELETE(
   request: Request,
   context: TribeRouteContext<{ priceId: string }>
 ) {
-  const { priceId, slug } = await context.params;
-
-  return handleMemberRoute(
+  return handlePriceMemberRoute(
     request,
-    {
-      feature: PRICE_ITEM_ROUTE_LOG.feature,
-      operation: PRICE_ITEM_ROUTE_LOG.deleteOperation,
-      unauthorizedMessage: PRICE_ITEM_ROUTE_RESPONSE.unauthorizedMessage,
-      withRequestId: true,
-    },
-    {
-      logMessage: PRICE_ITEM_ROUTE_LOG.deleteFailureMessage,
-      metadata: { priceId, slug },
-      responseMessage: PRICE_ITEM_ROUTE_RESPONSE.unexpectedMessage,
-    },
-    async ({ modules }) => {
+    context,
+    { log: PRICE_ITEM_ROUTE_LOG.delete, response: PRICE_ITEM_ROUTE_RESPONSE, withRequestId: true },
+    async ({ modules, priceId, slug }) => {
       const result =
         await modules.subscriptions.useCases.deleteTribeSubscriptionPrice({
           priceId,

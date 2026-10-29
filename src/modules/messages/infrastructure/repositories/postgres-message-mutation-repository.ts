@@ -55,7 +55,10 @@ import {
   formatMessageDateTimeValue,
   type TribeRoundReplyRow,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
-import { sortMessageMediaBySortOrder } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
+import {
+  sortMessageMediaBySortOrder,
+  type MessageAuthorChannelRow,
+} from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
 import type { MessageFileAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-file-repository";
@@ -100,17 +103,7 @@ type MutationStatusRow = {
   status: string | null;
 };
 
-type CreatedMessageRow = MutationStatusRow & {
-  author_id: string | null;
-  author_image: string | null;
-  author_name: string | null;
-  author_role: string | null;
-  channel_access_scope: string | null;
-  channel_emoji: string | null;
-  channel_id: string | null;
-  channel_name: string | null;
-  channel_slug: string | null;
-  channel_sort_order: number | string | null;
+type CreatedMessageRow = MutationStatusRow & MessageAuthorChannelRow & {
   message_content: string | null;
   message_created_at: Date | string | null;
   message_id: string | null;

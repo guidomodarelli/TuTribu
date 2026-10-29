@@ -6,9 +6,9 @@ import { toAcademySettingsDto } from "@/src/modules/product-access/application/r
 import { academySettingsDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { ROUTES } from "@/src/constants/routes";
-import { resolveVisibleTribePageAccess } from "../tribe-page-access";
+import { resolveVisibleTribePageAccess, type TribeSlugPageProps } from "../tribe-page-access";
 import styles from "./page.module.scss";
-import { requireActiveTribeMembership } from "../tribe-manager-page-access";
+import { findCurrentTribeMembership, requireActiveTribeMembership } from "../tribe-manager-page-access";
 
 const TRIBE_SETTINGS_PAGE = {
   operation: "tribe-settings-page",
@@ -20,13 +20,7 @@ const TRIBE_SETTINGS_PAGE = {
  * Leader-only tribe settings. Identity lives on the tribe itself, so it is
  * managed here instead of inside the story editor.
  */
-export default async function TribeSettingsPage({
-  params,
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-}) {
+export default async function TribeSettingsPage({ params }: TribeSlugPageProps) {
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
@@ -36,9 +30,7 @@ export default async function TribeSettingsPage({
     });
   await requireActiveTribeMembership(modules, tribe.slug);
 
-  const currentMembership = (
-    await modules.tribes.useCases.getMemberTribes()
-  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
+  const currentMembership = await findCurrentTribeMembership(modules, tribe.slug);
 
   if (currentMembership?.role !== TRIBE_MEMBER_ROLE.leader) {
     notFound();

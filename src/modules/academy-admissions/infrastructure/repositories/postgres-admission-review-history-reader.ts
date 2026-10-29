@@ -4,12 +4,9 @@ import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
 import type { AdmissionReviewHistoryReader, AdmissionReviewHistoryFilters } from "../../domain/repositories/admission-review-history-reader";
-import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
-import { canPerformAdmissionAction } from "../../domain/policies/admission-eligibility";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
-import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_REVIEW_CURSOR_SEPARATOR } from "../../constants/admission-public-contract";
-import { PostgresAdmissionAuthorizationReader } from "./postgres-admission-authorization-reader";
+import { authorizeAdmissionAdministrativeReader } from "./authorize-admission-administrative-reader";
 import { mapAdmissionReviewHistoryStorage, type AdmissionReviewHistoryStorageRow } from "./admission-review-history-storage-mapper";
 
 /** The request root binds the real account/session to a guarded transaction. */
@@ -22,11 +19,7 @@ export class PostgresAdmissionReviewHistoryReader implements AdmissionReviewHist
 
   /** @param database - Existing protected transaction. @param scope - Actual native account/session/tribe. @returns After current membership and session liveness remain allowed. */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope): Promise<void> {
-    const locked = (await database.execute<{ locked: boolean }>(sql`select public.lock_academy_admission_administrative_reader(${scope.tribeId},${scope.sessionId}) as locked where public.current_app_user_id()=${scope.userId}`)).rows[0]?.locked;
-    if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readReviewHistory).getCurrentActor(scope.tribeId, scope.userId);
-    if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    if (!canPerformAdmissionAction(actor, ADMISSION_ACTION.readReviewHistory, { tribeId: scope.tribeId })) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    await authorizeAdmissionAdministrativeReader(database, scope, ADMISSION_ACTION.readReviewHistory);
   }
 
   /** @param scope - Native identity and exact tribe. @param admissionRequestId - One explicit target request. @param filters - Validated bounded limit and original SQL tuple. @returns Domain facts and the unrounded cursor after native access recording and final authority. */

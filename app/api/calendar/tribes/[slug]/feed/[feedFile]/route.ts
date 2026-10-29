@@ -15,6 +15,7 @@ import {
 import { TRIBE_EVENT_ROUTE_RESPONSE } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import { buildTribeCalendarFeedIcsFile } from "@/src/modules/events/infrastructure/calendar/tribe-calendar-feed-ics-file";
 import { createCalendarFeedModules } from "@/src/modules/setup";
+import { readRequestQueryObject } from "@/src/modules/shared/infrastructure/http/route-input";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
@@ -45,23 +46,6 @@ type TribeCalendarFeedRouteContext = {
     slug: string;
   }>;
 };
-
-/**
- * Query string as a plain object (one string per key, an array when the key
- * repeats), so the schema decides whether repetition is allowed.
- */
-function readQueryObject(request: Request): Record<string, string | string[]> {
-  const { searchParams } = new URL(request.url);
-  const query: Record<string, string | string[]> = {};
-
-  for (const key of new Set(searchParams.keys())) {
-    const values = searchParams.getAll(key);
-
-    query[key] = values.length === 1 ? values[0] : values;
-  }
-
-  return query;
-}
 
 type CalendarFeedModules = Awaited<ReturnType<typeof createCalendarFeedModules>>;
 
@@ -143,7 +127,7 @@ export async function GET(request: Request, context: TribeCalendarFeedRouteConte
   }
 
   const { slug, token } = params.data;
-  const query = tribeEventCalendarFeedQuerySchema.safeParse(readQueryObject(request));
+  const query = tribeEventCalendarFeedQuerySchema.safeParse(readRequestQueryObject(request));
 
   if (!query.success) {
     logger.warn({
