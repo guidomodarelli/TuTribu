@@ -7,7 +7,7 @@
  * marked with a shared highlight that glides to the chip the viewer taps
  * while the filtered page loads.
  */
-import { LayoutGroup, motion } from "motion/react";
+import { LayoutGroup, m } from "motion/react";
 import { type MouseEvent, type Ref, useEffect, useId, useRef, useState } from "react";
 
 import { Link } from "@/components/navigation/link";
@@ -145,7 +145,7 @@ function RoundChannelFilterChip({
       ref={chipRef}
     >
       {isSelected ? (
-        <motion.span
+        <m.span
           aria-hidden
           className={styles.RoundChannelFilters__indicator}
           layoutId={ROUND_CHANNEL_FILTERS_UI.indicatorLayoutId}
@@ -234,7 +234,7 @@ export function RoundChannelFilters({
 
   return (
     <LayoutGroup id={layoutGroupId}>
-      <motion.nav
+      <m.nav
         aria-label={navigationLabel}
         className={styles.RoundChannelFilters}
         layoutScroll
@@ -254,7 +254,7 @@ export function RoundChannelFilters({
             />
           );
         })}
-      </motion.nav>
+      </m.nav>
     </LayoutGroup>
   );
 }

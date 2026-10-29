@@ -30,7 +30,7 @@ import {
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 import { MESSAGE_MEDIA_KIND } from "@/src/modules/messages/constants/message-round";
 import type { TribeRoundMessageResult } from "@/src/modules/messages/application/results/tribe-round-result";
-import { buildPlayerEmbedSource, PLAYER_IFRAME_ALLOW } from "@/src/modules/shared/application/video/build-player-embed-source";
+import { buildPlayerEmbedSource, PLAYER_IFRAME_ALLOW, PLAYER_IFRAME_SANDBOX } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
 import styles from "./styles.module.scss";
 import {
@@ -603,6 +603,7 @@ const renderCarouselMediaSlide = (controller: TribeRoundController,
         {isActiveSlide ? (
           <iframe
             allow={PLAYER_IFRAME_ALLOW}
+            sandbox={PLAYER_IFRAME_SANDBOX}
             allowFullScreen
             className={styles.TribeRound__videoEmbedIframe}
             src={buildPlayerEmbedSource(

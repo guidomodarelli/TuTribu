@@ -346,6 +346,18 @@ describe("CreateTribeFormContainer (enhanced submission)", () => {
     expect(navigateToUrl).not.toHaveBeenCalled();
   });
 
+  it("treats a created body that arrives with an error status as an unexpected failure", async () => {
+    respondWithJson({ redirectUrl: "/matematica-pro", status: "created" }, 500);
+    const user = renderEnhancedForm();
+
+    await fillAndSubmit(user);
+
+    expect(
+      await screen.findByText("No pudimos crear tu tribu. Intentalo otra vez.")
+    ).toBeInTheDocument();
+    expect(navigateToUrl).not.toHaveBeenCalled();
+  });
+
   it("sends a single request while a submission is in flight", async () => {
     let resolveResponse: (response: Response) => void = () => undefined;
 

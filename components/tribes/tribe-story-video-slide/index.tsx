@@ -6,6 +6,7 @@ import Image from "next/image";
 
 import {
   PLAYER_IFRAME_ALLOW,
+  PLAYER_IFRAME_SANDBOX,
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
@@ -67,6 +68,7 @@ export function TribeStoryVideoSlide({
     return (
       <iframe
         allow={PLAYER_IFRAME_ALLOW}
+        sandbox={PLAYER_IFRAME_SANDBOX}
         allowFullScreen
         className={styles.TribeStoryVideoSlide__video}
         ref={focusPlayerOnMount}

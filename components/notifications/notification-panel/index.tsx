@@ -1,7 +1,7 @@
 "use client";
 
 import { BellOffIcon, CheckCheckIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { Button, AnimatedListItem, cn } from "@golfo/ui";
 
 import { Link } from "@/components/navigation/link";
@@ -79,7 +79,7 @@ function NotificationPanelHeader({
       {titleSlot}
       <AnimatePresence initial={false}>
         {unreadCount > 0 ? (
-          <motion.span
+          <m.span
             animate={MARK_ALL_FADE.animate}
             className={styles.NotificationPanel__markAllSlot}
             exit={MARK_ALL_FADE.exit}
@@ -98,7 +98,7 @@ function NotificationPanelHeader({
               <CheckCheckIcon aria-hidden="true" />
               Marcar todas como leídas
             </Button>
-          </motion.span>
+          </m.span>
         ) : null}
       </AnimatePresence>
     </div>

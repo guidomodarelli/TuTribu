@@ -2,12 +2,15 @@ const EMOJI_PATTERN = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})/u
 const KEYCAP_EMOJI_PATTERN = /^[0-9#*]\uFE0F?\u20E3$/u;
 const GRAPHEME_GRANULARITY = "grapheme";
 
+/** Built once, and only where the runtime supports grapheme segmentation. */
+const GRAPHEME_SEGMENTER =
+  typeof Intl.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: GRAPHEME_GRANULARITY })
+    : null;
+
 function splitGraphemes(value: string): string[] {
-  if (typeof Intl.Segmenter === "function") {
-    return Array.from(
-      new Intl.Segmenter(undefined, { granularity: GRAPHEME_GRANULARITY }).segment(value),
-      (segment) => segment.segment
-    );
+  if (GRAPHEME_SEGMENTER) {
+    return Array.from(GRAPHEME_SEGMENTER.segment(value), (segment) => segment.segment);
   }
 
   return Array.from(value);
