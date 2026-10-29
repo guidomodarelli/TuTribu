@@ -20,7 +20,7 @@ const OCCURRENCE_KEY_SEPARATOR = "@";
  * Summary of an occurrence nobody answered yet. A fresh object per call so no
  * two occurrences share the same preview array.
  */
-export function createEmptyTribeEventAttendance(): TribeEventAttendanceSummary {
+function createEmptyTribeEventAttendance(): TribeEventAttendanceSummary {
   return {
     goingCount: 0,
     goingPreview: [],

@@ -56,7 +56,7 @@ function normalizeOptionalText(input: string | null | undefined): string | null 
  * @param input - Raw channel value received from command payloads.
  * @returns Normalized invitation channel, or null when absent or unsupported.
  */
-export function parseTribeInvitationChannel(
+function parseTribeInvitationChannel(
   input: unknown
 ): TribeInvitationChannel | null {
   if (!isOptionalTextInput(input)) {

@@ -15,9 +15,9 @@ import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema } from "./admission-request-schemas";
 
 /** Route params of one membership decision; the member id is data, never authority. */
-export const commercialMembershipParamsSchema = admissionTribeParamsSchema.extend({ memberId: z.uuid().transform((memberId) => memberId.toLowerCase()) });
+const commercialMembershipParamsSchema = admissionTribeParamsSchema.extend({ memberId: z.uuid().transform((memberId) => memberId.toLowerCase()) });
 /** One confirmed decision with the membership facts the leader saw; the server compares them under lock. */
-export const commercialMembershipResolutionBodySchema = z.strictObject({
+const commercialMembershipResolutionBodySchema = z.strictObject({
   operationId: z.uuid({ error: ADMISSION_INPUT_CATEGORY.operation }).transform((operationId) => operationId.toLowerCase()),
   confirmed: z.literal(true, { error: ADMISSION_INPUT_CATEGORY.confirmation }),
   decision: z.enum(COMMERCIAL_MEMBERSHIP_DECISION),

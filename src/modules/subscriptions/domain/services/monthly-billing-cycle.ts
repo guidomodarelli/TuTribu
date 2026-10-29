@@ -12,7 +12,7 @@
 import { ACADEMY_BILLING_CYCLE } from "@/src/modules/subscriptions/constants/subscriptions";
 
 /** Maximum distance between a scheduled debit date and its cycle start. */
-export const BILLING_CYCLE_DEBIT_TOLERANCE_MS =
+const BILLING_CYCLE_DEBIT_TOLERANCE_MS =
   ACADEMY_BILLING_CYCLE.debitToleranceDays * ACADEMY_BILLING_CYCLE.millisecondsPerDay;
 
 const MONTHS_PER_YEAR = 12;

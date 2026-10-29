@@ -101,7 +101,7 @@ export function policyValidationMessage(reason: ReturnType<typeof validateAdmiss
 }
 
 /** @param current - Phase when the work settles. @param pending - Original command still stored, if any. @returns A changed viewer as is; otherwise uncertain while an original is pending, or idle. */
-export function settledPolicyPhase(current: PolicyPhase, pending: AdmissionPolicyBrowserIntent | null): PolicyPhase {
+function settledPolicyPhase(current: PolicyPhase, pending: AdmissionPolicyBrowserIntent | null): PolicyPhase {
   if (current === PHASE.changedViewer) return current;
   return pending ? PHASE.uncertain : PHASE.idle;
 }

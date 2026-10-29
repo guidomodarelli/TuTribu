@@ -6,7 +6,7 @@ export const ADMISSION_EMAIL_SETTINGS_IMPLICIT_VERSION = 0;
 /** Separates effective writes, no-ops and expected configuration rejections. */
 export const ADMISSION_EMAIL_SETTINGS_STATUS = { changed: "changed", unchanged: "unchanged", rejected: "rejected" } as const;
 /** Requires the exact originally observed email configuration before any write or no-op. */
-export const ADMISSION_EMAIL_SETTINGS_VERSION_CONFLICT = "email_settings_version_conflict";
+const ADMISSION_EMAIL_SETTINGS_VERSION_CONFLICT = "email_settings_version_conflict";
 /** Keeps scoped owner failures distinct from a stale resource version. */
 export const ADMISSION_EMAIL_SETTINGS_REJECTION = { scopeMismatch: ADMISSION_NOTIFICATION_SCOPE_MISMATCH, versionConflict: ADMISSION_EMAIL_SETTINGS_VERSION_CONFLICT, capabilityUnavailable: ADMISSION_NOTIFICATION_EMAIL_CAPABILITY_UNAVAILABLE } as const;
 /** Gives the original ledger one purpose independent of OTP and admission-rule edits. */

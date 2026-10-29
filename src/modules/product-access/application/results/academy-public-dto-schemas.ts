@@ -78,7 +78,7 @@ export const academySettingsDtoSchema = z.strictObject({
 
 export type AcademySettingsDto = z.infer<typeof academySettingsDtoSchema>;
 
-export const academyGrantDtoSchema = z.strictObject({
+const academyGrantDtoSchema = z.strictObject({
   endsAt: isoDateTime.nullable(),
   id: z.uuid(),
   note: z.string().nullable(),
@@ -117,8 +117,4 @@ export const academyBonusResultDtoSchema = z.strictObject({
 
 export const academyCheckoutDtoSchema = z.strictObject({
   checkoutUrl: z.url({ protocol: /^https$/ }),
-});
-
-export const academyStatusMessageDtoSchema = z.strictObject({
-  status: z.string(),
 });

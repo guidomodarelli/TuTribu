@@ -52,5 +52,3 @@ export const tribeRoundQuerySchema = z.object({
     .pipe(z.int({ error: TRIBE_ROUND_INPUT_ISSUE.invalidRoundPage }).positive())
     .optional(),
 });
-
-export type TribeRoundQuery = z.infer<typeof tribeRoundQuerySchema>;

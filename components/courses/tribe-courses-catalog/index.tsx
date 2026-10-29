@@ -56,7 +56,7 @@ function buildProgressFillStyle(progressPercent: number) {
 /**
  * Builds the shareable URL of a course inside the tribe courses section.
  */
-export function buildCourseHref(tribeSlug: string, courseId: string): string {
+function buildCourseHref(tribeSlug: string, courseId: string): string {
   return buildTribeCoursesRoute(tribeSlug, { courseId });
 }
 

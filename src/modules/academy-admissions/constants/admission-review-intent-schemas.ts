@@ -15,5 +15,5 @@ export const admissionBatchReviewIntentSchema = z.strictObject({
   input: admissionReviewDecisionInputSchema.omit({ expectedVersion: true }),
 }).refine((intent) => new Set(intent.selection.map((item) => item.requestId)).size === intent.selection.length) satisfies z.ZodType<AdmissionBatchReviewIntent>;
 /** Old individual records remain valid within the same single recovery slot. */
-export const admissionStoredReviewIntentSchema = z.union([admissionReviewIntentSchema, admissionBatchReviewIntentSchema]) satisfies z.ZodType<AdmissionStoredReviewIntent>;
+const admissionStoredReviewIntentSchema = z.union([admissionReviewIntentSchema, admissionBatchReviewIntentSchema]) satisfies z.ZodType<AdmissionStoredReviewIntent>;
 export const admissionStoredReviewRecordSchema = z.object({ viewerId: z.string().min(1), slug: z.string().min(1), pending: admissionStoredReviewIntentSchema });

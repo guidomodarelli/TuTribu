@@ -8,7 +8,6 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { MessagingPublicError } from "./messaging-errors";
 
 export { messagingConnectionSchema, providerResourcePageSchema, verificationChallengeSchema, verificationResultSchema, messageDeliverySchema } from "./messaging-flow-result-schemas";
-export type { MessagingConnectionDto, ProviderResourcePageDto, VerificationChallengeDto, VerificationResultDto } from "./messaging-flow-result-schemas";
 
 const countSchema = z.int().nonnegative();
 const countrySchema = z.string().refine((country) => isSupportedCountry(country as CountryCode));

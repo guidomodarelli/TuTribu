@@ -136,7 +136,7 @@ async function collectFeedback(context: ConnectionsContext, run: () => Promise<v
 }
 
 /** @param setters - Configuration setters. @param value - Authoritative own configuration. @returns Nothing after storing it with its observation time; a successful read also settles an earlier failed one. */
-export function applyConfiguration(setters: Pick<ConnectionsContext, "setConfiguration" | "setObservedAt" | "setCurrentReadFailed">, value: MessagingConfigurationResult): void {
+function applyConfiguration(setters: Pick<ConnectionsContext, "setConfiguration" | "setObservedAt" | "setCurrentReadFailed">, value: MessagingConfigurationResult): void {
   setters.setConfiguration(value); setters.setObservedAt(new Date().toISOString()); setters.setCurrentReadFailed(false);
 }
 

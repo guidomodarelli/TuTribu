@@ -55,7 +55,7 @@ export type ReviewSession = {
 export type ReviewReadRequest = { selectionId?: string; append: boolean; after?: string | null; useServerSnapshot: boolean };
 
 /** @param current - Phase when the work settles. @param pending - Original command still stored, if any. @returns A changed viewer as is; otherwise uncertain while an original is pending, or idle. */
-export function settledReviewPhase(current: ReviewPhase, pending: AdmissionStoredReviewIntent | null): ReviewPhase {
+function settledReviewPhase(current: ReviewPhase, pending: AdmissionStoredReviewIntent | null): ReviewPhase {
   if (current === ADMISSION_REVIEW_PHASE.changedViewer) return current;
   return pending ? ADMISSION_REVIEW_PHASE.uncertain : ADMISSION_REVIEW_PHASE.idle;
 }

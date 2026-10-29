@@ -1,8 +1,5 @@
 import type { TRIBE_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 
-export type TribeImageUploadStatus =
-  (typeof TRIBE_IMAGE_UPLOAD_STATUS)[keyof typeof TRIBE_IMAGE_UPLOAD_STATUS];
-
 export type CreateTribeImageUploadCommand = {
   tribeSlug: string;
 };

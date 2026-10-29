@@ -7,7 +7,7 @@
 import { BUENOS_AIRES_TIME_ZONE, BUENOS_AIRES_UTC_OFFSET } from "@/src/constants/date-time";
 
 /** Shape of a `datetime-local` value at minute precision. */
-export const BUENOS_AIRES_MINUTE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u;
+const BUENOS_AIRES_MINUTE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u;
 
 const SECONDS_SUFFIX = ":00";
 const MINUTE_KEY_FORMATTER = new Intl.DateTimeFormat("en-CA", {

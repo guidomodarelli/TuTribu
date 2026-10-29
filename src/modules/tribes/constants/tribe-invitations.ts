@@ -32,21 +32,3 @@ export const TRIBE_INVITATION_CHANNEL = {
   whatsapp: "whatsapp",
   youtube: "youtube",
 } as const;
-
-export const TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_ACTION = {
-  switchToCurrent: "switch_to_current",
-  switchToSpecific: "switch_to_specific",
-  revoke: "revoke",
-} as const;
-
-export const TRIBE_INVITATION_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
-  tribemate: "tribemate",
-} as const;
-
-export const TRIBE_INVITATION_MEMBERSHIP_STATUS = {
-  active: "active",
-  blocked: "blocked",
-  muted: "muted",
-} as const;

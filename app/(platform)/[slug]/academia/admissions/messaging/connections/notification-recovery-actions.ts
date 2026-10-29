@@ -61,7 +61,7 @@ function isBoundResult(value: NotificationDeliveryRecoveryResult, original: Noti
 }
 
 /** @param context - Current render facts. @param next - Metadata-only attempted original, or explicitly cleared known completion. @param deliveryId - Current selected draft resource. @param nextHistory - Preserved originals without silently dropping any identity. @returns Whether the reference is preserved before any write/navigation. */
-export function preserveRecovery(context: NotificationRecoveryContext, next: NotificationRecoveryReference | null, deliveryId = context.selectedDeliveryId, nextHistory = context.history): boolean {
+function preserveRecovery(context: NotificationRecoveryContext, next: NotificationRecoveryReference | null, deliveryId = context.selectedDeliveryId, nextHistory = context.history): boolean {
   const targetConnectionId = next?.targetConnectionId ?? context.target?.id;
   const saved = context.store.save(context.viewerId, context.slug, { reference: next, draft: deliveryId && targetConnectionId ? { deliveryId, targetConnectionId } : null, history: nextHistory });
   if (!saved) { context.setStorageAvailable(false); context.setMessage({ kind: "alert", text: COPY.storageUnavailable }); }

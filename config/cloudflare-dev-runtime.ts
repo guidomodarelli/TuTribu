@@ -3,7 +3,7 @@ import {
   isVercelEnvironment,
 } from "./deployment-environment";
 
-export function shouldInitializeOpenNextCloudflareForDev(
+function shouldInitializeOpenNextCloudflareForDev(
   environment: RuntimeEnvironment = process.env
 ): boolean {
   return !isVercelEnvironment(environment);

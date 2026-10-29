@@ -28,7 +28,7 @@ export type AcademyAdmissionRestoreCopy = {
 };
 
 /** Carries safe fixture context while preserving the private original failure as cause. */
-export class AcademyAdmissionRestoreError extends Error {
+class AcademyAdmissionRestoreError extends Error {
   readonly branchName?: string;
   readonly parentId?: string;
   /** @param code - Stable safe failure code. @param operation - Owned fixture action. @param branchId - Safe resource identity when known. @param cause - Private original error, never a public DTO. @param scope - Exact generated identity retained for uncertain creation reconciliation. */

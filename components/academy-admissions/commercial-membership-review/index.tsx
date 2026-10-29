@@ -13,7 +13,6 @@ import styles from "./styles.module.scss";
 
 /** The leader's unsaved choice for one row; kept by the container so changing steps never loses it. */
 export type CommercialMembershipReviewDraft = { decision: CommercialMembershipDecision | null; reason: string; confirmed: boolean };
-export const EMPTY_COMMERCIAL_MEMBERSHIP_REVIEW_DRAFT: CommercialMembershipReviewDraft = { decision: null, reason: "", confirmed: false };
 
 export type CommercialMembershipReviewProps = {
   phase: "loading" | "ready" | "failed";

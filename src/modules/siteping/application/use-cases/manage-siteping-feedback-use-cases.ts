@@ -161,7 +161,7 @@ function serializeAnnotation(annotation: SitepingAnnotation) {
   };
 }
 
-export function serializeSitepingFeedback(
+function serializeSitepingFeedback(
   feedback: SitepingFeedback
 ): SitepingFeedbackResult {
   return {

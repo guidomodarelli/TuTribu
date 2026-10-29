@@ -99,8 +99,6 @@ export const tribeEventReactionBodySchema = z.object(
   { error: TRIBE_EVENT_INPUT_ISSUE.invalidReaction }
 );
 
-export type TribeEventReactionRequestBody = z.input<typeof tribeEventReactionBodySchema>;
-
 /**
  * Body of `POST .../comments`. `clientRequestId` is the client operation key
  * (a UUID generated once per send and reused on retries of the same text).

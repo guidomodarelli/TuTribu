@@ -1,7 +1,3 @@
-/**
- * Provider identifier used by Better Auth for the Google social provider.
- */
-export const GOOGLE_PROVIDER_ID = "google";
 
 /**
  * Google OpenID Connect userinfo endpoint. Returns the current profile claims

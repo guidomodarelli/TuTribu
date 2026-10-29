@@ -55,7 +55,7 @@ function readRecentlyShownMonth(tribeSlug: string): string | null {
  * @param toMonth - Month shown now.
  * @returns `next` or `previous` when the month changed, `none` otherwise.
  */
-export function resolveMonthTransitionDirection(
+function resolveMonthTransitionDirection(
   fromMonth: string | null,
   toMonth: string
 ): MonthTransitionDirection {
