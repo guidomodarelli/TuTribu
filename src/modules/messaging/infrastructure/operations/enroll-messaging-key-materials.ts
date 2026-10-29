@@ -22,7 +22,7 @@ export type MessagingKeyEnrollmentPurposeReport = {
 };
 
 /** Closed command failure that carries no connection string, key material or SQL text. */
-export class MessagingKeyEnrollmentError extends Error {
+class MessagingKeyEnrollmentError extends Error {
   readonly code: MessagingKeyEnrollmentErrorCode;
 
   /** @param code - Stable operator diagnostic. @param options - Native cause, never printed by the command. */

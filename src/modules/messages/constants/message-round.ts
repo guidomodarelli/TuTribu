@@ -28,10 +28,6 @@ export const MESSAGE_IMAGES = {
   maxCount: 10,
 } as const;
 
-export const MESSAGE_VIDEOS = {
-  maxCount: 10,
-} as const;
-
 /**
  * Combined ceiling for media attachments (images + external videos) that a
  * single message can carry. Images and external videos share one global
@@ -220,11 +216,6 @@ export const TRIBE_CHANNEL_MUTATION_STATUS = {
 
 export const TRIBE_CHANNEL_NAME = {
   maxLength: 30,
-  minLength: 1,
-} as const;
-
-export const TRIBE_CHANNEL_EMOJI = {
-  maxLength: 8,
   minLength: 1,
 } as const;
 

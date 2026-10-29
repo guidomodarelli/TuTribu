@@ -15,7 +15,7 @@ import { admissionOwnRequestSchema } from "./admission-flow-result-schemas";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
 /** @returns The same closed view for absence, wrong account and unusable personal authorization. */
-export function unavailablePersonalInvitationOverview() {
+function unavailablePersonalInvitationOverview() {
   return personalInvitationOverviewSchema.parse({ state: PERSONAL_INVITATION_OVERVIEW_STATE.unavailable, safeMessage: PERSONAL_INVITATION_OVERVIEW_MESSAGE.unavailable });
 }
 

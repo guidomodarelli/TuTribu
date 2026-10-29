@@ -4,7 +4,7 @@ import { ADMISSION_REVIEW_STORAGE_PREFIX } from "@/src/modules/academy-admission
 import { admissionStoredReviewRecordSchema } from "@/src/modules/academy-admissions/constants/admission-review-intent-schemas";
 import type { AdmissionStoredReviewIntent } from "@/src/modules/academy-admissions/application/results/admission-review-intent";
 export { admissionReviewIntentSchema, admissionBatchReviewIntentSchema } from "@/src/modules/academy-admissions/constants/admission-review-intent-schemas";
-export type { AdmissionReviewIntent, AdmissionBatchReviewIntent, AdmissionBatchReviewSelection, AdmissionStoredReviewIntent } from "@/src/modules/academy-admissions/application/results/admission-review-intent";
+export type { AdmissionBatchReviewSelection, AdmissionStoredReviewIntent } from "@/src/modules/academy-admissions/application/results/admission-review-intent";
 
 /** @param viewerId - Native current account id. @param slug - Current validated tribe. @returns A tenant/account-local key, never a permission token. */
 function reviewIntentKey(viewerId: string, slug: string): string { return `${ADMISSION_REVIEW_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`; }

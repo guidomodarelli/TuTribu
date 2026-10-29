@@ -16,7 +16,7 @@ export type AdmissionReviewHistoryItemDto = {
 export type AdmissionReviewHistoryPageDto = { tribeId: string; admissionRequestId: string; items: AdmissionReviewHistoryItemDto[]; nextCursor: string | null };
 
 /** Explicit public facts exclude actor identifiers, arbitrary causes and metadata. */
-export const admissionReviewHistoryItemSchema = z.strictObject({
+const admissionReviewHistoryItemSchema = z.strictObject({
   id: z.uuid(), eventType: z.enum(ADMISSION_REVIEW_HISTORY_EVENT),
   fromStatus: z.enum(ADMISSION_REQUEST_STATUS).nullable(), toStatus: z.enum(ADMISSION_REQUEST_STATUS).nullable(),
   resourceVersion: z.int().positive().max(Number.MAX_SAFE_INTEGER).nullable(), actorKind: z.enum(ADMISSION_REVIEW_HISTORY_ACTOR), createdAt: z.iso.datetime({ precision: 3 }),

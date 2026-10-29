@@ -1,7 +1,7 @@
 "use client";
 
 import { type LucideIcon, MonitorIcon, MoonIcon, SunIcon, SunMoonIcon  } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 
 import { Button, DropdownMenu, type DropdownItem, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@golfo/ui";
 import { useIsHydrated } from "@golfo/ui/hooks";
@@ -134,7 +134,7 @@ export function ThemeModeDropdown() {
         >
           {/* Keyed by hydration so revealing the stored mode on load is not animated. */}
           <AnimatePresence initial={false} key={String(isHydrated)} mode="popLayout">
-            <motion.span
+            <m.span
               key={selectedOption?.value ?? UNRESOLVED_ICON_KEY}
               animate={ICON_SWAP_MOTION.animate}
               aria-hidden="true"
@@ -143,7 +143,7 @@ export function ThemeModeDropdown() {
               initial={ICON_SWAP_MOTION.initial}
             >
               <TriggerIcon aria-hidden className={styles.ThemeModeDropdown__triggerIcon} />
-            </motion.span>
+            </m.span>
           </AnimatePresence>
         </Button>
       }

@@ -5,7 +5,7 @@ import {
 } from "@/src/constants/time";
 
 /** Days a member stays signed in since their last visit before signing in again. */
-export const MEMBER_SESSION_LIFETIME_DAYS = 180;
+const MEMBER_SESSION_LIFETIME_DAYS = 180;
 
 /**
  * Sliding session lifetime shared by the database row and the session cookie.

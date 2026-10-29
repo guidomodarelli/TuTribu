@@ -192,7 +192,7 @@ export async function runWithGuardedTransaction<T>(
  * @param runStatement - The single statement to run.
  * @returns The value returned by `runStatement`.
  */
-export async function runWithGuardedStatement<T>(
+async function runWithGuardedStatement<T>(
   pool: Pool,
   runStatement: (database: RequestDatabase) => Promise<T>
 ): Promise<T> {

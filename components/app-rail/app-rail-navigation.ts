@@ -50,15 +50,15 @@ export type TribeNavigationItem = {
 const NESTED_ROUTE_SEPARATOR = "/";
 const TRIBE_ACCESS_MODEL_ACADEMY = "academy";
 
-export const TRIBE_ADMIN_ROLE = {
+const TRIBE_ADMIN_ROLE = {
   guardian: "guardian",
   leader: "leader",
 } as const;
 
 /** Heading of the management group in the sidebar and middle step of its breadcrumb. */
-export const TRIBE_ADMIN_SECTION_LABEL = "Gestión";
+const TRIBE_ADMIN_SECTION_LABEL = "Gestión";
 
-export const DISCOVER_TRIBES_NAVIGATION_ITEM = {
+const DISCOVER_TRIBES_NAVIGATION_ITEM = {
   href: ROUTES.home,
   icon: CompassIcon,
   label: "Descubrir tribus",
@@ -71,14 +71,14 @@ export const DISCOVER_TRIBES_NAVIGATION_ITEM = {
  * @param routePath - Route to compare against.
  * @returns True for the route and its descendants.
  */
-export function isSameOrNestedPath(pathname: string, routePath: string): boolean {
+function isSameOrNestedPath(pathname: string, routePath: string): boolean {
   return (
     pathname === routePath ||
     pathname.startsWith(`${routePath}${NESTED_ROUTE_SEPARATOR}`)
   );
 }
 
-export const TRIBE_MEMBER_NAVIGATION: readonly TribeNavigationItem[] = [
+const TRIBE_MEMBER_NAVIGATION: readonly TribeNavigationItem[] = [
   {
     academyOnly: true,
     hrefBuilder: ROUTES.tribes.academy,
@@ -143,7 +143,7 @@ export const TRIBE_MEMBER_NAVIGATION: readonly TribeNavigationItem[] = [
   },
 ];
 
-export const TRIBE_ADMIN_NAVIGATION: readonly TribeNavigationItem[] = [
+const TRIBE_ADMIN_NAVIGATION: readonly TribeNavigationItem[] = [
   {
     academyOnly: true,
     hrefBuilder: ROUTES.tribes.academyManage,
@@ -189,7 +189,7 @@ export const TRIBE_ADMIN_NAVIGATION: readonly TribeNavigationItem[] = [
  * @param tribe - Tribe of the member.
  * @returns True for leaders and guardians.
  */
-export function canManageTribe(tribe: MemberTribeListItemResult): boolean {
+function canManageTribe(tribe: MemberTribeListItemResult): boolean {
   return (
     tribe.role === TRIBE_ADMIN_ROLE.leader ||
     tribe.role === TRIBE_ADMIN_ROLE.guardian
@@ -226,7 +226,7 @@ function isNavigationItemVisible(
  * @param tribe - Active tribe of the member.
  * @returns Visible member navigation items, in sidebar order.
  */
-export function getVisibleMemberNavigation(
+function getVisibleMemberNavigation(
   tribe: MemberTribeListItemResult
 ): TribeNavigationItem[] {
   return TRIBE_MEMBER_NAVIGATION.filter((item) => isNavigationItemVisible(item, tribe));
@@ -239,7 +239,7 @@ export function getVisibleMemberNavigation(
  * @param tribe - Active tribe of the member.
  * @returns Visible management navigation items, in sidebar order.
  */
-export function getVisibleAdminNavigation(
+function getVisibleAdminNavigation(
   tribe: MemberTribeListItemResult
 ): TribeNavigationItem[] {
   if (!canManageTribe(tribe)) {
@@ -260,7 +260,7 @@ export function getVisibleAdminNavigation(
  * @param memberTribes - Tribes of the member.
  * @returns The active tribe, or undefined outside the member's tribes.
  */
-export function findActiveTribe(
+function findActiveTribe(
   pathname: string,
   memberTribes: readonly MemberTribeListItemResult[]
 ): MemberTribeListItemResult | undefined {
@@ -270,16 +270,16 @@ export function findActiveTribe(
 }
 
 /** Label of the global tribes section shown outside a tribe. */
-export const TRIBES_SECTION_LABEL = "Tribus";
+const TRIBES_SECTION_LABEL = "Tribus";
 
-export const CREATE_TRIBE_NAVIGATION_ITEM = {
+const CREATE_TRIBE_NAVIGATION_ITEM = {
   href: ROUTES.tribes.create,
   icon: PlusCircleIcon,
   label: "Nueva tribu",
 } as const;
 
 /** Text of the badge that marks sections still in development. */
-export const COMING_SOON_BADGE_LABEL = "Pronto";
+const COMING_SOON_BADGE_LABEL = "Pronto";
 
 const MEMBER_SECTION_ID = "member";
 const ADMIN_SECTION_ID = "admin";
@@ -297,7 +297,7 @@ export type AppRailEntry = {
 };
 
 /** Label of the admissions group in the management section of the rail. */
-export const ADMISSIONS_NAVIGATION_LABEL = "Admisiones";
+const ADMISSIONS_NAVIGATION_LABEL = "Admisiones";
 const ADMISSIONS_ENTRY_ID = "admissions";
 
 /**

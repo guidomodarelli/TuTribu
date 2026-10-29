@@ -14,7 +14,7 @@ export const PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC = { readFailure: "Pe
 /** Navigation stays separate from API routing and never carries token material. */
 export const PERSONAL_INVITATION_MANAGEMENT_SETTINGS_SEGMENT = "academia/admissions/invitations";
 /** Browser queries preserve the opaque cursor; the native API owns its tuple parsing. */
-export const personalInvitationManagementBrowserQuerySchema = z.strictObject({ limit: z.int().min(1).max(ADMISSION_QUERY_LIMIT.maximumPageSize), status: z.enum(ADMISSION_INVITATION_STATUS).optional(), cursor: z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).optional() });
+const personalInvitationManagementBrowserQuerySchema = z.strictObject({ limit: z.int().min(1).max(ADMISSION_QUERY_LIMIT.maximumPageSize), status: z.enum(ADMISSION_INVITATION_STATUS).optional(), cursor: z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).optional() });
 /** Safe page identity and real list/policy facts; no field creates permission or a write. */
 export const personalInvitationManagementPageStateSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ready"), slug: z.string().regex(TRIBE_SLUG_PATTERN), tribeId: z.uuid(), viewerId: z.string().min(1), renderedAt: z.iso.datetime({ offset: true }), publicOrigin: z.url().refine((value) => new URL(value).origin === value).optional(), contactType: z.enum(ADMISSION_CONTACT_TYPE).nullable(), requiresAdditionalVerification: z.boolean(), allowedCountries: z.array(z.string().min(1)), hasUsableAllowlist: z.boolean(), page: personalInvitationPageSchema, query: personalInvitationManagementBrowserQuerySchema }),

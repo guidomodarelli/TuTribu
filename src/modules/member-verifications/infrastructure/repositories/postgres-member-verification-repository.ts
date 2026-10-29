@@ -47,7 +47,7 @@ type DatabaseExecutor = <T>(
 /** Audit writer injected by the composition root (product-access SQL). */
 export type VerificationAuditWriter = AuditEventWriter;
 
-export const VERIFICATION_AUDIT_ACTION = {
+const VERIFICATION_AUDIT_ACTION = {
   decided: "member_verification_decided",
   providerSaved: "verification_provider_saved",
   requested: "member_verification_requested",

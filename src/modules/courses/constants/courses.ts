@@ -43,9 +43,6 @@ export const COURSE_MUTATION_STATUS = {
   updated: "updated",
 } as const;
 
-export type CourseMutationStatus =
-  (typeof COURSE_MUTATION_STATUS)[keyof typeof COURSE_MUTATION_STATUS];
-
 /**
  * Ceiling for file attachments per course lesson. Type and size limits come
  * from the shared attachment contract in `src/constants/attachment-files.ts`.

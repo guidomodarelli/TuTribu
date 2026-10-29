@@ -10,7 +10,6 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { TRIBE_SLUG_PATTERN } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
-import type { AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { admissionPublicIdSchema, admissionPublicVersionSchema, admissionPublicInstantSchema, admissionLocalHrefSchema, admissionMaskedContactSchema } from "./admission-contract-fields";
 import { admissionContactOptionsSchema } from "./admission-contact-options-schema";
@@ -107,4 +106,3 @@ export type AdmissionReviewDto = z.infer<typeof admissionReviewSchema>;
 export type AdmissionOverviewDto = z.infer<typeof admissionOverviewSchema>;
 export type AdmissionOutcomeDto = z.infer<typeof admissionOutcomeSchema>;
 export type AdmissionBatchResultDto = z.infer<typeof admissionBatchResultSchema>;
-export type OperationStateDto<Result> = AdmissionOperationResult<Result>;

@@ -30,7 +30,6 @@ import type { NotificationInboxResponse } from "@/src/modules/notifications/appl
  * confirmed own admission action. Ordinary context retains badge-only polling.
  */
 export { ORDINARY_NOTIFICATION_REFRESH_INTERVAL_MS as NOTIFICATION_UNREAD_POLL_INTERVAL_MS } from "@/src/modules/notifications/constants/admission-notification-refresh";
-export { NOTIFICATION_LIST_STATUS } from "@/src/modules/notifications/constants/notification-center";
 export type { NotificationListStatus } from "@/src/modules/notifications/application/results/notification-refresh-state";
 
 export type NotificationCenter = {

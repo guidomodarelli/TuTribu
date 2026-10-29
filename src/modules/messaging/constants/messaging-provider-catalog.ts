@@ -4,7 +4,7 @@ import type { MessagingProviderCatalogEntry } from "../application/ports/messagi
 import { MESSAGING_INITIAL_PROVIDER_ID, MESSAGING_PUBLIC_CHANNEL } from "./messaging-public-contract";
 
 /** The first delivery exposes only Zavu and actual distinct channels, never clients, keys or factories. */
-export const messagingProviderCatalogEntrySchema = z.strictObject({
+const messagingProviderCatalogEntrySchema = z.strictObject({
   id: z.literal(MESSAGING_INITIAL_PROVIDER_ID),
   channels: z.array(z.enum(MESSAGING_PUBLIC_CHANNEL)).nonempty().refine((channels) => new Set(channels).size === channels.length),
 }) satisfies z.ZodType<MessagingProviderCatalogEntry>;

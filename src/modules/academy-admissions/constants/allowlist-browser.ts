@@ -3,7 +3,6 @@ export const ALLOWLIST_SETTINGS_SEGMENT = "academia/admissions/allowlist";
 export const ALLOWLIST_BROWSER_STORAGE_PREFIX = "tutribu-allowlist-workflow";
 export const ALLOWLIST_BROWSER_TIMEOUT_MS = 120_000;
 export const ALLOWLIST_BROWSER_PATH = { prefix: "/api/tribes", segment: "admissions", entries: "allowlist", operations: "operations" } as const;
-export const ALLOWLIST_BROWSER_STATUS = { ready: "ready", failed: "failed", aborted: "aborted" } as const;
 export const ALLOWLIST_FILTER_ALL = "all";
 export const ALLOWLIST_STATUS_LABEL = { enabled: "Habilitada", disabled: "Deshabilitada" } as const;
 export const ALLOWLIST_SOURCE_LABEL = { manual: "Agregada manualmente", csv: "Importada" } as const;

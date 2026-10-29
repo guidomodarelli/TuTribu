@@ -35,6 +35,7 @@ import {
   type PinDebounceTimers,
   type PollVoteDebounceTimers,
   readJsonRequest,
+  releaseUnreferencedImagePreviewUrls,
   type ReplyLoadStatus,
   revokeMessageImagePreviewUrl,
   submitJsonRequest,
@@ -165,7 +166,7 @@ function useMessageComposerState() {
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
   const [isPollComposerEnabled, setIsPollComposerEnabled] = useState(false);
-  const [pollOptions, setPollOptions] = useState<string[]>(
+  const [pollOptions, setPollOptions] = useState<string[]>(() =>
     Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
   );
   const [pollAllowsMultipleVotes, setPollAllowsMultipleVotes] = useState(false);
@@ -850,6 +851,38 @@ function useSelectedMessageRepliesLoader({
 }
 
 /**
+ * Blob previews that created messages keep showing in place of the uploaded
+ * image, so it does not flicker. Each one is revoked once no message or draft
+ * shows it (a page change or a refresh brings the server URL), and every one
+ * left is revoked when the round unmounts, including on a tribe change.
+ */
+function useRetainedMessageImagePreviewUrls(
+  messages: TribeRoundMessageResult[],
+  mediaDrafts: ComposerMediaDraft[]
+) {
+  const retainedMessageImagePreviewUrlsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    releaseUnreferencedImagePreviewUrls({
+      mediaDrafts,
+      messages,
+      retainedPreviewUrls: retainedMessageImagePreviewUrlsRef.current,
+    });
+  }, [mediaDrafts, messages]);
+
+  useEffect(() => {
+    const retainedPreviewUrls = retainedMessageImagePreviewUrlsRef.current;
+
+    return () => {
+      retainedPreviewUrls.forEach(revokeMessageImagePreviewUrl);
+      retainedPreviewUrls.clear();
+    };
+  }, []);
+
+  return { retainedMessageImagePreviewUrlsRef };
+}
+
+/**
  * Message details body ref plus the auto-focus handler that moves focus to it
  * when the thread dialog opens.
  */
@@ -898,6 +931,7 @@ export type TribeRoundController = Omit<TribeRoundProps, "round"> & {
   ReturnType<typeof useRoundBookkeepingRefs> &
   ReturnType<typeof deriveTribeRoundView> &
   ReturnType<typeof useTribeRoundResources> &
+  ReturnType<typeof useRetainedMessageImagePreviewUrls> &
   ReturnType<typeof useMessageDetailsBodyFocus>;
 
 /**
@@ -934,6 +968,10 @@ export function useTribeRoundController(
     tribeSlug,
   });
   const resources = useTribeRoundResources(tribeSlug, composerState.mediaDrafts);
+  const retainedPreviews = useRetainedMessageImagePreviewUrls(
+    feedState.messages,
+    composerState.mediaDrafts
+  );
 
   useSelectedMessageRepliesLoader({
     currentTribeSlugRef: resources.currentTribeSlugRef,
@@ -957,6 +995,7 @@ export function useTribeRoundController(
     ...bookkeepingRefs,
     ...derivedView,
     ...resources,
+    ...retainedPreviews,
     ...messageDetailsBodyFocus,
     roundNavigation,
     router,

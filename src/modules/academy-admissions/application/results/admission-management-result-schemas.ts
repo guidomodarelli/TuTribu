@@ -36,5 +36,4 @@ export const allowlistImportSchema = z.object({
   && (preview.state !== ADMISSION_IMPORT_PUBLIC_STATE.completed || preview.rows.every((row) => !row.selected || row.outcome !== undefined)));
 
 /** Public props/response/browser types belong to application, not SQL or SDK DTOs. */
-export type AdmissionPolicyDto = z.infer<typeof admissionPolicySchema>;
 export type AllowlistImportDto = z.infer<typeof allowlistImportSchema>;

@@ -37,9 +37,5 @@ export const lessonConversionResponseSchema = z.object({
   message: z.string(),
 });
 
-export const lessonConversionMessageResponseSchema = z.object({
-  message: z.string(),
-});
-
 export type LessonConversionTargetsResponse = z.infer<typeof lessonConversionTargetsResponseSchema>;
 export type LessonConversionResponse = z.infer<typeof lessonConversionResponseSchema>;

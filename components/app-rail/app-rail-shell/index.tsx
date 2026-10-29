@@ -19,10 +19,12 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   AnimatePresence,
   LayoutGroup,
-  motion,
+  m,
+  useIsPresent,
   useMotionValue,
   useReducedMotion,
   useTransform,
+  type Transition,
   type Variants,
 } from "motion/react";
 import { Dialog, Tooltip as TooltipPrimitive } from "radix-ui";
@@ -263,7 +265,7 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
       >
         {entry.isActive ? <RowHighlight layoutId={layoutId} reduce={reduce} /> : null}
         <Icon className={styles.AppRailShell__icon} aria-hidden="true" />
-        <motion.span
+        <m.span
           className={styles.AppRailShell__label}
           aria-hidden={collapsed}
           initial={false}
@@ -271,9 +273,9 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
           transition={fade}
         >
           {entry.label}
-        </motion.span>
+        </m.span>
         {entry.badge ? (
-          <motion.span
+          <m.span
             className={styles.AppRailShell__badge}
             aria-hidden={collapsed}
             initial={false}
@@ -281,7 +283,7 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
             transition={fade}
           >
             {entry.badge}
-          </motion.span>
+          </m.span>
         ) : null}
       </button>
     </RailTip>
@@ -291,7 +293,7 @@ function NavRow({ collapsed, entry, layoutId, onSelect, reduce, tips }: NavRowPr
 /** The shared highlight that springs between the active rows of one navigation. */
 function RowHighlight({ layoutId, reduce }: { layoutId: string; reduce: boolean }) {
   return (
-    <motion.span
+    <m.span
       layoutId={layoutId}
       className={styles.AppRailShell__highlight}
       style={{ borderRadius: ROW_HIGHLIGHT_RADIUS_PX }}
@@ -377,7 +379,7 @@ function NavGroup({ collapsed, entry, layoutId, onExpand, onSelectHref, panelId,
         >
           {lit ? <RowHighlight layoutId={layoutId} reduce={reduce} /> : null}
           <Icon className={styles.AppRailShell__icon} aria-hidden="true" />
-          <motion.span
+          <m.span
             className={styles.AppRailShell__label}
             aria-hidden={collapsed}
             initial={false}
@@ -385,8 +387,8 @@ function NavGroup({ collapsed, entry, layoutId, onExpand, onSelectHref, panelId,
             transition={fade}
           >
             {entry.label}
-          </motion.span>
-          <motion.span
+          </m.span>
+          <m.span
             className={styles.AppRailShell__chevron}
             aria-hidden="true"
             initial={false}
@@ -394,7 +396,7 @@ function NavGroup({ collapsed, entry, layoutId, onExpand, onSelectHref, panelId,
             transition={{ opacity: fade, rotate: reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.snappy }}
           >
             <ChevronRightIcon aria-hidden="true" />
-          </motion.span>
+          </m.span>
         </button>
       </RailTip>
       <AnimatedCollapse isOpen={shown}>
@@ -425,7 +427,7 @@ function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, s
   const height = reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth;
 
   return (
-    <motion.nav className={styles.AppRailShell__nav} aria-label={APP_RAIL_UI.navigationLabel} layoutScroll>
+    <m.nav className={styles.AppRailShell__nav} aria-label={APP_RAIL_UI.navigationLabel} layoutScroll>
       {sections.map((section) => {
         const headingId = `${baseId}-${variant}-${section.id}`;
 
@@ -437,13 +439,13 @@ function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, s
             aria-labelledby={section.heading ? headingId : undefined}
           >
             {section.heading ? (
-              <motion.div
+              <m.div
                 className={styles.AppRailShell__heading}
                 initial={false}
                 animate={{ height: collapsed ? HEADING_RAIL_HEIGHT_PX : HEADING_HEIGHT_PX }}
                 transition={height}
               >
-                <motion.span
+                <m.span
                   id={headingId}
                   className={styles.AppRailShell__headingText}
                   initial={false}
@@ -451,8 +453,8 @@ function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, s
                   transition={fade}
                 >
                   {section.heading}
-                </motion.span>
-                <motion.span
+                </m.span>
+                <m.span
                   className={styles.AppRailShell__divider}
                   aria-hidden="true"
                   data-visible={collapsed}
@@ -460,7 +462,7 @@ function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, s
                   animate={{ opacity: collapsed ? 1 : 0, scaleX: collapsed ? 1 : DIVIDER_REST_SCALE }}
                   transition={mark}
                 />
-              </motion.div>
+              </m.div>
             ) : null}
             <ul className={styles.AppRailShell__list}>
               {section.entries.map((entry) => (
@@ -494,7 +496,7 @@ function Navigation({ baseId, collapsed, footnote, onExpand, onSelect, reduce, s
         );
       })}
       {footnote && !collapsed ? <p className={styles.AppRailShell__footnote}>{footnote}</p> : null}
-    </motion.nav>
+    </m.nav>
   );
 }
 
@@ -517,7 +519,7 @@ type RailLabelStackProps = {
 /** Title and detail beside a rail icon; they fade and drift out while the rail collapses. */
 function RailLabelStack({ collapsed, detail, reduce, title }: RailLabelStackProps) {
   return (
-    <motion.span
+    <m.span
       className={styles.AppRailShell__stack}
       initial={false}
       animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? LABEL_DRIFT_PX : 0 }}
@@ -525,7 +527,7 @@ function RailLabelStack({ collapsed, detail, reduce, title }: RailLabelStackProp
     >
       <strong className={styles.AppRailShell__stackTitle}>{title}</strong>
       <span className={styles.AppRailShell__stackDetail}>{detail}</span>
-    </motion.span>
+    </m.span>
   );
 }
 
@@ -605,7 +607,7 @@ function PanelGlyph({ collapsed, reduce }: { collapsed: boolean; reduce: boolean
       aria-hidden="true"
     >
       <rect x="2.75" y="3.75" width="14.5" height="12.5" rx="3.5" />
-      <motion.path
+      <m.path
         d="M8.25 4.25v11.5"
         initial={false}
         animate={{ x: collapsed ? PANEL_GLYPH_FOLDED_SHIFT : 0 }}
@@ -785,13 +787,13 @@ function RailSidebar({ authenticatedMember, baseId, footnote, memberTribes, navi
   const { collapsed, reduce } = view;
 
   return (
-    <motion.div
+    <m.div
       className={styles.AppRailShell__slot}
       initial={false}
       animate={{ width: view.floating || collapsed ? RAIL_WIDTH_PX : FULL_WIDTH_PX }}
       transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.smooth}
     >
-      <motion.div
+      <m.div
         id={sidebarId}
         className={styles.AppRailShell__sidebar}
         initial={false}
@@ -821,8 +823,8 @@ function RailSidebar({ authenticatedMember, baseId, footnote, memberTribes, navi
           onSelect={onSelect}
         />
         {authenticatedMember ? <Profile collapsed={collapsed} member={authenticatedMember} reduce={reduce} /> : null}
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -831,7 +833,7 @@ function FloatScrim({ onClose, overlaid, reduce }: { onClose: () => void; overla
   return (
     <AnimatePresence>
       {overlaid ? (
-        <motion.div
+        <m.div
           key="float-scrim"
           className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--float"]}`}
           aria-hidden="true"
@@ -914,6 +916,38 @@ type BreadcrumbsProps = {
   reduce: boolean;
 };
 
+/** The open section's crumb: it rises in and out with the trail, and swaps its label in place while it stays. */
+function CurrentCrumb({ label, swap }: { label: string; swap: Transition }) {
+  // While leaving, the root crumb is already the current page, so this one stops announcing itself.
+  const isPresent = useIsPresent();
+
+  return (
+    <m.li
+      className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--current"]}`}
+      aria-current={isPresent ? CURRENT_PAGE : undefined}
+      variants={rise}
+      initial="hidden"
+      animate="shown"
+      exit="gone"
+      transition={swap}
+    >
+      <AnimatePresence mode={POP_LAYOUT} initial={false}>
+        <m.span
+          key={label}
+          className={styles.AppRailShell__crumbText}
+          variants={rise}
+          initial="hidden"
+          animate="shown"
+          exit="gone"
+          transition={swap}
+        >
+          {label}
+        </m.span>
+      </AnimatePresence>
+    </m.li>
+  );
+}
+
 /** Animated breadcrumb: the parent and current labels swap in place, and the parent's width springs between measured labels. */
 function Breadcrumbs({ crumbCurrent, crumbParent, crumbRoot, parentLabels, reduce }: BreadcrumbsProps) {
   const sizersRef = useRef<HTMLSpanElement>(null);
@@ -933,7 +967,7 @@ function Breadcrumbs({ crumbCurrent, crumbParent, crumbRoot, parentLabels, reduc
         </li>
         <AnimatePresence initial={false}>
           {crumbParent && crumbCurrent ? (
-            <motion.li
+            <m.li
               key="parent"
               className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--parent"]}`}
               initial={{ opacity: 0, width: 0 }}
@@ -942,38 +976,25 @@ function Breadcrumbs({ crumbCurrent, crumbParent, crumbRoot, parentLabels, reduc
               transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
             >
               {/* The parent can change while the crumb stays, so its width follows the new label instead of snapping. */}
-              <motion.span
+              <m.span
                 className={styles.AppRailShell__crumbSwap}
                 initial={false}
                 animate={{ width: parentWidths[crumbParent] ?? "auto" }}
                 transition={reduce ? APP_RAIL_INSTANT : APP_RAIL_MOTION.spring.morph}
               >
                 <AnimatePresence mode={POP_LAYOUT} initial={false}>
-                  <motion.span key={crumbParent} variants={rise} initial="hidden" animate="shown" exit="gone" transition={swap}>
+                  <m.span key={crumbParent} variants={rise} initial="hidden" animate="shown" exit="gone" transition={swap}>
                     {crumbParent}
-                  </motion.span>
+                  </m.span>
                 </AnimatePresence>
-              </motion.span>
-            </motion.li>
+              </m.span>
+            </m.li>
           ) : null}
         </AnimatePresence>
-        {crumbCurrent ? (
-          <li className={`${styles.AppRailShell__crumb} ${styles["AppRailShell__crumb--current"]}`} aria-current={CURRENT_PAGE}>
-            <AnimatePresence mode={POP_LAYOUT} initial={false}>
-              <motion.span
-                key={crumbCurrent}
-                className={styles.AppRailShell__crumbText}
-                variants={rise}
-                initial="hidden"
-                animate="shown"
-                exit="gone"
-                transition={swap}
-              >
-                {crumbCurrent}
-              </motion.span>
-            </AnimatePresence>
-          </li>
-        ) : null}
+        {/* Mounted outside the condition so the current crumb plays its exit when the route drops it. */}
+        <AnimatePresence initial={false}>
+          {crumbCurrent ? <CurrentCrumb key="current" label={crumbCurrent} swap={swap} /> : null}
+        </AnimatePresence>
       </ol>
       <span ref={sizersRef} className={styles.AppRailShell__crumbSizers} aria-hidden="true">
         {parentLabels.map((label) => (
@@ -1047,7 +1068,7 @@ function NavigationSheet({ draggingRef, menuButtonRef, onOpenChange, onSelect, o
         {open ? (
           <Dialog.Portal forceMount>
             <Dialog.Overlay asChild forceMount>
-              <motion.div className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--sheet"]}`} style={{ opacity: scrimOpacity }} />
+              <m.div className={`${styles.AppRailShell__scrim} ${styles["AppRailShell__scrim--sheet"]}`} style={{ opacity: scrimOpacity }} />
             </Dialog.Overlay>
             <Dialog.Content
               asChild
@@ -1065,7 +1086,7 @@ function NavigationSheet({ draggingRef, menuButtonRef, onOpenChange, onSelect, o
                 }
               }}
             >
-              <motion.div
+              <m.div
                 ref={sheetRef}
                 className={styles.AppRailShell__sheet}
                 style={{ x: sheetX }}
@@ -1090,7 +1111,7 @@ function NavigationSheet({ draggingRef, menuButtonRef, onOpenChange, onSelect, o
                 }}
               >
                 <SheetBody {...content} onClose={() => onOpenChange(false)} onSelect={onSelect} reduce={reduce} />
-              </motion.div>
+              </m.div>
             </Dialog.Content>
           </Dialog.Portal>
         ) : null}

@@ -12,7 +12,7 @@ import type { CommercialMembershipResolutionResult, CommercialMembershipReviewCa
 
 const recoveryStatusSchema = z.enum(COMMERCIAL_MEMBERSHIP_RECOVERY_STATUSES).nullable();
 
-export const commercialMembershipReviewCaseSchema: z.ZodType<CommercialMembershipReviewCase> = z.object({
+const commercialMembershipReviewCaseSchema: z.ZodType<CommercialMembershipReviewCase> = z.object({
   memberId: z.uuid(),
   displayName: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).nullable(),
   role: z.enum(COMMERCIAL_MEMBERSHIP_REVIEW_ROLES),

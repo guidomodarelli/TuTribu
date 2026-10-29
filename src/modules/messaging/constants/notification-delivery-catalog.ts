@@ -9,7 +9,7 @@ export const NOTIFICATION_DELIVERY_CATALOG_PAGE_SIZE = 50;
 /** Names the readonly own route; no provider or arbitrary recipient identifier can be supplied. */
 export const NOTIFICATION_DELIVERY_CATALOG_HTTP = { path: "messaging/notification-deliveries", operation: "read_notification_delivery_catalog" } as const;
 /** Cursor identity is public input, never a permissions token. */
-export const notificationDeliveryCatalogCursorSchema = z.strictObject({ deliveryId: z.uuid(), createdAt: z.iso.datetime({ offset: true }) });
+const notificationDeliveryCatalogCursorSchema = z.strictObject({ deliveryId: z.uuid(), createdAt: z.iso.datetime({ offset: true }) });
 /** The boundary rejects partial cursors and browser authority flags before composing services. */
 export const notificationDeliveryCatalogQuerySchema = z.strictObject({ cursorId: z.uuid().optional(), cursorCreatedAt: z.iso.datetime({ offset: true }).optional() }).refine((query) => Boolean(query.cursorId) === Boolean(query.cursorCreatedAt));
 /** Guards only own projection fields and coherent lineage/pagination, never database rows. */

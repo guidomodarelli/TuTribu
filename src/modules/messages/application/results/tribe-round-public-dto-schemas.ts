@@ -140,7 +140,7 @@ const tribeRoundPermissionsSchema = z.object({
 }) satisfies z.ZodType<TribeRoundPermissionsResult>;
 
 /** One page of the round as the client `TribeRound` renders it. */
-export const tribeRoundSchema = z.object({
+const tribeRoundSchema = z.object({
   activeChannelId: z.string().min(1).nullable(),
   channels: z.array(tribeChannelSchema),
   messages: z.array(tribeRoundMessageSchema),

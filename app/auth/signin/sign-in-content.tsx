@@ -142,7 +142,7 @@ export function SignInPendingView() {
  * the automatic Google redirect is skipped so the local form stays reachable;
  * Google remains available through the manual button.
  */
-export function SignInView({
+function SignInView({
   callbackUrl,
   devSignInEmail = null,
 }: {
@@ -165,7 +165,7 @@ export function SignInView({
   );
 }
 
-export function OpenInBrowserView({
+function OpenInBrowserView({
   isIos,
   signInUrl,
 }: {

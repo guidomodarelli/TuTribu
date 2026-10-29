@@ -46,7 +46,7 @@ type RoundNavigationRequest = {
 const POPSTATE_EVENT = "popstate";
 const HISTORY_UNUSED_TITLE = "";
 
-export const TRIBE_ROUND_NAVIGATION_COPY = {
+const TRIBE_ROUND_NAVIGATION_COPY = {
   loadFailure: "No pudimos cargar los mensajes. Intentá de nuevo.",
 } as const;
 

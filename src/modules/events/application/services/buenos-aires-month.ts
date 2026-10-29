@@ -31,7 +31,7 @@ export type MonthParts = {
   year: number;
 };
 
-export function formatMonth(year: number, month: number): string {
+function formatMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(MONTH_FORMAT.padLength, "0")}`;
 }
 

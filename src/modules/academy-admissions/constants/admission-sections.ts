@@ -19,7 +19,7 @@ export type AdmissionSection = "review" | "policy" | "allowlist" | "invitations"
 export type AdmissionSectionAudience = "reviewer" | "leader";
 
 /** Destination keys, so pages name their section without repeating string literals. */
-export const ADMISSION_SECTION = {
+const ADMISSION_SECTION = {
   review: "review",
   policy: "policy",
   allowlist: "allowlist",

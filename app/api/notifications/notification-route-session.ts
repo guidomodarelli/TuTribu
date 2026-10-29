@@ -53,7 +53,7 @@ async function loadRequestSession(requestId: string) {
  * @param options - Log operation and safe failure copy of the route.
  * @returns The resolved context or the response (401 or 500) to return as is.
  */
-export async function resolveNotificationRouteSession(
+async function resolveNotificationRouteSession(
   request: Request,
   options: NotificationRouteSessionOptions
 ) {

@@ -10,7 +10,6 @@ import {
   normalizeTribeRoundChannelSlug,
   normalizeTribeRoundPage,
 } from "@/src/modules/messages/application/results/tribe-round-viewer-state";
-import { TRIBE_ROUND_PAGE_SIZE } from "@/src/modules/messages/constants/message-round";
 import type {
   ListMessageLikersQuery,
   ListMessageRepliesQuery,
@@ -112,14 +111,5 @@ export function listMessageLikers({
       tribeSlug: query.tribeSlug.trim(),
       viewerId: query.viewerId,
     });
-  };
-}
-
-export function createEmptyTribeRoundPagination(currentPage = 1) {
-  return {
-    currentPage,
-    hasNextPage: false,
-    hasPreviousPage: currentPage > 1,
-    pageSize: TRIBE_ROUND_PAGE_SIZE,
   };
 }

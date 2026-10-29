@@ -114,7 +114,7 @@ export function createTribeRoundAuthor({
   };
 }
 
-export function createTribeRoundReply({
+function createTribeRoundReply({
   author,
   content,
   createdAt,

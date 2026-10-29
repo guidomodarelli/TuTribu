@@ -3321,6 +3321,137 @@ describe("TribeRound", () => {
     }
   });
 
+  it("revokes the optimistic image preview kept by a created message once the round lets it go", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    const revokeObjectUrl = vi.fn();
+    const messageCreationResponse = createDeferredResponse();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:message-image"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectUrl,
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages") {
+            return messageCreationResponse.promise;
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      const { unmount } = render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Nuevo encuentro"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Sumate al encuentro"
+      );
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      await act(async () => {
+        messageCreationResponse.resolve({
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: {
+              ...createdMessage,
+              media: [
+                {
+                  altText: "",
+                  id: "asset-1",
+                  kind: "image",
+                  sortOrder: 0,
+                  url: "https://imagedelivery.net/account-hash/image-1/public",
+                },
+              ],
+            },
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response);
+      });
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Mensaje creado.");
+      });
+      // The created message still shows the local preview, so it stays alive.
+      expect(screen.getByRole("img", { name: "Nuevo encuentro" })).toHaveAttribute(
+        "src",
+        "blob:message-image"
+      );
+      expect(revokeObjectUrl).not.toHaveBeenCalled();
+
+      unmount();
+
+      expect(revokeObjectUrl).toHaveBeenCalledTimes(1);
+      expect(revokeObjectUrl).toHaveBeenCalledWith("blob:message-image");
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevokeObjectUrl,
+      });
+    }
+  });
+
   it("reopens the message draft without images when optimistic message creation fails", async () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;

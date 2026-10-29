@@ -12,7 +12,7 @@ export const tribeLifecycleParamsSchema = z.strictObject({ tribeId: z.uuid().tra
 export const tribeLifecycleInputSchema = z.strictObject({ operationId: z.uuid().transform((operationId) => operationId.toLowerCase()), action: z.enum(TRIBE_LIFECYCLE_ACTIONS), expectedConfigVersion: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), confirmed: z.literal(true) });
 export const tribeLifecycleEmptyQuerySchema = z.strictObject({});
 /** Explicit codes are independent of runtime maps. */
-export const TRIBE_LIFECYCLE_ERROR_CODES = ["authentication_required", "permission_denied", "reauthentication_required", "invalid_input", "resource_unavailable", "lifecycle_conflict", "idempotency_conflict", "operation_unresolved", "public_contract_unusable", "unexpected_failure"] as const satisfies readonly TribeLifecycleErrorCode[];
+const TRIBE_LIFECYCLE_ERROR_CODES = ["authentication_required", "permission_denied", "reauthentication_required", "invalid_input", "resource_unavailable", "lifecycle_conflict", "idempotency_conflict", "operation_unresolved", "public_contract_unusable", "unexpected_failure"] as const satisfies readonly TribeLifecycleErrorCode[];
 export const tribeLifecyclePublicErrorSchema = z.strictObject({ code: z.enum(TRIBE_LIFECYCLE_ERROR_CODES), message: z.string().min(1), requestId: z.string().min(1), operationId: z.uuid().optional() });
 export const tribeLifecycleOriginalSchema = z.strictObject({ state: z.literal(OPERATION_STATE.completed), operationId: z.uuid(), replayed: z.boolean(), result: tribeLifecycleResultSchema });
 export const tribeLifecycleRecoverySchema = z.strictObject({ original: tribeLifecycleOriginalSchema.nullable() });

@@ -66,7 +66,7 @@ export function createRouteJsonResponse(
  * @param status - HTTP status code.
  * @returns The JSON response.
  */
-export function createRouteMessageResponse(message: string, status: number): Response {
+function createRouteMessageResponse(message: string, status: number): Response {
   return createRouteJsonResponse({ message }, status);
 }
 
@@ -142,7 +142,7 @@ export type UnexpectedRouteFailure = {
  * @param error - Caught error.
  * @returns The 500 response.
  */
-export function respondToUnexpectedRouteFailure(
+function respondToUnexpectedRouteFailure(
   failure: UnexpectedRouteFailure,
   error: unknown
 ): Response {
@@ -166,7 +166,7 @@ export function respondToUnexpectedRouteFailure(
  * @param handle - Route body producing the response.
  * @returns The handler response, or the 500 response when it throws.
  */
-export async function runMemberRoute(
+async function runMemberRoute(
   failure: UnexpectedRouteFailure,
   handle: () => Promise<Response>
 ): Promise<Response> {

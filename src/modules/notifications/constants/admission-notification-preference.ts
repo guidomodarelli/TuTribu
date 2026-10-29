@@ -2,13 +2,13 @@
 import type { AdmissionNotificationPreferenceMode, AdmissionNotificationPreferenceRejectionReason } from "../domain/entities/admission-notification-preference";
 
 /** Requests a separate delivery for each eligible event. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_INDIVIDUAL = "individual";
+const ADMISSION_NOTIFICATION_PREFERENCE_INDIVIDUAL = "individual";
 /** Groups eligible events in the five-minute window required by the feature. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_GROUPED = "grouped";
+const ADMISSION_NOTIFICATION_PREFERENCE_GROUPED = "grouped";
 /** Requests the daily digest in the tribe's configured time zone. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_DAILY = "daily";
+const ADMISSION_NOTIFICATION_PREFERENCE_DAILY = "daily";
 /** Suppresses optional external email while internal notices retain their own authorization. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_OMITTED = "omitted";
+const ADMISSION_NOTIFICATION_PREFERENCE_OMITTED = "omitted";
 
 /** Exposes the complete explicit preference vocabulary. */
 export const ADMISSION_NOTIFICATION_PREFERENCE_MODE = {
@@ -22,13 +22,13 @@ export const ADMISSION_NOTIFICATION_PREFERENCE_MODE = {
 export const ADMISSION_NOTIFICATION_PREFERENCE_IMPLICIT_VERSION = 0;
 
 /** Resolves current facts without creating a stored preference. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_RESOLVED = "resolved";
+const ADMISSION_NOTIFICATION_PREFERENCE_RESOLVED = "resolved";
 /** Records an explicit new choice or a changed existing choice. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_CHANGED = "changed";
+const ADMISSION_NOTIFICATION_PREFERENCE_CHANGED = "changed";
 /** Preserves the original explicit choice and effective timestamp. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_UNCHANGED = "unchanged";
+const ADMISSION_NOTIFICATION_PREFERENCE_UNCHANGED = "unchanged";
 /** Refuses an unauthorized, cross-scope or stale preference request. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_REJECTED = "rejected";
+const ADMISSION_NOTIFICATION_PREFERENCE_REJECTED = "rejected";
 
 /** Owns the closed result discriminators used by the private model. */
 export const ADMISSION_NOTIFICATION_PREFERENCE_STATUS = {
@@ -39,9 +39,9 @@ export const ADMISSION_NOTIFICATION_PREFERENCE_STATUS = {
 } as const;
 
 /** Identifies the effective default without implying a persisted subscription. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_IMPLICIT_SOURCE = "implicit";
+const ADMISSION_NOTIFICATION_PREFERENCE_IMPLICIT_SOURCE = "implicit";
 /** Identifies an explicit choice made by the recipient. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_STORED_SOURCE = "stored";
+const ADMISSION_NOTIFICATION_PREFERENCE_STORED_SOURCE = "stored";
 
 /** Preserves the distinction between implicit defaults and explicit choices. */
 export const ADMISSION_NOTIFICATION_PREFERENCE_SOURCE = {
@@ -50,11 +50,11 @@ export const ADMISSION_NOTIFICATION_PREFERENCE_SOURCE = {
 } as const;
 
 /** Requires a current active reviewer before consulting any stored preference. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_REVIEWER_REQUIRED = "notification_preference_reviewer_required";
+const ADMISSION_NOTIFICATION_PREFERENCE_REVIEWER_REQUIRED = "notification_preference_reviewer_required";
 /** Refuses to project a preference from another tribe or recipient. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_SCOPE_MISMATCH = "notification_preference_scope_mismatch";
+const ADMISSION_NOTIFICATION_PREFERENCE_SCOPE_MISMATCH = "notification_preference_scope_mismatch";
 /** Keeps a stale command from rewriting a newer choice or delivery epoch. */
-export const ADMISSION_NOTIFICATION_PREFERENCE_VERSION_CONFLICT = "notification_preference_version_conflict";
+const ADMISSION_NOTIFICATION_PREFERENCE_VERSION_CONFLICT = "notification_preference_version_conflict";
 
 /** Owns closed private business reasons, ready for a safe application mapper. */
 export const ADMISSION_NOTIFICATION_PREFERENCE_REJECTION = {

@@ -1,8 +1,5 @@
 /** Defines admission-owned ports; authoritative writers re-resolve facts and commit related effects together. */
-import type { AdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 import type { AdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
-import type { AdmissionActorFacts, AdmissionSubmissionFacts, PendingAdmissionReviewFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
-import type { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import type { AdmissionOperationResult } from "../entities/admission-operation";
 import type { AdmissionNotificationObligation } from "@/src/modules/notifications/domain/entities/admission-notification";
 
@@ -27,18 +24,7 @@ export type AdmissionCommittedOutcome = {
   admissionRequestId: string | null; committedRequestVersion: number | null;
   membership: { role: "leader" | "guardian" | "tribemate"; status: "active" | "muted" } | null;
 };
-export type AdmissionWriterFailure = { code: (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE] };
 
-/** Queries return facts only, with no acceptance, canje, delivery or automatic approval. */
-export interface AdmissionFactsReader {
-  getSubmissionFacts(scope: AdmissionCommandScope, intent: AdmissionSubmissionIntent): Promise<AdmissionSubmissionFacts>;
-  getReviewFacts(scope: AdmissionCommandScope, admissionRequestId: string): Promise<PendingAdmissionReviewFacts | null>;
-  getCurrentActor(scope: AdmissionCommandScope): Promise<AdmissionActorFacts | null>;
-}
-/** Own policy projection: countries are supplied only by MessagingUsagePolicyReader. */
-export interface AdmissionPolicyRepository {
-  getPolicy(scope: AdmissionCommandScope): Promise<AdmissionPolicy | null>;
-}
 /**
  * Atomic authority port. Concrete implementations must read current clock/scope
  * after locks, resolve replay before CAS, and commit decision, basic membership,
@@ -52,14 +38,6 @@ export interface AdmissionCommandWriter<SubmissionResult extends AdmissionCommit
 }
 /** Minimal committed transition snapshot does not claim the historical version is today's state. */
 export type AdmissionTransitionResult = { admissionRequestId: string; version: number; status: "approved" | "rejected" | "cancelled" };
-/** Membership owner facts; admission never writes courses, subscriptions or privileged roles. */
-export interface AdmissionMembershipReader {
-  getMembership(userId: string, tribeId: string): Promise<AdmissionSubmissionFacts["membership"]>;
-}
-/** The product owner decides whether another legitimate source resolved a pending admission. */
-export interface AdmissionExternalResolutionReader {
-  hasLegitimateBasicMembership(userId: string, tribeId: string): Promise<boolean>;
-}
 /** Reuses the notification owner's complete event vocabulary without duplicating its private contract. */
 export type { AdmissionNotificationObligation } from "@/src/modules/notifications/domain/entities/admission-notification";
 /** Scoped transaction collaborator persists obligations; no external notification is sent here. */

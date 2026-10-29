@@ -46,12 +46,12 @@ export type SettingsWriter = SettingsSession & { readCurrent: (signal: AbortSign
 export type SettingsSaveView = { preference: AdmissionNotificationPreferenceView | null; email: AdmissionNotificationEmailSettingsView | null; draft: AdmissionNotificationEmailSettingsDraft; mode: AdmissionNotificationPreferenceMode; confirmed: boolean; fresh: boolean; canRetry: boolean };
 
 /** Only the currently owned, uncancelled slot may apply asynchronous state or clear a stored original. @param controls - Stable controls. @param signal - Signal of the work. @returns Whether that work still owns the slot. */
-export function isSlotCurrent(controls: SettingsControls, signal: AbortSignal): boolean {
+function isSlotCurrent(controls: SettingsControls, signal: AbortSignal): boolean {
   return !signal.aborted && controls.slot.current?.signal === signal;
 }
 
 /** @param current - Phase when the work settles. @param pending - Original command still stored, if any. @returns A changed viewer as is; otherwise uncertain while an original is pending, or idle. */
-export function settledSettingsPhase(current: SettingsPhase, pending: AdmissionNotificationEmailSettingsCommand | null): SettingsPhase {
+function settledSettingsPhase(current: SettingsPhase, pending: AdmissionNotificationEmailSettingsCommand | null): SettingsPhase {
   if (current === PHASE.changedViewer) return current;
   return pending ? PHASE.uncertain : PHASE.idle;
 }

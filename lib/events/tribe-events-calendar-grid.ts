@@ -25,7 +25,7 @@ export type TribeEventsAgendaDay = {
   dayKey: string;
 };
 
-export const CALENDAR_WEEK_LENGTH = 7;
+const CALENDAR_WEEK_LENGTH = 7;
 
 const CALENDAR = {
   dateInputLength: 10,

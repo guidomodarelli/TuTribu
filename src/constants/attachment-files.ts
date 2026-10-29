@@ -21,7 +21,7 @@ export const ATTACHMENT_FILE = {
  * not being listed; anything outside this allowlist is rejected before a
  * draft row or signed upload URL is created.
  */
-export const ATTACHMENT_ALLOWED_MIME_TYPES = [
+const ATTACHMENT_ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -49,9 +49,6 @@ export const ATTACHMENT_ALLOWED_MIME_TYPES = [
   "audio/ogg",
   "audio/wav",
 ] as const;
-
-export type AttachmentAllowedMimeType =
-  (typeof ATTACHMENT_ALLOWED_MIME_TYPES)[number];
 
 /**
  * Value for the file input `accept` attribute, derived from the allowlist so

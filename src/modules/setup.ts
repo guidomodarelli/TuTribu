@@ -2,7 +2,7 @@ import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
 import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts } from "./messaging/infrastructure/config/messaging-hosting-security";
-import { buildTribesModule, buildTribeLeadershipModule, buildTribeMembershipLifecycleModule, buildTribeLifecycleModule } from "./tribes/setup";
+import { buildTribesModule, buildTribeMembershipLifecycleModule, buildTribeLifecycleModule } from "./tribes/setup";
 import { TribeLifecycleError } from "./tribes/domain/errors/tribe-lifecycle-error";
 import { TRIBE_LIFECYCLE_ERROR } from "./tribes/constants/tribe-lifecycle";
 import { AdmissionOperationError } from "./academy-admissions/domain/errors/admission-operation-error";
@@ -25,7 +25,7 @@ import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure
 import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter, createAdmissionScopeClosureWriter } from "./academy-admissions/setup";
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
-import { buildMessagingModule, buildMessagingWorkModule, buildAdmissionMessagingMaintenanceModule, type MessagingWorkDependencies } from "./messaging/setup";
+import { buildMessagingModule, buildMessagingWorkModule, buildAdmissionMessagingMaintenanceModule } from "./messaging/setup";
 import { AdmissionMessagingMaintenanceError } from "./messaging/domain/errors/admission-messaging-maintenance-error";
 import type { AdmissionMessagingMaintenanceRuntime } from "./messaging/domain/repositories/admission-messaging-maintenance";
 import { ADMISSION_MESSAGING_MAINTENANCE_LOG, ADMISSION_MESSAGING_MAINTENANCE_REASON } from "./messaging/constants/admission-messaging-maintenance";
@@ -42,9 +42,7 @@ import {after} from "next/server";
 import type {RequestContext} from "./shared/infrastructure/observability/request-context";
 import { getMessagingUsageCountryChoices } from "./messaging/infrastructure/composition/messaging-usage-country-choices";
 import { createRequestMessagingMaintenanceAuthorizer } from "./messaging/infrastructure/auth/request-maintenance-authorizer";
-import { MessagingSecretAccessError } from "./messaging/domain/errors/messaging-secret-access-error";
 import { createMessagingDispatchReporter } from "./messaging/infrastructure/messaging-observability";
-import { MESSAGING_ERROR_CODE } from "./messaging/constants/messaging-errors";
 import type { AuthenticatedFeatureDependencies } from "./auth/infrastructure/composition/transaction-account-provider";
 import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
 import { buildProductAccessModule } from "./product-access/setup";
@@ -82,8 +80,7 @@ import { PostgresTribeEventReminderRepository } from "./events/infrastructure/re
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { lockTribeEventOccurrenceRecordingForShare } from "./events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
-import { buildNotificationsModule, buildAdmissionNotificationSettingsModule, buildAdmissionNotificationRecoveryContent, buildAdmissionNotificationProducerModule } from "./notifications/setup";
-import type { AdmissionNotificationProducerRuntime } from "./notifications/domain/repositories/admission-notification-producer";
+import { buildNotificationsModule, buildAdmissionNotificationSettingsModule, buildAdmissionNotificationRecoveryContent } from "./notifications/setup";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
@@ -598,34 +595,6 @@ export async function createCalendarFeedModules() {
 }
 
 /**
- * Creates a distinct backend root from a live native bearer and explicit runtime/security/sender dependencies.
- * @param options - Server-owned job configuration, without a browser principal, global key or SDK fallback.
- * @returns Private implemented messaging worker capabilities; it installs no cron or public endpoint.
- * @throws MessagingSecretAccessError before database composition when current bearer authority is absent.
- */
-export async function createAdmissionMessagingWorkModules(options: Omit<MessagingWorkDependencies, "execute" | "authorize"> & { request: Request; readCurrentCronSecret: () => string | undefined }) {
-  const authorize = createRequestMessagingMaintenanceAuthorizer(options.request, options.readCurrentCronSecret);
-  if (!await authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
-  return buildMessagingWorkModule({
-    ...options, authorize,
-    execute: (actorUserId, run) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, run),
-  });
-}
-
-/** @param options - Native maintenance request, live server secret and the original host-run clock/reporting context. @returns The complete bounded reminder/source/group/outbox producer, without sender execution or a scheduler. @throws MessagingSecretAccessError before database composition unless the native bearer is currently authorized. */
-export async function createAdmissionNotificationProducerWorkModules(options: { request: Request; readCurrentCronSecret: () => string | undefined; runtime: AdmissionNotificationProducerRuntime }) {
-  const authorize = createRequestMessagingMaintenanceAuthorizer(options.request, options.readCurrentCronSecret);
-  if (!await authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
-  return buildAdmissionNotificationProducerModule({
-    execute: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run),
-    authorize, readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig(),
-    publicAppBaseUrl: resolvePublicAppBaseUrl(), runtime: options.runtime,
-  });
-}
-
-/**
  * Composes preadmission outside the membership scope with real native account and explicit database selection.
  * @param usage - Server-selected connection purpose; write entrypoints choose maintenance and still enforce actual human authority.
  * @returns Read-only public/own queries and implemented manual writers without a provider client or default key.
@@ -825,15 +794,6 @@ export async function createAdmissionProofApplicationRequestModule() {
   return { applyProof: admissionModule.createProofApplicationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCases, resolveTribe: routing.resolveTribe };
 }
 
-/** @returns Native request composition for an explicit canonical leadership operation, without creating a general transfer route or loading a BYOK. */
-export async function createTribeLeadershipRequestModule(){
-  const accounts=createRequestAuthenticatedAccountProvider(),databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
-  return buildTribeLeadershipModule({accounts,clock:()=>new Date(),readSecurityConfig:async()=>readMessagingHostingSecurityConfig(),execute:async(context,run)=>{
-    const account=await accounts.getAuthenticatedAccount();if(account?.userId!==context.actorUserId||account.session.id!==context.sessionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    return databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run);
-  }});
-}
-
 /** @returns Native membership command/recovery composition with an owner transaction; no HTTP input selects the actor, role or database connection. */
 export async function createTribeMembershipRequestModule() {
   const accounts = createRequestAuthenticatedAccountProvider(), databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
@@ -872,15 +832,6 @@ export async function createMessageDeliveryReadRequestModule(){
   const dependencies = createAuthenticatedRequestDependencies(databaseClient);
   const routing=createAcademyRequestRouting(buildAcademyAdmissionsModule(dependencies), databaseClient);
   return{delivery:buildMessagingModule(dependencies).createDeliveryReadModule().useCases,resolveTribe:routing.resolveTribe};
-}
-
-/** @returns Original owned-message SDK lookup and monotonic transport persistence with the live session and explicit hosting transport. */
-export async function createMessageDeliveryReconciliationRequestModule() {
-  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
-  const dependencies = createAuthenticatedRequestDependencies(databaseClient);
-  const routing = createAcademyRequestRouting(buildAcademyAdmissionsModule(dependencies), databaseClient);
-  const reconciliation = buildMessagingModule(dependencies).createDeliveryReconciliationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), fetch: globalThis.fetch });
-  return { delivery: reconciliation.useCases, resolveTribe: routing.resolveTribe };
 }
 
 /** @returns Explicit original-notification recovery and canonical routing, with no provider call or automatic dispatch. */

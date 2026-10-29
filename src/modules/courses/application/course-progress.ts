@@ -15,7 +15,7 @@ export function countCourseLessons(course: CourseWithModulesResult): number {
 /**
  * Counts the visible lessons the viewer already marked as completed.
  */
-export function countCompletedCourseLessons(
+function countCompletedCourseLessons(
   course: CourseWithModulesResult
 ): number {
   return course.modules.reduce(

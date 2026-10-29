@@ -109,7 +109,7 @@ export type AcademySubscriptionGateway = {
   ): Promise<MercadoPagoAuthorizedPayment[]>;
 };
 
-export const ACADEMY_SUBSCRIPTION_AUDIT_ACTION = {
+const ACADEMY_SUBSCRIPTION_AUDIT_ACTION = {
   cancelRequested: "academy_renewal_cancel_requested",
   checkoutReserved: "academy_checkout_reserved",
   paymentRecorded: "academy_payment_recorded",

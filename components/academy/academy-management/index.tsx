@@ -544,7 +544,7 @@ function SettingsSection({
   const [settings, setSettings] = useState(initialSettings);
   const [title, setTitle] = useState(initialSettings.title);
   const [description, setDescription] = useState(initialSettings.description);
-  const [benefits, setBenefits] = useState(initialSettings.benefits.join(LINE_SEPARATOR));
+  const [benefits, setBenefits] = useState(() => initialSettings.benefits.join(LINE_SEPARATOR));
   const [pending, setPending] = useState<SettingsPending>(null);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
 

@@ -55,7 +55,7 @@ const ACTIVE_STATUS = "active";
  * @param now - Server instant.
  * @returns True when the grant is not revoked and `startsAt <= now < endsAt`.
  */
-export function isGrantActiveAt(grant: AccessGrantInterval, now: Date): boolean {
+function isGrantActiveAt(grant: AccessGrantInterval, now: Date): boolean {
   if (grant.revokedAt !== null) {
     return false;
   }
@@ -130,7 +130,7 @@ export function isReadableMembership(membership: AccessMembershipSnapshot): bool
  * @param membership - Membership snapshot.
  * @returns True for an active leader.
  */
-export function isActiveLeader(membership: AccessMembershipSnapshot): boolean {
+function isActiveLeader(membership: AccessMembershipSnapshot): boolean {
   return membership?.role === LEADER_ROLE && membership.status === ACTIVE_STATUS;
 }
 

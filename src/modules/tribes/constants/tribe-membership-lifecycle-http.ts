@@ -9,7 +9,7 @@ import { TRIBE_MEMBERSHIP_LIFECYCLE_ACTIONS } from "./tribe-membership-lifecycle
 import type { TribeMembershipLifecycleErrorCode } from "../domain/errors/tribe-membership-lifecycle-error";
 
 /** Uses explicit failure codes rather than deriving types from a runtime object. */
-export const TRIBE_MEMBERSHIP_LIFECYCLE_ERROR_CODES = ["authentication_required", "permission_denied", "invalid_input", "resource_unavailable", "membership_conflict", "idempotency_conflict", "operation_unresolved", "public_contract_unusable", "unexpected_failure"] as const satisfies readonly TribeMembershipLifecycleErrorCode[];
+const TRIBE_MEMBERSHIP_LIFECYCLE_ERROR_CODES = ["authentication_required", "permission_denied", "invalid_input", "resource_unavailable", "membership_conflict", "idempotency_conflict", "operation_unresolved", "public_contract_unusable", "unexpected_failure"] as const satisfies readonly TribeMembershipLifecycleErrorCode[];
 /** Validates only public URL scope, never provider responses or stored rows. */
 export const tribeMembershipLifecycleParamsSchema = z.strictObject({ slug: z.string().regex(TRIBE_SLUG_PATTERN) });
 /** Recovery carries the original intent in its body, keeping private identifiers out of URL queries. */

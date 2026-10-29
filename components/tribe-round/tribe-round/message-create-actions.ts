@@ -14,6 +14,7 @@ import {
   type CreateMessageDraftSnapshot,
   type CreateMessageResponse,
   findViewerTribeAuthor,
+  getBlobImagePreviewUrls,
   getCreatedMessageWithStableImages,
   getImageDraftsFromMediaDrafts,
   getMessagesAfterOptimisticCreationFailure,
@@ -457,6 +458,16 @@ const finishCreateMessageAttempt = (controller: TribeRoundController, attempt: C
   }
 };
 
+/**
+ * Hands the blob previews of a publication to the round, which revokes each
+ * one once no message or draft shows it anymore.
+ */
+const retainPublishedImagePreviewUrls = (controller: TribeRoundController, attempt: CreateMessageAttempt) => {
+  getBlobImagePreviewUrls(getImageDraftsFromMediaDrafts(attempt.draftSnapshot.mediaDrafts)).forEach((previewUrl) =>
+    controller.retainedMessageImagePreviewUrlsRef.current.add(previewUrl)
+  );
+};
+
 /** Replaces the optimistic copy with the created message. */
 const settleCreatedMessage = (controller: TribeRoundController, 
   attempt: CreateMessageAttempt,
@@ -471,11 +482,13 @@ const settleCreatedMessage = (controller: TribeRoundController,
     roundViewVersion: attempt.roundViewVersion,
   });
   if (
-    !shouldKeepOptimisticImagePreviewUrls({
+    shouldKeepOptimisticImagePreviewUrls({
       createdMessage,
       optimisticMessage: attempt.optimisticMessage,
     })
   ) {
+    retainPublishedImagePreviewUrls(controller, attempt);
+  } else {
     revokeMessageImageDraftPreviewUrls(
       getImageDraftsFromMediaDrafts(attempt.draftSnapshot.mediaDrafts)
     );
@@ -611,6 +624,8 @@ export const handleCreateMessage = async (controller: TribeRoundController, even
       // message, so the feed never flashes an empty state and a draft started meanwhile is not lost to a remount. The
       // action stays pending until that reload settles, so a newer publication cannot be erased by its older snapshot.
       controller.pendingCreateMessageKeyRef.current = null;
+      // The optimistic copy keeps showing its previews until the reload replaces it.
+      retainPublishedImagePreviewUrls(controller, attempt);
       finishCreateMessageAttempt(controller, attempt);
       toast.success(response.message ?? TRIBE_ROUND_COPY.submitMessageReplayed);
       await controller.roundNavigation.reloadCurrentPage();

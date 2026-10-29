@@ -15,7 +15,7 @@ import type { CloudflareR2Environment } from "@/src/modules/shared/infrastructur
  *   start immediately after the authorized redirect, so the window stays tiny
  *   to keep a shared link from outliving the membership check that minted it.
  */
-export const R2_SIGNED_URL_EXPIRATION = {
+const R2_SIGNED_URL_EXPIRATION = {
   downloadSeconds: 60,
   uploadSeconds: 600,
 } as const;
@@ -92,7 +92,7 @@ const CONTENT_DISPOSITION_REPLACEMENT = "_";
  * @param fileName - Stored file name chosen by the uploader.
  * @returns Header value safe to bind into a presigned URL.
  */
-export function buildAttachmentContentDisposition(fileName: string): string {
+function buildAttachmentContentDisposition(fileName: string): string {
   const asciiFallback = fileName
     .replace(CONTENT_DISPOSITION_UNSAFE_CHARACTER, CONTENT_DISPOSITION_REPLACEMENT)
     .replace(CONTENT_DISPOSITION_QUOTE_OR_BACKSLASH, CONTENT_DISPOSITION_REPLACEMENT);

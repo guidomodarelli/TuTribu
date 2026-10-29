@@ -44,7 +44,7 @@ export function createPrivateNoStoreJsonResponse(body: unknown, status: number):
  * @param request - Incoming request.
  * @returns Query values by key.
  */
-export function readRequestQueryObject(request: Request): Record<string, string | string[]> {
+function readRequestQueryObject(request: Request): Record<string, string | string[]> {
   const { searchParams } = new URL(request.url);
   const query: Record<string, string | string[]> = {};
 
@@ -64,7 +64,7 @@ export function readRequestQueryObject(request: Request): Record<string, string 
  * @param request - Incoming request.
  * @returns Parsed body, or undefined.
  */
-export async function readRequestJsonBody(request: Request): Promise<unknown> {
+async function readRequestJsonBody(request: Request): Promise<unknown> {
   try {
     return await request.json();
   } catch {
