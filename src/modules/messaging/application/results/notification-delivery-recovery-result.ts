@@ -8,5 +8,3 @@ export type NotificationDeliveryRecoveryResult = {
   targetConnectionId: string;
   targetConnectionVersion: number;
 };
-
-export { notificationDeliveryRecoveryResultSchema } from "../../constants/notification-delivery-recovery-schema";

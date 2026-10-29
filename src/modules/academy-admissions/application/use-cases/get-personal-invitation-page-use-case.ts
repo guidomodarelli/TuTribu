@@ -2,11 +2,10 @@
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { GetPersonalInvitationOverviewUseCase } from "./get-personal-invitation-overview-use-case";
-import { personalInvitationPageStateSchema } from "../results/personal-invitation-page-state";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
-import { PERSONAL_INVITATION_PAGE_KIND } from "../../constants/personal-invitation-page";
+import { PERSONAL_INVITATION_PAGE_KIND, personalInvitationPageStateSchema } from "../../constants/personal-invitation-page";
 
 /** Reads cannot claim an operation, issue a code or redeem an invitation. */
 export class GetPersonalInvitationPageUseCase {

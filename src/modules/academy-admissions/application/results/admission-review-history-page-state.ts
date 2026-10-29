@@ -1,6 +1,6 @@
 /** Owns safe request-history props independently of storage, transport and native authentication. @module admission-review-history-page-state */
 import type { AdmissionErrorCode } from "../../constants/admission-errors";
-import type { AdmissionReviewHistoryPageDto } from "./admission-review-history-result";
+import type { AdmissionReviewHistoryPageDto } from "../../constants/admission-review-history-schemas";
 import type { AdmissionReviewSelection } from "./admission-review-selection";
 
 /** No session identifier, actor identifier or private failure cause crosses into the component tree. */

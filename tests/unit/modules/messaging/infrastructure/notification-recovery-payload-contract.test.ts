@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createNotificationRecoveryPayloadMac, type NotificationRecoveryPayloadContext } from "@/src/modules/messaging/infrastructure/encryption/notification-recovery-payload-mac";
 import { createMessagingSecurityConfig, type MessagingKeyPurpose, type MessagingKeyringInput } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { notificationDeliveryRecoveryResultSchema } from "@/src/modules/messaging/application/results/notification-delivery-recovery-result";
+import { notificationDeliveryRecoveryResultSchema } from "@/src/modules/messaging/constants/notification-delivery-recovery-schema";
 
 /** @returns Independent nonextractable native keys and one immutable private recovery tuple. */
 async function preparePayload() {
