@@ -18,7 +18,7 @@ import {
   type MouseEvent,
   type RefObject,
 } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { toast, Button, PresenceSwap, formatFileSize, cn, SPRING_LAYOUT, RichTextContent } from "@golfo/ui";
 
 import { LessonComments } from "@/components/courses/lesson-comments";
@@ -35,6 +35,7 @@ import type {
 import { getCourseProgressPercent } from "@/src/modules/courses/application/course-progress";
 import {
   PLAYER_IFRAME_ALLOW,
+  PLAYER_IFRAME_SANDBOX,
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
 import styles from "./styles.module.scss";
@@ -778,6 +779,7 @@ function ActiveLesson({
       <div className={styles.TribeCoursesView__playerFrame}>
         <iframe
           allow={PLAYER_IFRAME_ALLOW}
+          sandbox={PLAYER_IFRAME_SANDBOX}
           allowFullScreen
           className={styles.TribeCoursesView__playerIframe}
           src={buildPlayerEmbedSource(
@@ -853,7 +855,7 @@ function SidebarLessonLink({
       }
     >
       {isActive ? (
-        <motion.span
+        <m.span
           aria-hidden
           className={
             styles.TribeCoursesView__activeIndicator

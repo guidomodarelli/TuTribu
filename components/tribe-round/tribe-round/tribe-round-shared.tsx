@@ -1010,6 +1010,50 @@ export function revokeMessageImageDraftPreviewUrls(
 }
 
 /**
+ * Local blob previews of the given image drafts: the URLs a created message
+ * keeps showing when {@link shouldKeepOptimisticImagePreviewUrls} holds.
+ */
+export function getBlobImagePreviewUrls(imageDrafts: ComposerImageDraft[]): string[] {
+  return imageDrafts
+    .map((imageDraft) => imageDraft.previewUrl)
+    .filter((previewUrl) => previewUrl.startsWith(TRIBE_ROUND_SYMBOLS.blobUrlPrefix));
+}
+
+/**
+ * Revokes the retained blob previews that neither a message on screen nor a
+ * composer draft shows anymore, and forgets them.
+ *
+ * @param input.retainedPreviewUrls - Blob previews kept by created messages; pruned in place.
+ * @param input.messages - Messages of the round page on screen.
+ * @param input.mediaDrafts - Composer media drafts, which an edit hydrates from a message.
+ */
+export function releaseUnreferencedImagePreviewUrls({
+  mediaDrafts,
+  messages,
+  retainedPreviewUrls,
+}: {
+  mediaDrafts: ComposerMediaDraft[];
+  messages: TribeRoundMessageResult[];
+  retainedPreviewUrls: Set<string>;
+}): void {
+  if (retainedPreviewUrls.size === 0) {
+    return;
+  }
+
+  const referencedUrls = new Set([
+    ...messages.flatMap((message) => getMessageImageMedia(message).map((image) => image.url)),
+    ...getImageDraftsFromMediaDrafts(mediaDrafts).map((imageDraft) => imageDraft.previewUrl),
+  ]);
+
+  retainedPreviewUrls.forEach((previewUrl) => {
+    if (!referencedUrls.has(previewUrl)) {
+      revokeMessageImagePreviewUrl(previewUrl);
+      retainedPreviewUrls.delete(previewUrl);
+    }
+  });
+}
+
+/**
  * Type guard selecting the image slots of the unified media draft list.
  */
 function isComposerImageMediaDraft(

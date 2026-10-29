@@ -1,6 +1,6 @@
 "use client";
 /** Owns viewer checks, the chained explicit save and original recovery while presenters receive callbacks only. @module admission-notification-settings-container */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useViewerTimeZone } from "@golfo/ui/hooks";
 import { AdmissionNotificationSettings } from "@/components/academy-admissions/admission-notification-settings";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
@@ -27,7 +27,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   const viewerTimeZone = useViewerTimeZone();
   const [preference, setPreference] = useState(ready?.preference ?? null), [email, setEmail] = useState(ready?.email ?? null);
   const [mode, setMode] = useState<AdmissionNotificationPreferenceMode>(ready ? draftModeFor(ready.preference) : ADMISSION_NOTIFICATION_RECOMMENDED_MODE);
-  const [draft, setDraft] = useState<AdmissionNotificationEmailSettingsDraft>(draftFromEmail(ready?.email ?? null));
+  const [draft, setDraft] = useState<AdmissionNotificationEmailSettingsDraft>(() => draftFromEmail(ready?.email ?? null));
   const [phase, setPhase] = useState<SettingsPhase>(PHASE.checking), [fresh, setFresh] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
   const [confirmed, setConfirmed] = useState(false), [hasPending, setHasPending] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [error, setError] = useState<string | null>(null), [status, setStatus] = useState<string | null>(null), [progress, setProgress] = useState<string | null>(null);
@@ -56,6 +56,8 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
     setError(null); setStatus(null); setProgress(null);
     void readCurrent(controller.signal).finally(() => { if (slot.current === controller) busy.current = false; });
   }, [readCurrent]);
+  /** The restore listener always relaunches with the latest read, without making it a subscription dependency. */
+  const relaunchRead = useEffectEvent(() => launchRead());
 
   useEffect(() => {
     const controller = new AbortController(); let isActive = true; slot.current = controller; busy.current = true;
@@ -66,10 +68,10 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
       await readCurrent(controller.signal, { initial });
     }).finally(() => { if (slot.current === controller) busy.current = false; });
     /** A restored page must recheck the original and current authority before another write. */
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) { slot.current?.abort(); busy.current = false; loaded.current = false; setPrivateVisible(false); setFresh(false); setConfirmed(false); launchRead(); } };
+    const restored = (event: PageTransitionEvent) => { if (event.persisted) { slot.current?.abort(); busy.current = false; loaded.current = false; setPrivateVisible(false); setFresh(false); setConfirmed(false); relaunchRead(); } };
     window.addEventListener("pageshow", restored);
     return () => { isActive = false; controller.abort(); slot.current?.abort(); loaded.current = false; busy.current = false; window.removeEventListener("pageshow", restored); };
-  }, [readCurrent, launchRead]);
+  }, [readCurrent]);
 
   if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;

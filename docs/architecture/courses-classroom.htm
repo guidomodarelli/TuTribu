@@ -79,6 +79,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>/api/tribes/[slug]/courses/comments/[commentId]</code></td><td>DELETE</td><td>Borrar comentario (autor o líder)</td></tr>
   </table>
   <p>Las mutaciones interactivas devuelven el view model mínimo (curso, módulo, lección o comentario creado) y el cliente actualiza el estado local sin refrescar la ruta, siguiendo la convención de mutaciones incrementales. El registro de "última lección vista" es deliberadamente best-effort: su fallo nunca interrumpe la reproducción.</p>
+  <p><strong>Player de la lección.</strong> <code>components/courses/tribe-courses-view</code> monta el video con <code>src={buildPlayerEmbedSource(videoProvider, externalVideoId)}</code> y la política compartida de los players externos (<code>allow={PLAYER_IFRAME_ALLOW}</code>, <code>sandbox={PLAYER_IFRAME_SANDBOX}</code>): scripts y almacenamiento del propio origen del proveedor, Cast y links que abren el sitio del proveedor en una pestaña nueva sin sandbox. Los permisos y su motivo están en <a href="message-images.htm">Imágenes en mensajes</a> (sección «Videos externos y galería unificada»).</p>
   <div class="callout c-info">El porcentaje de avance se calcula en el cliente (<code>src/modules/courses/application/course-progress.ts</code>) sobre las lecciones visibles para el viewer: las lecciones de módulos bloqueados por drip no integran el denominador.</div>
 </div>
 

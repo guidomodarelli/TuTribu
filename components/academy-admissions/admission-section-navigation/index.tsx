@@ -14,7 +14,7 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, m, useReducedMotion } from "motion/react";
 import { SPRING_LAYOUT } from "@golfo/ui";
 import { Link } from "@/components/navigation/link";
 import { visibleAdmissionSections } from "@/lib/academy-admissions/admission-sections";
@@ -65,7 +65,7 @@ export function AdmissionSectionNavigation({ label, slug, section, audience }: A
         {items.map((item) => <li key={item.key} className={styles.AdmissionSectionNavigation__entry}>
           <Link className={styles.AdmissionSectionNavigation__item} href={item.href} aria-current={item.current ? "page" : undefined}>
             {/* Every link keeps the same elements whatever the URL, so a navigation before hydration only changes attributes. */}
-            <motion.span layoutId={item.current ? HIGHLIGHT_LAYOUT_ID : undefined} className={styles.AdmissionSectionNavigation__highlight} data-current={item.current || undefined} transition={reduce ? INSTANT : SPRING_LAYOUT} aria-hidden="true" />
+            <m.span layoutId={item.current ? HIGHLIGHT_LAYOUT_ID : undefined} className={styles.AdmissionSectionNavigation__highlight} data-current={item.current || undefined} transition={reduce ? INSTANT : SPRING_LAYOUT} aria-hidden="true" />
             <span className={styles.AdmissionSectionNavigation__label}>{item.label}</span>
           </Link>
         </li>)}

@@ -9,7 +9,7 @@ import {
   type TribeEventLoadState,
 } from "@/lib/events/tribe-event-post-event-state";
 import type { TribeEventReactionSummary } from "@/lib/events/tribe-event-reaction-state";
-import { PLAYER_IFRAME_ALLOW } from "@/src/modules/shared/application/video/build-player-embed-source";
+import { PLAYER_IFRAME_ALLOW, PLAYER_IFRAME_SANDBOX } from "@/src/modules/shared/application/video/build-player-embed-source";
 import type { TribeEventPostEventView } from "@/src/modules/events/application/results/tribe-event-post-event-public-dto-schemas";
 import {
   TRIBE_EVENT_OCCURRENCE_REACTIONS,
@@ -100,6 +100,7 @@ function TribeEventPostEventRecording({ occurrenceTitle, recording }: TribeEvent
       <div className={styles.TribeEventPostEventPanel__player}>
         <iframe
           allow={PLAYER_IFRAME_ALLOW}
+          sandbox={PLAYER_IFRAME_SANDBOX}
           allowFullScreen
           className={styles.TribeEventPostEventPanel__playerFrame}
           loading={LINK_ATTRIBUTE.lazy}

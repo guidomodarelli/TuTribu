@@ -11,7 +11,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ElementType, type ReactNode } from "react";
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { animate, m, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL } from "@golfo/ui";
 import styles from "./styles.module.scss";
 
@@ -126,11 +126,11 @@ export function SkeletonMorph({ loading, children, stagger = SKELETON_MORPH_DEFA
 
   return <Tag className={[styles.SkeletonMorph, className].filter(Boolean).join(" ")} aria-busy={loading || undefined}>
     <span className={styles.SkeletonMorph__status} role="status">{loading ? loadingLabel : ""}</span>
-    <motion.div ref={shellRef} className={styles.SkeletonMorph__shell} style={{ height }}>
+    <m.div ref={shellRef} className={styles.SkeletonMorph__shell} style={{ height }}>
       <div ref={innerRef} className={styles.SkeletonMorph__inner}>
         <MorphContext.Provider value={value}>{children}</MorphContext.Provider>
       </div>
-    </motion.div>
+    </m.div>
   </Tag>;
 }
 
@@ -211,11 +211,11 @@ export function MorphBlock({ children, width = "100%", height, radius = SKELETON
   const placeholderStyle = { borderRadius: placeholderRadius(radius, lineCount), "--skeleton-morph-line": `${lineHeight}px` } as CSSProperties;
 
   return <Tag ref={ref} className={[styles.SkeletonMorph__block, className].filter(Boolean).join(" ")} data-state={resolved ? BLOCK_STATE.content : BLOCK_STATE.skeleton} data-fill={fill || undefined} style={sizing}>
-    {resolved && <motion.div className={styles.SkeletonMorph__content}
+    {resolved && <m.div className={styles.SkeletonMorph__content}
       initial={contentInitial(morphs, reduced)} animate={{ opacity: 1, filter: "blur(0px)" }}
       transition={reduced ? { duration: MOTION_TIMING.instant } : CONTENT_ENTER}>
       {children}
-    </motion.div>}
+    </m.div>}
     {morphs && <span ref={placeholderRef} className={styles.SkeletonMorph__placeholder} aria-hidden="true" data-lines={lineCount || undefined} style={placeholderStyle}>
       {lineCount > 0 && Array.from({ length: lineCount }, (_line, index) => <span key={index} className={styles.SkeletonMorph__line} data-last={index === lineCount - 1 && lineCount > 1 || undefined} />)}
     </span>}

@@ -207,6 +207,8 @@ function useLessonCommentsLoad(tribeSlug: string, lessonId: string) {
         }
 
         const payload = await readJsonPayload(response);
+        // The body read swallows its own abort, so a superseded load must not overwrite the next one.
+        if (abortController.signal.aborted) return;
         setComments(readCommentsFromResponse(payload));
         setLoadStatus(LOAD_STATUS.loaded);
       })

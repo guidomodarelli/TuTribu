@@ -4,6 +4,21 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Las páginas cargan menos código de animaciones, por lo que abren un poco más rápido.
+- En la barra de navegación, el nombre de la sección actual aparece y se va con una animación, igual que la sección de arriba.
+
+### Fixed
+
+- Las imágenes que publicás en el Fogón ya no quedan ocupando memoria del navegador cuando se reemplazan por la versión subida o cuando salís de la ronda.
+- Al crear una tribu, si el servidor falla pero responde como si la hubiera creado, el formulario muestra el error en lugar de darla por creada.
+- Al reintentar la carga de los comentarios de una lección, una carga vieja que termina tarde ya no deja la lista vacía.
+
+### Security
+
+- Los videos de YouTube, Vimeo, Wistia y Loom que se muestran en cursos, eventos, el Fogón y la historia de la tribu se reproducen aislados del resto de TuTribu.
+
 ## [1.10.3] - 2026-10-28
 
 ### Fixed

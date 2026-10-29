@@ -1,7 +1,7 @@
 "use client";
 
 import { type Dispatch, type SetStateAction, type SubmitEvent, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 
 import { Button, Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, MOTION_TIMING, MOTION_EASE } from "@golfo/ui";
 
@@ -737,7 +737,7 @@ function EventScheduleFields({ form, getFieldError }: EventFormFieldsProps) {
         />
         <AnimatePresence initial={false}>
           {endsOnAnotherDay ? (
-            <motion.div
+            <m.div
               key={FIELD_ID.endsDate}
               {...CONDITIONAL_FIELD_MOTION}
             >
@@ -750,7 +750,7 @@ function EventScheduleFields({ form, getFieldError }: EventFormFieldsProps) {
                 value={values.endsDate}
                 onChange={(event) => form.updateEndField("endsDate", event.currentTarget.value)}
               />
-            </motion.div>
+            </m.div>
           ) : null}
         </AnimatePresence>
       </div>
@@ -784,7 +784,7 @@ function EventRecurrenceFields({ form, getFieldError }: EventFormFieldsProps) {
       />
       <AnimatePresence initial={false}>
         {isRecurring ? (
-          <motion.div
+          <m.div
             key={FIELD_ID.recurrenceUntil}
             {...CONDITIONAL_FIELD_MOTION}
           >
@@ -799,7 +799,7 @@ function EventRecurrenceFields({ form, getFieldError }: EventFormFieldsProps) {
                 form.updateField("recurrenceUntil", event.currentTarget.value)
               }
             />
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>

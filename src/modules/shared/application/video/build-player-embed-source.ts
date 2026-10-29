@@ -46,6 +46,13 @@ export const PLAYER_IFRAME_ALLOW =
   "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
 
 /**
+ * Restricts embedded video players (YouTube, Vimeo, Wistia, Loom) to what playback needs: their own scripts and
+ * origin storage, casting, and links that open the provider in a new, unsandboxed tab.
+ */
+export const PLAYER_IFRAME_SANDBOX =
+  "allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox";
+
+/**
  * Builds the Vimeo player source URL, preserving private-video hashes when present.
  *
  * @param externalId - Vimeo numeric ID, optionally suffixed with `:<hash>`.

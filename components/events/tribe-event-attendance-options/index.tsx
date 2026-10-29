@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { LayoutGroup, motion } from "motion/react";
+import { LayoutGroup, m } from "motion/react";
 import { Button, SPRING_LAYOUT } from "@golfo/ui";
 
 import type {
@@ -80,7 +80,7 @@ export function TribeEventAttendanceOptions({
           return (
             <span className={styles.TribeEventAttendanceOptions__slot} key={option}>
               {isSelected ? (
-                <motion.span
+                <m.span
                   aria-hidden
                   className={styles.TribeEventAttendanceOptions__indicator}
                   layoutId={SELECTION_INDICATOR_LAYOUT_ID}
