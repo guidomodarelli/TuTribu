@@ -25,9 +25,7 @@
 }
 
 @media (width <= 640px) {
-  @include motion.define-keyframes;
-
-.ErrorState {
+  .ErrorState {
     &__title {
       max-width: 14ch;
     }
