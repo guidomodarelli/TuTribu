@@ -8,10 +8,8 @@ import type { PersonalInvitationManagementResult } from "@/src/modules/academy-a
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_MODE as MODE, PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 import { formatBuenosAiresDateTime } from "@/lib/date-time/buenos-aires-format";
 import { invitationLabels, invitationReviewBlockedReason, invitationSteps } from "./invitation-steps";
+import type { InvitationManagementProps } from "./types";
 import styles from "./styles.module.scss";
-
-/** `busy` covers every read and write; `writing` only the explicit save, which keeps its label while it shows progress. */
-export type InvitationManagementProps = { draft: PersonalInvitationManagementDraft; items: readonly PersonalInvitationManagementResult[]; contactType: "email" | "phone" | null; requiresAdditionalVerification: boolean; hasUsableAllowlist: boolean; allowedCountries: readonly string[]; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; confirmed: boolean; conflict: boolean; needsCurrent: boolean; selectionBlocked: boolean; onDiscardSelection: () => void; hasNext: boolean; /** «Ver más» in progress: the shown invitations stay and only its button reports progress. */ loadingMore: boolean; /** Failure of «Ver más», shown next to its button. */ moreError: string | null; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; invitationUrl: string | null; step: number; onStepChange: (step: number) => void; onDraftChange: (value: PersonalInvitationManagementDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onSelect: (item: PersonalInvitationManagementResult, mode: "create" | "rename" | "revoke") => void; onNew: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onNext: () => void; onHideUrl: () => void; onCopyUrl: () => void };
 
 /** @param props - Field ids prefix, the issued link and its actions. @returns The link issued now, shown only once, with its copy and hide actions. */
 function IssuedInvitationLink({ id, url, onCopyUrl, onHideUrl }: { id: string; url: string; onCopyUrl: () => void; onHideUrl: () => void }) {

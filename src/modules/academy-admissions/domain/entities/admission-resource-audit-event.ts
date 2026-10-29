@@ -12,8 +12,6 @@ export type AdmissionDeliveryAuditCause="provider_accepted"|"provider_delivered"
 
 /** Keeps actor and ledger references private; background events never fabricate a user or original command. */
 export type AdmissionResourceAuditScope={tribeId:string;actorUserId:string|null;operationId:string|null;resourceId:string;resourceVersion:number|null;rule:string|null;cause:AdmissionErrorCode|MessagingErrorCode|AdmissionDeliveryAuditCause|"authorized_connection_replacement"|"connection_replaced"|"messaging_connection_replaced"|"connection_disconnected"|"suspected_compromise"|"security_stop"|"ordinary_retirement"|"scheduled_expiration"|"scope_retired"|"policy_verification_context_changed"|"explicit_resend"|"candidate_expired"|null;createdAt:Date};
-/** Declares resource names independently of runtime constants. */
-export type AdmissionResourceAuditKind="admission_request"|"allowlist_entry"|"personal_invitation"|"messaging_usage_policy"|"messaging_connection"|"authorized_exposure"|"message_delivery"|"admission_notification"|"admission_email_settings"|"messaging_protection"|"admission_proof"|"membership"|"retention_run";
 /** Limits ordinary request changes to owner-derived states, effective policy and opaque evidence. */
 export type AdmissionRequestAuditEventType="pending_created"|"approved"|"rejected"|"cancelled"|"expired";
 /** Keeps applicant content and ordinary decision reasons with their owners. */

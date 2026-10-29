@@ -3,7 +3,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@golfo/ui";
 import { ButtonLink, Link } from "@/components/navigation/link";
 import { MorphBlock, SkeletonMorph } from "@/components/loaders/skeleton-morph";
-import type { AdmissionReviewHistoryItemDto } from "@/src/modules/academy-admissions/application/results/admission-review-history-result";
+import type { AdmissionReviewHistoryItemDto } from "@/src/modules/academy-admissions/constants/admission-review-history-schemas";
 import { ADMISSION_REVIEW_HISTORY_ACTOR_LABEL, ADMISSION_REVIEW_HISTORY_COPY, ADMISSION_REVIEW_HISTORY_EVENT_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-history-page";
 import { ADMISSION_REVIEW_STATUS_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";

@@ -48,7 +48,6 @@ import {
   type TribeRoundVisibleMessageResult,
   useRelativeTimeElementDefinition,
 } from "./tribe-round-shared";
-import { applyNavigatedRound } from "./message-actions";
 
 /**
  * Ref registries that deduplicate best-effort deletions of one kind of draft
@@ -904,13 +903,14 @@ export type TribeRoundController = Omit<TribeRoundProps, "round"> & {
 /**
  * Wires the round state, refs, derived values, navigation, and effects of one
  * render of {@link TribeRoundContent} into a single controller read by the
- * round handlers and render helpers.
+ * round handlers and render helpers. `onRoundLoaded` applies a round loaded by
+ * navigation; the caller passes it so this hook does not import the handlers
+ * that read the controller.
  */
-export function useTribeRoundController({
-  authenticatedMember,
-  tribeSlug,
-  round: serverRound,
-}: TribeRoundProps): TribeRoundController {
+export function useTribeRoundController(
+  { authenticatedMember, tribeSlug, round: serverRound }: TribeRoundProps,
+  onRoundLoaded: (controller: TribeRoundController, nextRound: TribeRoundResult) => void
+): TribeRoundController {
   const router = useRouter();
   useRelativeTimeElementDefinition();
 
@@ -930,7 +930,7 @@ export function useTribeRoundController({
   );
   const roundNavigation = useTribeRoundNavigation({
     initialLocation: getTribeRoundLocation(serverRound),
-    onRoundLoaded: (nextRound) => applyNavigatedRound(controller, nextRound),
+    onRoundLoaded: (nextRound) => onRoundLoaded(controller, nextRound),
     tribeSlug,
   });
   const resources = useTribeRoundResources(tribeSlug, composerState.mediaDrafts);

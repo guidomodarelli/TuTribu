@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import { GetPersonalInvitationOverviewUseCase } from "@/src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case";
 import { GetPersonalInvitationPageUseCase } from "@/src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case";
-import { personalInvitationPageStateSchema } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
+import { personalInvitationPageStateSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-page";
 import { loadPersonalInvitationPageState } from "@/src/modules/academy-admissions/infrastructure/composition/personal-invitation-page";
 
 /** @returns Controlled own ports and a canonical opaque proposal, without replacing SDK/database/schema libraries. */

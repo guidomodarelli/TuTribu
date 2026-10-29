@@ -1,7 +1,8 @@
 /** Exposes one explicit original notification recovery with safe minimum results and no provider send. @module notification-delivery-recovery-handler */
 import "server-only";
 import type { RecoverNotificationDeliveryUseCase } from "../../application/use-cases/recover-notification-delivery-use-case";
-import { notificationDeliveryRecoveryResultSchema, type NotificationDeliveryRecoveryResult } from "../../application/results/notification-delivery-recovery-result";
+import type { NotificationDeliveryRecoveryResult } from "../../application/results/notification-delivery-recovery-result";
+import { notificationDeliveryRecoveryResultSchema } from "../../constants/notification-delivery-recovery-schema";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { hasAllowedRequestOrigin } from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
