@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En Reglas de admisión ya se puede elegir «Lista de habilitados» (u otra opción) al tocarla; antes el clic no la seleccionaba. Lo mismo pasaba con otras casillas, interruptores y listas desplegables.
+
 ## [1.10.4] - 2026-10-29
 
 ### Changed
