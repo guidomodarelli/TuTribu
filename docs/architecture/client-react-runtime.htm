@@ -65,7 +65,9 @@ tr:last-child td{border-bottom:none;}
     <li><code>&lt;Profiler&gt;</code> no ejecuta su callback, <code>cacheSignal</code> devuelve <code>null</code> y <code>unstable_useCacheRefresh</code> no hace nada en el cliente.</li>
     <li>Los metodos de ciclo de vida legacy de clases no se ejecutan.</li>
     <li><code>&lt;Activity&gt;</code> conserva el DOM y el estado ocultos, pero desconecta sus efectos y refs.</li>
+    <li>Los handlers reciben el <code>Event</code> nativo (con <code>nativeEvent</code> apuntando a si mismo), no un <code>SyntheticEvent</code>: no existen <code>isPropagationStopped()</code>, <code>isDefaultPrevented()</code> ni <code>persist()</code>. Radix RadioGroup, Checkbox, Switch y Select llaman a <code>isPropagationStopped()</code> en sus handlers, y sin ese metodo el clic lanza un error y el control no cambia.</li>
   </ul>
+  <div class="callout c-warn"><strong>Shim de eventos.</strong> <code>instrumentation-client.ts</code> corre <code>installSyntheticEventCompat(Event.prototype)</code> (<code>src/modules/shared/infrastructure/browser/install-synthetic-event-compat.ts</code>) antes de la hidratacion. Agrega a <code>Event.prototype</code> los tres metodos que faltan; envuelve <code>stopPropagation</code> y <code>stopImmediatePropagation</code> para que <code>isPropagationStopped()</code> responda como en React, y no toca metodos que el prototipo ya tenga. Es un parche global del navegador que existe solo por Redact.</div>
   <p>La guia completa esta en <code>https://tanstack.com/redact/latest/docs/compatibility</code>.</p>
   <div class="divider"></div>
 </div>
@@ -77,7 +79,7 @@ tr:last-child td{border-bottom:none;}
     <li><code>withRedact</code> valida la version de Next.js al cargar la configuracion y falla con un error si no esta soportada (en <code>0.2.0</code>: 15.5 y 16.0 a 16.4). Antes de subir Next.js, subir Redact a una version que la soporte.</li>
     <li><code>@tanstack/redact</code> figura en <code>minimumReleaseAgeExclude</code> de <code>pnpm-workspace.yaml</code>: el paquete publica versiones seguido y la integracion con Next.js llega primero en las versiones nuevas, asi que se instala sin esperar las 24 horas de <code>minimumReleaseAge</code>.</li>
     <li>Los tests de Vitest siguen ejecutando React: Redact solo cambia el bundle que genera Next.js. La verificacion de Redact es <code>pnpm run build</code> y la prueba de la app en <code>https://dev.tutribu.app</code>.</li>
-    <li>Para volver a React en el navegador alcanza con exportar <code>nextConfig</code> sin <code>withRedact</code>.</li>
+    <li>Para volver a React en el navegador, exportar <code>nextConfig</code> sin <code>withRedact</code> y sacar de <code>instrumentation-client.ts</code> la llamada a <code>installSyntheticEventCompat</code> (junto con su modulo y su test): con React los eventos ya traen esos metodos y el parche global sobra.</li>
   </ul>
 </div>
 </body>
