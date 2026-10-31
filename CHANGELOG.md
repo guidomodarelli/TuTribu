@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Los botones, casillas y listas de la app vuelven a funcionar con el mismo motor que antes de la 1.10.0. Las páginas descargan un poco más de código (unos 31 KB), a cambio de que los controles respondan de forma confiable.
+
 ## [1.10.5] - 2026-10-31
 
 ### Fixed
