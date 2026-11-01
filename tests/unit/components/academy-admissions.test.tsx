@@ -34,6 +34,7 @@ import PolicyLoading from "@/app/(platform)/[slug]/academia/admissions/settings/
 import { ADMISSION_PAGES, type AdmissionPage } from "@/src/modules/academy-admissions/constants/admission-sections";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { PERSONAL_INVITATION_UI_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
+import { PAGE_READ_COPY } from "@/src/constants/page-read";
 
 type RouteErrorBoundary = ComponentType<RouteErrorBoundaryProps>;
 
@@ -123,7 +124,8 @@ describe("academy admission route boundaries", () => {
 
     const main = screen.getByRole("main");
     expect(within(main).getByRole("heading", { level: 1, name: ADMISSION_UI_COPY.unavailableTitle })).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_UI_COPY.readFailed);
+    // The page content was replaced, so the message never claims the last confirmed facts remain.
+    expect(screen.getByRole("alert")).toHaveTextContent(PAGE_READ_COPY.unavailable);
     await expectKeyboardRecovery(boundary);
   });
 
