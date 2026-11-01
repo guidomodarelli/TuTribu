@@ -10,7 +10,7 @@ import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draf
 import { omitKeys } from "@/lib/object-omit";
 import { PERSONAL_INVITATION_UI_PHASE, PERSONAL_INVITATION_UI_COPY, PERSONAL_INVITATION_UI_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
 import { PERSONAL_INVITATION_OVERVIEW_STATE } from "@/src/modules/academy-admissions/constants/personal-invitation-overview";
-import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -29,10 +29,12 @@ function usePersonalInvitationState(options: PersonalInvitationOptions) {
   const [state, setState] = useState(options.initialState), [phase, setPhase] = useState<PersonalPhase>(PERSONAL_INVITATION_UI_PHASE.idle);
   const [ready, setReady] = useState(false), [personalScope, setPersonalScope] = useState<string | null>(null), [confirmed, setConfirmed] = useState(false), [accountChanged, setAccountChanged] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [feedback, setFeedback] = useState<string | null>(null), [hasPending, setHasPending] = useState(false);
+  /** The last consult proved the original absent or answered `started`: the reference holds no request data to resend it, so it may be discarded. */
+  const [originalDiscardable, setOriginalDiscardable] = useState(false);
   const currentRef = useRef(state), scopeRef = useRef<string | null>(null), pendingRef = useRef<PersonalInvitationSubmissionIntent | null>(null), activeRef = useRef(false), busyRef = useRef(false), accountClosedRef = useRef(false), controllerRef = useRef<AbortController | null>(null);
   const live = useCallback((signal: AbortSignal) => activeRef.current && !signal.aborted, []);
   const publish = useCallback((next: PersonalInvitationPageState) => { currentRef.current = next; setState(next); }, []);
-  return { client, token: options.token, state, phase, setPhase, ready, setReady, personalScope, setPersonalScope, confirmed, setConfirmed, accountChanged, setAccountChanged, errorMessage, setErrorMessage, feedback, setFeedback, hasPending, setHasPending, currentRef, scopeRef, pendingRef, activeRef, busyRef, accountClosedRef, controllerRef, live, publish };
+  return { client, token: options.token, state, phase, setPhase, ready, setReady, personalScope, setPersonalScope, confirmed, setConfirmed, accountChanged, setAccountChanged, errorMessage, setErrorMessage, feedback, setFeedback, hasPending, setHasPending, originalDiscardable, setOriginalDiscardable, currentRef, scopeRef, pendingRef, activeRef, busyRef, accountClosedRef, controllerRef, live, publish };
 }
 type PersonalInvitationState = ReturnType<typeof usePersonalInvitationState>;
 
@@ -89,24 +91,25 @@ type PersonalInvitationCore = ReturnType<typeof usePersonalInvitationCore>;
 
 /** @param workflow - Workflow state. @param core - Shared steps. @returns Read-only recovery of the original and serialized observations. */
 function usePersonalInvitationRecovery(workflow: PersonalInvitationState, core: PersonalInvitationCore) {
-  const { client, live, currentRef, scopeRef, pendingRef, activeRef, busyRef, controllerRef, setPhase, setErrorMessage, setFeedback, setConfirmed, setReady } = workflow;
+  const { client, live, currentRef, scopeRef, pendingRef, activeRef, busyRef, controllerRef, setPhase, setErrorMessage, setFeedback, setConfirmed, setReady, setOriginalDiscardable } = workflow;
   const { authorize, clear, applyOutcome, refresh, restoreReference } = core;
   /** @param intent - Stored original. @param signal - Read lifetime. @returns The completed original, or whether the read still counts as an observation. */
   const readOriginal = useCallback(async (intent: PersonalInvitationSubmissionIntent, signal: AbortSignal) => {
     const result = await client.operation(intent.slug, intent.operationId, signal);
     if (!live(signal) || !await authorize(signal) || !live(signal)) return UNOBSERVED;
-    if (result.status !== "ready") { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(readRecoveryFailureMessage(result)); return UNOBSERVED; }
+    if (result.status !== "ready") { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(readRecoveryFailureMessage(result)); setOriginalDiscardable(result.status === "failed" && result.code === ADMISSION_ERROR_CODE.resourceUnavailable); return UNOBSERVED; }
     const parsed = admissionOperationRecoverySchema.safeParse(result.value);
     if (!parsed.success || parsed.data.type !== ADMISSION_OPERATION_TYPE.submit || parsed.data.operationId.toLowerCase() !== intent.operationId.toLowerCase()) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return UNOBSERVED; }
-    if (parsed.data.state === OPERATION_STATE.started) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); return OBSERVED; }
+    if (parsed.data.state === OPERATION_STATE.started) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.started); setOriginalDiscardable(true); return OBSERVED; }
     const original = parsed.data.result;
     if (original.outcome !== ADMISSION_OUTCOME.denied && original.operationId.toLowerCase() !== intent.operationId.toLowerCase() || original.outcome === ADMISSION_OUTCOME.denied && original.admissionRequestId !== null) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return UNOBSERVED; }
     return { kind: "completed", original } as const;
-  }, [authorize, client, live, setErrorMessage, setPhase]);
+  }, [authorize, client, live, setErrorMessage, setOriginalDiscardable, setPhase]);
   /** Reads exactly the original namespace/id without a new POST or an invented accepted result. */
   const recover = useCallback(async (signal: AbortSignal) => {
     const intent = pendingRef.current;
     if (!intent || !await authorize(signal) || !live(signal)) return false;
+    setOriginalDiscardable(false);
     const read = await readOriginal(intent, signal);
     if (read.kind === "settled") return read.observed;
     const { original } = read;
@@ -116,7 +119,7 @@ function usePersonalInvitationRecovery(workflow: PersonalInvitationState, core: 
     await refresh(signal);
     if (live(signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
     return live(signal);
-  }, [applyOutcome, authorize, clear, live, pendingRef, readOriginal, refresh, setErrorMessage, setFeedback, setPhase]);
+  }, [applyOutcome, authorize, clear, live, pendingRef, readOriginal, refresh, setErrorMessage, setFeedback, setOriginalDiscardable, setPhase]);
   /** Serializes observations with the same deadline/cancellation owner as explicit mutation actions. */
   const observe = useCallback(async (proofId?: string) => {
     if (busyRef.current || !activeRef.current) return;
@@ -233,6 +236,16 @@ export function usePersonalInvitation(options: PersonalInvitationOptions) {
   const { recover, observe } = usePersonalInvitationRecovery(workflow, core);
   usePersonalInvitationLifecycle(workflow, core, { recover, observe });
   const { submit, changeAccount, changeConfirmation } = usePersonalInvitationActions(workflow, core);
-  const { state, ready, personalScope, confirmed, accountChanged, phase, errorMessage, feedback, hasPending } = workflow;
-  return { state, ready, personalScope, confirmed, setConfirmed: changeConfirmation, accountChanged, phase, errorMessage, feedback, hasPending, authorize: core.authorize, read: observe, submit, changeAccount };
+  const { state, ready, personalScope, confirmed, accountChanged, phase, errorMessage, feedback, hasPending, originalDiscardable, setOriginalDiscardable, setErrorMessage, setFeedback, setPhase, busyRef, pendingRef } = workflow;
+  /**
+   * Forgets an original the last consult proved absent or still `started`. Its reference holds no request data, so it cannot be resent:
+   * the invitation is read again, which shows whether that original registered the admission.
+   */
+  const discardOriginal = useCallback(async () => {
+    if (busyRef.current || !pendingRef.current || !originalDiscardable || !core.clear()) return;
+    setOriginalDiscardable(false); setErrorMessage(null); setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
+    await observe();
+    setFeedback(PERSONAL_INVITATION_UI_COPY.discarded);
+  }, [busyRef, core, observe, originalDiscardable, pendingRef, setErrorMessage, setFeedback, setOriginalDiscardable, setPhase]);
+  return { state, ready, personalScope, confirmed, setConfirmed: changeConfirmation, accountChanged, phase, errorMessage, feedback, hasPending, originalDiscardable: hasPending && originalDiscardable, discardOriginal, authorize: core.authorize, read: observe, submit, changeAccount };
 }

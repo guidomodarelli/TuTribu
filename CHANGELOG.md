@@ -15,6 +15,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Al volver a ingresar gratis con una membresía inactiva por una suscripción, quien estaba silenciado sigue silenciado y un guardián vuelve como integrante.
 - Contratar la academia compara el precio que viste con el vigente: si cambió, avisa que la oferta cambió antes de abrir Mercado Pago.
 - Si la conexión de la tribu con Mercado Pago no está disponible, contratar, actualizar el estado o cancelar lo dicen y explican qué hacer, en lugar de pedir que vuelvas a intentar en unos minutos.
+- El límite del archivo CSV para importar habilitados pasa de 5 MiB a 3 MiB, para que la vista previa siempre llegue a guardarse.
+- El reporte descargado de una importación de habilitados nombra sus columnas en español (Fila, Contacto, Nombre, Resultado, Errores, Versión de entrada).
 
 ### Fixed
 
@@ -43,6 +45,13 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En Habilitados, Importación e Invitaciones se puede descartar una operación anterior que nunca se registró sin perder el borrador ni el archivo, y una vista previa de importación que ya no se puede confirmar pide crear otra con el mismo archivo.
 - En Reglas de admisión, pausar sin la seguridad de la plataforma muestra que las admisiones siguen abiertas y que depende del equipo de TuTribu, en lugar de un texto pensado para postulantes y un reintento que fallaba; el bloqueo ya no dice que se guardó un borrador cuando no se guardó nada; reintentar una operación muestra el bloqueo de esa misma acción; si no se puede volver a leer la configuración se muestra ese error en lugar de un aviso vacío, y «Volver a comprobar» detecta claves sin inscribir y la pausa de recuperación sin informar una pausa cuando lo que falta es la configuración.
 - La guía «Configurá las admisiones» muestra un único aviso del equipo de TuTribu y deja de invitar a definir reglas, conectar mensajería o elegir países y cupos mientras la plataforma no puede proteger esos cambios, sin mencionar un borrador que no existe.
+- Una operación de admisión que quedó registrada sin terminar (Reglas, Países y cupos, la revisión individual y en lote, la solicitud de ingreso, Habilitados y la importación) ya no deja la pantalla trabada: se puede reintentar con los mismos datos sin que se aplique dos veces.
+- En Habilitados, Importación, Invitaciones y la invitación personal, un cambio que no llegó a registrarse o que no terminó se puede reintentar o descartar, en lugar de bloquear la pantalla hasta cerrar la pestaña; buscar y «Ver más» siguen disponibles mientras tanto.
+- Una vista previa de importación creada antes de cambiar las Reglas ya no entra en un bucle de «La configuración cambió»: vuelve a pedir el archivo y una vista previa nueva con la configuración actual.
+- Una importación vencida con confirmaciones pendientes se puede cerrar para elegir otro archivo; las filas ya importadas siguen en Habilitados.
+- Emitir una invitación a alguien que ya tiene una activa explica que hay que reemitirla desde el historial, y una lista de habilitados sin entradas utilizables se explica como tal, en lugar de «La invitación cambió».
+- Las entradas de Habilitados de un tipo de contacto que las reglas ya no usan dejan de ofrecer «Editar», que siempre fallaba.
+- Activar las admisiones ya no queda sin confirmar si la tribu cambió mientras se convertían las membresías comerciales: se informa el conflicto para revisar la configuración.
 
 ## [1.12.0] - 2026-10-31
 

@@ -8,7 +8,7 @@ export const ADMISSION_BATCH_REVIEW_COPY = {
   selectionChanged: "Cambió una solicitud seleccionada. Revisá la selección y confirmá de nuevo.",
   invalid: "Seleccioná solicitudes visibles, escribí el motivo interno y confirmá la lista antes de decidir.",
   uncertain: "El resultado del lote no está confirmado. Consultá la operación original antes de volver a intentar.",
-  started: "La operación original está registrada y todavía no tiene un resultado definitivo.",
+  started: "La operación original está registrada y todavía no tiene un resultado definitivo. Si no avanza, confirmá de nuevo y reintentá el mismo lote: no se aplica dos veces.",
   retry: "Reintentar el mismo lote", clear: "Quitar selección", dismiss: "Cerrar resultados",
   results: "Resultados del lote", completed: "Decisiones confirmadas", failed: "Sin decisión aplicada", unresolved: "Sin resolución confirmada",
   original: "Esta es la selección original. Consultar o recuperar no vuelve a decidir las solicitudes.",

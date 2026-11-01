@@ -639,15 +639,26 @@ describe("native reviewer container", () => {
     expect(data.client.decide.mock.calls[1][2]).toEqual(data.client.decide.mock.calls[0][2]);
   });
 
-  it("should keep an actually started operation read-only and restore its draft after reload", async () => {
+  it("should keep a restored started decision locked with its draft and resend the same original only after a new confirmation", async () => {
     const data = fixture();
-    writeAdmissionReviewIntent(viewerId, slug, { requestId, input: { operationId, confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "Motivo original", externalMessage: "Mensaje original" } });
+    const input = { operationId, confirmed: true as const, expectedVersion: 1, decision: "approve" as const, internalReason: "Motivo original", externalMessage: "Mensaje original" };
+    writeAdmissionReviewIntent(viewerId, slug, { requestId, input });
     data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "decide_admission_request", state: "started", operationId } });
     render(data.node, { wrapper: Providers });
     await screen.findByText(ADMISSION_REVIEW_UI_COPY.uncertain);
+    await screen.findByText(ADMISSION_REVIEW_UI_COPY.started);
     expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("Motivo original");
-    expect(screen.queryByRole("button", { name: ADMISSION_REVIEW_UI_COPY.retry })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.retry })).toBeDisabled();
     expect(data.client.decide).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
+    data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.retry }));
+    await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
+    expect(data.client.decide).toHaveBeenCalledOnce();
+    expect(data.client.decide.mock.calls[0][1]).toBe(requestId);
+    expect(data.client.decide.mock.calls[0][2]).toEqual(input);
+    expect(readAdmissionReviewIntent(viewerId, slug)).toBeNull();
   });
 
   it("should hide all previous-account private facts and skip reads/writes when native viewer changes", async () => {

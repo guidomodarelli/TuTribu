@@ -8,7 +8,7 @@ import { PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } fro
 
 /** @returns Controlled preview without an inferred selection or permission. */
 function fixture(): AllowlistImportProps {
-  return { policyHref: "/synthetic/academia/admissions/settings", platformRequirement: null, originalAbsent: false, onDiscardOriginal: vi.fn(), ready: true, busy: false, writeAction: null, privateVisible: true, initializationFailed: false, hasSavedImport: true, onRetryInitialization: vi.fn(), fileName: "synthetic.csv", contactType: "email", snapshot: { importId: randomUUID(), state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, conflict: 0, skipped: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "<script>inert()</script>", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", selected: false, errors: ["admission_contact_invalid"] }] }, selection: [], confirmed: false, pending: false, canResume: false, conflict: false, policyConflict: false, unresolvedCount: 0, canReconcile: false, errorMessage: null, fieldError: null, statusMessage: null, step: 1, onStepChange: vi.fn(), onFile: vi.fn(), onConfirmChange: vi.fn(), onSelectRow: vi.fn(), onSelectAllValid: vi.fn(), onPreview: vi.fn(), onConfirm: vi.fn(), onReadOriginal: vi.fn(), onReadCurrent: vi.fn(), onRecheckPlatform: vi.fn(), onReadPolicy: vi.fn(), onTemplate: vi.fn(), onReport: vi.fn(), onReconcile: vi.fn() };
+  return { policyHref: "/synthetic/academia/admissions/settings", platformRequirement: null, originalAbsent: false, previewDiscardable: false, onDiscardOriginal: vi.fn(), originalRetryable: false, onRetryOriginal: vi.fn(), importUnusable: false, onCloseImport: vi.fn(), pendingPreview: false, ready: true, busy: false, writeAction: null, privateVisible: true, initializationFailed: false, hasSavedImport: true, onRetryInitialization: vi.fn(), fileName: "synthetic.csv", contactType: "email", snapshot: { importId: randomUUID(), state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, conflict: 0, skipped: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "<script>inert()</script>", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", selected: false, errors: ["admission_contact_invalid"] }] }, selection: [], confirmed: false, pending: false, canResume: false, conflict: false, policyConflict: false, unresolvedCount: 0, canReconcile: false, errorMessage: null, fieldError: null, statusMessage: null, step: 1, onStepChange: vi.fn(), onFile: vi.fn(), onConfirmChange: vi.fn(), onSelectRow: vi.fn(), onSelectAllValid: vi.fn(), onPreview: vi.fn(), onConfirm: vi.fn(), onReadOriginal: vi.fn(), onReadCurrent: vi.fn(), onRecheckPlatform: vi.fn(), onReadPolicy: vi.fn(), onTemplate: vi.fn(), onReport: vi.fn(), onReconcile: vi.fn() };
 }
 describe("import presenter", () => {
   it("should send the leader to the rules page instead of a blocked upload while no rules are saved", () => {
@@ -101,5 +101,21 @@ describe("import presenter", () => {
     rerender(<AllowlistImport {...props} originalAbsent />);
     fireEvent.click(screen.getByRole("button", { name: "Descartar la operación sin registrar" }));
     expect(props.onDiscardOriginal).toHaveBeenCalledOnce(); expect(props.onConfirm).not.toHaveBeenCalled();
+  });
+  it("should name a pending preview, resend it and let the leader discard it once it answers started", () => {
+    const props = fixture(); props.pending = true; props.pendingPreview = true; props.snapshot = null; props.hasSavedImport = false;
+    render(<AllowlistImport {...props} originalRetryable previewDiscardable />);
+    expect(screen.getByText(ALLOWLIST_IMPORT_BROWSER_COPY.pendingPreviewBlocked)).toBeVisible();
+    expect(screen.queryByText(ALLOWLIST_IMPORT_BROWSER_COPY.pendingBlocked)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar la operación original" }));
+    fireEvent.click(screen.getByRole("button", { name: "Descartar la vista previa pendiente" }));
+    expect(props.onRetryOriginal).toHaveBeenCalledOnce(); expect(props.onDiscardOriginal).toHaveBeenCalledOnce();
+  });
+  it("should let the leader close an import that can no longer be confirmed", () => {
+    const props = fixture(); props.unresolvedCount = 1; props.snapshot = null;
+    render(<AllowlistImport {...props} importUnusable />);
+    expect(screen.getByText(ALLOWLIST_IMPORT_BROWSER_COPY.importUnusable)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar esta importación" }));
+    expect(props.onCloseImport).toHaveBeenCalledOnce();
   });
 });

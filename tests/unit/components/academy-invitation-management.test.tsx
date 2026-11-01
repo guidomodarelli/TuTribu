@@ -500,4 +500,29 @@ describe("invitation management without platform protection", () => {
     expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
     expect(data.client.write).toHaveBeenCalledOnce();
   });
+
+  it("should let the leader discard an original that stays started, since it cannot be resent, then require the current state", async () => {
+    const data = fixture(), user = userEvent.setup();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    await mount(data); await emailProposal(user); await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    await screen.findByRole("button", { name: "Consultar operación original" });
+    const operationId = readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)!.operationId;
+    vi.mocked(data.client.operation).mockResolvedValueOnce({ status: "ready", value: { viewerId: data.initial.viewerId, original: { type: "create_personal_invitation", state: "started", operationId } } });
+    await user.click(screen.getByRole("button", { name: "Consultar operación original" }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.started)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Descartar la operación pendiente" }));
+    expect((await screen.findAllByText(PERSONAL_INVITATION_MANAGEMENT_COPY.currentRequired))[0]).toBeVisible();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+    expect(data.client.write).toHaveBeenCalledOnce();
+  });
+
+  it("should explain an issue for a recipient that already has an active invitation without blocking the draft as a changed invitation", async () => {
+    const data = fixture(), user = userEvent.setup(), code = ADMISSION_ERROR_CODE.invitationConflict;
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+    await mount(data); await emailProposal(user); await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.activeRecipient)).toBeVisible();
+    expect(screen.queryByText(ADMISSION_ERROR_MESSAGE[code])).not.toBeInTheDocument();
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.conflictBlocked)).not.toBeInTheDocument();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+  });
 });

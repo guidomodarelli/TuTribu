@@ -15,7 +15,7 @@ import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constan
 /** Only safe presentation facts and callbacks enter the screen; the token is never a prop. */
 export type PersonalInvitationProps = {
   state: PersonalInvitationPageState; ready: boolean; confirmed: boolean; canSubmit: boolean; phase: "idle" | "reading" | "submitting" | "changing_account" | "uncertain";
-  accountChanged: boolean; hasPending: boolean; errorMessage: string | null; feedback: string | null; signInHref: string;
+  accountChanged: boolean; hasPending: boolean; /** The pending original proved absent or still `started` and can be discarded. */ originalDiscardable?: boolean; onDiscardOriginal?: () => void; errorMessage: string | null; feedback: string | null; signInHref: string;
   commonHref?: string; ownRequestHref?: string; academyHref?: string; verification?: ReactNode;
   whatsappNumber: string; whatsappErrorMessage: string | null; onWhatsappNumberChange: (value: string) => void;
   onConfirm: (value: boolean) => void; onSubmit: () => void; onRead: () => void; onChangeAccount: () => void; onReloadAccount: () => void;
@@ -63,6 +63,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
         {props.accountChanged && <Button type="button" variant="secondary" onClick={props.onReloadAccount}>{PERSONAL_INVITATION_UI_COPY.reloadAccount}</Button>}
         {!props.accountChanged && props.state.kind === "ready" && props.state.viewerId && <Button type="button" variant="secondary" disabled={busy || !props.ready} onClick={props.onChangeAccount}>{props.phase === PERSONAL_INVITATION_UI_PHASE.changingAccount ? PERSONAL_INVITATION_UI_COPY.changingAccount : PERSONAL_INVITATION_UI_COPY.changeAccount}</Button>}
         <Button type="button" variant="secondary" disabled={busy || props.accountChanged} onClick={props.onRead}>{props.hasPending ? PERSONAL_INVITATION_UI_COPY.original : PERSONAL_INVITATION_UI_COPY.read}</Button>
+        {props.originalDiscardable && props.onDiscardOriginal && <Button type="button" variant="ghost" disabled={busy || props.accountChanged} onClick={props.onDiscardOriginal}>{PERSONAL_INVITATION_UI_COPY.discardOriginal}</Button>}
         <Link href={ROUTES.home}>Ir al inicio</Link>
       </div>
       {!props.accountChanged && props.commonHref && <section className={styles.PersonalInvitation__alternative} aria-labelledby={`${fieldId}-alternative`}>

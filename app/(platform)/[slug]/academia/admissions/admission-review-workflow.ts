@@ -91,7 +91,18 @@ function recoverBatchOriginal(session: ReviewSession, original: BatchIntent, ope
   // The authorized original remains visible if the separate inbox read fails; freshness still blocks new decisions.
   session.controls.setPrivateVisible(true);
   if (projected.state === OPERATION_STATE.completed) completeBatch(session, projected);
+  else offerStartedOriginalRetry(session);
   return true;
+}
+
+/**
+ * A registered original that did not finish (its effect rolled back or is still running) can be resent as is: the ledger reclaims it once
+ * nobody works on it and never applies it twice. While the platform cannot protect a decision the resend would stay unresolved, so it is not offered.
+ * @param session - Current route session.
+ * @returns Nothing after offering the retry of the same original.
+ */
+function offerStartedOriginalRetry(session: ReviewSession): void {
+  if (!session.controls.platformRequirement.current) session.controls.setCanRetry(true);
 }
 
 /** @param original - Stored decision. @param result - Recovered transition. @returns Whether it is the exact transition the decision expected. */
@@ -103,7 +114,7 @@ function isExpectedTransition(original: DecisionIntent, result: AdmissionTransit
 /** @param session - Current route session. @param original - Stored decision. @param operation - Recovered operation. @returns Whether the read may continue. */
 function recoverDecisionOriginal(session: ReviewSession, original: DecisionIntent, operation: RecoveredOperation): boolean {
   if (operation.type !== ADMISSION_OPERATION_TYPE.decide || operation.operationId !== original.input.operationId.toLowerCase()) { session.setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return false; }
-  if (operation.state !== OPERATION_STATE.completed) return true;
+  if (operation.state !== OPERATION_STATE.completed) { offerStartedOriginalRetry(session); session.controls.setStatusMessage(ADMISSION_REVIEW_UI_COPY.started); return true; }
   if ("code" in operation.result) {
     if (operation.result.admissionRequestId !== original.requestId.toLowerCase()) { session.setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return false; }
     forgetReviewIntent(session);

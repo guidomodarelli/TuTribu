@@ -28,7 +28,8 @@ function InvitationHistory({ props, id, disabled }: { props: InvitationManagemen
     {props.items.length === 0 ? <EmptyState label="Historial de invitaciones vacío" title="Todavía no hay invitaciones en esta vista." description="Emití una invitación personal para que una persona pueda pedir ingreso con su enlace." /> : <ul className={styles.InvitationManagement__list}>{props.items.map((item) => <InvitationHistoryItem key={item.id} item={item} disabled={disabled || props.conflict || Boolean(props.platformRequirement)} onSelect={props.onSelect} />)}</ul>}
     <GuidedStepsDisclosure summary="Consultar y ver más">
       {!(props.selectionBlocked || props.needsCurrent) && <Button type="button" variant="secondary" size="sm" disabled={props.busy || props.pending} onClick={props.onReadCurrent}>Consultar estado actual</Button>}
-      {props.hasNext && <Button type="button" variant="secondary" size="sm" loading={props.loadingMore} disabled={disabled && !props.loadingMore} onClick={props.onNext}>Ver más invitaciones</Button>}
+      {/* Paging never touches a pending original, so it stays available while one waits. */}
+      {props.hasNext && <Button type="button" variant="secondary" size="sm" loading={props.loadingMore} disabled={(!props.ready || props.busy) && !props.loadingMore} onClick={props.onNext}>Ver más invitaciones</Button>}
       {props.moreError && <p role="alert" className={styles.InvitationManagement__error}>{props.moreError}</p>}
     </GuidedStepsDisclosure>
   </section>;
@@ -55,7 +56,7 @@ export function InvitationManagement(props: InvitationManagementProps) {
       <section className={styles.InvitationManagement__editor} aria-labelledby={`${id}-editor`}>
         <h2 id={`${id}-editor`}>{title}</h2>
         {props.statusMessage && <p role="status" className={styles.InvitationManagement__help}>{props.statusMessage}</p>}
-        {unresolved && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.pendingBlocked}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>{props.originalAbsent && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onDiscardOriginal}>Descartar la operación sin registrar</Button>}</div></div>}
+        {unresolved && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.pendingBlocked}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>{(props.originalAbsent || props.originalStarted) && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onDiscardOriginal}>{props.originalAbsent ? "Descartar la operación sin registrar" : "Descartar la operación pendiente"}</Button>}</div></div>}
         {!unresolved && (props.selectionBlocked || props.needsCurrent) && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.currentRequired}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadCurrent}>Consultar estado actual</Button>{props.selectionBlocked && <Button type="button" variant="secondary" disabled={props.busy || props.pending} onClick={props.onDiscardSelection}>Descartar selección</Button>}</div></div>}
         {props.platformRequirement
           ? <>{props.errorMessage && <p role="alert" className={styles.InvitationManagement__error}>{props.errorMessage}</p>}<PlatformSecurityNotice requirement={props.platformRequirement} consequence={COPY.platformConsequence} /></>

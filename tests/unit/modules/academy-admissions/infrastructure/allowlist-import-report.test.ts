@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAllowlistImportTemplate, renderAllowlistImportReport } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-import-report";
 import { parseAllowlistCsv } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser";
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
+import { ALLOWLIST_IMPORT_REPORT_LINE_END } from "@/src/modules/academy-admissions/constants/allowlist-import";
 
 describe("allowlist CSV report", () => {
   it("should offer the exact two-column input header without an inserted contact or executable sample", () => {
@@ -15,6 +16,14 @@ describe("allowlist CSV report", () => {
     const text = renderAllowlistImportReport(report);
     expect(text).toContain(`"'\t${displayName.replaceAll('"', '""')}"`);
     expect(text).not.toContain(report.importId);
+  });
+
+  it("should name every report column in Spanish for the people who read it, apart from the input template", () => {
+    const report: AllowlistImportDto = { importId: "8d4d1192-3279-47de-a858-046280a61109", sourceVersion: 2, state: "completed", expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 1, added: 1, unchanged: 0, skipped: 0, conflict: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "Nombre", selected: true, errors: [], outcome: "added", version: 1 }] };
+    const [header, row] = renderAllowlistImportReport(report).split(ALLOWLIST_IMPORT_REPORT_LINE_END);
+    expect(header).toBe('"Fila","Contacto","Nombre","Resultado","Errores","Versión de entrada"');
+    expect(row).toBe('"1","synthetic@example.test","Nombre","Agregada","","1"');
+    expect(createAllowlistImportTemplate()).toBe(`identity,display_name${ALLOWLIST_IMPORT_REPORT_LINE_END}`);
   });
 
   it("should escape commas, quotes, newlines and HTML without creating extra cells or executing content", () => {
