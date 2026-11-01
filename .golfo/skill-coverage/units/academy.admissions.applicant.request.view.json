@@ -43,6 +43,12 @@
       "reason": "La ruta resuelve sus casos de uso desde la raíz de composición (boundary en config.json): se declara el módulo que usa.",
       "role": "server",
       "symbol": "buildAuthModule"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Función inyectada por la raíz de composición (boundary) al módulo de consulta de políticas de admisión: se declara explícita para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "isMessagingHostingSecurityConfigured"
     }
   ],
   "origin": "curated"

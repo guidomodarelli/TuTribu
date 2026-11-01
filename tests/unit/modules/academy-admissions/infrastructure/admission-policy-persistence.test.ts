@@ -347,6 +347,20 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
+  it("should reject a new policy write without hosting security and keep the resend of a registered original unresolved", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database), operationId = randomUUID();
+      await data.initialize(operationId);
+      // The same leader after the deployment lost its hosting messaging security.
+      const unconfigured = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), () => readMessagingHostingSecurityConfig({}), () => { throw new Error("Preparation must not be composed"); });
+      const context = data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
+      await expect(unconfigured.initialize({ context, operationId, confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "operation_unresolved", operationId });
+      await expect(unconfigured.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_security_unconfigured" } });
+      const ledger = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${data.tribeId}`)).rows[0].count);
+      expect(ledger).toBe(1);
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
   it("should count the commercial members the first activation converts and reject a foreign inventory scope", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
@@ -356,7 +370,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${memberId},'guardian','removed','payment_blocked','muted'),(${data.tribeId},${abandonedId},'tribemate','blocked','payment_blocked',null)`);
       });
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
-      const facts = await new PostgresAdmissionPolicyViewFactsReader((_context, work) => database.withContext(data.fixture.own, work), null).read(data.readContext, (await data.reader.read(data.readContext)).policy);
+      const facts = await new PostgresAdmissionPolicyViewFactsReader((_context, work) => database.withContext(data.fixture.own, work), null, async () => true).read(data.readContext, (await data.reader.read(data.readContext)).policy);
       expect(facts).toMatchObject({ freeConversionMemberCount: 1 });
       await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).readPreparation(randomUUID()))).rejects.toMatchObject({ code: "permission_denied" });
     });
@@ -366,7 +380,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
-      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null }).useCases;
+      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: async () => true }).useCases;
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
       expect(await policy.execute(query)).toMatchObject({ ok: true, value: { state: "not_configured", policy: null, controlActivated: false, preparation: { state: "not_evaluated" }, impact: { pendingRequestCount: 0 } } });
       await data.initialize();
@@ -389,8 +403,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       /** Mirrors the production composition: the query reuses the commands' preparation evaluator instead of reporting it as not evaluated. */
       const commands = admissions.createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, { isPrepared: async () => true }, async () => false) });
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
-      expect(await admissions.createPolicyQueryModule({ composePreparation: null }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
-      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation }).useCases.execute(query);
+      expect(await admissions.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: async () => true }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
+      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation, isSecurityConfigured: async () => true }).useCases.execute(query);
       expect(evaluated).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "evaluated" } } });
       expect(evaluated.ok && evaluated.value.preparation.requirements).toContain("verification_unavailable");
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select admissions_control_activated_at is null as not_activated from public.tribes where id=${data.tribeId}`)).rows)).toEqual([{ not_activated: true }]);

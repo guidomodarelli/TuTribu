@@ -12,6 +12,8 @@ export type AdmissionPolicyViewFacts = {
   pendingRequestCount: number; preparation: Omit<AdmissionPolicyActivationFacts, "now"> | null;
   /** Commercial memberships the first activation will turn into free active members; absent once control is active. */
   freeConversionMemberCount?: number;
+  /** False when the deployment cannot read the hosting messaging security every admission ledger write needs. */
+  securityConfigured: boolean;
 };
 export interface AdmissionPolicyViewFactsReader {
   /** @param context - Current leader scope. @param policy - Current stored policy or true absence. @returns Current impact and evaluated preparation, or explicit unevaluated preparation. */

@@ -38,7 +38,7 @@ export class GetAdmissionPolicyUseCase {
       const configuration = preparation?.configuration ?? { tribeId: query.tribeId, channelPrepared: false, verificationQuotaPositive: false, usagePolicy: current.usage, lockedContactType: policy?.activatedAt ? policy.contactType : null };
       const structural = policy ? validateAdmissionPolicyDraftConfiguration(policy, configuration) : null;
       const operational = policy && preparation ? validateAdmissionPolicyConfiguration(policy, configuration) : null;
-      const requirements = activationRequirements({ policy, preparation, consistent, controlActivated: current.controlActivated, structural, operational });
+      const requirements = activationRequirements({ policy, preparation, consistent, controlActivated: current.controlActivated, structural, operational, securityConfigured: view.securityConfigured });
       const usage = current.usage ? { version: current.usage.version, allowedCountries: [...current.usage.allowedCountries] } : null;
       const value = admissionPolicyStateResultSchema.parse({ state, controlActivated: current.controlActivated,
         policy: policy ? projectAdmissionPolicy(policy, usage, validationReasons(structural, operational)) : null,
@@ -69,8 +69,10 @@ function admissionPolicyPublicState(consistent: boolean, policy: AdmissionPolicy
 }
 
 /** @returns Every reason that currently blocks activation, in display order. */
-function activationRequirements({ policy, preparation, consistent, controlActivated, structural, operational }: { policy: AdmissionPolicyState["policy"]; preparation: AdmissionPolicyPreparation | null; consistent: boolean; controlActivated: boolean; structural: DraftValidation | null; operational: OperationalValidation | null }): AdmissionPolicyActivationReason[] {
+function activationRequirements({ policy, preparation, consistent, controlActivated, structural, operational, securityConfigured }: { policy: AdmissionPolicyState["policy"]; preparation: AdmissionPolicyPreparation | null; consistent: boolean; controlActivated: boolean; structural: DraftValidation | null; operational: OperationalValidation | null; securityConfigured: boolean }): AdmissionPolicyActivationReason[] {
   const requirements: AdmissionPolicyActivationReason[] = [];
+  // Every policy write signs its intent with the hosting messaging security: without it nothing can be saved or activated.
+  if (!securityConfigured) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured);
   if (!policy) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.policyMissing);
   if (!consistent || preparation && (!preparation.preflightComplete || preparation.controlActivated !== controlActivated)) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete);
   if (preparation && !preparation.isAcademy) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.notAcademy);

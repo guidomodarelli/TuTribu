@@ -241,15 +241,18 @@ function buildInvitationAndVerificationModules({ dependencies, resolveContext, e
 /** @param context - Shared request composition. @returns Policy query and management module factories. */
 function buildPolicyModules({ dependencies, resolveContext, executeForAccount }: AdmissionModuleContext) {
   return {
-  /** @param options - Explicit informational preparation evaluator, or null when no evaluation is available. @returns Current leader query without a keyring, command writer or implicit initialization dependency. */
-  createPolicyQueryModule(options: { composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null }) {
+  /**
+   * @param options - Explicit informational preparation evaluator, or null when no evaluation is available, and the check of whether the deployment can read the hosting messaging security the policy writes sign with.
+   * @returns Current leader query without a keyring, command writer or implicit initialization dependency.
+   */
+  createPolicyQueryModule(options: { composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null; isSecurityConfigured: () => Promise<boolean> }) {
     const executePolicy = executeForAccount;
     const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, async (current, tribeId) => {
       if (tribeId !== context.tribeId) return false;
       await authorizeAdmissionPolicy(current, context);
       return true;
     }));
-    const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation));
+    const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation, options.isSecurityConfigured));
     return { useCases: policy, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionPolicyPageUseCase(dependencies.accounts, { policy, resolveTribe }, dependencies.clock); } };
   },
   /**

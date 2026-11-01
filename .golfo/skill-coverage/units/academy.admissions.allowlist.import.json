@@ -86,6 +86,12 @@
       "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
       "role": "server",
       "symbol": "createServerDatabaseClient"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Función inyectada por la raíz de composición (boundary) al módulo de consulta de políticas de admisión: se declara explícita para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "isMessagingHostingSecurityConfigured"
     }
   ]
 }

@@ -23,7 +23,7 @@ function fixture() {
   const invitation = createPersonalInvitation({ id: randomUUID(), tribeId, actorUserId: userId, contact: { type: "email", value: "recipient@example.test" }, internalName: "Grupo inicial", requiresAllowlist: true, allowlistExemptionAcknowledged: false, now, policy: { contactType: "email", requiresAdditionalVerification: false } });
   const reader: PersonalInvitationReader = { list: vi.fn(async () => ({ invitations: [invitation], nextCursor: null })), read: vi.fn(async () => invitation) }, writer: PersonalInvitationCommandWriter = { create: vi.fn(), rename: vi.fn(), revoke: vi.fn() };
   const current: AdmissionPolicyState = { policy: createDefaultAdmissionPolicy({ id: tribeId, tribeId }), controlActivated: false, usage: null };
-  const policyReader = { read: vi.fn(async () => current) }, policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null }) });
+  const policyReader = { read: vi.fn(async () => current) }, policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null, securityConfigured: true }) });
   const availability = { hasUsableAllowlist: vi.fn(async () => true) }, invitations = new ManagePersonalInvitationsUseCases(resolver, reader, writer);
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "synthetic-academy" }) });
   const page = new GetPersonalInvitationManagementPageUseCase(accounts, { invitations, policy, resolveTribe, resolveContext: resolver, availability }, () => now);
