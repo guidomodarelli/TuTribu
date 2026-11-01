@@ -112,11 +112,40 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
     throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: error, operationId: input.operationId });
   }
 
+  /** @param database - Transaction bound to the confirmed actor. @param context - Exact original scope. @param input - Original identity. @returns Whether this actor already registered the original, without reading or verifying its intent. @throws TribeLifecycleError permission_denied when another actor owns it. */
+  private async isRegistered(database: RequestDatabase, context: TribeLifecycleContext, input: TribeLifecycleInput): Promise<boolean> {
+    const row = (await database.execute<{actor_user_id: string|null}>(sql`select actor_user_id from public.tribe_lifecycle_operations where tribe_id=${context.tribeId} and operation_id=${input.operationId}`)).rows[0];
+    if (!row) return false;
+    if (row.actor_user_id !== context.actorUserId) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.permissionDenied);
+    return true;
+  }
+
+  /**
+   * A resent change may name an original whose commit response was lost: only one that was never registered is rejected definitively.
+   * @param context - Native actor and fixed UUID scope. @param input - Original confirmed action/CAS.
+   * @returns The signer of the original intent, read before the change transaction.
+   * @throws TribeLifecycleError platform_security_unavailable when the platform cannot protect a new change; operation_unresolved,
+   * naming the original, when a registered one (or one that cannot be looked up) cannot be verified now; or the current authority failure.
+   */
+  private async changeFingerprint(context: TribeLifecycleContext, input: TribeLifecycleInput) {
+    try { return await this.fingerprint(TRIBE_LIFECYCLE_ERROR.platformSecurityUnavailable, input.operationId); }
+    catch (error) {
+      if (!(error instanceof TribeLifecycleError) || error.code !== TRIBE_LIFECYCLE_ERROR.platformSecurityUnavailable) throw error;
+      let registered: boolean;
+      try { registered = await this.execute(context, async (database) => { await this.identity(database, context); return this.isRegistered(database, context, input); }); }
+      catch (lookupError) {
+        if (lookupError instanceof TribeLifecycleError && (lookupError.code === TRIBE_LIFECYCLE_ERROR.authenticationRequired || lookupError.code === TRIBE_LIFECYCLE_ERROR.permissionDenied)) throw lookupError;
+        throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: new AggregateError([error, lookupError], "Tribe lifecycle original could not be looked up", { cause: error }), operationId: input.operationId });
+      }
+      if (!registered) throw error;
+      throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.operationUnresolved, { cause: error.cause, operationId: input.operationId });
+    }
+  }
+
   /** @param context - Native actor and fixed UUID scope. @param input - Original confirmed action/CAS. @returns The original committed metadata; a lost commit response is reconciled before another mutation. */
   async change(context: TribeLifecycleContext, input: TribeLifecycleInput): Promise<AdmissionOperationResult<TribeLifecycleResult>> {
     if (!input.confirmed || !TRIBE_LIFECYCLE_ACTIONS.includes(input.action)) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.invalidInput);
-    // Nothing is registered yet: a platform that cannot protect the change rejects it definitively instead of an unexpected failure.
-    const fingerprint = await this.fingerprint(TRIBE_LIFECYCLE_ERROR.platformSecurityUnavailable, input.operationId), command = this.command(context, input);
+    const fingerprint = await this.changeFingerprint(context, input), command = this.command(context, input);
     let transactionStaged = false;
     try {
       return await this.execute(context, async (database) => {

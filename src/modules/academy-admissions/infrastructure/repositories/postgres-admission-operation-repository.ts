@@ -171,7 +171,8 @@ export class PostgresAdmissionOperationRepository {
    * @param command - Fixed actor/tenant/original intent.
    * @param authorize - Current owner guard; defaults to the business authority.
    * @returns After confirming the database actor and current resource permission.
-   * @throws AdmissionOperationError when either current authority check denies access.
+   * @throws AdmissionOperationError when either current authority check denies access, or when the owner guard cannot use the
+   * platform security (see {@link PostgresAdmissionOperationRepository.authorizeOwner}).
    */
   private async assertAuthorized(database: RequestDatabase, command: AdmissionOperationCommand, authorize: OperationAuthorizer = this.authorize): Promise<void> {
     const scope = this.nativeSubmissionScope;
@@ -188,11 +189,34 @@ export class PostgresAdmissionOperationRepository {
       if (!current.submission) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       const nativeActor = current.submission.actor;
       const context: AdmissionSubmissionActorContext = { scopeLocked: current.submission.scopeLocked, actor: nativeActor?.userId === scope.userId ? { userId: nativeActor.userId, tribeId: scope.tribeId, role: nativeActor.role, status: nativeActor.status } : null };
-      if (!await authorize(database, command, context)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if (!await this.authorizeOwner(database, command, () => authorize(database, command, context))) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       return;
     }
     const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if (actor !== command.actorUserId || !await authorize(database, command)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    if (actor !== command.actorUserId || !await this.authorizeOwner(database, command, () => authorize(database, command))) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+  }
+
+  /**
+   * Runs the owner guard after the database actor is confirmed. An owner that proves its authority with the hosting security
+   * (messaging connections do) fails before the ledger looks up the original, so the ledger applies its own rule here too.
+   * @param database - Current transaction, already bound to the confirmed actor.
+   * @param command - Original command, named when a registered original stays unresolved.
+   * @param authorize - The owner guard to run.
+   * @returns The owner verdict.
+   * @throws AdmissionOperationError platform_security_unavailable for a new original or operation_unresolved for a registered one
+   * when the platform cannot protect it; any other failure unchanged.
+   */
+  private async authorizeOwner(database: RequestDatabase, command: AdmissionOperationCommand, authorize: () => Promise<boolean>): Promise<boolean> {
+    try { return await authorize(); }
+    catch (error) {
+      if (!platformSecurityFailure(error, command, false)) throw error;
+      throw platformSecurityFailure(error, command, await this.isRegistered(database, command)) ?? error;
+    }
+  }
+
+  /** @param database - Transaction bound to the confirmed actor. @param command - Exact original namespace. @returns Whether this original already has a ledger row, without locking it or reading its intent. */
+  private async isRegistered(database: RequestDatabase, command: AdmissionOperationCommand): Promise<boolean> {
+    return Boolean((await database.execute(sql`select id from public.academy_admission_operations where actor_user_id=${command.actorUserId} and tribe_id=${command.tribeId} and operation_type=${command.operationType} and idempotency_key=${command.idempotencyKey}`)).rows[0]);
   }
 
   /**

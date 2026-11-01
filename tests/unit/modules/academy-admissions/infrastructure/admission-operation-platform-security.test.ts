@@ -25,10 +25,12 @@ async function prepareLedger(database: AcademyAdmissionTestDatabase) {
   });
   let effects = 0;
   const ledger = (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), async () => true, readSecurityConfig);
+  // Messaging owners prove their authority with the hosting security inside the guard, before the ledger looks up the original.
+  const securityGuardedLedger = (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), async () => { await readSecurityConfig(); return true; }, readSecurityConfig);
   const command = (operationId = randomUUID()) => ({ actorUserId: fixture.userId, tribeId, operationType: "update_allowlist_entry", idempotencyKey: operationId, intent: { synthetic: true } });
   const mutate = async () => { effects += 1; return { changed: true as const }; };
   const rows = async () => (await database.withContext(fixture.own, (transaction) => transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${tribeId}`))).rows[0].count;
-  return { fixture, ledger, command, mutate, rows, effectCount: () => effects };
+  return { fixture, ledger, securityGuardedLedger, command, mutate, rows, effectCount: () => effects };
 }
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("admission ledger without usable platform security", () => {
@@ -52,6 +54,20 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("admission ledg
       await expect(unconfigured.run(data.command(operationId), resultSchema, data.mutate)).rejects.toMatchObject({ code: "operation_unresolved", operationId });
       await expect(unconfigured.read(data.command(operationId), resultSchema)).rejects.toMatchObject({ code: "operation_unresolved", operationId });
       expect(await data.ledger(async () => data.fixture.config).run(data.command(operationId), resultSchema, data.mutate)).toMatchObject({ state: "completed", replayed: true });
+      expect(data.effectCount()).toBe(1);
+    });
+  }, SQL_SCENARIO_TIMEOUT_MS);
+
+  it("should apply the same rule when the owner guard itself reads the hosting security before the original is looked up", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await prepareLedger(database), operationId = randomUUID();
+      expect(await data.securityGuardedLedger(async () => data.fixture.config).run(data.command(operationId), resultSchema, data.mutate)).toMatchObject({ state: "completed", replayed: false });
+      const unconfigured = data.securityGuardedLedger(() => readMessagingHostingSecurityConfig({}));
+      await expect(unconfigured.read(data.command(operationId), resultSchema)).rejects.toMatchObject({ code: "operation_unresolved", operationId, cause: { name: "MessagingCryptographyError" } });
+      await expect(unconfigured.run(data.command(operationId), resultSchema, data.mutate)).rejects.toMatchObject({ code: "operation_unresolved", operationId });
+      await expect(unconfigured.read(data.command(), resultSchema)).rejects.toMatchObject({ code: "platform_security_unavailable", operationId: undefined });
+      await expect(unconfigured.run(data.command(), resultSchema, data.mutate)).rejects.toMatchObject({ code: "platform_security_unavailable", operationId: undefined });
+      expect(await data.rows()).toBe(1);
       expect(data.effectCount()).toBe(1);
     });
   }, SQL_SCENARIO_TIMEOUT_MS);
