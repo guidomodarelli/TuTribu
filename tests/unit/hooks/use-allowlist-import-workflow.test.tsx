@@ -8,6 +8,7 @@ import { useAllowlistImportWorkflow } from "@/hooks/use-allowlist-import-workflo
 import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-import-browser-client";
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
+import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { createAllowlistImportDraftStoreFixture } from "@/tests/support/allowlist-import-draft-store-fixture";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ALLOWLIST_IMPORT_WRITE_ACTION, ALLOWLIST_IMPORT_BROWSER_COPY, ALLOWLIST_IMPORT_STEP } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
@@ -21,8 +22,10 @@ function fixture() {
   const now = Date.now();
   const initialState: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, platformRequirement: null, renderedAt: new Date(now).toISOString() };
   const snapshot: AllowlistImportDto = { importId, state: "preview", sourceVersion: 1, expiresAt: new Date(now + ADMISSION_LIMIT.csvRetentionMs).toISOString(), counts: { selected: 0, added: 0, unchanged: 0, skipped: 0, conflict: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "Nombre", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", displayName: "Nombre", selected: false, errors: ["admission_contact_invalid"] }] };
-  const client: AllowlistImportBrowserClient = { viewer: vi.fn(async () => ({ status: "ready" as const, value: { id: viewerId } })), operation: vi.fn(), policy: vi.fn(), read: vi.fn(async () => ({ status: "ready" as const, value: snapshot })), write: vi.fn(async (_slug, intent) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: intent.operationId, replayed: false, result: { importId, sourceVersion: 1, expiresAt: snapshot.expiresAt } } })), file: vi.fn() };
-  return { initialState, client, importId, draft, snapshot, drafts: createAllowlistImportDraftStoreFixture() };
+  /** Current rules read: the saved email rules, with no platform requirement unless a test names one. */
+  const policy: AdmissionPolicyStateDto = { state: "not_configured", controlActivated: false, policy: null, usage: null, preparation: { state: "not_evaluated", requirements: ["policy_unavailable"] }, impact: { pendingRequestCount: 0, contactTypeLocked: false, historicalLinksProtected: false, warnings: [] } };
+  const client: AllowlistImportBrowserClient = { viewer: vi.fn(async () => ({ status: "ready" as const, value: { id: viewerId } })), operation: vi.fn(), policy: vi.fn<AllowlistImportBrowserClient["policy"]>(async () => ({ status: "ready", value: policy })), read: vi.fn(async () => ({ status: "ready" as const, value: snapshot })), write: vi.fn(async (_slug, intent) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: intent.operationId, replayed: false, result: { importId, sourceVersion: 1, expiresAt: snapshot.expiresAt } } })), file: vi.fn() };
+  return { initialState, client, importId, draft, snapshot, policy, drafts: createAllowlistImportDraftStoreFixture() };
 }
 
 /** @param props - Hook host. @returns The real toaster beside it, where write outcomes are announced. */
@@ -105,6 +108,22 @@ describe("explicit import workflow", () => {
     vi.mocked(data.client.read).mockResolvedValue({ status: "ready", value: { ...data.snapshot, sourceVersion: 2 } });
     await act(async () => result.current.readCurrent());
     expect(result.current.snapshot?.sourceVersion).toBe(2); expect(result.current.confirmed).toBe(false); expect(data.client.write).toHaveBeenCalledOnce();
+  });
+  it("should lift or impose the platform block in the same session when the progress recheck rereads the rules", async () => {
+    const data = fixture(); data.initialState.platformRequirement = "recovery_locked";
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: null, unresolved: [] });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data));
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    expect(result.current.policy.platformRequirement).toBe("recovery_locked");
+    await act(async () => result.current.readCurrent());
+    expect(result.current.policy).toEqual({ contactType: "email", version: 1, platformRequirement: null });
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.confirm());
+    expect(data.client.write).toHaveBeenCalledOnce();
+    vi.mocked(data.client.policy).mockResolvedValueOnce({ status: "ready", value: { ...data.policy, preparation: { state: "not_evaluated", requirements: ["policy_unavailable", "admission_security_unconfigured"] } } });
+    await act(async () => result.current.readCurrent());
+    expect(result.current.policy.platformRequirement).toBe("security_unconfigured");
+    expect(data.client.policy).toHaveBeenCalledTimes(2);
   });
   it("should keep a committed row through unknown progress and resume only pending rows with a fresh explicit operation", async () => {
     const data = fixture(), operationId = randomUUID(), oldIntent = { type: "confirm_allowlist_import" as const, operationId, importId: data.importId, expectedVersion: 1, selectedRows: [1, 2] };

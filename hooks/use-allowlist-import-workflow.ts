@@ -185,9 +185,9 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
 }
 type AllowlistImportWrites = ReturnType<typeof useAllowlistImportWrites>;
 
-/** @param state - Workflow state. @param reads - Record and read steps. @param writes - Action runner and consumers. @returns Read-only recovery of the original and the current resource. */
+/** @param state - Workflow state. @param reads - Record and read steps. @param writes - Action runner and consumers. @returns Read-only recovery of the original and the current resource with the platform requirement of its writes. */
 function useAllowlistImportRecovery(state: AllowlistImportState, reads: AllowlistImportReads, writes: AllowlistImportWrites) {
-  const { initial, client, currentRef, occupiedRef, authorityLostRef, absentOriginalId, live, setErrorMessage, setStep, setAbsentOriginalId, setOriginalChecked, setConfirmed } = state;
+  const { initial, client, currentRef, occupiedRef, authorityLostRef, absentOriginalId, live, setErrorMessage, setStep, setAbsentOriginalId, setOriginalChecked, setConfirmed, setPolicy } = state;
   const { authorize, reportFailure, fetchCurrent, persist } = reads;
   const { run, consume } = writes;
   const readOriginal = useCallback(() => run(async (signal, scope) => {
@@ -211,7 +211,16 @@ function useAllowlistImportRecovery(state: AllowlistImportState, reads: Allowlis
     if (!persist(next)) return;
     setAbsentOriginalId(null); setOriginalChecked(false); setConfirmed(false); setErrorMessage(null); toast.info(COPY.discarded);
   }, [absentOriginalId, authorityLostRef, currentRef, occupiedRef, persist, setAbsentOriginalId, setConfirmed, setErrorMessage, setOriginalChecked]);
-  const readCurrent = useCallback(() => run(async (signal, scope) => { if (currentRef.current.importId && await fetchCurrent(currentRef.current.importId, signal, scope)) setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review)); }), [currentRef, fetchCurrent, run, setStep]);
+  const readCurrent = useCallback(() => run(async (signal, scope) => {
+    if (!currentRef.current.importId || !await fetchCurrent(currentRef.current.importId, signal, scope)) return;
+    setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review));
+    // The progress recheck also rereads the platform requirement, so a resolved problem re-enables the import without reloading the page.
+    // Only the requirement is replaced: a changed rules version still surfaces as a policy conflict on the next write.
+    const rules = await client.policy(requireReadyScope(initial).slug, signal);
+    if (!live(signal, scope) || !await authorize(signal, scope)) return;
+    if (rules.status === "ready") setPolicy((current) => ({ ...current, platformRequirement: readAdmissionPlatformRequirement(rules.value) }));
+    else if (rules.status === "failed") reportFailure(rules);
+  }), [authorize, client, currentRef, fetchCurrent, initial, live, reportFailure, run, setPolicy, setStep]);
   return { readOriginal, readCurrent, discardOriginal };
 }
 

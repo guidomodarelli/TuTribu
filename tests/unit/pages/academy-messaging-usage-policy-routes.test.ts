@@ -48,10 +48,20 @@ describe("usage policy HTTP", () => {
     const data = fixture(); data.account.googleAccount = null;
     const response = await data.handlers.read(data.request("GET"), data.context);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ state: "not_configured", policy: null });
+    expect(await response.json()).toEqual({ usage: { state: "not_configured", policy: null }, platformRequirement: null });
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(data.operations.initialize).not.toHaveBeenCalled();
     expect(data.operations.update).not.toHaveBeenCalled();
+  });
+
+  it("should publish the platform requirement of saves with the current configuration, so a browser recheck can lift or impose the block", async () => {
+    const data = fixture();
+    data.operations.readPage = async () => ({ usage: { state: "configured", policy: data.policy }, platformRequirement: "recovery_locked" });
+    const blocked = await data.handlers.read(data.request("GET"), data.context);
+    expect(blocked.status).toBe(200);
+    expect(await blocked.json()).toEqual({ usage: { state: "configured", policy: data.policy }, platformRequirement: "recovery_locked" });
+    data.operations.readPage = async () => ({ usage: { state: "configured", policy: data.policy }, platformRequirement: null });
+    expect(await (await data.handlers.read(data.request("GET"), data.context)).json()).toEqual({ usage: { state: "configured", policy: data.policy }, platformRequirement: null });
   });
 
   it("should reject browser authority, invalid paths and foreign origins before opening composition", async () => {
@@ -78,7 +88,7 @@ describe("usage policy HTTP", () => {
     const data = fixture(); data.leadership.membership!.role = "guardian";
     expect((await data.handlers.read(data.request("GET"), data.context)).status).toBe(403);
     expect((await data.handlers.update(data.request("PUT", data.input), data.context)).status).toBe(403);
-    expect(data.operations.read).not.toHaveBeenCalled(); expect(data.operations.update).not.toHaveBeenCalled();
+    expect(data.operations.readPage).not.toHaveBeenCalled(); expect(data.operations.update).not.toHaveBeenCalled();
     data.leadership.membership!.role = "leader";
     data.account.googleAccount = null;
     expect((await data.handlers.update(data.request("PUT", data.input), data.context)).status).toBe(401);
@@ -105,7 +115,7 @@ describe("usage policy HTTP", () => {
     expect((await data.handlers.update(data.request("PUT", data.input), data.context)).status).toBe(500);
     data.operations.update = async (_context, input) => ({ state: "completed", operationId: input.operationId, replayed: false, result: { ...data.policy, version: 9 } });
     expect((await data.handlers.update(data.request("PUT", data.input), data.context)).status).toBe(500);
-    data.operations.read = async () => ({ state: "configured", policy: { ...data.policy, version: 0 } });
+    data.operations.readPage = async () => ({ usage: { state: "configured", policy: { ...data.policy, version: 0 } }, platformRequirement: null });
     expect((await data.handlers.read(data.request("GET"), data.context)).status).toBe(500);
   });
 

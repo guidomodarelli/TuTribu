@@ -21,7 +21,7 @@ function fixture() {
   const viewerId = randomUUID(), entryId = randomUUID();
   const entry = { id: entryId, version: 1, contactType: "email" as const, identity: "entry+tag@example.test", displayName: "Original", status: "enabled" as const, source: "manual" as const, createdAt: "2026-10-09T05:00:00Z", updatedAt: "2026-10-09T05:00:00Z" };
   const initialState: Extract<AllowlistPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: "2026-10-09T05:00:00Z", contactType: "email", platformRequirement: null, page: { items: [entry], nextCursor: null }, query: { limit: 25 } };
-  const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: initialState.page })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: entry })), operation: vi.fn<AllowlistBrowserClient["operation"]>(), write: vi.fn<AllowlistBrowserClient["write"]>(async (_slug, intent) => ({ status: "ready", value: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { entryId, version: 2, created: false, changed: true } } })) };
+  const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: { ...initialState.page, platformRequirement: null } })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: entry })), operation: vi.fn<AllowlistBrowserClient["operation"]>(), write: vi.fn<AllowlistBrowserClient["write"]>(async (_slug, intent) => ({ status: "ready", value: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { entryId, version: 2, created: false, changed: true } } })) };
   return { entry, client, initialState };
 }
 
@@ -106,7 +106,7 @@ describe("list workflow ownership", () => {
     const data = fixture(), { result } = renderHook(() => useAllowlistWorkflow(data));
     await waitFor(() => expect(result.current.ready).toBe(true));
     vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "ready", value: { id: data.initialState.viewerId } }).mockResolvedValueOnce({ status: "ready", value: { id: randomUUID() } });
-    vi.mocked(data.client.list).mockResolvedValue({ status: "ready", value: { items: [{ ...data.entry, displayName: "Dato tardío" }], nextCursor: null } });
+    vi.mocked(data.client.list).mockResolvedValue({ status: "ready", value: { items: [{ ...data.entry, displayName: "Dato tardío" }], nextCursor: null, platformRequirement: null } });
     await act(async () => result.current.searchEntries());
     expect(result.current.privateVisible).toBe(false); expect(result.current.confirmed).toBe(false);
     expect(result.current.page.items[0]?.displayName).toBe("Original");
@@ -142,7 +142,7 @@ describe("list workflow ownership", () => {
     data.initialState.query.limit = 1; data.initialState.page.nextCursor = `2026-10-09T05:00:00Z~${data.entry.id}`;
     vi.mocked(data.client.read).mockResolvedValue({ status: "ready", value: added });
     vi.mocked(data.client.write).mockImplementation(async (_slug, intent) => ({ status: "ready", value: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { entryId: added.id, version: 1, changed: true, created: true } } }));
-    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [added], nextCursor: cursor } }).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null } });
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [added], nextCursor: cursor, platformRequirement: null } }).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: null } });
     const { result } = renderHook(() => useAllowlistWorkflow(data)); await waitFor(() => expect(result.current.ready).toBe(true));
     act(() => { result.current.changeDraft({ ...result.current.draft, identity: added.identity }); result.current.setConfirmed(true); });
     await act(async () => result.current.save());

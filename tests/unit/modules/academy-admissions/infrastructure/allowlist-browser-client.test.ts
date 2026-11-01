@@ -6,6 +6,14 @@ import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/aca
 import { ADMISSION_ERROR_HTTP_STATUS } from "@/src/modules/academy-admissions/infrastructure/api/admission-error-status";
 
 describe("list browser adapter", () => {
+  it("should read a page with the platform requirement of list writes and reject an unknown requirement", async () => {
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ items: [], nextCursor: null, platformRequirement: "recovery_locked" }));
+    const client = createAllowlistApiClient({ fetch: transport });
+    expect(await client.list("synthetic", { limit: 25 }, new AbortController().signal)).toEqual({ status: "ready", value: { items: [], nextCursor: null, platformRequirement: "recovery_locked" } });
+    transport.mockResolvedValueOnce(Response.json({ items: [], nextCursor: null, platformRequirement: "unknown_requirement" }));
+    expect(await client.list("synthetic", { limit: 25 }, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
+  });
+
   it("should reject current metadata for a different entry rather than replacing the selected draft", async () => {
     const entryId = randomUUID(), response = { id: randomUUID(), version: 2, contactType: "email", identity: "another@example.test", displayName: null, status: "enabled", source: "manual", createdAt: "2026-10-09T05:00:00Z", updatedAt: "2026-10-09T05:00:00Z" };
     const client = createAllowlistApiClient({ fetch: vi.fn(async () => Response.json(response)) });

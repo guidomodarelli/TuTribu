@@ -3,7 +3,7 @@
 import type { z } from "zod";
 import { createAuthClient } from "better-auth/client";
 import type { MessagingUsageBrowserClient, MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
-import { messagingUsagePolicyStateSchema, messagingUsagePolicySchema, messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
+import { messagingUsageCurrentSchema, messagingUsagePolicySchema, messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { messagingUsageOperationRecoverySchema } from "@/src/modules/messaging/application/results/messaging-usage-operation-result";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -66,7 +66,7 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
     return result;
   }
   return {
-    read: (slug, signal) => request(base(slug), messagingUsagePolicyStateSchema, signal),
+    read: (slug, signal) => request(base(slug), messagingUsageCurrentSchema, signal),
     initialize: (slug, input, signal) => write(slug, input, signal, "POST"),
     update: (slug, input, signal) => write(slug, input, signal, "PUT"),
     async operation(slug, operationId, signal) {

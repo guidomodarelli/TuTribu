@@ -32,7 +32,7 @@ describe("usage browser transport", () => {
     const operationId = randomUUID(), transport = vi.fn<typeof fetch>(async () => { throw new TypeError("Synthetic response loss"); });
     const client = createMessagingUsageBrowserClient({ fetch: transport, viewer: async () => ({ status: "ready", value: null }) }), signal = new AbortController().signal;
     expect(await client.initialize("synthetic-academy", { operationId, confirmed: true }, signal)).toMatchObject({ status: "failed", uncertain: true });
-    transport.mockResolvedValueOnce(Response.json({ state: "configured", policy: { version: 0 } }));
+    transport.mockResolvedValueOnce(Response.json({ usage: { state: "configured", policy: { version: 0 } }, platformRequirement: null }));
     expect(await client.read("synthetic-academy", signal)).toMatchObject({ status: "failed", uncertain: false });
     const cancelled = new AbortController(); cancelled.abort();
     expect(await client.initialize("synthetic-academy", { operationId, confirmed: true }, cancelled.signal)).toEqual({ status: "aborted" });
@@ -44,5 +44,15 @@ describe("usage browser transport", () => {
     const client = createMessagingUsageBrowserClient({ fetch: transport, viewer: async () => ({ status: "ready", value: null }) });
     expect(await client.update("synthetic", { operationId, confirmed: true, expectedVersion: 3, allowedCountries: ["AR"], verificationDailyLimit: 1, notificationDailyLimit: 1 }, new AbortController().signal)).toEqual({ status: "failed", code: "platform_security_unavailable", message: body.message, uncertain: false });
     expect(transport).toHaveBeenCalledOnce();
+  });
+
+  it("should read the current configuration with the platform requirement of its saves as one own DTO", async () => {
+    const policy = { version: 2, allowedCountries: ["AR"], verificationDailyLimit: 10, notificationDailyLimit: 20, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } };
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ usage: { state: "configured", policy }, platformRequirement: "security_unconfigured" }));
+    const client = createMessagingUsageBrowserClient({ fetch: transport, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.read("synthetic-academy", new AbortController().signal)).toEqual({ status: "ready", value: { usage: { state: "configured", policy }, platformRequirement: "security_unconfigured" } });
+    expect(transport.mock.calls[0][1]).toMatchObject({ method: "GET", credentials: "same-origin", cache: "no-store" });
+    transport.mockResolvedValueOnce(Response.json({ usage: { state: "configured", policy }, platformRequirement: "unknown_requirement" }));
+    expect(await client.read("synthetic-academy", new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
   });
 });

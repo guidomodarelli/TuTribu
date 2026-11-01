@@ -4,6 +4,7 @@ import type { MessagingUsagePageState } from "@/src/modules/messaging/applicatio
 import type { MessagingUsageBrowserClient, MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type { MessagingUsageDraft } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import type { MessagingErrorCode } from "@/src/modules/messaging/application/results/messaging-errors";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { createMessagingUsageDraft, messagingUsageBrowserIntentSchema, type MessagingUsageBrowserIntent } from "@/src/modules/messaging/application/commands/messaging-usage-browser-intent";
 import { messagingUsagePolicyStateSchema, type MessagingUsagePolicyDto, type MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
@@ -27,6 +28,8 @@ export type MessagingUsageControls = {
   setPhase: Dispatch<SetStateAction<MessagingUsageBrowserPhase>>; setFresh: (value: boolean) => void; setConfirmed: (value: boolean) => void; setCanRetry: (value: boolean) => void;
   setRetryConfirmed: (value: boolean) => void; setPrivateVisible: (value: boolean) => void; setEditing: (value: boolean) => void; setStep: (value: number) => void;
   setWriteStep: (value: MessagingUsageWriteStep | null) => void; setPartialSave: (value: boolean) => void; setErrorMessage: (value: string | null) => void; setStatusMessage: (value: string | null) => void;
+  /** Installs the platform requirement of the latest current read; its ref lets an asynchronous recovery see the newest value. */
+  setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void; platformRequirement: RefObject<PlatformSecurityRequirement | null>;
   pending: RefObject<MessagingUsageBrowserIntent | null>; loaded: RefObject<boolean>; busy: RefObject<boolean>;
   readController: RefObject<AbortController | null>; writeController: RefObject<AbortController | null>;
 };
@@ -83,21 +86,22 @@ async function recoverUsageOriginal(session: MessagingUsageSession, intent: Mess
   }
   if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) {
     // While the platform cannot protect a save, an unregistered original can never be retried: forget it instead.
-    if (ready.platformRequirement) { forgetUsageIntent(session); controls.setStatusMessage(COPY.platformForgotten); return "continue"; }
+    if (controls.platformRequirement.current) { forgetUsageIntent(session); controls.setStatusMessage(COPY.platformForgotten); return "continue"; }
     controls.setCanRetry(true); controls.setErrorMessage(COPY.retry); return "continue";
   }
   controls.setErrorMessage(original.message);
   return "stop";
 }
 
-/** @param session - Current route session. @param signal - Current read. @returns Whether the current configuration was read and installed. */
+/** @param session - Current route session. @param signal - Current read. @returns Whether the current configuration and the platform requirement of its saves were read and installed. */
 async function readUsageConfiguration({ ready, client, checkViewer, controls }: MessagingUsageSession, signal: AbortSignal): Promise<boolean> {
   const current = await client.read(ready.slug, signal);
   if (signal.aborted || current.status === "aborted") return false;
   if (!await checkViewer(signal) || signal.aborted) return false;
   if (current.status === "failed") { controls.setErrorMessage(current.message); return false; }
-  controls.setState(current.value);
-  if (!current.value.policy) controls.setEditing(true);
+  // The same read lifts or imposes the platform block, so a resolved requirement re-enables saving without reloading the page.
+  controls.setState(current.value.usage); controls.setPlatformRequirement(current.value.platformRequirement);
+  if (!current.value.usage.policy) controls.setEditing(true);
   return true;
 }
 

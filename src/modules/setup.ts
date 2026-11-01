@@ -647,7 +647,7 @@ export async function createAllowlistRequestModule() {
   const resolveTribe = createAcademyRequestRouting(admissionModule, databaseClient).resolveTribe;
   const allowlist = admissionModule.createAllowlistModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
   const policyQuery = admissionModule.createPolicyQueryModule({ composePreparation: null, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  return { resolveTribe, allowlist: allowlist.useCases, imports: allowlist.imports, page: allowlist.createPage(resolveTribe, policyQuery.useCases), policyPage: policyQuery.createPage(resolveTribe) };
+  return { resolveTribe, allowlist: allowlist.useCases, policy: policyQuery.useCases, imports: allowlist.imports, page: allowlist.createPage(resolveTribe, policyQuery.useCases), policyPage: policyQuery.createPage(resolveTribe) };
 }
 /** @returns Only personal preview over the guarded backend connection, without provider calls or caller-selected identity. */
 export async function createPersonalInvitationRequestModule() {

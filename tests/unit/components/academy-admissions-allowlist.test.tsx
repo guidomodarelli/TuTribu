@@ -28,7 +28,7 @@ function fixture() {
   const viewerId = randomUUID(), entryId = randomUUID();
   const entry = { id: entryId, version: 1, contactType: "email" as const, identity: "group+tag@example.test", displayName: "Grupo", status: "enabled" as const, source: "manual" as const, createdAt: "2026-10-09T08:00:00Z", updatedAt: "2026-10-09T08:00:00Z" };
   const state: Extract<AllowlistPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: "2026-10-09T08:00:00Z", contactType: "email", platformRequirement: null, page: { items: [entry], nextCursor: null }, query: { limit: 25 } };
-  const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: { items: [], nextCursor: null } })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: { ...entry, version: 2, displayName: "Nombre actual" } })), operation: vi.fn(), write: vi.fn<AllowlistBrowserClient["write"]>(async () => ({ status: "failed", code: "allowlist_conflict", message: "La entrada cambió. Revisala y volvé a confirmar.", uncertain: false })) };
+  const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: { items: [], nextCursor: null, platformRequirement: null } })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: { ...entry, version: 2, displayName: "Nombre actual" } })), operation: vi.fn(), write: vi.fn<AllowlistBrowserClient["write"]>(async () => ({ status: "failed", code: "allowlist_conflict", message: "La entrada cambió. Revisala y volvé a confirmar.", uncertain: false })) };
   return { entry, state, client };
 }
 
@@ -56,6 +56,32 @@ describe("allowlist route controls", () => {
     expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled();
     expect(screen.queryByLabelText("Correo de la entrada")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: ALLOWLIST_BROWSER_COPY.noPolicyAction })).not.toBeInTheDocument();
+    expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should re-enable adding and editing in the same session when a list read reports the platform problem resolved", async () => {
+    const data = fixture();
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: null } });
+    render(<AllowlistContainer initialState={{ ...data.state, platformRequirement: "recovery_locked" }} client={data.client} />, { wrapper: Providers });
+    await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    fireEvent.click(screen.getByText("Buscar y filtrar entradas"));
+    const search = screen.getByRole("button", { name: "Buscar" }); await waitFor(() => expect(search).not.toBeDisabled());
+    fireEvent.click(search);
+    await waitFor(() => expect(screen.queryByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeEnabled();
+    expect(data.client.list).toHaveBeenCalledOnce(); expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should block adding and editing in the same session when a list read reports a new platform requirement", async () => {
+    const data = fixture();
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: "security_unconfigured" } });
+    render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    fireEvent.click(screen.getByText("Buscar y filtrar entradas"));
+    const search = screen.getByRole("button", { name: "Buscar" }); await waitFor(() => expect(search).not.toBeDisabled());
+    fireEvent.click(search);
+    const notice = await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    expect(within(notice).getByText(PLATFORM_SECURITY_DIAGNOSTIC_CODE.security_unconfigured)).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled());
     expect(data.client.write).not.toHaveBeenCalled();
   });
 
@@ -170,7 +196,7 @@ describe("allowlist «Ver más»", () => {
     expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.reading)).not.toBeInTheDocument();
 
     // The next page repeats the shown entry; it is listed once, followed by the new one.
-    await act(async () => { finish({ status: "ready", value: { items: [data.entry, second], nextCursor: "synthetic-cursor-2" } }); });
+    await act(async () => { finish({ status: "ready", value: { items: [data.entry, second], nextCursor: "synthetic-cursor-2", platformRequirement: null } }); });
     await waitFor(() => expect(screen.getAllByRole("button", { name: /^Editar / }).map((button) => button.getAttribute("aria-label"))).toEqual([`Editar ${data.entry.identity}`, `Editar ${second.identity}`]));
 
     fireEvent.click(screen.getByRole("button", { name: "Ver más entradas" }));
