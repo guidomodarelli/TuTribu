@@ -11,14 +11,12 @@ import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/mess
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { toAdmissionNotificationOperationError } from "./admission-notification-operation-failure";
-import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
-import { ADMISSION_REQUEST_HREF_PREFIX } from "@/src/modules/academy-admissions/constants/admission-mutation-presentation";
-import { ADMISSION_NOTIFICATION_AUDIENCE } from "../../constants/admission-notifications";
+import { admissionNotificationPath } from "./admission-notification-path";
 import { ADMISSION_NOTIFICATION_GROUP_STATE, ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE } from "../../constants/admission-notification-group-storage";
 import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_GROUP_STATUS } from "../../constants/admission-notification-groups";
 import { ADMISSION_NOTIFICATION_PREPARATION_STATUS } from "../../constants/admission-notification-email-intent";
 import type { AdmissionNotificationStoredGroup } from "../../domain/entities/admission-notification-group";
-import type { AdmissionNotificationEmailCandidate, AdmissionNotificationGroupManifest, AdmissionNotificationSuppressionReason } from "../../domain/entities/admission-notification";
+import type { AdmissionNotificationEmailCandidate, AdmissionNotificationSuppressionReason } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
 import type { AdmissionNotificationGroupPreparation, AdmissionNotificationGroupPreparationCommand, AdmissionNotificationGroupPreparationResult } from "../../domain/repositories/admission-notification-group-preparation";
 import { freezeAdmissionNotificationGroup } from "../../domain/policies/admission-notification-groups";
@@ -32,12 +30,6 @@ import { admissionNotificationNow, readAdmissionNotificationGroup, PostgresAdmis
 function replayedPreparationStatus(state: AdmissionNotificationStoredGroup["state"]) {
   if (state === ADMISSION_NOTIFICATION_GROUP_STATE.frozen) return ADMISSION_NOTIFICATION_PREPARATION_STATUS.queued;
   return state === ADMISSION_NOTIFICATION_GROUP_STATE.expired ? ADMISSION_NOTIFICATION_PREPARATION_STATUS.expired : ADMISSION_NOTIFICATION_PREPARATION_STATUS.suppressed;
-}
-
-/** @param group - Original group. @param tribeSlug - Current tribe slug. @param manifest - Frozen manifest. @returns The reviewer queue path or the applicant's request path. */
-function notificationPath(group: AdmissionNotificationStoredGroup, tribeSlug: string, manifest: AdmissionNotificationGroupManifest): string {
-  if (group.identity.audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer) return `/${encodeURIComponent(tribeSlug)}/${ADMISSION_NAVIGATION.reviewSegment}`;
-  return `${ADMISSION_REQUEST_HREF_PREFIX}${encodeURIComponent(manifest.items[0].admissionRequestId)}`;
 }
 
 /** @param finalConfig - Security config read after writing. @param config - Original security config. @param payloadKeyId - Key that sealed the content. @param credentialKeyId - Connection credential key. @returns Whether the original scope and both keys are still current. */
@@ -123,7 +115,7 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
         const destinations = new Set(facts.members.filter((member) => member.plan.status === ADMISSION_NOTIFICATION_GROUP_STATUS.candidate).map((member) => member.normalizedEmail));
         const normalizedEmail = destinations.size === 1 ? [...destinations][0] : null;
         if (!resource || !normalizedEmail) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-        const href = new URL(notificationPath(group, tribe.slug, plan.manifest), this.publicAppBaseUrl).toString();
+        const href = new URL(admissionNotificationPath(group.identity.audience, tribe.slug, plan.manifest.items[0].admissionRequestId), this.publicAppBaseUrl).toString();
         const content = createAdmissionNotificationEmailContent({ groupId: group.id, groupVersion: group.version + 1, manifest: plan.manifest, senderId: resource.senderId, href });
         const deliveryId = randomUUID();
         const sealingContext = { tribeId: command.tribeId, deliveryId, originalDeliveryId: null, connectionId: resource.connectionId, connectionVersion: resource.connectionVersion, contributingLeaderUserId: resource.contributingLeaderUserId, recipientUserId: group.identity.recipientUserId, normalizedRecipientEmail: normalizedEmail, idempotencyKey: deliveryId, queuedUsagePolicyVersion: resource.queuedUsagePolicyVersion, createdAtMicroseconds: now, deadlineAtMicroseconds: plan.deadlineAtMicroseconds, content };

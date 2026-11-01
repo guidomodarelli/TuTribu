@@ -50,6 +50,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("legacy admission ent
     });
   },180_000);
 
+  it("should send a historical arrival to an academy without admission control to its academy home instead of a closed admission",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareEntryPoints(database,"academy");
+      expect(await fixture.invitations.accept({tribeSlug:fixture.slug,token:fixture.token})).toEqual({status:"academy_join_available"});
+      // The invitation itself writes nothing: the academy home owns the basic entry.
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`)).rows)).toEqual([]);
+    });
+  },180_000);
+
   it("should close a direct open checkout in an unprotected academy even when a current membership price remains stored",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareEntryPoints(database,"academy");

@@ -1,5 +1,7 @@
 export const TRIBE_INVITATION_STATUS = {
   admissionRequired: "admission_required",
+  /** An academy that has not activated admission control: its own academy home offers the basic entry. */
+  academyJoinAvailable: "academy_join_available",
   accepted: "accepted",
   active: "active",
   blocked: "blocked",

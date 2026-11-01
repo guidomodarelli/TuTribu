@@ -28,6 +28,8 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
   const available = preview?.state === PERSONAL_INVITATION_OVERVIEW_STATE.available ? preview : null;
   const busy = props.phase !== PERSONAL_INVITATION_UI_PHASE.idle && props.phase !== PERSONAL_INVITATION_UI_PHASE.uncertain;
   const pending = available?.overview.state === ADMISSION_OVERVIEW_STATE.pending, member = available?.overview.state === ADMISSION_OVERVIEW_STATE.alreadyMember;
+  // An earlier request keeps its retry wait: the form would be refused until then, so only that request is linked.
+  const waiting = available?.overview.state === ADMISSION_OVERVIEW_STATE.closed;
   useEffect(() => { if (props.errorMessage) feedback.current?.focus(); }, [props.errorMessage]);
   return <main className={styles.PersonalInvitation}>
     <header className={styles.PersonalInvitation__header}>
@@ -40,7 +42,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
       {props.accountChanged ? <p role="status" className={styles.PersonalInvitation__description}>{PERSONAL_INVITATION_UI_COPY.accountChanged}</p> : <>
         {props.state.kind === "unavailable" && <p role="alert" className={styles.PersonalInvitation__error}>{props.state.message}</p>}
         {preview && <p className={styles.PersonalInvitation__description}>{preview.state === PERSONAL_INVITATION_OVERVIEW_STATE.available ? preview.overview.safeMessage : preview.safeMessage}</p>}
-        {available && !pending && !member && <>
+        {available && !pending && !member && !waiting && <>
           <p className={styles.PersonalInvitation__description}>{available.requiresAllowlist ? PERSONAL_INVITATION_UI_COPY.restriction : PERSONAL_INVITATION_UI_COPY.exemption}</p>
           {props.verification}
           <form className={styles.PersonalInvitation__form} noValidate onSubmit={(event) => { event.preventDefault(); if (props.canSubmit && !busy) props.onSubmit(); }}>
@@ -52,7 +54,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
             <Button type="submit" disabled={!props.canSubmit || !props.confirmed || busy || props.hasPending}>{props.phase === PERSONAL_INVITATION_UI_PHASE.submitting ? PERSONAL_INVITATION_UI_COPY.submitting : PERSONAL_INVITATION_UI_COPY.submit}</Button>
           </form>
         </>}
-        {pending && props.ownRequestHref && <Link href={props.ownRequestHref}>{PERSONAL_INVITATION_UI_COPY.ownRequest}</Link>}
+        {(pending || waiting) && props.ownRequestHref && <Link href={props.ownRequestHref}>{PERSONAL_INVITATION_UI_COPY.ownRequest}</Link>}
         {member && props.academyHref && <Link href={props.academyHref}>{PERSONAL_INVITATION_UI_COPY.openAcademy}</Link>}
       </>}
       {props.phase === PERSONAL_INVITATION_UI_PHASE.reading && <p role="status" className={styles.PersonalInvitation__description}>{PERSONAL_INVITATION_UI_COPY.reading}</p>}

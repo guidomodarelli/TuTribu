@@ -22,3 +22,9 @@ export const ADMISSION_EMAIL_PATTERN = /^[^\s@\u0000-\u001f\u007f]+@[^\s\0-\x08\
 
 /** Recognizes the normalizer's documented missing-country ParseError. */
 export const ADMISSION_PHONE_PARSE_ERROR = { invalidCountry: "INVALID_COUNTRY" } as const;
+
+/**
+ * Argentine mobiles are dialled from abroad as +54 9 <area> <number>; written without the 9 they parse as a geographic line that
+ * receives neither SMS nor WhatsApp. The admission contact only receives messages, so that form is canonicalized to the mobile one.
+ */
+export const ADMISSION_ARGENTINA_PHONE = { country: "AR", mobileToken: "9", geographicType: "FIXED_LINE", mobileType: "MOBILE" } as const;

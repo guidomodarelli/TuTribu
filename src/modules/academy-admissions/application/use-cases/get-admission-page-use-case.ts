@@ -17,7 +17,7 @@ import { ADMISSION_REQUEST_STATUS } from "../../constants/admission-request";
 /** Application reads never claim an operation or use membership as a login prerequisite. */
 export class GetAdmissionPageUseCase {
   /** @param accounts - Current native server identity. @param readers - Own composed use cases. @param clock - Fresh time after all reads. */
-  constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly readers: { overview: Pick<GetAdmissionOverviewUseCase, "execute">; own: Pick<GetOwnAdmissionUseCases, "getOwn">; resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">; legacyInvitations?: LegacyAdmissionInvitationReader }, private readonly clock: () => Date) {}
+  constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly readers: { overview: Pick<GetAdmissionOverviewUseCase, "execute">; own: Pick<GetOwnAdmissionUseCases, "getOwn" | "findOwnTribeSlug">; resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">; legacyInvitations?: LegacyAdmissionInvitationReader }, private readonly clock: () => Date) {}
 
   /** @param query - Validated slug, optional exact request id and correlation. @returns An allowlisted page snapshot with a deterministic clock or safe Spanish failure. */
   async execute(query: { slug: string; requestId: string; admissionRequestId?: string; legacyInvitationToken?: string }) {
@@ -34,6 +34,11 @@ export class GetAdmissionPageUseCase {
     } catch (error) {
       return admissionOperationFailure(error);
     }
+  }
+
+  /** @param query - Exact own request id of a link without its tribe, and correlation. @returns The tribe slug of that own request, or a safe failure (signed out, or not this account request). */
+  resolveOwnRequestTribe(query: { requestId: string; admissionRequestId: string }) {
+    return this.readers.own.findOwnTribeSlug(query);
   }
 
   /** @param query - Validated slug and correlation. @param first - Account that opened the page. @param token - Proposed legacy invitation token. @throws AdmissionOperationError when the link is not an active invitation of this tribe. */

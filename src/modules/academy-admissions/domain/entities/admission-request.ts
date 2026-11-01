@@ -86,7 +86,8 @@ export function getAdmissionRetryAllowedAt(request: Pick<AdmissionRequest, "stat
 export function proposeAdmissionCancellation(input: { request: AdmissionRequest; expectedVersion: number; decisionId: string; actor: AdmissionActorFacts; internalReason: string | null; now: Date }) {
   const { request, actor } = input;
   if (request.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== input.expectedVersion) return { allowed: false as const, code: ADMISSION_ERROR_CODE.requestConflict };
-  if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return { allowed: false as const, code: ADMISSION_ERROR_CODE.admissionIneligible };
+  if (!Number.isFinite(input.now.getTime()) || input.now < request.submittedAt) return { allowed: false as const, code: ADMISSION_ERROR_CODE.admissionIneligible };
+  if (input.now >= request.expiresAt) return { allowed: false as const, code: ADMISSION_ERROR_CODE.requestExpired };
   const own = actor.userId === request.userId;
   if (!canPerformAdmissionAction(actor, own ? ADMISSION_ACTION.cancelOwnRequest : ADMISSION_ACTION.cancelByManagement, { tribeId: request.tribeId, applicantUserId: request.userId })) return { allowed: false as const, code: ADMISSION_ERROR_CODE.permissionDenied };
   const reason = input.internalReason?.trim() || null;

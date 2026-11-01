@@ -13,7 +13,7 @@ import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constan
 import { ADMISSION_POLICY_MODE } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import type { AdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
-import type { AdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
+import { isSameAdmissionContact, type AdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS, TRIBE_MEMBERSHIP_STATUS_REASON } from "@/src/modules/tribes/constants/tribe-page-access";
 
@@ -57,6 +57,8 @@ export type AdmissionSubmissionFacts = {
   contactBinding: { ownerUserId: string; contact: AdmissionContact } | null;
 };
 type DenialReason = (typeof ADMISSION_DENIAL_REASON)[keyof typeof ADMISSION_DENIAL_REASON];
+/** Closed reason of a denied evaluation, shared with the copy that explains it. */
+export type AdmissionDenialReason = DenialReason;
 type EvidenceKind = (typeof ADMISSION_EVIDENCE_KIND)[keyof typeof ADMISSION_EVIDENCE_KIND];
 export type AdmissionEligibilityResult =
   | { outcome: "denied"; reason: DenialReason }
@@ -64,11 +66,6 @@ export type AdmissionEligibilityResult =
   | { outcome: "already_member"; membershipEffect: "none" }
   | { outcome: "pending"; evidenceKind: EvidenceKind; bindContact: boolean; requiresExceptionReason: boolean }
   | { outcome: "admitted"; evidenceKind: EvidenceKind; bindContact: boolean; membershipEffect: "create" | "recover"; restoredStatus: "active" | "muted" };
-
-/** Compares canonical contacts without using names, aliases, or routing hints. */
-function sameContact(first: AdmissionContact | null, second: AdmissionContact | null): boolean {
-  return first !== null && second !== null && first.type === second.type && first.value === second.value;
-}
 
 /** Checks previously captured base authority against the currently linked account. */
 function hasCurrentBaseEmail(facts: AdmissionSubmissionFacts): boolean {
@@ -98,7 +95,7 @@ function hasAvailableLocalProof(facts: AdmissionSubmissionFacts): boolean {
     && proof.verifiedAt.getTime() <= facts.now.getTime()
     && facts.now.getTime() - proof.verifiedAt.getTime() < ADMISSION_LIMIT.verificationProofFreshnessMs
     && facts.now.getTime() < proof.applyBefore.getTime()
-    && sameContact(proof.contact, facts.contact));
+    && isSameAdmissionContact(proof.contact, facts.contact));
 }
 
 /**
@@ -118,7 +115,7 @@ function hasUsableAppliedProof(facts: AdmissionSubmissionFacts, proof: Admission
     && (!facts.policy.requiresAdditionalVerification || proof.verificationEpoch === facts.policy.verificationEpoch)
     && (!facts.currentConnection || proof.securityEpoch === facts.currentConnection.securityEpoch)
     && proof.verifiedAt.getTime() <= facts.now.getTime()
-    && sameContact(proof.contact, facts.contact));
+    && isSameAdmissionContact(proof.contact, facts.contact));
 }
 
 /**
@@ -159,7 +156,7 @@ function evaluateAdmission(
   const evidenceKind = resolveEvidenceKind({ facts, policy, stage, appliedProof, requestId });
   if (evidenceKind === null) return { outcome: ADMISSION_OUTCOME.verificationRequired, reason: ADMISSION_DENIAL_REASON.proofRequired };
   const hasTrustedContact = evidenceKind === ADMISSION_EVIDENCE_KIND.base || evidenceKind === ADMISSION_EVIDENCE_KIND.local;
-  if (hasTrustedContact && facts.contactBinding && sameContact(facts.contactBinding.contact, facts.contact) && facts.contactBinding.ownerUserId !== account.userId) return deniedAdmission(ADMISSION_DENIAL_REASON.contactConflict);
+  if (hasTrustedContact && facts.contactBinding && isSameAdmissionContact(facts.contactBinding.contact, facts.contact) && facts.contactBinding.ownerUserId !== account.userId) return deniedAdmission(ADMISSION_DENIAL_REASON.contactConflict);
 
   const invitation = facts.source.kind === ADMISSION_SOURCE_KIND.personal ? facts.source.invitation : null;
   const invitationDenial = invitation ? invitationDenialReason({ invitation, facts, policy, stage, hasTrustedContact }) : null;
@@ -214,7 +211,7 @@ function invitationDenialReason({ invitation, facts, policy, stage, hasTrustedCo
   const isNewInvitationExpired = stage !== "review" && invitation.expiresAt && facts.now.getTime() >= invitation.expiresAt.getTime();
   if (invitation.tribeId !== facts.tribe.id || invitation.status !== expectedStatus || invitation.authorizationRevoked || isNewInvitationExpired) return ADMISSION_DENIAL_REASON.invitationUnusable;
   if (stage !== "review" && policy.contactType === ADMISSION_CONTACT_TYPE.phone && !policy.requiresAdditionalVerification) return ADMISSION_DENIAL_REASON.phoneInvitationUnavailable;
-  if (!hasTrustedContact || !sameContact(invitation.contact, facts.contact)) return ADMISSION_DENIAL_REASON.invitationRecipientUnproven;
+  if (!hasTrustedContact || !isSameAdmissionContact(invitation.contact, facts.contact)) return ADMISSION_DENIAL_REASON.invitationRecipientUnproven;
   return null;
 }
 
@@ -222,7 +219,7 @@ function invitationDenialReason({ invitation, facts, policy, stage, hasTrustedCo
 function evaluateAllowlistOutcome({ facts, account, policy, invitation, evidenceKind, hasTrustedContact }: { facts: AdmissionSubmissionFacts; account: AdmissionAccountFacts; policy: AdmissionPolicy; invitation: PersonalInvitationFacts | null; evidenceKind: EvidenceKind; hasTrustedContact: boolean }): AdmissionEligibilityResult {
   const entry = facts.allowlistEntry;
   const matchesAllowlist = hasTrustedContact && entry?.tribeId === facts.tribe.id && entry.enabled
-    && sameContact(entry.contact, facts.contact) && (entry.boundUserId === null || entry.boundUserId === account.userId);
+    && isSameAdmissionContact(entry.contact, facts.contact) && (entry.boundUserId === null || entry.boundUserId === account.userId);
   const requiresAllowlist = invitation ? invitation.requiresAllowlist : policy.mode === ADMISSION_POLICY_MODE.allowlist;
   let requiresExceptionReason = false;
   if (requiresAllowlist && !matchesAllowlist) {

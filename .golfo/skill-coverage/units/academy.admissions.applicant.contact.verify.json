@@ -8,7 +8,7 @@
     "section": "Comprobación de contacto",
     "subflow": "Pedir, reenviar y verificar el código"
   },
-  "description": "Comprobar el contacto con un código por correo o SMS: pedir, reenviar o pasar a SMS, verificar, aplicar la prueba y descartar una operación ausente.",
+  "description": "Comprobar el contacto con un código por correo o SMS: pedir (o retomar el código vigente pedido desde otra pestaña), reenviar o pasar a SMS, verificar, aplicar la prueba y descartar una operación ausente.",
   "routes": [
     "/admissions/[slug]"
   ],

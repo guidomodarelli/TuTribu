@@ -38,7 +38,17 @@ describe("SignInWithGoogleButton", () => {
       })
     );
 
-    expect(startGoogleSignInMock).toHaveBeenCalledWith("/-/crear");
+    expect(startGoogleSignInMock).toHaveBeenCalledWith("/-/crear", { selectAccount: false });
+  });
+
+  it("asks Google for its account chooser after an explicit account change", async () => {
+    const user = userEvent.setup();
+
+    render(<SignInWithGoogleButton callbackUrl="/admissions/matematica-pro" selectAccount />);
+
+    await user.click(screen.getByRole("button", { name: /iniciar sesión con google/i }));
+
+    expect(startGoogleSignInMock).toHaveBeenCalledWith("/admissions/matematica-pro", { selectAccount: true });
   });
 
   it("redirects to the auth error page when Better Auth rejects the OAuth start", async () => {

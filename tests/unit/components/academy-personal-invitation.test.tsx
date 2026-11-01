@@ -350,6 +350,18 @@ describe("personal invitation page workflow", () => {
     expect(data.client.submit).not.toHaveBeenCalled(); expect(data.contactClient.issue).not.toHaveBeenCalled();
   });
 
+  it("should show the retry wait of an earlier request with its link and no confirmation", async () => {
+    const data = fixture(), earlier = { ...data.request, status: "cancelled" as const, retryAllowedAt: "2100-11-07T01:00:00Z" };
+    const preview = { ...data.preview, overview: { ...data.preview.overview, state: "closed" as const, nextAction: "wait" as const, safeMessage: "Todavía no terminó el plazo para volver a presentar una solicitud.", request: earlier } };
+    const state: PersonalInvitationPageState = { kind: "ready", viewerId: data.viewerId, renderedAt: new Date().toISOString(), preview };
+    render(<Providers token={data.token}><PersonalInvitationContainer initialState={state} client={data.client} contactClient={data.contactClient} /></Providers>);
+    expect(screen.getByText("Todavía no terminó el plazo para volver a presentar una solicitud.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ver mi solicitud" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirmar invitación" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cambiar de cuenta" })).toBeEnabled());
+    expect(data.client.submit).not.toHaveBeenCalled();
+  });
+
   it("should announce the accepted invitation once, on the page the member is reading", async () => {
     const data = fixture();
     render(<>{data.element()}<ThemedToaster /></>);

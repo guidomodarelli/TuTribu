@@ -274,7 +274,7 @@ async function requireInvitationMember(slug: string, token: string) {
   return { authenticatedMember, modules };
 }
 
-/** @param input - Existing route arrival, never a membership or policy permission. @returns Navigation to common admission for academy, or the classic owner's confirmed outcome. */
+/** @param input - Existing route arrival, never a membership or policy permission. @returns Navigation to common admission for an academy with admission control, to the academy home for one without it, or the classic owner's confirmed outcome. */
 export async function acceptInvitationAction({
   slug,
   token,
@@ -290,6 +290,11 @@ export async function acceptInvitationAction({
 
   if (result.status === TRIBE_INVITATION_STATUS.admissionRequired) {
     redirect(buildLegacyAdmissionEntryRoute(slug, token));
+  }
+
+  // An academy without admission control keeps its basic entry on the academy home.
+  if (result.status === TRIBE_INVITATION_STATUS.academyJoinAvailable) {
+    redirect(ROUTES.tribes.academy(slug));
   }
 
   if (result.status === TRIBE_INVITATION_STATUS.accepted) {
