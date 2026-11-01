@@ -77,9 +77,14 @@ function useConnectionsState(ready:ConnectionsReady|null){
   const[focusKey,setFocusKey]=useState(false);
   /** Counts saves rejected by field validation, so the form moves focus to the first field to fix. */
   const[validationAttempt,setValidationAttempt]=useState(0);
-  /** A recovered test waiting to be accepted once the configuration read with it is rendered, so it is compared with that configuration. */
-  const[recoveredIssuance,setRecoveredIssuance]=useState<IssuedDiagnostic|null>(null);
-  return{recoveredIssuance,setRecoveredIssuance,initialLifecycleTarget,currentStepId,setCurrentStepId,securityOpen,setSecurityOpen,observedAt,setObservedAt,configuration,setConfiguration,name,setName,apiKey,setApiKey,confirmed,setConfirmed,validationConfirmed,setValidationConfirmed,needsCurrent,setNeedsCurrent,canResume,setCanResume,resumeConfirmed,setResumeConfirmed,canArchive,setCanArchive,archiveConfirmed,setArchiveConfirmed,history,setHistory,phase,setPhase,notice,setNotice,fieldErrors,setFieldErrors,pending,setPending,currentReadFailed,setCurrentReadFailed,readingCurrent,setReadingCurrent,writingAction,setWritingAction,recoveryBusy,setRecoveryBusy,diagnosticReferences,setDiagnosticReferences,replacementScope,setReplacementScope,focusKey,setFocusKey,validationAttempt,setValidationAttempt};
+  /**
+   * A recovered test waiting to be accepted once the configuration read with it is rendered, so it is compared with that configuration.
+   * Each deferral gets its own wrapper, so the same result deferred twice is accepted twice and the accepting effect needs no reset.
+   */
+  const[recoveredIssuance,setRecoveredIssuance]=useState<{result:IssuedDiagnostic}|null>(null);
+  /** @param result - Recovered test to accept after the next render. @returns Nothing after queuing it. */
+  const deferRecoveredIssuance=useCallback((result:IssuedDiagnostic)=>setRecoveredIssuance({result}),[]);
+  return{recoveredIssuance,deferRecoveredIssuance,initialLifecycleTarget,currentStepId,setCurrentStepId,securityOpen,setSecurityOpen,observedAt,setObservedAt,configuration,setConfiguration,name,setName,apiKey,setApiKey,confirmed,setConfirmed,validationConfirmed,setValidationConfirmed,needsCurrent,setNeedsCurrent,canResume,setCanResume,resumeConfirmed,setResumeConfirmed,canArchive,setCanArchive,archiveConfirmed,setArchiveConfirmed,history,setHistory,phase,setPhase,notice,setNotice,fieldErrors,setFieldErrors,pending,setPending,currentReadFailed,setCurrentReadFailed,readingCurrent,setReadingCurrent,writingAction,setWritingAction,recoveryBusy,setRecoveryBusy,diagnosticReferences,setDiagnosticReferences,replacementScope,setReplacementScope,focusKey,setFocusKey,validationAttempt,setValidationAttempt};
 }
 /** Every state of the connections route. */
 type ConnectionsState=ReturnType<typeof useConnectionsState>;
@@ -258,15 +263,15 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
   const report=useRef<MessagingConnectionsFeedback|null>(null);
   const{busy,...controllers}=useConnectionsControllers(ready,state,facts,{resourcesClient,context:connectionsContext});
   /** @returns Current render facts, ports, refs and controllers; it is only built when an operation runs. */
-  function connectionsContext():ConnectionsContext{return{...state,...facts,...controllers,ready,client,store,resourcesClient,diagnosticClient,activationClient,lifecycleClient,busy,mounted,observation,firstDiagnosticAbsence,report,deferIssuance:state.setRecoveredIssuance};}
+  function connectionsContext():ConnectionsContext{return{...state,...facts,...controllers,ready,client,store,resourcesClient,diagnosticClient,activationClient,lifecycleClient,busy,mounted,observation,firstDiagnosticAbsence,report,deferIssuance:state.deferRecoveredIssuance};}
   /** Effect-only callbacks observe the latest viewer/controller without restarting restoration for a render-only identity change. */
   const restoreViewer=useEffectEvent((signal:AbortSignal)=>checkConnectionsViewer(connectionsContext(),signal));
   const restorationScope=useEffectEvent(()=>state);
   // A recovered test is accepted by the controller of the render that already shows the configuration it was read with: in the same tick as
   // that read, the controller would still compare it with the earlier snapshot (Atrás restores an older one) and then reset it for the new scope.
-  const{recoveredIssuance,setRecoveredIssuance}=state,acceptRecoveredIssuance=useEffectEvent((result:IssuedDiagnostic)=>controllers.diagnosticController.acceptIssuance(result));
-  useEffect(()=>{if(!recoveredIssuance)return;acceptRecoveredIssuance(recoveredIssuance);setRecoveredIssuance(null);},[recoveredIssuance,setRecoveredIssuance]);
-  useEffect(()=>{mounted.current=true;const controller=new AbortController(),operations=observation;const scope=ready?{...restorationScope(),ready,client,store,mounted,checkViewer:(signal:AbortSignal)=>restoreViewer(signal),acceptIssuance:restorationScope().setRecoveredIssuance}:null;
+  const{recoveredIssuance}=state,acceptedIssuance=useRef<typeof recoveredIssuance>(null),acceptRecoveredIssuance=useEffectEvent((result:IssuedDiagnostic)=>controllers.diagnosticController.acceptIssuance(result));
+  useEffect(()=>{if(!recoveredIssuance||acceptedIssuance.current===recoveredIssuance)return;acceptedIssuance.current=recoveredIssuance;acceptRecoveredIssuance(recoveredIssuance.result);},[recoveredIssuance]);
+  useEffect(()=>{mounted.current=true;const controller=new AbortController(),operations=observation;const scope=ready?{...restorationScope(),ready,client,store,mounted,checkViewer:(signal:AbortSignal)=>restoreViewer(signal),acceptIssuance:restorationScope().deferRecoveredIssuance}:null;
     if(scope)void restoreConnections(scope,controller.signal).catch(()=>{if(controller.signal.aborted||!mounted.current)return;scope.setApiKey("");scope.setPhase(PHASE.unavailable);scope.setNotice(COPY.storageUnavailable);});
     return()=>{mounted.current=false;controller.abort();operations.current?.abort();};},[ready,client,store]);
   if(!ready||state.phase===PHASE.unavailable)return<AdmissionRouteError embedded {...resolveMessagingRouteRecovery(initialState.kind==="unavailable"?initialState.code:null,{pathname,search:searchParams?.toString()??""})} message={initialState.kind==="unavailable"?initialState.message:state.notice??COPY.viewerChanged} />;

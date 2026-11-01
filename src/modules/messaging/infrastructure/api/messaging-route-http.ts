@@ -81,7 +81,7 @@ export function createMessagingRouteBoundary(input: { request: Request; operatio
  * @returns Its public projection; a definitive failure that registered nothing answers 424 instead of a 5xx, so the browser
  * releases the write instead of keeping it uncertain.
  */
-export function projectMessagingFailure(failure: MessagingFailure, requestId: string) {
+function projectMessagingFailure(failure: MessagingFailure, requestId: string) {
   const projected = projectOwnPublicFailure(failure, requestId, { status: MESSAGING_ERROR_HTTP_STATUS, message: MESSAGING_ERROR_MESSAGE });
   return failure.definitive && projected.status >= HTTP_STATUS.serverError ? { ...projected, status: HTTP_STATUS.failedDependency } : projected;
 }
