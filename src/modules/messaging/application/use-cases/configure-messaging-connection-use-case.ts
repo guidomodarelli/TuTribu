@@ -7,6 +7,8 @@ import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/
 import {MessagingConnectionInspectionError} from "@/src/modules/messaging/domain/errors/messaging-connection-inspection-error";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
+import {MESSAGING_CHANNEL_RESOURCE_REQUIREMENT as RESOURCE_REQUIREMENT} from "@/src/modules/messaging/constants/messaging-resources";
+import {MessagingRequirementError,type MessagingChannelResourceRequirement} from "@/src/modules/messaging/domain/errors/messaging-requirement-error";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {messagingFailure} from "../results/messaging-errors";
@@ -29,6 +31,8 @@ export class ConfigureMessagingConnectionUseCase{
   }
   /** @param input - Boundary-normalized original action. @param signal - Native caller cancellation/deadline. @returns Original guarded mutation metadata or safe current denial; no credential or provider payload. */
   async execute(input:ConfigureMessagingConnectionInput,signal:AbortSignal){
+    // Nothing is registered for this original until the owner commits it: an earlier failure (a Zavu read that failed or timed out) is definitive.
+    let committing=false;
     try{
       signal.throwIfAborted();
       const resolved=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operationId:input.operationId,operation:REAUTHENTICATION_OPERATION.configureMessagingConnection});
@@ -37,34 +41,57 @@ export class ConfigureMessagingConnectionUseCase{
       if(prepared.state!=="prepared")return{ok:true as const,value:prepared};
       if(prepared.configurationVersion!==context.connectionVersion)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.connectionConflict);
       signal.throwIfAborted();
-      if(!prepared.changed)return{ok:true as const,value:await this.operations.commit(context,input,null)};
+      if(!prepared.changed){committing=true;return{ok:true as const,value:await this.operations.commit(context,input,null)};}
       const resources=await this.inspectResources(context,input,signal);
       await this.current(context,input.operationId);signal.throwIfAborted();
+      committing=true;
       return{ok:true as const,value:await this.operations.commit(context,input,resources)};
     }catch(error){
-      return{ok:false as const,failure:configurationFailure(error,signal)};
+      return{ok:false as const,failure:configurationFailure(error,signal,!committing)};
     }
   }
   /** @param context - Current authority. @param input - Original action. @param signal - Native caller cancellation/deadline. @returns The credential and the exact provider resources the change commits. @throws Safe missing capability or invalid input. */
   private async inspectResources(context:AuthorizedMessagingContext,input:ConfigureMessagingConnectionInput,signal:AbortSignal){
     const credential=await this.secrets.loadAuthorizedSecret(context);await this.current(context,input.operationId);signal.throwIfAborted();
     const inspector=this.inspectors.create(context,credential),sender=await inspector.retrieveSender(input.senderId,signal);
-    if(sender.resourceId!==input.senderId||!sender.channels.includes(input.channel)||input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&!sender.canSendWhatsappTemplates)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
+    const senderRequirement=unmetSenderRequirement(sender,input);
+    if(senderRequirement)throw missingResource(senderRequirement);
     let template;
     if(input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp){
       if(!input.templateId||!input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.invalidInput);
       await this.current(context,input.operationId);signal.throwIfAborted();template=await inspector.retrieveTemplate(input.templateId,signal);
-      if(template.resourceId!==input.templateId||!template.authenticationApproved||template.language!==input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
+      const templateRequirement=unmetTemplateRequirement(template,input);
+      if(templateRequirement)throw missingResource(templateRequirement);
     }
     return{credential,sender,...(template?{template}:{})};
   }
 }
 
-/** @param error - Failure of the configuration attempt. @param signal - Native caller cancellation/deadline. @returns The safe failure, keeping the unresolved operation reference. */
-function configurationFailure(error:unknown,signal:AbortSignal){
+/** @param requirement - Unmet resource requirement. @returns A missing capability that names it as its typed cause. */
+function missingResource(requirement:MessagingChannelResourceRequirement){
+  return new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability,{cause:new MessagingRequirementError(requirement)});
+}
+
+/** @param sender - Exact Zavu sender read now. @param input - Original action. @returns Why it cannot send on the chosen channel, or null when it can. */
+function unmetSenderRequirement(sender:{resourceId:string;channels:readonly string[];canSendWhatsappTemplates:boolean},input:ConfigureMessagingConnectionInput):MessagingChannelResourceRequirement|null{
+  if(sender.resourceId!==input.senderId)return RESOURCE_REQUIREMENT.senderMismatch;
+  if(!sender.channels.includes(input.channel))return RESOURCE_REQUIREMENT.senderChannelMissing;
+  return input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&!sender.canSendWhatsappTemplates?RESOURCE_REQUIREMENT.senderWhatsappTemplatesUnavailable:null;
+}
+
+/** @param template - Exact Zavu template read now. @param input - Original action. @returns Why it cannot authenticate on WhatsApp, or null when it can. */
+function unmetTemplateRequirement(template:{resourceId:string;authenticationApproved:boolean;language:string|null},input:ConfigureMessagingConnectionInput):MessagingChannelResourceRequirement|null{
+  if(template.resourceId!==input.templateId)return RESOURCE_REQUIREMENT.templateMismatch;
+  if(!template.authenticationApproved)return RESOURCE_REQUIREMENT.templateNotApproved;
+  return template.language!==input.templateLanguage?RESOURCE_REQUIREMENT.templateLanguageMismatch:null;
+}
+
+/** @param error - Failure of the configuration attempt. @param signal - Native caller cancellation/deadline. @param beforeCommit - Whether it happened before the owner could register the original. @returns The safe failure, keeping the unresolved operation reference; a failure before the commit is definitive. */
+function configurationFailure(error:unknown,signal:AbortSignal,beforeCommit:boolean){
   const known=error instanceof MessagingSecretAccessError||error instanceof MessagingConnectionOperationError||error instanceof MessagingConnectionInspectionError;
   const code=known?error.code:abortedOrUnexpectedCode(signal);
-  return messagingFailure(code,{cause:error,...(error instanceof MessagingConnectionOperationError&&error.code===MESSAGING_ERROR_CODE.operationUnresolved&&error.operationId?{operation:{operationId:error.operationId,state:OPERATION_STATE.started}}:{})});
+  const unresolved=error instanceof MessagingConnectionOperationError&&error.code===MESSAGING_ERROR_CODE.operationUnresolved&&error.operationId;
+  return messagingFailure(code,{cause:error,...(unresolved?{operation:{operationId:error.operationId,state:OPERATION_STATE.started}}:{}),...(beforeCommit&&!unresolved?{definitive:true}:{})});
 }
 
 /** @param signal - Native caller cancellation/deadline. @returns Timeout when the caller aborted, otherwise an unexpected failure. */

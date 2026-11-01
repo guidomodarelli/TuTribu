@@ -1,8 +1,7 @@
 /** Reads one original messaging operation by its exact UUID through the owned no-store boundary, without retry, leases or provider requests. @module messaging-operation-read-handler */
 import "server-only";
 import { z } from "zod";
-import { messagingFailure, type MessagingFailure } from "../../application/results/messaging-errors";
-import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
+import { messagingTribeRoutingFailure, type MessagingFailure } from "../../application/results/messaging-errors";
 import type { MessagingUsagePolicyServices } from "./messaging-usage-policy-handlers";
 import { messagingTribeParamsSchema } from "./messaging-request-schemas";
 import { createMessagingRouteBoundary } from "./messaging-route-http";
@@ -30,7 +29,7 @@ type MessagingOperationReadRoute<Value> = {
 export const MESSAGING_OPERATION_READ_INPUT = {
   paramsSchema: messagingTribeParamsSchema.extend({ operationId: z.uuid() }),
   querySchema: z.strictObject({}),
-  routingFailure: (failure: RoutingFailure) => messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === failure.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure, { cause: failure }),
+  routingFailure: messagingTribeRoutingFailure,
 };
 
 /** @param route - Own route contract. @param open - Native readonly services after own route validation. @returns The GET handler answering the original state or a safe current denial. */

@@ -36,6 +36,8 @@ export function createOwnJsonRouteBoundary<Failure extends { code: string; cause
   projectFailure: (failure: Failure, requestId: string) => { status: number; body: PublicError };
   invalidInput: () => Failure; unusableContract: () => Failure; unexpectedFailure: (cause: unknown) => Failure;
   diagnostics?: (diagnostic: OwnHttpDiagnostic) => void;
+  /** Keeps a failure the feature answers below 5xx (for example, a definitive one that registered nothing) at error level in the log. */
+  logsAsError?: (failure: Failure) => boolean;
 }) {
   const requestContext = resolvePrivateRequestContext(input.request.headers);
   const logger = createServerLogger({ feature: input.feature, operation: input.operation, ...requestContext });
@@ -44,7 +46,7 @@ export function createOwnJsonRouteBoundary<Failure extends { code: string; cause
     const causes = summarizeErrorCauses(failure.cause);
     const diagnostic: OwnHttpDiagnostic = { stage, code: failure.code, status, ...requestContext, ...(issues ? { issues } : {}), ...(causes.length > 0 ? { causes } : {}) };
     if (input.diagnostics) input.diagnostics(diagnostic);
-    else logger[status >= HTTP_STATUS.serverError ? "error" : "warn"]({ message: BOUNDARY_DIAGNOSTIC_MESSAGE, metadata: diagnostic });
+    else logger[status >= HTTP_STATUS.serverError || input.logsAsError?.(failure) ? "error" : "warn"]({ message: BOUNDARY_DIAGNOSTIC_MESSAGE, metadata: diagnostic });
   };
   const jsonResponse = (body: unknown, status: number) => attachRequestContextToResponse(Response.json(body, { status, headers: PRIVATE_RESPONSE_HEADERS }), requestContext);
 

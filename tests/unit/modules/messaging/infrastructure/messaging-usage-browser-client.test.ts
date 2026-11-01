@@ -1,7 +1,9 @@
 /** Exercises owned usage transport without platform, SDK or schema mocks. @module messaging-usage-browser-client-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { createMessagingUsageBrowserClient } from "@/lib/messaging/messaging-usage-api-client";
+import { createMessagingUsageBrowserClient, createSessionViewer } from "@/lib/messaging/messaging-usage-api-client";
+import { BROWSER_REQUEST_TIMEOUT_MS } from "@/src/constants/browser-request";
+import { MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 
 describe("usage browser transport", () => {
   it("should keep exact PUT identity/version and the safe original read separate from today's policy", async () => {
@@ -54,5 +56,24 @@ describe("usage browser transport", () => {
     expect(transport.mock.calls[0][1]).toMatchObject({ method: "GET", credentials: "same-origin", cache: "no-store" });
     transport.mockResolvedValueOnce(Response.json({ usage: { state: "configured", policy }, platformRequirement: "unknown_requirement" }));
     expect(await client.read("synthetic-academy", new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
+  });
+});
+
+describe("messaging session viewer", () => {
+  it("should end a hung session check at the browser deadline as a timeout instead of checking forever", async () => {
+    vi.useFakeTimers();
+    try {
+      const getSession = vi.fn((signal: AbortSignal) => new Promise<never>((_resolve, reject) => { signal.addEventListener("abort", () => reject(new DOMException("synthetic abort", "AbortError")), { once: true }); }));
+      const checking = createSessionViewer(getSession)(new AbortController().signal);
+      await vi.advanceTimersByTimeAsync(BROWSER_REQUEST_TIMEOUT_MS);
+      expect(await checking).toEqual({ status: "failed", code: "transport_timeout", message: MESSAGING_ERROR_MESSAGE.transport_timeout, uncertain: false });
+      expect(getSession).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+  it("should keep the caller's own cancellation an abort and read the account id of a ready session", async () => {
+    const controller = new AbortController(), viewer = createSessionViewer(async () => ({ data: { user: { id: "synthetic-leader" } }, error: null }));
+    expect(await viewer(controller.signal)).toEqual({ status: "ready", value: { id: "synthetic-leader" } });
+    controller.abort();
+    expect(await viewer(controller.signal)).toEqual({ status: "aborted" });
   });
 });

@@ -54,4 +54,6 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.publicContractUnusable]: "No pudimos mostrar el resultado de la operación. Conservá los datos y consultá el estado.",
   [MESSAGING_ERROR_CODE.unexpectedFailure]: "No pudimos completar la operación de mensajería. Conservá los datos y consultá el estado.",
   [MESSAGING_ERROR_CODE.platformSecurityUnavailable]: "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.",
+  [MESSAGING_ERROR_CODE.connectionRetirementBlocked]: "No podés desconectar la conexión seleccionada mientras la usen tus Reglas con verificación y las admisiones abiertas, o los avisos por correo. Pausá las admisiones o desactivá los avisos, y volvé a intentarlo.",
+  [MESSAGING_ERROR_CODE.originalDispatchUnresolved]: "El envío anterior de este aviso puede haber salido y todavía no tiene un resultado confirmado. Consultá el estado de la entrega antes de recuperarlo.",
 } as const;

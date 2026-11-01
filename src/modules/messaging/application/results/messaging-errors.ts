@@ -7,8 +7,13 @@ export type {MessagingErrorCode} from "../../domain/errors/messaging-error-code"
 export type MessagingFailure = {
   code: MessagingErrorCode; cause?: unknown; upstreamStatus?: number; retryAt?: string;
   operation?: { operationId: string; state: "started" | "completed" };
+  /**
+   * Private: the request failed before it could register or change anything (a tenant routing read, a provider read
+   * before the commit). Its HTTP status stays below 5xx so the browser does not keep a write as uncertain.
+   */
+  definitive?: boolean;
 };
-export type MessagingPublicError = Omit<MessagingFailure, "cause" | "upstreamStatus"> & { message: string; requestId: string };
+export type MessagingPublicError = Omit<MessagingFailure, "cause" | "upstreamStatus" | "definitive"> & { message: string; requestId: string };
 
 /**
  * Constructs a private expected failure; raw cause is never its public projection.
@@ -26,6 +31,16 @@ export function messagingFailure(code: MessagingErrorCode, details: Omit<Messagi
  */
 export function messagingRoutingFailure(failure: { code: string }) {
   return { ok: false as const, failure: messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === failure.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure, { cause: failure }) };
+}
+
+/**
+ * @param failure - Tenant routing failure of a messaging route, resolved before any read or write of that route.
+ * @returns Its messaging code when it has one, otherwise an unexpected failure; the original failure stays as cause and
+ * the failure is definitive, since nothing was registered yet.
+ */
+export function messagingTribeRoutingFailure(failure: { code: string; cause?: unknown }): MessagingFailure {
+  // The routing failure is a plain result: its own cause (the thrown error) is what the diagnostics can summarize.
+  return messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === failure.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure, { cause: failure.cause ?? failure, definitive: true });
 }
 
 /** Own messaging operation error carrying its closed code. */

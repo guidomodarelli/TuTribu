@@ -57,13 +57,37 @@ function settledUsagePhase(current: MessagingUsageBrowserPhase, pending: Messagi
   return pending ? PHASE.uncertain : PHASE.idle;
 }
 
-/** @param session - Current route session. @returns Nothing after loading the stored original once and reopening the review step for a stored update. */
+/** @param values - Countries and quotas the leader chose. @returns Them as an editable draft. */
+function draftOf(values: MessagingUsageValues): MessagingUsageDraft {
+  return { allowedCountries: [...values.allowedCountries], verificationDailyLimit: String(values.verificationDailyLimit), notificationDailyLimit: String(values.notificationDailyLimit) };
+}
+
+/** @param intent - Stored original command. @returns The values the leader chose with it: an update sends them, an initialization keeps them for the update that follows. */
+function chosenValuesOf(intent: MessagingUsageBrowserIntent): MessagingUsageValues | null {
+  return intent.type === OPERATION.update ? intent.input : intent.chosen ?? null;
+}
+
+/** @param controls - Stable controls. @param values - Values chosen before the response was lost. @returns Nothing after reopening the review step with them. */
+function reopenChosenValues(controls: MessagingUsageControls, values: MessagingUsageValues): void {
+  controls.setDraft(draftOf(values)); controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
+}
+
+/** @param session - Current route session. @returns Nothing after loading the stored original once and reopening the review step with the values chosen with it. */
 function restoreStoredUsageIntent({ ready, controls }: MessagingUsageSession): void {
   if (controls.loaded.current) return;
   controls.pending.current = readMessagingUsageIntent(ready.viewerId, ready.slug); controls.loaded.current = true;
-  if (controls.pending.current?.type !== OPERATION.update) return;
-  controls.setDraft({ allowedCountries: [...controls.pending.current.input.allowedCountries], verificationDailyLimit: String(controls.pending.current.input.verificationDailyLimit), notificationDailyLimit: String(controls.pending.current.input.notificationDailyLimit) });
-  controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
+  const chosen = controls.pending.current ? chosenValuesOf(controls.pending.current) : null;
+  if (chosen) reopenChosenValues(controls, chosen);
+}
+
+/**
+ * A confirmed initialization only created the configuration with the server defaults: the values the leader chose still have
+ * to be saved, so the editor stays open with them instead of announcing the save as done.
+ * @param controls - Stable controls. @param intent - Recovered initialization. @returns Nothing after showing what is left.
+ */
+function settleRecoveredInitialization(controls: MessagingUsageControls, intent: Extract<MessagingUsageBrowserIntent, { type: typeof OPERATION.initialize }>): void {
+  if (intent.chosen) { reopenChosenValues(controls, intent.chosen); controls.setPartialSave(true); return; }
+  controls.setStatusMessage(COPY.initialized); controls.setEditing(true); controls.setStep(FIRST_STEP_INDEX);
 }
 
 /** @param session - Current route session. @returns Nothing after removing the stored original from storage and memory. */
@@ -83,7 +107,9 @@ async function recoverUsageOriginal(session: MessagingUsageSession, intent: Mess
     // Registered but not finished (its effect rolled back or is still running): the current usage stays visible and the same original
     // can be resent, which the ledger reclaims once nobody works on it.
     if (original.value.state !== "completed") { controls.setCanRetry(true); controls.setErrorMessage(COPY.started); return "continue"; }
-    forgetUsageIntent(session); controls.setStatusMessage(COPY.recovered);
+    forgetUsageIntent(session);
+    if (intent.type === OPERATION.initialize) { settleRecoveredInitialization(controls, intent); return "recovered"; }
+    controls.setStatusMessage(COPY.recovered);
     controls.setEditing(false); controls.setPartialSave(false); controls.setStep(FIRST_STEP_INDEX);
     return "recovered";
   }
@@ -213,7 +239,8 @@ export function saveUsageValues(writer: MessagingUsageWriter, currentPolicy: Mes
     try {
       if (!base) {
         controls.setWriteStep(WRITE_STEP.creating);
-        const initialization = await writeUsageIntent(writer, messagingUsageBrowserIntentSchema.parse({ type: OPERATION.initialize, input: { operationId: newAdmissionOperationId(), confirmed: true } }), signal, null);
+        // The chosen values travel next to the initialization (never sent with it), so a lost response can still reopen them.
+        const initialization = await writeUsageIntent(writer, messagingUsageBrowserIntentSchema.parse({ type: OPERATION.initialize, input: { operationId: newAdmissionOperationId(), confirmed: true }, chosen: values }), signal, null);
         if (initialization.status !== "completed") return;
         base = initialization.policy; created = true;
         if (holdsValues(base, values)) { finishUsageSave(controls, base); return; }
@@ -235,6 +262,8 @@ export function retryUsageOriginal(writer: MessagingUsageWriter, currentPolicy: 
     const outcome = await writeUsageIntent(writer, intent, signal, currentPolicy);
     if (outcome.status !== "completed") return;
     if (intent.type === OPERATION.update) { finishUsageSave(writer.controls, outcome.policy); return; }
-    writer.controls.setFresh(true); writer.controls.setStatusMessage(COPY.initialized);
+    writer.controls.setFresh(true);
+    if (intent.chosen) { reopenChosenValues(writer.controls, intent.chosen); writer.controls.setPartialSave(true); }
+    else writer.controls.setStatusMessage(COPY.initialized);
   });
 }

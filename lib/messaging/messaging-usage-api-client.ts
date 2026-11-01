@@ -12,6 +12,9 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 
+/** The only session facts the viewer reads: the account id, or the status of a failed read. */
+type SessionRead = { data: { user: { id: string } } | null; error: { status: number } | null };
+
 /** Optional write of an own usage request: the original input and its method (POST by default). */
 type UsageWrite = { input?: object; method?: "POST" | "PUT" };
 
@@ -19,22 +22,33 @@ function failure(code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_
   return { status: "failed", code, message: MESSAGING_ERROR_MESSAGE[code], uncertain };
 }
 
-/** @param auth - Installed native SDK client. @returns The default viewer: the native account id only. */
-function createSessionViewer(auth: ReturnType<typeof createAuthClient>): MessagingUsageBrowserClient["viewer"] {
-  return async (signal) => {
-    if (signal.aborted) return { status: "aborted" };
-    try {
-      const result = await auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
-      if (signal.aborted) return { status: "aborted" };
-      if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable);
-      return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
-    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable); }
+/**
+ * @param getSession - Session read of the installed native SDK, under the signal it receives.
+ * @returns The default viewer: the native account id only. Like every other request, a hung session check ends at the browser
+ * deadline as a timeout instead of keeping the page checking forever.
+ */
+export function createSessionViewer(getSession: (signal: AbortSignal) => Promise<SessionRead>): MessagingUsageBrowserClient["viewer"] {
+  return (callerSignal) => {
+    if (callerSignal.aborted) return Promise.resolve({ status: "aborted" });
+    return boundBrowserRequest<Awaited<ReturnType<MessagingUsageBrowserClient["viewer"]>>>(callerSignal, async (signal) => {
+      try {
+        const result = await getSession(signal);
+        if (signal.aborted) return { status: "aborted" };
+        if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable);
+        return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
+      } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable); }
+    }, () => failure(MESSAGING_ERROR_CODE.transportTimeout));
   };
+}
+
+/** @param auth - Installed native SDK client. @returns Its fresh session read under one signal. */
+function nativeSessionRead(auth: ReturnType<typeof createAuthClient>) {
+  return (signal: AbortSignal) => auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
 }
 
 /** @param options - Explicit feature-owned transport/viewer ports; defaults retain the real Better Auth SDK. @returns Abortable own reads and immutable original writes, without full route refreshes. */
 export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetch; viewer?: MessagingUsageBrowserClient["viewer"] } = {}): MessagingUsageBrowserClient {
-  const transport = options.fetch ?? globalThis.fetch, viewer = options.viewer ?? createSessionViewer(createAuthClient());
+  const transport = options.fetch ?? globalThis.fetch, viewer = options.viewer ?? createSessionViewer(nativeSessionRead(createAuthClient()));
   const base = (slug: string) => `${MESSAGING_USAGE_BROWSER_PATH.tribePrefix}/${encodeURIComponent(slug)}/${MESSAGING_USAGE_BROWSER_PATH.usageSegment}`;
   /** Only own response DTOs are schema-guarded; transport failure of a write remains uncertain. */
   function request<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, write: UsageWrite = {}): Promise<MessagingUsageBrowserResult<Value>> {

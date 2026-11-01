@@ -30,4 +30,28 @@ describe("immutable configuration HTTP",()=>{
     expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toContain("no-store");expect(await response.json()).toEqual({state:"completed",operationId:body.operationId,replayed:false,result});
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({...body,tribeId,connectionId}),expect.any(AbortSignal));
   });
+  it("should answer 424 when Zavu failed before anything was registered, and keep a 5xx once the original may have committed",async()=>{
+    const connectionId=randomUUID(),tribeId=randomUUID(),body={operationId:randomUUID(),confirmed:true as const,expectedVersion:2,channel:"email"as const,senderId:"manual-sender"},url=`https://tutribu.example.test/api/tribes/synthetic/messaging/connections/${connectionId}/configuration`;
+    const request=()=>new Request(url,{method:"PUT",headers:{origin:"https://tutribu.example.test","content-type":"application/json"},body:JSON.stringify(body)}),context={params:Promise.resolve({slug:"synthetic",connectionId})};
+    const execute=vi.fn().mockResolvedValueOnce({ok:false as const,failure:{code:"dependency_unavailable" as const,definitive:true}}).mockResolvedValueOnce({ok:false as const,failure:{code:"dependency_unavailable" as const}});
+    const handler=createMessagingConnectionConfigurationHandler(async()=>({configuration:{execute},resolveTribe:{execute:async()=>({ok:true as const,value:{tribeId}})}}));
+    const warn=vi.spyOn(console,"warn").mockImplementation(()=>undefined),error=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+    try{
+      const definitive=await handler(request(),context);expect(definitive.status).toBe(424);expect(await definitive.json()).toEqual({code:"dependency_unavailable",message:expect.any(String),requestId:expect.any(String)});
+      expect((await handler(request(),context)).status).toBe(503);
+    }finally{warn.mockRestore();error.mockRestore();}
+  });
+  it("should keep the cause of a failed tribe routing in the log and answer it as definitive, since nothing was registered",async()=>{
+    const connectionId=randomUUID(),body={operationId:randomUUID(),confirmed:true as const,expectedVersion:2,channel:"email"as const,senderId:"manual-sender"},execute=vi.fn();
+    class SyntheticDatabaseError extends Error{readonly code="57P01";constructor(){super("synthetic database failure");this.name="SyntheticDatabaseError";}}
+    const handler=createMessagingConnectionConfigurationHandler(async()=>({configuration:{execute},resolveTribe:{execute:async()=>({ok:false as const,failure:{code:"unexpected_failure" as const,cause:new SyntheticDatabaseError()}})}}));
+    const warn=vi.spyOn(console,"warn").mockImplementation(()=>undefined),error=vi.spyOn(console,"error").mockImplementation(()=>undefined);
+    try{
+      const response=await handler(new Request(`https://tutribu.example.test/api/tribes/synthetic/messaging/connections/${connectionId}/configuration`,{method:"PUT",headers:{origin:"https://tutribu.example.test","content-type":"application/json"},body:JSON.stringify(body)}),{params:Promise.resolve({slug:"synthetic",connectionId})});
+      expect(response.status).toBe(424);expect(await response.json()).toMatchObject({code:"unexpected_failure"});expect(execute).not.toHaveBeenCalled();
+      // A database failure stays an error in the log although it is answered below 5xx.
+      expect(warn).not.toHaveBeenCalled();const logged=JSON.stringify(error.mock.calls);
+      expect(logged).toContain("SyntheticDatabaseError");expect(logged).toContain("57P01");expect(logged).not.toContain("synthetic database failure");
+    }finally{warn.mockRestore();error.mockRestore();}
+  });
 });
