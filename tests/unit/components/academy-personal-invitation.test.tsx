@@ -1,5 +1,6 @@
 /** Exercises the real personal route container, shared controls, Next contexts and browser storage through own ports. @module academy-personal-invitation-tests */
 import { randomBytes, randomUUID } from "node:crypto";
+import { PERSONAL_INVITATION_UI_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
@@ -15,7 +16,7 @@ import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/consta
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import { createPersonalInvitationBrowserScope } from "@/lib/academy-admissions/personal-invitation-scope";
-import { writePersonalInvitationSubmissionIntent } from "@/lib/academy-admissions/personal-invitation-submission-intent";
+import { readPersonalInvitationSubmissionIntent, writePersonalInvitationSubmissionIntent } from "@/lib/academy-admissions/personal-invitation-submission-intent";
 
 const router = { back: vi.fn(), bfcacheId: "personal-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 
@@ -229,6 +230,20 @@ describe("personal invitation page workflow", () => {
     await waitFor(() => expect(data.client.operation).toHaveBeenCalledOnce());
     expect(screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/i })).not.toBeChecked();
     expect(screen.getByRole("button", { name: "Confirmar invitación" })).toBeDisabled(); expect(data.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should let the person discard a restored original that stays started and read the invitation again", async () => {
+    const data = fixture(), personalScope = await createPersonalInvitationBrowserScope(data.token), operationId = randomUUID();
+    writePersonalInvitationSubmissionIntent({ viewerId: data.viewerId, slug: "synthetic-personal", personalScope, operationId });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "started", operationId } });
+    render(data.element());
+    expect(await screen.findByText(PERSONAL_INVITATION_UI_COPY.started)).toBeVisible();
+    fireEvent.click(await screen.findByRole("button", { name: PERSONAL_INVITATION_UI_COPY.discardOriginal }));
+    expect(await screen.findByText(PERSONAL_INVITATION_UI_COPY.discarded)).toBeVisible();
+    expect(screen.queryByRole("button", { name: PERSONAL_INVITATION_UI_COPY.discardOriginal })).not.toBeInTheDocument();
+    // The invitation is read again, so its current state shows whether that original registered the admission.
+    expect(readPersonalInvitationSubmissionIntent({ viewerId: data.viewerId, slug: "synthetic-personal", personalScope })).toBeNull();
+    expect(data.client.overview).toHaveBeenCalled(); expect(data.client.submit).not.toHaveBeenCalled();
   });
 
   it("should hide the previous academy when the actual viewer changes before confirmation", async () => {

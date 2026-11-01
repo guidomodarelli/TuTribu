@@ -11,7 +11,7 @@ export type AdmissionErrorCode =
   | "missing_capability" | "invalid_credentials" | "upstream_rejected" | "provider_rate_limited"
   | "transport_timeout" | "dependency_unavailable" | "delivery_unknown" | "operation_unresolved"
   | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure" | "whatsapp_number_required"
-  | "platform_security_unavailable" | "request_expired";
+  | "platform_security_unavailable" | "request_expired" | "connection_retirement_blocked" | "original_dispatch_unresolved";
 
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
 export const ADMISSION_ERROR_CODE = {
@@ -97,4 +97,6 @@ export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.publicContractUnusable]: "No pudimos mostrar el resultado de la operación. Conservá los datos y consultá el estado.",
   [ADMISSION_ERROR_CODE.unexpectedFailure]: "No pudimos completar la operación de admisión. Conservá los datos y consultá el estado.",
   [ADMISSION_ERROR_CODE.platformSecurityUnavailable]: "Esta operación depende del equipo de TuTribu: la plataforma todavía no puede protegerla. No se registró ningún cambio.",
+  [ADMISSION_ERROR_CODE.connectionRetirementBlocked]: "No podés desconectar la conexión seleccionada mientras la usen tus Reglas con verificación y las admisiones abiertas, o los avisos por correo. Pausá las admisiones o desactivá los avisos, y volvé a intentarlo.",
+  [ADMISSION_ERROR_CODE.originalDispatchUnresolved]: "El envío anterior de este aviso puede haber salido y todavía no tiene un resultado confirmado. Consultá el estado de la entrega antes de recuperarlo.",
 } as const;

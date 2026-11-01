@@ -342,6 +342,15 @@ function useRefreshAndIdle({ refs, setters, refresh, clearRefreshFailure }: { re
   }, [refresh, clearRefreshFailure, refs, setters]);
 }
 
+/**
+ * Offers resending the retained original with its exact operation id and body: the ledger inserts, reclaims or replays it idempotently,
+ * so an absent original is registered once and a started one whose effect stopped is resumed instead of staying in progress forever.
+ * @param refs - Workflow refs. @param setters - Workflow setters. @param feedback - Why the original is not confirmed yet.
+ */
+function offerOriginalRetry(refs: AdmissionRefs, setters: AdmissionSetters, feedback: string): void {
+  refs.canRetryOriginalRef.current = true; setters.setRetryOriginal(true); setters.setFeedback(feedback); setters.setPhase(ADMISSION_UI_PHASE.uncertain);
+}
+
 type RecoveryOptions = { refs: AdmissionRefs; setters: AdmissionSetters; client: AdmissionBrowserClient; checkViewer: CheckViewer; clearIntent: () => void; refresh: RefreshAdmission; refreshAndIdle: (signal: AbortSignal) => Promise<void>; confirmOwnAction: () => void; setErrorMessage: AdmissionViewFeedback["setErrorMessage"] };
 
 /** @returns A recovery that retrieves original registered state without issuing a POST or fabricating acceptance. */
@@ -359,7 +368,7 @@ function useAdmissionRecovery({ refs, setters, client, checkViewer, clearIntent,
   }, [clearIntent, confirmOwnAction, refreshAndIdle, refs, setters]);
   const settleOperation = useCallback(async (intent: AdmissionPendingIntent, operation: AdmissionOperationRecoveryDto, signal: AbortSignal) => {
     if (operation.operationId !== intent.input.operationId.toLowerCase() || operation.type !== expectedOperationTypeOf(intent)) { failRecovery(); return; }
-    if (operation.state !== "completed") { setters.setPhase(ADMISSION_UI_PHASE.uncertain); return; }
+    if (operation.state !== "completed") { offerOriginalRetry(refs, setters, ADMISSION_UI_COPY.started); return; }
     if ("code" in operation.result) {
       if (operation.result.admissionRequestId !== expectedRequestIdOf(intent)) { failRecovery(); return; }
       await settleRefusal(ADMISSION_ERROR_MESSAGE[operation.result.code], signal);
@@ -367,7 +376,7 @@ function useAdmissionRecovery({ refs, setters, client, checkViewer, clearIntent,
     }
     if (isRecoveredResultForeign(intent, operation)) { failRecovery(); return; }
     await settleSuccess(recoveredOperationMessage(operation), signal);
-  }, [failRecovery, settleRefusal, settleSuccess, setters]);
+  }, [failRecovery, settleRefusal, settleSuccess, refs, setters]);
 
   return useCallback(async (signal: AbortSignal) => { const { activeRef, canRetryOriginalRef, currentStateRef, pendingRef } = refs;
     const snapshot = currentStateRef.current, intent = pendingRef.current;
@@ -376,8 +385,8 @@ function useAdmissionRecovery({ refs, setters, client, checkViewer, clearIntent,
     const result = await client.operation(snapshot.overview.tribe.slug, intent.input.operationId, signal);
     if (!isLive(activeRef, signal) || !await checkViewer(signal)) return;
     if (result.status === "ready") { await settleOperation(intent, result.value, signal); return; }
-    if (result.status === "failed" && result.code === ADMISSION_ERROR_CODE.resourceUnavailable) { canRetryOriginalRef.current = true; setters.setRetryOriginal(true); setters.setFeedback(ADMISSION_UI_COPY.absent); }
-    else if (result.status === "failed") setErrorMessage(result.message);
+    if (result.status === "failed" && result.code === ADMISSION_ERROR_CODE.resourceUnavailable) { offerOriginalRetry(refs, setters, ADMISSION_UI_COPY.absent); return; }
+    if (result.status === "failed") setErrorMessage(result.message);
     setters.setPhase(ADMISSION_UI_PHASE.uncertain);
   }, [client, checkViewer, settleOperation, setErrorMessage, refs, setters]);
 }
@@ -453,7 +462,8 @@ function useAdmissionWriteCompletion(options: WriteCompletionOptions) {
     if (!isLive(activeRef, signal)) return;
     if (result.status === "aborted") { setters.setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     if (result.status === "failed") { await handleFailedWrite(intent, result, signal); return; }
-    if ("state" in result.value) { setters.setPhase(ADMISSION_UI_PHASE.uncertain); return; }
+    // The same original is still registered as started: it may be resent as is, which resumes it once its effect stopped.
+    if ("state" in result.value) { offerOriginalRetry(refs, setters, ADMISSION_UI_COPY.started); return; }
     const snapshot = currentStateRef.current;
     if (snapshot.kind !== "ready") return;
     if (!applyConfirmedWrite(intent, result.value, snapshot)) return;

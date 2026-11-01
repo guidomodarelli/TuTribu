@@ -13,14 +13,16 @@ import type {MessagingConnectionsPageState} from "@/src/modules/messaging/applic
 import type {MessagingConfigurationResult} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import type {MessagingResourcesBrowserClient} from "@/src/modules/messaging/application/ports/messaging-resources-browser-client";
 import type {MessagingDiagnosticBrowserClient} from "@/src/modules/messaging/application/ports/messaging-diagnostic-browser-client";
-import {MESSAGING_CONNECTION_HISTORY_LIMIT,MESSAGING_CREDENTIAL_CHECK_UI_COPY,MESSAGING_CONNECTIONS_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import {MESSAGING_CONNECTION_HISTORY_LIMIT,MESSAGING_CONNECTION_RECOVERY_UI_COPY,MESSAGING_CREDENTIAL_CHECK_UI_COPY,MESSAGING_CONNECTIONS_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import type {MessagingActivationBrowserClient} from "@/src/modules/messaging/application/ports/messaging-activation-browser-client";
 import {MESSAGING_CONNECTION_STATE} from "@/src/modules/messaging/constants/messaging-connection";
 import {MESSAGING_CREDENTIAL_MODE} from "@/src/modules/messaging/constants/messaging-credential-validation";
 import {MESSAGING_CREDENTIAL_PUBLIC_STATE,MESSAGING_CAPABILITY_PUBLIC_STATE,MESSAGING_GENERIC_CREDENTIAL_MASK,MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MESSAGING_ERROR_CODE,MESSAGING_ERROR_MESSAGE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_DIAGNOSTIC_UI_COPY} from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
-import {MESSAGING_RESOURCE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
+import {MESSAGING_ACTIVATION_FAILURE_UI_COPY,MESSAGING_ACTIVATION_UI_COPY} from "@/src/modules/messaging/constants/messaging-activation-browser";
+import {MESSAGING_CONNECTIONS_FLOW_COPY} from "@/src/modules/messaging/constants/messaging-connections-workspace";
+import {MESSAGING_RESOURCE_FAILURE_UI_COPY,MESSAGING_RESOURCE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {createMessagingDiagnosticBrowserClient} from "@/lib/messaging/messaging-diagnostic-api-client";
 import {createMessagingConnectionsBrowserClient} from "@/lib/messaging/messaging-connections-api-client";
@@ -644,8 +646,9 @@ describe("connection wizard states beside their origin",()=>{
     renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} resourcesClient={resourcesClient} />);
     await openTab("Canales");await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeEnabled());
     await user.click(screen.getByRole("button",{name:"Consultar remitentes"}));
-    await waitFor(()=>expect(screen.getByRole("combobox",{name:"Remitente del canal"})).toHaveAccessibleDescription(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout]));
-    expect(screen.getAllByText(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout])).toHaveLength(1);
+    // The leader reads copy written for this step, not the shared catalogue applicants see.
+    await waitFor(()=>expect(screen.getByRole("combobox",{name:"Remitente del canal"})).toHaveAccessibleDescription(MESSAGING_RESOURCE_FAILURE_UI_COPY.transport_timeout));
+    expect(screen.getAllByText(MESSAGING_RESOURCE_FAILURE_UI_COPY.transport_timeout)).toHaveLength(1);expect(screen.queryByText(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout])).not.toBeInTheDocument();
     expect(screen.queryByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.stale)).not.toBeInTheDocument();
     await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeEnabled());
   });
@@ -815,7 +818,9 @@ describe("connection wizard while the platform cannot protect its writes",()=>{
     renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} />);
     await user.click(await screen.findByRole("button",{name:"Consultar guardado"}));
     await user.click(await screen.findByRole("checkbox",{name:/Confirmo reanudar la operación original/}));await user.click(screen.getByRole("button",{name:"Reanudar operación original"}));
-    expect(await screen.findByText(/La operación original fue consultada/)).toBeVisible();
+    // An unresolved replay is never announced as resumed: the check stays pending with its own explanation.
+    expect(await screen.findByText(MESSAGING_CONNECTION_RECOVERY_UI_COPY.resumeUnconfirmed)).toBeVisible();expect(screen.getByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.pending)).toBeVisible();
+    expect(screen.queryByText(MESSAGING_CONNECTION_RECOVERY_UI_COPY.resumed)).not.toBeInTheDocument();
     expect(fixture.client.validate).toHaveBeenCalledOnce();
     expect(fixture.store.write).not.toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);
     expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeVisible();
@@ -826,5 +831,83 @@ describe("connection wizard while the platform cannot protect its writes",()=>{
     const states=await screen.findByRole("list",{name:"Estado de Conexión anterior"});
     expect(states).toHaveTextContent("Necesita la clave otra vez");expect(states).not.toHaveTextContent("Activa");
     expect(screen.getByRole("group",{name:"Próxima acción"})).toHaveTextContent("Guardá la clave de Zavu otra vez");
+  });
+});
+
+describe("connection wizard restoration and recovery copy",()=>{
+  afterEach(()=>{toast.dismiss();});
+  /** @param fixture - Container fixture. @param configurationVersion - Configuration the candidate carries. @returns A candidate with a valid production credential and an untested email channel. */
+  const emailCandidate=(fixture:ReturnType<typeof containerFixture>,configurationVersion:number)=>({id:fixture.connectionId,name:"Candidata",version:configurationVersion+1,configurationVersion,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[{channel:"email" as const,state:"unprepared" as const,checkedAt:new Date().toISOString(),testedAt:null}]});
+  /** @param fixture - Container fixture. @param configurationVersion - Configuration the test was issued for. @returns An issued email test of the fixture connection. */
+  const issuedTest=(fixture:ReturnType<typeof containerFixture>,configurationVersion:number)=>({outcome:"issued" as const,diagnosticId:randomUUID(),challengeId:randomUUID(),deliveryId:randomUUID(),connectionId:fixture.connectionId,connectionVersion:configurationVersion,channel:"email" as const,maskedDestination:"d•••@example.test",expiresAt:new Date(Date.now()+600_000).toISOString(),resendAllowedAt:new Date(Date.now()+60_000).toISOString()});
+  it("should not look up again nor announce a test that was already activated on every visit",async()=>{
+    const fixture=containerFixture(),operationId=randomUUID(),selected={...emailCandidate(fixture,2),state:"active" as const},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration:{...fixture.configuration,selected,candidate:null}};
+    fixture.store.diagnostic.mockReturnValue({operationId,connectionId:fixture.connectionId,configurationVersion:2,channel:"email"});
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} />);
+    await waitFor(()=>expect(fixture.client.viewer).toHaveBeenCalled());await waitFor(()=>expect(screen.queryByText(MESSAGING_CONNECTIONS_FLOW_COPY.checkingSession)).not.toBeInTheDocument());
+    expect(fixture.client.operation).not.toHaveBeenCalled();expect(fixture.client.read).not.toHaveBeenCalled();expect(screen.queryByText(MESSAGING_DIAGNOSTIC_UI_COPY.originalHistorical)).not.toBeInTheDocument();
+  });
+  it("should restore silently a test whose configuration changed instead of announcing it as historical on mount",async()=>{
+    const fixture=containerFixture(),operationId=randomUUID(),candidate=emailCandidate(fixture,3),initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration:{...fixture.configuration,candidate}};
+    fixture.store.diagnostic.mockReturnValue({operationId,connectionId:fixture.connectionId,configurationVersion:2,channel:"email"});
+    fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:"diagnose_messaging_connection",state:"completed",operationId,replayed:true,result:issuedTest(fixture,2)}}));fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate}}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} />);
+    await waitFor(()=>expect(fixture.client.read).toHaveBeenCalledTimes(1));await waitFor(()=>expect(screen.queryByText(MESSAGING_CONNECTIONS_FLOW_COPY.checkingSession)).not.toBeInTheDocument());
+    expect(screen.queryByText(MESSAGING_DIAGNOSTIC_UI_COPY.originalHistorical)).not.toBeInTheDocument();
+  });
+  it("should reopen a test waiting for its code when Atrás restores a snapshot older than the configuration it was issued for",async()=>{
+    const fixture=containerFixture(),operationId=randomUUID(),older=emailCandidate(fixture,1),current=emailCandidate(fixture,2),initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",renderedAt:new Date(Date.now()-60_000).toISOString(),configuration:{...fixture.configuration,candidate:older}};
+    fixture.store.diagnostic.mockReturnValue({operationId,connectionId:fixture.connectionId,configurationVersion:2,channel:"email"});
+    fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:"diagnose_messaging_connection",state:"completed",operationId,replayed:true,result:issuedTest(fixture,2)}}));fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate:current}}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} />);
+    expect(await screen.findByLabelText("Código recibido")).toBeVisible();expect(fixture.client.read).toHaveBeenCalledTimes(1);
+  });
+  it("should flag a restored snapshot as possibly outdated when its refresh read fails",async()=>{
+    const fixture=selectedCandidateFixture(),restored={...fixture.initialState,renderedAt:new Date(Date.now()-60_000).toISOString()} as MessagingConnectionsPageState;
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.dependencyUnavailable,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.dependencyUnavailable],uncertain:false}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={restored} />);
+    expect(await screen.findByText(MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle)).toBeVisible();expect(fixture.client.read).toHaveBeenCalledTimes(1);
+  });
+  it("should refresh a snapshot dated after the browser clock, since its age cannot be trusted",async()=>{
+    const fixture=selectedCandidateFixture(),ahead={...fixture.initialState,renderedAt:new Date(Date.now()+60_000).toISOString()} as MessagingConnectionsPageState;
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={ahead} />);
+    await waitFor(()=>expect(fixture.client.read).toHaveBeenCalledTimes(1));
+  });
+  it("should name the session check while it runs and say when it could not be confirmed, instead of claiming the account changed",async()=>{
+    const fixture=selectedCandidateFixture();let answer!:(value:Awaited<ReturnType<MessagingConnectionsBrowserClient["viewer"]>>)=>void;
+    fixture.client.viewer=vi.fn<MessagingConnectionsBrowserClient["viewer"]>(()=>new Promise((resolve)=>{answer=resolve;}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    expect(await screen.findByText(MESSAGING_CONNECTIONS_FLOW_COPY.checkingSession)).toBeVisible();expect(screen.queryByText(MESSAGING_CONNECTIONS_FLOW_COPY.busy)).not.toBeInTheDocument();
+    await act(async()=>{answer({status:"failed",code:MESSAGING_ERROR_CODE.transportTimeout,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.transportTimeout],uncertain:false});});
+    expect(await screen.findByText(MESSAGING_CONNECTIONS_UI_COPY.viewerUnverified)).toBeVisible();expect(screen.queryByText(MESSAGING_CONNECTIONS_UI_COPY.viewerChanged)).not.toBeInTheDocument();
+  });
+  it("should explain a restored pending activation as an activation, not as a key save",async()=>{
+    const fixture=selectedCandidateFixture();
+    fixture.store.read.mockReturnValue({type:REAUTHENTICATION_OPERATION.activateMessagingConnection,operationId:randomUUID(),original:{connectionId:fixture.candidate.id,configurationVersion:fixture.candidate.configurationVersion,expectedVersion:fixture.candidate.version}});
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} />);
+    expect(await screen.findByText(MESSAGING_ACTIVATION_UI_COPY.pending)).toBeVisible();expect(screen.queryByText(MESSAGING_CONNECTIONS_UI_COPY.pending)).not.toBeInTheDocument();
+  });
+  it("should keep a resumed activation pending with its own explanation when the replay answers a 5xx, without announcing it as resumed",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup(),operationId=randomUUID(),activate=vi.fn<MessagingActivationBrowserClient["activate"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.dependencyUnavailable,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.dependencyUnavailable],uncertain:true}));
+    fixture.store.read.mockReturnValue({type:REAUTHENTICATION_OPERATION.activateMessagingConnection,operationId,original:{connectionId:fixture.candidate.id,configurationVersion:fixture.candidate.configurationVersion,expectedVersion:fixture.candidate.version}});
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} activationClient={{activate}} />);
+    await user.click(await screen.findByRole("button",{name:"Consultar guardado"}));
+    await user.click(await screen.findByRole("checkbox",{name:/Confirmo reanudar la operación original/}));await user.click(screen.getByRole("button",{name:"Reanudar operación original"}));
+    expect(await screen.findByText(MESSAGING_CONNECTION_RECOVERY_UI_COPY.resumeUnconfirmed)).toBeVisible();expect(screen.getByText(MESSAGING_ACTIVATION_UI_COPY.pending)).toBeVisible();
+    expect(screen.queryByText(MESSAGING_CONNECTION_RECOVERY_UI_COPY.resumed)).not.toBeInTheDocument();expect(activate).toHaveBeenCalledOnce();expect(fixture.store.write).not.toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);
+  });
+  it("should point to the next sender page instead of claiming Zavu returned no sender for the channel",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),initialState=channelsInitialState(fixture);
+    const resourcesClient:MessagingResourcesBrowserClient={read:vi.fn<MessagingResourcesBrowserClient["read"]>(async()=>({status:"ready",value:{connectionId:fixture.connectionId,configurationVersion:2,items:[{id:randomUUID(),label:"Sólo WhatsApp",channels:["whatsapp" as const],readiness:"ready" as const}],nextCursor:"synthetic-next-page"}})),configure:vi.fn()};
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} resourcesClient={resourcesClient} />);
+    await openTab("Canales");await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeEnabled());await user.click(screen.getByRole("button",{name:"Consultar remitentes"}));
+    expect(await screen.findByText(MESSAGING_RESOURCE_UI_COPY.sendersOnLaterPage)).toBeVisible();expect(screen.queryByText(MESSAGING_RESOURCE_UI_COPY.sendersEmpty)).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"Ver más remitentes"})).toBeVisible();
+  });
+  it("should tell the leader which requirement a definitive activation rejection names, instead of the catalogue copy about a phone",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),now=new Date().toISOString(),candidate={id:fixture.connectionId,name:"Candidata comprobada",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now}]},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",renderedAt:now,configuration:{...fixture.configuration,candidate}};
+    const activate=vi.fn<MessagingActivationBrowserClient["activate"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.recipientNotAllowed,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.recipientNotAllowed],uncertain:false}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} activationClient={{activate}} />);await openTab("Activación");
+    const consent=screen.getByRole("checkbox",{name:/Confirmo que quiero usar esta candidata/i});await waitFor(()=>expect(consent).toBeEnabled());await user.click(consent);await user.click(screen.getByRole("button",{name:"Activar conexión"}));
+    expect(await screen.findByText(MESSAGING_ACTIVATION_FAILURE_UI_COPY.recipient_not_allowed)).toBeVisible();expect(screen.queryByText(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.recipientNotAllowed])).not.toBeInTheDocument();expect(activate).toHaveBeenCalledOnce();
   });
 });

@@ -5,14 +5,14 @@ import type { NotificationDeliveryRecoveryServices } from "./notification-delive
 import { notificationRecoveryOperationSchema } from "../../constants/notification-delivery-recovery-schema";
 import { notificationRecoveryOperationParamsSchema, notificationRecoveryEmptyQuerySchema, NOTIFICATION_DELIVERY_RECOVERY_HTTP_OPERATION } from "../../constants/notification-delivery-recovery-http";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
-import { messagingFailure } from "../../application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "../../application/results/messaging-errors";
 import { createMessagingOperationReadHandler } from "./messaging-operation-read-handler";
 
 /** @param open - Current native readonly services after own input validation. @returns Original no-store metadata, with no new claim or provider request. */
 export function createNotificationRecoveryOperationHandler(open: () => Promise<{ operation: Pick<ReadNotificationRecoveryOperationUseCase, "execute">; resolveTribe: NotificationDeliveryRecoveryServices["resolveTribe"] }>) {
   return createMessagingOperationReadHandler({
     operation: NOTIFICATION_DELIVERY_RECOVERY_HTTP_OPERATION.readOperation, paramsSchema: notificationRecoveryOperationParamsSchema, querySchema: notificationRecoveryEmptyQuerySchema,
-    routingFailure: (failure) => messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === failure.code) ?? MESSAGING_ERROR_CODE.resourceUnavailable),
+    routingFailure: messagingTribeRoutingFailure,
     /** Only this actor's original registered progress or completed result. */
     respond: (boundary, value, operationId) => {
       const parsed = notificationRecoveryOperationSchema.safeParse(value);

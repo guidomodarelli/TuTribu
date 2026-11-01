@@ -142,6 +142,38 @@ describe("guided usage route workflow", () => {
     expect(data.client.initialize).toHaveBeenCalledOnce();
   });
 
+  it("should keep the chosen values open after recovering a confirmed initialization whose response was lost, and save them next", async () => {
+    const data = fixture(false); data.client.initialize.mockResolvedValueOnce({ status: "failed", code: "transport_timeout", message: MESSAGING_ERROR_MESSAGE.transport_timeout, uncertain: true });
+    render(data.node, { wrapper: Providers });
+    await reviewWith({ verification: "40", notification: "90" }); await confirm(); save();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeInTheDocument());
+    expect(data.client.update).not.toHaveBeenCalled();
+    const original = readMessagingUsageIntent(viewerId, slug); expect(original).toMatchObject({ type: "initialize_messaging_usage", chosen: { verificationDailyLimit: 40, notificationDailyLimit: 90 } });
+    const created = { ...data.policy, version: 1, allowedCountries: [] };
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "initialize_messaging_usage", state: "completed", operationId: original!.input.operationId, replayed: true, result: created } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: created }, platformRequirement: null } });
+    fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(partialText));
+    expect(screen.queryByText("El resultado original quedó confirmado. Revisá el uso actual antes de continuar.")).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.initialize).toHaveBeenCalledOnce();
+    expect(data.client.update).toHaveBeenCalledOnce(); expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 1, verificationDailyLimit: 40, notificationDailyLimit: 90 });
+  });
+
+  it("should reopen the chosen values of a stored initialization after a reload", async () => {
+    writeMessagingUsageIntent(viewerId, slug, { type: "initialize_messaging_usage", input: { operationId, confirmed: true }, chosen: { allowedCountries: ["US"], verificationDailyLimit: 30, notificationDailyLimit: 60 } });
+    const data = fixture(false), created = { ...data.policy, version: 1, allowedCountries: [] };
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "initialize_messaging_usage", state: "completed", operationId, replayed: true, result: created } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: created }, platformRequirement: null } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(partialText));
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 1, allowedCountries: ["US"], verificationDailyLimit: 30, notificationDailyLimit: 60 });
+  });
+
   it("should summarize the saved configuration and open the steps with the current values", async () => {
     const data = fixture(); render(data.node, { wrapper: Providers });
     expect(screen.getByText("Argentina")).toBeInTheDocument();
@@ -441,6 +473,21 @@ describe("guided usage route workflow", () => {
     await waitFor(() => expect(data.client.update).toHaveBeenCalledTimes(2));
     expect(data.client.update.mock.calls[1][1]).toEqual(original!.input);
     expect(data.client.operation.mock.invocationCallOrder[0]).toBeLessThan(data.client.update.mock.invocationCallOrder[1]);
+  });
+
+  it("should keep the current usage visible for a restored started original and complete it by resending the same operation", async () => {
+    const data = fixture(), input = { operationId, expectedVersion: 3, confirmed: true as const, allowedCountries: ["US"], verificationDailyLimit: 120, notificationDailyLimit: 200 };
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/La operación original todavía no terminó/)).toBeInTheDocument());
+    expect(data.client.read).toHaveBeenCalled();
+    expect(screen.getByText("De 100 a 120")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })); fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toEqual(input);
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
   });
 
   it("should withhold retry when current read fails and abort the active private read on unmount", async () => {

@@ -23,7 +23,8 @@ export const ALLOWLIST_IMPORT_CSV_DOWNLOAD = { report: 'attachment; filename="al
 /** Protects staged row/list work while known rejection completes the original ledger. */
 export const ALLOWLIST_IMPORT_EFFECT_SQL = { begin: "savepoint admission_import_effect", rollback: "rollback to savepoint admission_import_effect", release: "release savepoint admission_import_effect" } as const;
 /** Reports are for human reading; neutralized cells are not an exact reimport source. */
-export const ALLOWLIST_IMPORT_REPORT_HEADER = ["row_number", ...ALLOWLIST_CSV_HEADER, "outcome", "errors", "entry_version"] as const;
+/** The report is read by people, not reimported, so its header names each column in Spanish instead of the input grammar. */
+export const ALLOWLIST_IMPORT_REPORT_HEADER = ["Fila", "Contacto", "Nombre", "Resultado", "Errores", "Versión de entrada"] as const;
 export const ALLOWLIST_IMPORT_REPORT_LINE_END = "\r\n";
 export const ALLOWLIST_IMPORT_REPORT_FORMULA_PATTERN = /^\s*[=+\-@＝＋－＠]|^[\t\r\n]/u;
 /** Combines a text marker with a retained tab inside the quoted CSV cell. */

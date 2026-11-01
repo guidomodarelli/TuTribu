@@ -24,7 +24,7 @@ import { REAUTHENTICATION_OPERATION as OPERATION } from "@/src/modules/auth/cons
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { allowlistImportDraftStore } from "@/lib/academy-admissions/allowlist-import-draft-store";
 import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-selection";
-import { closeAllowlistImportScope, interruptedActionMessage, isBlockingImportFailure, isUnusableImportConfirmation, readUsableWriteResult, releaseAllowlistImportRun, requireReadyScope } from "@/hooks/use-allowlist-import-workflow-support";
+import { closeAllowlistImportScope, hasImportOriginals, interruptedActionMessage, isBlockingImportFailure, isUnusableImportConfirmation, readDiscardablePreviewId, readRetryableOriginal, readUsableWriteResult, releaseAllowlistImportRun, requireReadyScope, unusableImportMessage } from "@/hooks/use-allowlist-import-workflow-support";
 import { readAdmissionPlatformRequirement } from "@/src/modules/academy-admissions/application/results/admission-platform-requirement";
 import { PLATFORM_SECURITY_NOTICE_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 
@@ -51,15 +51,19 @@ function useAllowlistImportState(options: AllowlistImportWorkflowOptions) {
   const [conflict, setConflict] = useState(false), [policyConflict, setPolicyConflict] = useState(false), [originalChecked, setOriginalChecked] = useState(false), [step, setStep] = useState<number>(ALLOWLIST_IMPORT_STEP.upload);
   /** Operation id of the original the last consult proved absent: only that one may be discarded. */
   const [absentOriginalId, setAbsentOriginalId] = useState<string | null>(null);
+  /** Operation id of the pending original that last answered `started` or absent: it may be resent as is, which the ledger never applies twice. */
+  const [retryableOriginalId, setRetryableOriginalId] = useState<string | null>(null);
+  /** The saved import expired or can no longer be confirmed while originals still reference it: only closing it frees the flow. */
+  const [importUnusable, setImportUnusable] = useState(false);
   const activeRef = useRef(false), generationRef = useRef(0), occupiedRef = useRef(false), authorityLostRef = useRef(false), controllerRef = useRef<AbortController | null>(null), downloadCleanupRef = useRef(new Set<() => void>()), writeToastRef = useRef<WriteToast | null>(null);
   const live = useCallback((signal: AbortSignal, scope: number) => activeRef.current && generationRef.current === scope && !signal.aborted, []);
-  return { initial, client, drafts, stored, setStored, currentRef, accessLost, setAccessLost, snapshot, setSnapshot, snapshotRef, policy, setPolicy, ready, setReady, busy, setBusy, confirmed, setConfirmed, privateVisible, setPrivateVisible, writeAction, setWriteAction, initializationFailed, setInitializationFailed, initializationRevision, setInitializationRevision, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, policyConflict, setPolicyConflict, originalChecked, setOriginalChecked, step, setStep, absentOriginalId, setAbsentOriginalId, activeRef, generationRef, occupiedRef, authorityLostRef, controllerRef, downloadCleanupRef, writeToastRef, live };
+  return { initial, client, drafts, stored, setStored, currentRef, accessLost, setAccessLost, snapshot, setSnapshot, snapshotRef, policy, setPolicy, ready, setReady, busy, setBusy, confirmed, setConfirmed, privateVisible, setPrivateVisible, writeAction, setWriteAction, initializationFailed, setInitializationFailed, initializationRevision, setInitializationRevision, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, policyConflict, setPolicyConflict, originalChecked, setOriginalChecked, step, setStep, absentOriginalId, setAbsentOriginalId, retryableOriginalId, setRetryableOriginalId, importUnusable, setImportUnusable, activeRef, generationRef, occupiedRef, authorityLostRef, controllerRef, downloadCleanupRef, writeToastRef, live };
 }
 type AllowlistImportState = ReturnType<typeof useAllowlistImportState>;
 
 /** @param state - Workflow state. @returns Durable record writes, failure reporting, identity checks and current reads. */
 function useAllowlistImportReads(state: AllowlistImportState) {
-  const { initial, client, currentRef, setStored, setErrorMessage, setReady, setInitializationFailed, authorityLostRef, setAccessLost, setPrivateVisible, setConfirmed, writeToastRef, live, snapshotRef, setSnapshot, setConflict } = state;
+  const { initial, client, currentRef, setStored, setErrorMessage, setReady, setInitializationFailed, authorityLostRef, setAccessLost, setPrivateVisible, setConfirmed, writeToastRef, live, snapshotRef, setSnapshot, setConflict, setImportUnusable } = state;
   /** @param next - One exact owned proposal and references. @returns True only when a new write can recover its identity after navigation. */
   const persist = useCallback((next: StoredAllowlistImport) => {
     try { writeAllowlistImport(next); currentRef.current = next; setStored(next); return true; }
@@ -79,11 +83,13 @@ function useAllowlistImportReads(state: AllowlistImportState) {
   }, [setErrorMessage, writeToastRef]);
   /** @param signal - Current cancellable action. @param scope - Render generation. @returns Current native identity; stale data can never replace a new account's view. */
   const authorize = useCallback((signal: AbortSignal, scope: number) => authorizeInitialViewer({ client, initial, live, onViewerChanged: () => { authorityLostRef.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); } }, signal, scope), [authorityLostRef, client, initial, live, setAccessLost, setConfirmed, setErrorMessage, setPrivateVisible, setReady]);
-  /** Drops the saved resource the server no longer has, unless an original still needs it. */
+  /** Drops the saved resource the server no longer has, unless an original still needs it: then the leader may close the import explicitly. */
   const forgetUnavailableImport = useCallback(() => {
     snapshotRef.current = null; setSnapshot(null);
-    if (!currentRef.current.pending && !currentRef.current.unresolved.length) persist({ ...currentRef.current, importId: null, selection: [] });
-  }, [currentRef, persist, setSnapshot, snapshotRef]);
+    const current = currentRef.current;
+    if (!current.pending && !current.unresolved.length) persist({ ...current, importId: null, selection: [] });
+    else if (current.importId) setImportUnusable(true);
+  }, [currentRef, persist, setImportUnusable, setSnapshot, snapshotRef]);
   /** @param importId - Exact owned saved resource. @param signal - Action scope. @param scope - Render generation. @returns Current DTO only; failures preserve prior confirmed progress. */
   const fetchCurrent = useCallback(async (importId: string, signal: AbortSignal, scope: number) => {
     const result = await client.read(requireReadyScope(initial).slug, importId, signal);
@@ -98,19 +104,25 @@ function useAllowlistImportReads(state: AllowlistImportState) {
     const selection = currentRef.current.selection.filter((number) => eligible.has(number));
     if (selection.length !== currentRef.current.selection.length && !persist({ ...currentRef.current, selection })) return false;
     snapshotRef.current = parsed.data; setSnapshot(parsed.data); setConflict(false); setConfirmed(false);
+    // An expired import can never confirm the originals that still reference it.
+    setImportUnusable(parsed.data.state === IMPORT_STATE.expired && hasImportOriginals(currentRef.current));
     return true;
-  }, [authorize, client, currentRef, forgetUnavailableImport, initial, live, persist, reportFailure, setConfirmed, setConflict, setErrorMessage, setSnapshot, snapshotRef]);
+  }, [authorize, client, currentRef, forgetUnavailableImport, initial, live, persist, reportFailure, setConfirmed, setConflict, setErrorMessage, setImportUnusable, setSnapshot, snapshotRef]);
   return { persist, reportFailure, announceFailure, authorize, fetchCurrent, forgetUnavailableImport };
 }
 type AllowlistImportReads = ReturnType<typeof useAllowlistImportReads>;
 
 /** @param state - Workflow state. @param reads - Record and read steps. @returns The bounded action runner and the original consumers. */
 function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistImportReads) {
-  const { initial, client, currentRef, occupiedRef, authorityLostRef, controllerRef, activeRef, generationRef, writeToastRef, live, setBusy, setWriteAction, setErrorMessage, setFieldError, setStatusMessage, setOriginalChecked, setStep, setConfirmed, setConflict, setPolicyConflict } = state;
+  const { initial, client, currentRef, occupiedRef, authorityLostRef, controllerRef, activeRef, generationRef, writeToastRef, live, setBusy, setWriteAction, setErrorMessage, setFieldError, setStatusMessage, setOriginalChecked, setStep, setConfirmed, setConflict, setPolicyConflict, setRetryableOriginalId } = state;
   const { persist, reportFailure, announceFailure, authorize, fetchCurrent, forgetUnavailableImport } = reads;
-  /** A confirmation the server can no longer apply (expired, purged or protected with rotated security) needs a new preview of the same file. */
-  const releaseUnusableImport = useCallback(() => {
-    forgetUnavailableImport(); setStep(ALLOWLIST_IMPORT_STEP.upload); announceFailure(COPY.previewUnavailable, true);
+  /**
+   * A confirmation the server can no longer apply (expired, purged or protected with rotated security, or tied to an older rules
+   * version) needs a new preview of the same file.
+   * @param code - Why the confirmation was rejected.
+   */
+  const releaseUnusableImport = useCallback((code: string) => {
+    forgetUnavailableImport(); setStep(ALLOWLIST_IMPORT_STEP.upload); announceFailure(unusableImportMessage(code), true);
   }, [announceFailure, forgetUnavailableImport, setStep]);
   /** @param action - One user operation. @param message - Own progress copy. @param write - The pressed write when an original is being dispatched. @returns After bounded action cleanup; cancellation never implies rollback. */
   const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, message: string = COPY.reading, write: AllowlistImportWriteAction | null = null) => {
@@ -132,7 +144,7 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
   const consumeDenial = useCallback((intent: AllowlistImportBrowserIntent, code: ImportDenialCode) => {
     if (!persist({ ...currentRef.current, pending: null, unresolved: currentRef.current.unresolved.filter((original) => original.operationId !== intent.operationId) })) return;
     setConfirmed(false); setConflict(code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(code === ADMISSION_ERROR_CODE.policyConflict);
-    if (isUnusableImportConfirmation(intent, code)) { releaseUnusableImport(); return; }
+    if (isUnusableImportConfirmation(intent, code)) { releaseUnusableImport(code); return; }
     announceFailure(ADMISSION_ERROR_MESSAGE[code], isBlockingImportFailure(code));
   }, [announceFailure, currentRef, persist, releaseUnusableImport, setConfirmed, setConflict, setPolicyConflict]);
   /** @param intent - Immutable original proposal. @param result - Completed original result. @param signal - Action scope. @param scope - Render generation. @returns After original/current reconciliation, without overwriting rows from historical counts. */
@@ -154,6 +166,8 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
     if (value.operationId !== intent.operationId) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
     if (value.state === OPERATION_STATE.started) {
       setOriginalChecked(originalRead); setErrorMessage(COPY.started);
+      // Nothing keeps working on a stopped original, so the pending one may be resent as is; a live one answers `started` again.
+      if (currentRef.current.pending?.operationId === intent.operationId) setRetryableOriginalId(intent.operationId);
       // The partial results are row outcomes, so the review step shows them before the pending rows are resumed.
       if (intent.type === OPERATION.confirmAllowlistImport && await fetchCurrent(intent.importId, signal, scope)) setStep(ALLOWLIST_IMPORT_STEP.review);
       return;
@@ -161,13 +175,13 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
     const denial = allowlistImportDenialSchema.safeParse(value.result);
     if (denial.success) { consumeDenial(intent, denial.data.code); return; }
     await consumeCompleted(intent, value.result, signal, scope);
-  }, [consumeCompleted, consumeDenial, fetchCurrent, setErrorMessage, setOriginalChecked, setStep]);
+  }, [consumeCompleted, consumeDenial, currentRef, fetchCurrent, setErrorMessage, setOriginalChecked, setRetryableOriginalId, setStep]);
   /** @param intent - Dispatched original. @param result - Its definitive failure. Clears the original and shows why; a conflict, a platform block or a closed import stays on screen. */
   const rejectDispatch = useCallback((intent: AllowlistImportBrowserIntent, result: Extract<AllowlistBrowserResult<unknown>, { status: "failed" }>) => {
     if (!persist({ ...currentRef.current, pending: null })) return;
     setConfirmed(false); if (reportFailure(result)) return;
-    if (isUnusableImportConfirmation(intent, result.code)) { releaseUnusableImport(); return; }
     setConflict(result.code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(result.code === ADMISSION_ERROR_CODE.policyConflict);
+    if (isUnusableImportConfirmation(intent, result.code)) { releaseUnusableImport(result.code); return; }
     if (!isBlockingImportFailure(result.code)) { setErrorMessage(null); announceFailure(result.message, false); }
   }, [announceFailure, currentRef, persist, releaseUnusableImport, reportFailure, setConfirmed, setConflict, setErrorMessage, setPolicyConflict]);
   /** @param intent - Exact new or explicitly reconciled command. @param signal - Action scope. @param scope - Render generation. @returns After recording before POST and retaining uncertainty after an incomplete reply. */
@@ -188,30 +202,55 @@ type AllowlistImportWrites = ReturnType<typeof useAllowlistImportWrites>;
 
 /** @param state - Workflow state. @param reads - Record and read steps. @param writes - Action runner and consumers. @returns Read-only recovery of the original and the current resource with the platform requirement of its writes. */
 function useAllowlistImportRecovery(state: AllowlistImportState, reads: AllowlistImportReads, writes: AllowlistImportWrites) {
-  const { initial, client, currentRef, occupiedRef, authorityLostRef, absentOriginalId, live, setErrorMessage, setStep, setAbsentOriginalId, setOriginalChecked, setConfirmed, setPolicy } = state;
+  const { initial, client, currentRef, occupiedRef, authorityLostRef, absentOriginalId, retryableOriginalId, importUnusable, policy, live, snapshotRef, setSnapshot, setErrorMessage, setStep, setAbsentOriginalId, setRetryableOriginalId, setImportUnusable, setOriginalChecked, setConfirmed, setConflict, setPolicy } = state;
   const { authorize, reportFailure, fetchCurrent, persist } = reads;
-  const { run, consume } = writes;
+  const { run, consume, dispatch } = writes;
+  /** @param intent - Consulted original. @param original - A read that did not return it. Shows why; an absent pending original may be resent or discarded. */
+  const noteUnreadOriginal = useCallback((intent: AllowlistImportBrowserIntent, original: AllowlistBrowserResult<unknown>) => {
+    if (original.status === "failed" && reportFailure(original)) return;
+    const absent = original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable;
+    setAbsentOriginalId(absent ? intent.operationId : null); setErrorMessage(absent ? COPY.absent : COPY.uncertain);
+    if (absent && currentRef.current.pending?.operationId === intent.operationId) setRetryableOriginalId(intent.operationId);
+  }, [currentRef, reportFailure, setAbsentOriginalId, setErrorMessage, setRetryableOriginalId]);
   const readOriginal = useCallback(() => run(async (signal, scope) => {
     const intent = currentRef.current.pending ?? currentRef.current.unresolved[0];
     if (!intent) return;
-    setAbsentOriginalId(null);
+    setAbsentOriginalId(null); setRetryableOriginalId(null);
     const original = await client.operation(requireReadyScope(initial).slug, intent.operationId, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     if (original.status === "ready" && original.value.type === intent.type) await consume({ intent, value: original.value, signal, scope, originalRead: true });
-    else {
-      if (original.status === "failed" && reportFailure(original)) return;
-      const absent = original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable;
-      setAbsentOriginalId(absent ? intent.operationId : null); setErrorMessage(absent ? COPY.absent : COPY.uncertain);
-    }
-  }), [authorize, client, consume, currentRef, initial, live, reportFailure, run, setAbsentOriginalId, setErrorMessage]);
-  /** Forgets only the original the server proved absent; the file and the selection stay, so a new write is a new original. */
+    else noteUnreadOriginal(intent, original);
+  }), [authorize, client, consume, currentRef, initial, live, noteUnreadOriginal, run, setAbsentOriginalId, setRetryableOriginalId]);
+  /**
+   * Forgets the original the server proved absent, or a pending preview that answered `started` (a preview never changes the list);
+   * the file and the selection stay, so a new write is a new original.
+   */
   const discardOriginal = useCallback(() => {
-    const current = currentRef.current;
-    if (!absentOriginalId || occupiedRef.current || authorityLostRef.current) return;
-    const next = { ...current, pending: current.pending?.operationId === absentOriginalId ? null : current.pending, unresolved: current.unresolved.filter((original) => original.operationId !== absentOriginalId) };
+    const current = currentRef.current, discardable = absentOriginalId ?? readDiscardablePreviewId(current, retryableOriginalId);
+    if (!discardable || occupiedRef.current || authorityLostRef.current) return;
+    const next = { ...current, pending: current.pending?.operationId === discardable ? null : current.pending, unresolved: current.unresolved.filter((original) => original.operationId !== discardable) };
     if (!persist(next)) return;
-    setAbsentOriginalId(null); setOriginalChecked(false); setConfirmed(false); setErrorMessage(null); toast.info(COPY.discarded);
-  }, [absentOriginalId, authorityLostRef, currentRef, occupiedRef, persist, setAbsentOriginalId, setConfirmed, setErrorMessage, setOriginalChecked]);
+    setAbsentOriginalId(null); setRetryableOriginalId(null); setOriginalChecked(false); setConfirmed(false); setErrorMessage(null); toast.info(COPY.discarded);
+  }, [absentOriginalId, authorityLostRef, currentRef, occupiedRef, persist, retryableOriginalId, setAbsentOriginalId, setConfirmed, setErrorMessage, setOriginalChecked, setRetryableOriginalId]);
+  /** Resends the pending original exactly as stored, with its operation id: the ledger completes it once, replays it, or answers it is still running. */
+  const retryOriginal = useCallback(async () => {
+    const pending = readRetryableOriginal(currentRef.current, retryableOriginalId);
+    if (!pending || policy.platformRequirement) return;
+    const preview = pending.type === OPERATION.previewAllowlistImport;
+    await run(async (signal, scope) => { setAbsentOriginalId(null); setRetryableOriginalId(null); await dispatch(pending, signal, scope); }, preview ? COPY.previewing : COPY.confirming, preview ? WRITE_ACTION.preview : WRITE_ACTION.resume);
+  }, [currentRef, dispatch, policy.platformRequirement, retryableOriginalId, run, setAbsentOriginalId, setRetryableOriginalId]);
+  /**
+   * Closes a saved import that expired or can no longer be confirmed, with the confirmations that still referenced it: none of them can
+   * finish anymore, and the rows they already imported stay in the list. The local file stays for a new preview.
+   */
+  const closeUnusableImport = useCallback(() => {
+    const current = currentRef.current;
+    if (!importUnusable || occupiedRef.current || authorityLostRef.current) return;
+    const pending = current.pending?.type === OPERATION.confirmAllowlistImport ? null : current.pending;
+    if (!persist({ ...current, importId: null, selection: [], pending, unresolved: [] })) return;
+    snapshotRef.current = null; setSnapshot(null); setImportUnusable(false); setAbsentOriginalId(null); setRetryableOriginalId(null);
+    setOriginalChecked(false); setConfirmed(false); setConflict(false); setStep(ALLOWLIST_IMPORT_STEP.upload); setErrorMessage(null); toast.info(COPY.importClosed);
+  }, [authorityLostRef, currentRef, importUnusable, occupiedRef, persist, setAbsentOriginalId, setConfirmed, setConflict, setErrorMessage, setImportUnusable, setOriginalChecked, setRetryableOriginalId, setSnapshot, setStep, snapshotRef]);
   /**
    * Rereads the platform requirement, so a resolved problem re-enables the import without reloading the page.
    * Only the requirement is replaced: a changed rules version still surfaces as a policy conflict on the next write.
@@ -236,7 +275,7 @@ function useAllowlistImportRecovery(state: AllowlistImportState, reads: Allowlis
   const recheckPlatform = useCallback(() => run(async (signal, scope) => {
     if (await refreshPlatformRequirement(signal, scope)) toast.info(PLATFORM_SECURITY_NOTICE_COPY.rechecked);
   }), [refreshPlatformRequirement, run]);
-  return { readOriginal, readCurrent, recheckPlatform, discardOriginal };
+  return { readOriginal, readCurrent, recheckPlatform, discardOriginal, retryOriginal, closeUnusableImport };
 }
 
 /** @param state - Workflow state. @param reads - Identity and current reads. Restores the stored draft once per scope without dispatching any write. */
@@ -310,21 +349,21 @@ function isClosedImport(resource: AllowlistImportDto): boolean {
 
 /** @param state - Workflow state. @param reads - Record step. @param writes - Action runner and dispatch. @returns Row selection and the confirmation write. */
 function useAllowlistImportSelection(state: AllowlistImportState, reads: AllowlistImportReads, writes: AllowlistImportWrites) {
-  const { currentRef, occupiedRef, ready, confirmed, conflict, originalChecked, policy, snapshotRef, setConfirmed, setFieldError, setErrorMessage, setStatusMessage } = state;
+  const { currentRef, occupiedRef, ready, confirmed, conflict, originalChecked, policy, snapshotRef, setConfirmed, setFieldError, setErrorMessage, setStatusMessage, setImportUnusable } = state;
   const { persist } = reads;
   const { run, dispatch } = writes;
   const confirm = useCallback(async () => {
     const resource = snapshotRef.current, pending = currentRef.current.pending;
     if (!ready || occupiedRef.current || conflict || policy.platformRequirement || !resource || isClosedImport(resource)) return;
     if (pending && (pending.type !== OPERATION.confirmAllowlistImport || !originalChecked)) return;
-    if (Date.parse(resource.expiresAt) <= Date.now()) { setFieldError(COPY.expired); return; }
+    if (Date.parse(resource.expiresAt) <= Date.now()) { setFieldError(COPY.expired); if (hasImportOriginals(currentRef.current)) setImportUnusable(true); return; }
     if (!confirmed) { setFieldError(COPY.confirmation); return; }
     const selected = new Set(currentRef.current.selection);
     const selectedRows = resource.rows.filter((row) => selected.has(row.rowNumber) && isSelectableAllowlistImportRow(row)).map((row) => row.rowNumber);
     if (selectedRows.length === 0 || selectedRows.length !== currentRef.current.selection.length) { setFieldError(COPY.selection); return; }
     const intent: AllowlistImportBrowserIntent = { type: OPERATION.confirmAllowlistImport, operationId: newAdmissionOperationId(), importId: resource.importId, expectedVersion: resource.sourceVersion, selectedRows };
     await run((signal, scope) => dispatch(intent, signal, scope), COPY.confirming, pending ? WRITE_ACTION.resume : WRITE_ACTION.confirm);
-  }, [confirmed, conflict, currentRef, dispatch, occupiedRef, originalChecked, policy.platformRequirement, ready, run, setFieldError, snapshotRef]);
+  }, [confirmed, conflict, currentRef, dispatch, occupiedRef, originalChecked, policy.platformRequirement, ready, run, setFieldError, setImportUnusable, snapshotRef]);
   const selectRow = useCallback((rowNumber: number, selected: boolean) => {
     const row = snapshotRef.current?.rows.find((record) => record.rowNumber === rowNumber);
     if (!ready || occupiedRef.current || !row || !isSelectableAllowlistImportRow(row) || currentRef.current.pending && !originalChecked) return;
@@ -373,11 +412,11 @@ export function useAllowlistImportWorkflow(options: AllowlistImportWorkflowOptio
   const state = useAllowlistImportState(options);
   const reads = useAllowlistImportReads(state);
   const writes = useAllowlistImportWrites(state, reads);
-  const { readOriginal, readCurrent, recheckPlatform, discardOriginal } = useAllowlistImportRecovery(state, reads, writes);
+  const { readOriginal, readCurrent, recheckPlatform, discardOriginal, retryOriginal, closeUnusableImport } = useAllowlistImportRecovery(state, reads, writes);
   useAllowlistImportHydration(state, reads);
   const { changeDraft, upload, preview } = useAllowlistImportDraftActions(state, reads, writes);
   const { confirm, selectRow, selectAllValidRows } = useAllowlistImportSelection(state, reads, writes);
   const { readPolicy, download, reconcilePrevious, retryInitialization } = useAllowlistImportServerActions(state, reads, writes);
-  const { accessLost, ready, busy, writeAction, confirmed, setConfirmed, snapshot, step, setStep, occupiedRef, initializationFailed, stored, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, absentOriginalId } = state;
-  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupiedRef.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, originalAbsent: absentOriginalId !== null, discardOriginal, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, recheckPlatform, readPolicy, download, reconcilePrevious };
+  const { accessLost, ready, busy, writeAction, confirmed, setConfirmed, snapshot, step, setStep, occupiedRef, initializationFailed, stored, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, absentOriginalId, retryableOriginalId, importUnusable } = state;
+  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupiedRef.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, originalAbsent: absentOriginalId !== null, previewDiscardable: absentOriginalId === null && readDiscardablePreviewId(stored, retryableOriginalId) !== null, discardOriginal, originalRetryable: readRetryableOriginal(stored, retryableOriginalId) !== null, retryOriginal, importUnusable, closeUnusableImport, pendingPreview: stored.pending?.type === OPERATION.previewAllowlistImport, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, recheckPlatform, readPolicy, download, reconcilePrevious };
 }

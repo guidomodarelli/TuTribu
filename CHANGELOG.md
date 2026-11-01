@@ -18,6 +18,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - «Cambiar de cuenta» en la solicitud de ingreso o en una invitación personal abre el selector de cuentas de Google, para que puedas elegir otra cuenta aunque tengas una sola sesión abierta.
 - Los celulares argentinos escritos sin el 9 (por ejemplo «+54 11 1234 5678») se guardan como +54 9 11 1234 5678, el número que reciben los códigos por SMS o WhatsApp, y siguen coincidiendo con la lista de habilitados, las invitaciones, las solicitudes pendientes y los contactos reservados guardados antes. Los ejemplos de teléfono ahora usan un celular argentino.
 - Si las reglas, la invitación o la solicitud cambian mientras tenés la página abierta, al enviar, confirmar, pedir un código o cancelar la página lee los datos actuales y te pide confirmar de nuevo, en lugar de repetir el mismo rechazo.
+- El límite del archivo CSV para importar habilitados pasa de 5 MiB a 3 MiB, para que la vista previa siempre llegue a guardarse.
+- El reporte descargado de una importación de habilitados nombra sus columnas en español (Fila, Contacto, Nombre, Resultado, Errores, Versión de entrada).
 
 ### Fixed
 
@@ -59,6 +61,26 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - «Cambiar de cuenta» desde la página de tu solicitud lleva la cuenta nueva a la entrada de la academia, en lugar de una solicitud que no puede ver.
 - «Cambiar de cuenta» queda deshabilitado mientras hay una operación anterior sin confirmar, y después de cerrar la sesión no se vuelve a habilitar mientras se abre el inicio de sesión.
 - En la revisión, una solicitud sin teléfono cuando las reglas lo exigen explica por qué no se puede aprobar.
+- Una operación de admisión que quedó registrada sin terminar (Reglas, Países y cupos, la revisión individual y en lote, la solicitud de ingreso, Habilitados y la importación) ya no deja la pantalla trabada: se puede reintentar con los mismos datos sin que se aplique dos veces.
+- En Habilitados, Importación, Invitaciones y la invitación personal, un cambio que no llegó a registrarse o que no terminó se puede reintentar o descartar, en lugar de bloquear la pantalla hasta cerrar la pestaña; buscar y «Ver más» siguen disponibles mientras tanto.
+- Una vista previa de importación creada antes de cambiar las Reglas ya no entra en un bucle de «La configuración cambió»: vuelve a pedir el archivo y una vista previa nueva con la configuración actual.
+- Una importación vencida con confirmaciones pendientes se puede cerrar para elegir otro archivo; las filas ya importadas siguen en Habilitados.
+- Emitir una invitación a alguien que ya tiene una activa explica que hay que reemitirla desde el historial, y una lista de habilitados sin entradas utilizables se explica como tal, en lugar de «La invitación cambió».
+- Las entradas de Habilitados de un tipo de contacto que las reglas ya no usan dejan de ofrecer «Editar», que siempre fallaba.
+- Activar las admisiones ya no queda sin confirmar si la tribu cambió mientras se convertían las membresías comerciales: se informa el conflicto para revisar la configuración.
+- En Conexión, reanudar una operación cuya respuesta se pierde o sigue en curso ya no muestra «La operación original se reanudó.»: avisa que no se pudo confirmar el reintento y la operación sigue pendiente.
+- Una comprobación de credencial que terminó con Zavu caído o con una respuesta inválida muestra su resultado, en lugar de quedar pendiente de «Consultar guardado».
+- Si Zavu no responde al guardar la configuración de un canal, la pantalla dice que no se cambió nada y permite reintentar, en lugar de bloquear los pasos hasta consultar el guardado.
+- El aviso de una operación pendiente en Conexión nombra lo que quedó sin confirmar (comprobación, canal, prueba, activación, suspensión o retiro), también al recargar, en lugar de hablar siempre del guardado de la clave.
+- Desconectar la conexión seleccionada mientras la usan las Reglas o los avisos por correo explica qué resolver antes, en lugar de decir que la conexión no está preparada.
+- Después de activar una conexión, volver a Conexión ya no muestra cada vez «La prueba original corresponde a otra configuración».
+- Al volver con Atrás a Conexión, una prueba que espera su código se vuelve a abrir aunque la página recuerde una configuración anterior, y la pantalla avisa si no pudo actualizar los datos.
+- Mientras Conexión comprueba tu sesión muestra «Comprobando tu sesión…», y si la comprobación no termina avisa que no se pudo comprobar, en lugar de quedar esperando una operación que nadie inició o decir que la cuenta cambió.
+- Los errores del paso Canales están escritos para quien lidera: dicen si Zavu no respondió, si rechazó la clave o qué revisar del remitente o la plantilla.
+- El paso Canales ya no dice que Zavu no devolvió remitentes cuando todavía hay más páginas: invita a usar «Ver más remitentes».
+- Si la activación se rechaza porque faltan países para un canal telefónico o un canal que usan las Reglas o los avisos, la pantalla dice qué completar, en lugar de hablar del país de un teléfono.
+- Recuperar un aviso vencido, ya entregado o que dejó de corresponder muestra un mensaje de avisos, en lugar del texto del código de una prueba o de una conexión sin preparar; si su envío anterior puede haber salido, lo dice como respuesta definitiva.
+- Si la creación inicial de Países y cupos se confirmó pero su respuesta se perdió, al consultarla los pasos siguen abiertos con los países y cupos que elegiste para guardarlos, en lugar de cerrarse con los valores iniciales.
 
 ## [1.12.0] - 2026-10-31
 

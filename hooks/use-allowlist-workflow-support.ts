@@ -60,6 +60,15 @@ export function isAbsentOriginal(original: AllowlistBrowserResult<unknown>): boo
   return original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable;
 }
 
+/**
+ * The rules can change their contact type while still a draft; entries of the former type stay listed, but the writer rejects any change to them.
+ * @param entry - Listed entry. @param contactType - Contact type of the current rules, or null without rules.
+ * @returns Whether the entry belongs to a contact type the rules no longer use, so it cannot be edited.
+ */
+export function isOtherContactType(entry: Pick<AllowlistEntryResult, "contactType">, contactType: ReadyAllowlistState["contactType"]): boolean {
+  return contactType !== null && entry.contactType !== contactType;
+}
+
 /** @param contactType - Policy contact type. @param proposal - Confirmed draft. @returns The original to dispatch, or null when the contact or name is invalid. */
 export function buildAllowlistIntent(contactType: NonNullable<ReadyAllowlistState["contactType"]>, proposal: AllowlistDraft): AllowlistBrowserIntent | null {
   try {

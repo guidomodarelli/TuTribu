@@ -20,6 +20,7 @@ export const ADMISSION_UI_COPY = {
   verifying: "Esta academia requiere comprobar el contacto antes de presentar una solicitud.",
   uncertain: "Todavía no pudimos confirmar el resultado. Consultá la operación original antes de repetir la acción.",
   absent: "La operación todavía no aparece registrada. Podés reintentar el mismo envío conservando sus datos.",
+  started: "La operación quedó registrada pero todavía no terminó de procesarse. Podés reintentar el mismo envío con los mismos datos: no se repite si ya se aplicó.",
   retryOriginal: "Reintentar el mismo envío", readFailed: "No pudimos consultar el estado actualizado. Conservamos lo último confirmado.",
   accountChanged: "La cuenta o la sesión cambió. Volvé a cargar esta página para continuar con la cuenta actual.",
   reloadAccount: "Volver a cargar la página", storageFailed: "No pudimos conservar el identificador del envío en este navegador. Revisá el almacenamiento de la sesión y volvé a intentar.",

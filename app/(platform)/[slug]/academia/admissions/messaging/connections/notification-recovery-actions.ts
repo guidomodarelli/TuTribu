@@ -7,6 +7,7 @@ import type { NotificationRecoveryIntentStore, NotificationRecoveryReference } f
 import type { NotificationDeliveryRecoveryResult } from "@/src/modules/messaging/application/results/notification-delivery-recovery-result";
 import type { NotificationRecoveryOperationResult } from "@/src/modules/messaging/application/results/notification-recovery-operation-result";
 import type { MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
+import type { MessagingErrorCode } from "@/src/modules/messaging/application/results/messaging-errors";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { NOTIFICATION_RECOVERY_UI_COPY as COPY, NOTIFICATION_RECOVERY_WRITE_ACTION as WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import { NOTIFICATION_DELIVERY_RECOVERY_AUDIT } from "@/src/modules/messaging/constants/notification-delivery-recovery";
@@ -132,7 +133,19 @@ async function submitRecovery(context: NotificationRecoveryContext, original: No
   clearOriginalFollowUp(context);
   if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed && isBoundResult(outcome.value.result, original)) { context.setOriginalCompleted(true); context.setMessage({ kind: "status", text: COPY.completed }); }
   else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) forgetUnregisteredOriginal(context, { kind: "alert", text: outcome.message });
-  else context.setMessage({ kind: "alert", text: outcome.status === "failed" && !outcome.uncertain ? outcome.message : COPY.pending });
+  else context.setMessage({ kind: "alert", text: outcome.status === "failed" && !outcome.uncertain ? recoveryRejectionText(outcome.code, outcome.message) : COPY.pending });
+}
+
+/** Recovery copy of the shared codes a recovery rejection reuses, whose catalogue text describes another flow (a test code, a connection being prepared). */
+const RECOVERY_REJECTION_COPY: Partial<Record<MessagingErrorCode, string>> = {
+  [MESSAGING_ERROR_CODE.challengeExpired]: COPY.expired,
+  [MESSAGING_ERROR_CODE.resourceUnavailable]: COPY.unavailable,
+  [MESSAGING_ERROR_CODE.connectionIncomplete]: COPY.targetNotReady,
+};
+
+/** @param code - Definitive rejection of the recovery. @param message - Its catalogue copy. @returns What the leader reads about this notice. */
+function recoveryRejectionText(code: MessagingErrorCode, message: string): string {
+  return RECOVERY_REJECTION_COPY[code] ?? message;
 }
 
 /** @param context - Current render facts. @param resume - Whether the user explicitly reuses a consulted preserved original. @returns The feedback that blocks this attempt, or null when it may proceed. */

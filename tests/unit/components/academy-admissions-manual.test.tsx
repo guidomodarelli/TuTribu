@@ -419,15 +419,34 @@ describe("manual admission screen", () => {
     expect(vi.mocked(data.client.submit).mock.calls[1][1]).toEqual(vi.mocked(data.client.submit).mock.calls[0][1]);
   });
 
-  it("should keep registered started work in read-only recovery and not permit another POST", async () => {
+  it("should offer resending a registered started original with its same body and complete it once", async () => {
+    const data = fixture();
+    const original = { operationId: OPERATION_ID, expectedPolicyVersion: 1, confirmed: true as const, message: "Mensaje conservado" };
+    writeAdmissionDraft({ viewerId: VIEWER_ID, slug: "synthetic-academy", draft: { phone: "", country: "", message: "Mensaje conservado" }, pending: { kind: "submit", input: original } });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "started", operationId: OPERATION_ID } });
+    render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    await screen.findByText(ADMISSION_UI_COPY.started);
+    expect(data.client.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.retryOriginal }));
+    await screen.findByText("La solicitud está pendiente de revisión.");
+    expect(data.client.submit).toHaveBeenCalledOnce();
+    expect(vi.mocked(data.client.submit).mock.calls[0][1]).toEqual(original);
+    expect(JSON.parse(sessionStorage.getItem(admissionDraftKey(VIEWER_ID, "synthetic-academy"))!).pending).toBeNull();
+  });
+
+  it("should keep the started notice and the original when a resend finds its effect still running", async () => {
     const data = fixture();
     writeAdmissionDraft({ viewerId: VIEWER_ID, slug: "synthetic-academy", draft: { phone: "", country: "", message: "" }, pending: { kind: "submit", input: { operationId: OPERATION_ID, expectedPolicyVersion: 1, confirmed: true } } });
     vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "started", operationId: OPERATION_ID } });
+    vi.mocked(data.client.submit).mockResolvedValue({ status: "ready", value: { state: "started", operationId: OPERATION_ID } });
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
-    await screen.findByText(ADMISSION_UI_COPY.uncertain);
-    expect(screen.queryByRole("button", { name: ADMISSION_UI_COPY.retryOriginal })).not.toBeInTheDocument();
-    expect(data.client.submit).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: ADMISSION_UI_COPY.retryOriginal }));
+    await waitFor(() => expect(data.client.submit).toHaveBeenCalledOnce());
+    expect(await screen.findByText(ADMISSION_UI_COPY.started)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: ADMISSION_UI_COPY.retryOriginal })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
+    expect(JSON.parse(sessionStorage.getItem(admissionDraftKey(VIEWER_ID, "synthetic-academy"))!).pending.input.operationId).toBe(OPERATION_ID);
   });
 
   it("should reload an original intent stored by another document before restoring a bfcache page", async () => {

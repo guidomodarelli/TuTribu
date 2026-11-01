@@ -46,6 +46,8 @@ export const MESSAGING_USAGE_UI_COPY = {
   changedViewer: "La cuenta cambió. Volvé a abrir la configuración de uso con tu cuenta actual.",
   storageFailed: "No pudimos conservar esta acción. Consultá su resultado antes de repetir.",
   retry: "La operación original todavía no está registrada. Confirmá un reintento con sus mismos datos.",
+  started: "La operación original todavía no terminó. Si no avanza, confirmá un reintento con sus mismos datos: no se aplica dos veces.",
+  startedWrite: "El guardado todavía no terminó. Consultá la operación original para ver su resultado o reintentarla con los mismos datos.",
   /** Shown once a stored original turns out unregistered while the platform cannot protect saves: nothing is left to retry. */
   platformForgotten: "El guardado anterior no quedó registrado y no hace falta reintentarlo. Vas a poder guardar cuando el equipo de TuTribu resuelva la seguridad de la plataforma.",
   platformConsequence: "Esto no es algo que puedas resolver desde tu academia. Mientras tanto no se pueden guardar países ni cupos; los guardados siguen vigentes.",

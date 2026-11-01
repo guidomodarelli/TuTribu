@@ -26,9 +26,42 @@ export function isBlockingImportFailure(code: string): boolean {
   return code === ADMISSION_ERROR_CODE.allowlistImportConflict || code === ADMISSION_ERROR_CODE.policyConflict || code === ADMISSION_ERROR_CODE.platformSecurityUnavailable;
 }
 
-/** @param intent - Dispatched original. @param code - Its denial or definitive failure. @returns Whether the saved import can no longer be confirmed, so the leader needs a new preview. */
+/**
+ * A preview is bound to the rules version it was created with, so a confirmation rejected for a rules change can never succeed either.
+ * @param intent - Dispatched original. @param code - Its denial or definitive failure.
+ * @returns Whether the saved import can no longer be confirmed, so the leader needs a new preview.
+ */
 export function isUnusableImportConfirmation(intent: AllowlistImportBrowserIntent, code: string): boolean {
-  return intent.type === OPERATION.confirmAllowlistImport && code === ADMISSION_ERROR_CODE.resourceUnavailable;
+  return intent.type === OPERATION.confirmAllowlistImport && (code === ADMISSION_ERROR_CODE.resourceUnavailable || code === ADMISSION_ERROR_CODE.policyConflict);
+}
+
+/** @param code - Why a confirmation can no longer be applied. @returns What the leader reads: reread the rules for a rules change, or create a new preview otherwise. */
+export function unusableImportMessage(code: string): string {
+  return code === ADMISSION_ERROR_CODE.policyConflict ? COPY.policyConflict : COPY.previewUnavailable;
+}
+
+/** @param stored - Current own records. @returns Whether confirmations still reference the saved import, so it cannot be forgotten silently. */
+export function hasImportOriginals(stored: StoredAllowlistImport): boolean {
+  return stored.unresolved.length > 0 || stored.pending?.type === OPERATION.confirmAllowlistImport;
+}
+
+/**
+ * @param stored - Current own records. @param retryableOriginalId - Pending original that last answered `started` or absent.
+ * @returns The pending original that may be resent as is, or null; a preview resends its file, so without the local copy only
+ * discarding it remains.
+ */
+export function readRetryableOriginal(stored: StoredAllowlistImport, retryableOriginalId: string | null): AllowlistImportBrowserIntent | null {
+  const pending = stored.pending?.operationId === retryableOriginalId ? stored.pending : null;
+  if (!pending) return null;
+  return pending.type === OPERATION.previewAllowlistImport && !stored.draft ? null : pending;
+}
+
+/**
+ * @param stored - Current own records. @param retryableOriginalId - Pending original that last answered `started` or absent.
+ * @returns The pending preview that may be discarded (a preview never changes the list), or null.
+ */
+export function readDiscardablePreviewId(stored: StoredAllowlistImport, retryableOriginalId: string | null): string | null {
+  return stored.pending?.type === OPERATION.previewAllowlistImport && stored.pending.operationId === retryableOriginalId ? retryableOriginalId : null;
 }
 
 /** @param intent - Dispatched original. @param result - Unvalidated completed result. @returns The reference the original confirmed, or null when it cannot belong to it. */

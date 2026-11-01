@@ -178,6 +178,11 @@ function isRecoveredOriginal(original: RecoveredOperation, intent: AdmissionPoli
   return "policyId" in original.result && original.result.policyId === tribeId;
 }
 
+/** @param original - Recovered operation. @param intent - Stored original. @returns Whether it is this original, registered but not finished yet. */
+function isStartedOriginal(original: RecoveredOperation, intent: AdmissionPolicyBrowserIntent): boolean {
+  return original.operationId === intent.input.operationId && original.type === intent.type && original.state === "started";
+}
+
 /** @param session - Current route session. @param intent - Stored original. @param signal - Current read. @returns Whether the read stops, recovered the original or continues. */
 async function recoverPolicyOriginal(session: PolicyReadSession, intent: AdmissionPolicyBrowserIntent, signal: AbortSignal): Promise<PolicyRecoveryOutcome> {
   const { ready, client, controls } = session;
@@ -185,6 +190,8 @@ async function recoverPolicyOriginal(session: PolicyReadSession, intent: Admissi
   if (signal.aborted || recovery.status === "aborted") return "stop";
   if (!await checkPolicyViewer(session, signal)) return "stop";
   if (recovery.status === "ready") {
+    // A registered original that did not finish (its effect rolled back or is still running) can be resent as is: the ledger reclaims it once nobody works on it.
+    if (isStartedOriginal(recovery.value, intent)) { controls.setCanRetry(true); controls.setErrorMessage(COPY.started); return "continue"; }
     if (!isRecoveredOriginal(recovery.value, intent, ready.tribeId)) { controls.setErrorMessage(COPY.uncertain); return "stop"; }
     if (!await checkPolicyViewer(session, signal)) return "stop";
     writeAdmissionPolicyIntent(ready.viewerId, ready.slug, null); controls.pending.current = null; controls.setStatusMessage(COPY.recovered);
@@ -285,7 +292,9 @@ async function sendPolicyIntent(session: PolicyReadSession, intent: AdmissionPol
     writeAdmissionPolicyIntent(ready.viewerId, ready.slug, null); controls.pending.current = null;
     return { outcome: WRITE_OUTCOME.failed, code: result.code };
   }
-  if (result.value.state === "started" || result.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return { outcome: WRITE_OUTCOME.uncertain }; }
+  if (result.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return { outcome: WRITE_OUTCOME.uncertain }; }
+  // Not finished yet: consulting the original offers resending it with the same data.
+  if (result.value.state === "started") { controls.setErrorMessage(COPY.startedWrite); return { outcome: WRITE_OUTCOME.uncertain }; }
   applyPolicyResult(session, intent, result.value.result);
   writeAdmissionPolicyIntent(ready.viewerId, ready.slug, null); controls.pending.current = null; markPolicyFresh(controls, true);
   return { outcome: WRITE_OUTCOME.completed };

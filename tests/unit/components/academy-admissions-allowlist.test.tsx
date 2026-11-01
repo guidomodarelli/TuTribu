@@ -97,6 +97,14 @@ describe("allowlist route controls", () => {
     expect(data.client.write).not.toHaveBeenCalled();
   });
 
+  it("should explain why an entry of a contact type the rules no longer use cannot be edited, and keep editing the others", async () => {
+    const data = fixture(), former = { ...data.entry, id: randomUUID(), contactType: "phone" as const, identity: "+5491122334455", displayName: "Teléfono anterior" };
+    render(<AllowlistContainer initialState={{ ...data.state, page: { items: [data.entry, former], nextCursor: null } }} client={data.client} />, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeEnabled());
+    expect(screen.queryByRole("button", { name: `Editar ${former.identity}` })).not.toBeInTheDocument();
+    expect(screen.getByText(ALLOWLIST_BROWSER_COPY.otherContactType)).toBeVisible();
+  });
+
   it("should show contact validation before dispatch and clear it when the proposal changes", async () => {
     const data = fixture(); render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
     const contact = screen.getByLabelText("Correo de la entrada");

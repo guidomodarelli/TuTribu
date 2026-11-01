@@ -48,4 +48,6 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.unexpectedFailure]: HTTP_STATUS.serverError,
   // Definitive and below 5xx: nothing was registered, so the browser must not keep the write as uncertain.
   [ADMISSION_ERROR_CODE.platformSecurityUnavailable]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.connectionRetirementBlocked]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.originalDispatchUnresolved]: HTTP_STATUS.conflict,
 } as const;

@@ -24,8 +24,8 @@ export const ADMISSION_LIMIT = {
   pendingReminderDelayMs: PENDING_REMINDER_DELAY_DAYS * DAY_MS,
   batchRequestCount: 50,
   csvDataRowCount: 10_000,
-  /** Five MiB, enforced independently of the ten-thousand-row ceiling. */
-  csvByteCount: 5_242_880,
+  /** Three MiB, enforced independently of the ten-thousand-row ceiling: the whole file travels inside one JSON request and its preview comes back in one response, and Vercel Functions reject either above 4.5 MB before the route runs. */
+  csvByteCount: 3_145_728,
   /** Temporary file/report references never survive beyond twenty-four hours. */
   csvRetentionMs: DAY_MS,
   displayNameCharacters: 100,

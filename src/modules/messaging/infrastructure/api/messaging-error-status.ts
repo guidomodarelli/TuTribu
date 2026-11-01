@@ -35,4 +35,7 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.unexpectedFailure]: HTTP_STATUS.serverError,
   // Definitive and below 5xx: nothing was registered, so the browser must not keep the write as uncertain.
   [MESSAGING_ERROR_CODE.platformSecurityUnavailable]: HTTP_STATUS.conflict,
+  // Definitive business rejections whose effect rolled back: the browser releases the write instead of keeping it uncertain.
+  [MESSAGING_ERROR_CODE.connectionRetirementBlocked]: HTTP_STATUS.conflict,
+  [MESSAGING_ERROR_CODE.originalDispatchUnresolved]: HTTP_STATUS.conflict,
 } as const;

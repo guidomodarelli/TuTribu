@@ -11,6 +11,18 @@ import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request
 
 /** @param code - Own catalog code. @param uncertain - A write reply does not prove its final effect. @returns Safe Spanish feedback only. */
 export function admissionManagementBrowserFailure(code: AdmissionErrorCode, uncertain = false): ManagementBrowserResult<never> { return { status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain }; }
+/**
+ * A response without the own JSON contract was answered by the hosting edge, not by the route. A client error there (a body over the
+ * platform limit, a malformed request) proves the route never ran, so even a write is definitive; a request timeout or a server error
+ * may follow a committed effect, so a write stays uncertain.
+ * @param status - HTTP status of the response. @param writing - Whether a write was sent.
+ * @returns The safe failure for that status.
+ */
+function rejectedWithoutContract(status: number, writing: boolean): ManagementBrowserResult<never> {
+  const edgeRejection = status >= HTTP_STATUS.badRequest && status < HTTP_STATUS.serverError && status !== HTTP_STATUS.requestTimeout;
+  if (!edgeRejection) return admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+  return admissionManagementBrowserFailure(status === HTTP_STATUS.contentTooLarge ? ADMISSION_ERROR_CODE.invalidInput : ADMISSION_ERROR_CODE.publicContractUnusable, false);
+}
 /** Optional write of a management request: the exact original command and its static method. */
 export type ManagementWrite = { body?: { operationId: string }; method?: string };
 /** @param transport - Explicit project-owned HTTP edge. @returns JSON requests and own error parsing, without automatic retry. */
@@ -20,7 +32,7 @@ export function createAdmissionManagementBrowserTransport(transport: typeof fetc
   /** @param response - Own middleend response. @param writing - Whether a write was sent. @param operationId - Exact original identity, if sent. @returns Own controlled failure without copying diagnostics. */
   async function rejected(response: Response, writing = false, operationId?: string): Promise<ManagementBrowserResult<never>> {
     let value: unknown;
-    try { value = await response.json(); } catch { return admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.publicContractUnusable, writing); }
+    try { value = await response.json(); } catch { return rejectedWithoutContract(response.status, writing); }
     const parsed = admissionPublicErrorSchema.safeParse(value);
     if (!parsed.success || parsed.data.operation && operationId && parsed.data.operation.operationId !== operationId) return admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
     return admissionManagementBrowserFailure(parsed.data.code, writing && (response.status >= HTTP_STATUS.serverError || parsed.data.operation?.state === OPERATION_STATE.started));

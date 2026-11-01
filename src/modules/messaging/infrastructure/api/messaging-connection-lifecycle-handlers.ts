@@ -5,7 +5,7 @@ import type { ManageMessagingConnectionLifecycleUseCases } from "../../applicati
 import { type MessagingConnectionLifecycleResult, messagingConnectionLifecycleResultSchema  } from "../../application/results/messaging-connection-lifecycle-result";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { messagingFailure } from "../../application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "../../application/results/messaging-errors";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGING_CONNECTION_STATE } from "../../constants/messaging-connection";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -46,7 +46,7 @@ export function createMessagingConnectionLifecycleHandlers(open:()=>Promise<Mess
       const query=boundary.input("query",lifecycleQuerySchema,Object.fromEntries(new URL(request.url).searchParams));if(!query.usable)return query.response;
       const body=operation===REAUTHENTICATION_OPERATION.suspendMessagingConnection?{kind:REAUTHENTICATION_OPERATION.suspendMessagingConnection,...await boundary.readBody(messagingConnectionSuspendSchema)} as const:{kind:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,...await boundary.readBody(messagingConnectionDisconnectSchema)} as const;if(!body.usable)return body.response;
       const services=await open(),requestId=boundary.requestContext.requestId,routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-      if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+      if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
       const resource={tribeId:routing.value.tribeId,connectionId:params.value.connectionId,requestId};
       const outcome=body.kind===REAUTHENTICATION_OPERATION.suspendMessagingConnection?await services.lifecycle.suspend({...body.value,...resource}):await services.lifecycle.disconnect({...body.value,...resource});if(!outcome.ok)return boundary.failure(outcome.failure);
       const schema=createAdmissionOperationStateSchema(messagingConnectionLifecycleResultSchema),parsed=schema.safeParse(outcome.value);
