@@ -59,17 +59,17 @@ export async function loadAdmissionPageState(input: unknown, open: () => Promise
   const diagnostics = createAdmissionPageDiagnostics(ADMISSION_PAGE_DIAGNOSTIC.operation, requestHeaders, { metadata: { mode: parsed.data.mode } });
   const requestId = diagnostics.context.requestId;
   /** Set once the address names its tribe (or the own request link that resolves it), so a failure keeps the way back. */
-  let returnPath: string | null = null;
+  const way: { returnPath: string | null } = { returnPath: null };
   const state = await loadAdmissionPageRead({
     diagnostics, stateSchema: admissionPageStateSchema, messages: ADMISSION_PAGE_DIAGNOSTIC,
     read: async () => {
       const pageModule = await open();
       const pageInput = await resolveRequestTribe(parsed.data, pageModule, requestId);
-      if ("failure" in pageInput) { returnPath = pageInput.returnPath; return { ok: false as const, failure: pageInput.failure }; }
-      returnPath = readReturnPath(pageInput);
+      if ("failure" in pageInput) { way.returnPath = pageInput.returnPath; return { ok: false as const, failure: pageInput.failure }; }
+      way.returnPath = readReturnPath(pageInput);
       const query = pageInput.mode !== "request" ? { slug: pageInput.params.slug, requestId, ...(pageInput.mode === "legacy" ? { legacyInvitationToken: pageInput.params.token } : {}) } : { slug: pageInput.query.tribe, admissionRequestId: pageInput.params.requestId, requestId };
       return pageModule.page.execute(query);
     },
   });
-  return state.kind === "unavailable" && returnPath !== null ? { ...state, returnPath } : state;
+  return state.kind === "unavailable" && way.returnPath !== null ? { ...state, returnPath: way.returnPath } : state;
 }
