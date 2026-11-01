@@ -26,7 +26,10 @@ export interface MessagingAuthorizationReader {
 }
 export type MessagingSecurityFacts = { environment: string; securityEpoch: string; recoveryLocked: boolean };
 export interface MessagingSecurityFactsProvider {
-  /** Reads external security state for each operation; PostgreSQL cannot restore this authority. */
+  /**
+   * Reads external security state for each operation; PostgreSQL cannot restore this authority.
+   * @throws MessagingPlatformSecurityError when the platform cannot protect the operation at all (missing or unusable security).
+   */
   getCurrentSecurityFacts(): Promise<MessagingSecurityFacts>;
 }
 /** Private common identity; a context is not a public permission token. */

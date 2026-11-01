@@ -1,7 +1,10 @@
 /** Names the guided admission rules flow: its steps, the chained write stages and where each activation requirement is resolved. @module admission-policy-flow-constants */
 import type { AdmissionPolicyActivationReason } from "../domain/policies/admission-policy-activation";
 import type { AdmissionPreflightReason } from "../domain/policies/admission-activation-preflight";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 import { ADMISSION_POLICY_ACTIVATION_ERROR } from "./admission-policy";
+import { ADMISSION_PREFLIGHT_REASON } from "./admission-preflight";
 
 /** One decision per step; the leader edits them in this order. */
 export type AdmissionPolicyStepId = "admission" | "contact" | "intake" | "review";
@@ -84,13 +87,45 @@ export function isAdmissionPolicyPlatformReason(reason: AdmissionPolicyBlockReas
 }
 
 /**
+ * The policy write a requirements block explains, which says what was kept: the rules on the way to their first activation
+ * (`draft`), changes to active rules (`save`), activating a saved draft, resuming paused admissions or pausing open ones.
+ */
+export type AdmissionPolicyBlockedAction = "activation" | "resume" | "save" | "draft" | "pause";
+export const ADMISSION_POLICY_BLOCKED_ACTION = { activation: "activation", resume: "resume", save: "save", draft: "draft", pause: "pause" } as const satisfies Record<string, AdmissionPolicyBlockedAction>;
+
+/**
+ * Rules requirements that name the platform security every policy write signs with: while one is listed, no rule can be
+ * created, saved, activated, paused or resumed, and only the TuTribu team can resolve it. Same codes as the other screens' notice.
+ */
+export const ADMISSION_POLICY_PLATFORM_SECURITY_REASON = {
+  security_unconfigured: ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured,
+  recovery_locked: ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked,
+} as const satisfies Record<PlatformSecurityRequirement, AdmissionPolicyActivationReason>;
+
+/**
+ * @param reasons - Requirements of a rules read or block.
+ * @returns The platform security requirement they name, or null when policy writes can be protected; missing security wins over a lock.
+ */
+export function readAdmissionPolicyPlatformSecurity(reasons: readonly AdmissionPolicyBlockReason[]): PlatformSecurityRequirement | null {
+  if (reasons.includes(ADMISSION_POLICY_PLATFORM_SECURITY_REASON.security_unconfigured)) return PLATFORM_SECURITY_REQUIREMENT.unconfigured;
+  return reasons.includes(ADMISSION_POLICY_PLATFORM_SECURITY_REASON.recovery_locked) ? PLATFORM_SECURITY_REQUIREMENT.recoveryLocked : null;
+}
+
+/**
+ * Preflight reasons that restate a listed platform security requirement: the preflight reads the same hosting settings, and
+ * reports missing settings as a recovery lock. The block keeps the requirement, whose code every other screen shows too.
+ */
+export const ADMISSION_POLICY_PLATFORM_SECURITY_COVERED_PREFLIGHT: readonly AdmissionPreflightReason[] = [ADMISSION_PREFLIGHT_REASON.recoveryLocked];
+
+/**
  * Activation requirements that restate facts the informational preflight already explains with a more precise reason
  * (for example, a disabled evaluator keeps the preflight incomplete). When a preflight was read, the
  * rules page shows the preflight reason instead, so the same fact is never presented twice or as a platform block.
+ * A platform security requirement is never covered: it blocks every write, not only the activation.
  */
 export const ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS: readonly AdmissionPolicyActivationReason[] = [
   ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete, ADMISSION_POLICY_ACTIVATION_ERROR.notAcademy,
-  ADMISSION_POLICY_ACTIVATION_ERROR.evaluatorUnavailable, ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked,
+  ADMISSION_POLICY_ACTIVATION_ERROR.evaluatorUnavailable,
 ];
 
 /** The chained flow creates the missing policy itself, so this requirement is never shown as pending work. */

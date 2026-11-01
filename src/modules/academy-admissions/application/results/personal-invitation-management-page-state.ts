@@ -1,10 +1,11 @@
 /** Defines serialized private management state without authentication/provider/storage contracts. @module personal-invitation-management-page-state */
 import type { AdmissionErrorCode } from "../../constants/admission-errors";
 import type { PersonalInvitationManagementResult } from "./admission-resource-result";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Opaque cursor metadata is never resource authority. */
 export type PersonalInvitationManagementBrowserQuery = { limit: number; status?: "active" | "revoked" | "expired" | "redeemed"; cursor?: string };
 /** First render derives entirely from this current server snapshot, including its clock. */
 export type PersonalInvitationManagementPageState =
-  | { kind: "ready"; slug: string; tribeId: string; viewerId: string; renderedAt: string; publicOrigin?: string; contactType: "email" | "phone" | null; requiresAdditionalVerification: boolean; allowedCountries: string[]; hasUsableAllowlist: boolean; page: { items: PersonalInvitationManagementResult[]; nextCursor: string | null }; query: PersonalInvitationManagementBrowserQuery }
+  | { kind: "ready"; slug: string; tribeId: string; viewerId: string; renderedAt: string; publicOrigin?: string; contactType: "email" | "phone" | null; /** Why the platform cannot protect issuing, renaming or revoking now, or null when it can. */ platformRequirement: PlatformSecurityRequirement | null; requiresAdditionalVerification: boolean; allowedCountries: string[]; hasUsableAllowlist: boolean; page: { items: PersonalInvitationManagementResult[]; nextCursor: string | null }; query: PersonalInvitationManagementBrowserQuery }
   | { kind: "unavailable"; code: AdmissionErrorCode; message: string };

@@ -5,7 +5,7 @@ import {describe,expect,it,vi} from "vitest";
 import {MessagingConnectionActivation} from "@/components/academy-admissions/messaging-connection-activation";
 
 /** @returns Controlled own metadata and explicit callbacks, without session/provider or persistence mocks. */
-function activationFixture(){return{candidate:{id:"00000000-0000-4000-8000-000000000001",name:"Candidata comprobada",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]},selected:null,confirmed:false,busy:false,requirements:[] as string[],onConfirm:vi.fn()};}
+function activationFixture(){return{candidate:{id:"00000000-0000-4000-8000-000000000001",name:"Candidata comprobada",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[]},selected:null,confirmed:false,busy:false,requirements:[] as string[],onConfirm:vi.fn()};}
 
 describe("candidate activation presentation",()=>{
   it("should disclose the candidate and ask for explicit consent without activating on render",async()=>{

@@ -8,6 +8,9 @@ import { createMessagingSecurityConfig, type MessagingKeyringInput, type Messagi
 import type {MessagingSecurityFacts} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { MessagingProtectionKeyState } from "../../domain/repositories/messaging-protection-key-rotation";
 import { createMessagingProtectionKeyTopology } from "./messaging-protection-key-state";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
+import { classifyMessagingPlatformSecurityFailure } from "./messaging-platform-security-failure";
 
 /** This is the application's own hosting-secret input contract, never a provider/SQL response schema. */
 const hostingKeyringsSchema = z.record(z.enum(MESSAGING_KEY_PURPOSE), z.strictObject({ activeKeyId: z.string().trim().min(1), keys: z.array(z.strictObject({ id: z.string().trim().min(1), materialBase64: z.string().min(1) })).min(1) }));
@@ -81,4 +84,21 @@ export async function readMessagingHostingSecurityConfig(environment: HostingEnv
 export async function isMessagingHostingSecurityConfigured(environment: HostingEnvironment = process.env): Promise<boolean> {
   try { await readMessagingHostingSecurityConfig(environment); return true; }
   catch (error) { if (error instanceof MessagingCryptographyError) return false; throw error; }
+}
+
+/**
+ * Tells, from the hosting settings alone, whether the platform can protect a messaging or admission write, so a page
+ * without a native identity (or before opening a transaction) applies the same rule the writers apply.
+ * Enrolled proofs need a native identity and are attested by `readMessagingPlatformSecurityRequirement` instead.
+ * @param environment - Current hosting secrets.
+ * @returns Null when the security can be imported and is unlocked, otherwise the platform requirement that blocks writes.
+ * @throws The original failure when it is not a closed {@link MessagingCryptographyError}.
+ */
+export async function readMessagingHostingPlatformRequirement(environment: HostingEnvironment = process.env): Promise<PlatformSecurityRequirement | null> {
+  try { return (await readMessagingHostingSecurityConfig(environment)).recoveryLocked ? PLATFORM_SECURITY_REQUIREMENT.recoveryLocked : null; }
+  catch (error) {
+    const requirement = classifyMessagingPlatformSecurityFailure(error);
+    if (requirement) return requirement;
+    throw error;
+  }
 }

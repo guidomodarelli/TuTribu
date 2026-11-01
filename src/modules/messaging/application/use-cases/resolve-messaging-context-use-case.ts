@@ -5,8 +5,9 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
 import { messagingFailure, type MessagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
-import type { AuthorizedMessagingContext, MessagingAccountProvider, MessagingAuthorizationReader, MessagingLeadershipFacts, MessagingSecretStore, MessagingSecurityFactsProvider } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { AuthorizedMessagingContext, MessagingAccountProvider, MessagingAuthorizationReader, MessagingLeadershipFacts, MessagingSecretStore, MessagingSecurityFacts, MessagingSecurityFactsProvider } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
+import { MessagingPlatformSecurityError } from "@/src/modules/messaging/domain/errors/messaging-platform-security-error";
 
 /** Checks the authoritative tribe leader and current active membership, not a cached role. */
 function hasCurrentLeadership(leadership: MessagingLeadershipFacts | null, tribeId: string, userId: string): leadership is MessagingLeadershipFacts {
@@ -51,8 +52,16 @@ export class ResolveMessagingContextUseCase {
     const connection = await this.authorization.getConnection(command.tribeId, command.connectionId);
     if (connection?.tribeId !== command.tribeId || connection.id !== command.connectionId || connection.contributedByUserId !== initialAccount.userId || connection.retiredAt !== null || !connection.secretRef || !Number.isInteger(connection.version) || connection.version < 1) return deny(MESSAGING_ERROR_CODE.resourceUnavailable);
     if (!MESSAGING_CREDENTIAL_USABLE_STATES.has(connection.state)) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
-    const security = await this.security.getCurrentSecurityFacts();
-    if (security.recoveryLocked || !security.environment || !security.securityEpoch || connection.environment !== security.environment || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
+    let security: MessagingSecurityFacts;
+    try { security = await this.security.getCurrentSecurityFacts(); }
+    catch (error) {
+      if (error instanceof MessagingPlatformSecurityError) return { allowed: false as const, failure: messagingFailure(error.code, { cause: error }) };
+      throw error;
+    }
+    // A locked or unidentified platform blocks every connection alike; only the TuTribu team can resolve it.
+    if (security.recoveryLocked || !security.environment || !security.securityEpoch) return deny(MESSAGING_ERROR_CODE.platformSecurityUnavailable);
+    // A connection sealed under another environment or epoch needs a new key from its leader.
+    if (connection.environment !== security.environment || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
     // Resource/security reads may wait. Resolve current session/leadership again;
     // the concrete writer/SecretStore repeats these facts under its own locks.
     const account = await this.accounts.getAuthenticatedAccount();

@@ -4,7 +4,7 @@ import {assessMessagingActivationRequirements,nextMessagingActivationFreshnessCh
 import {MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS} from "@/src/modules/messaging/constants/messaging-connection-lifecycle";
 
 /** @returns Own projected candidate and usage metadata at a supplied deterministic render time. */
-function requirementsFixture(){const now="2026-10-08T04:00:00.000Z",candidate={id:"00000000-0000-4000-8000-000000000001",name:"Candidata",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now}]},usage={state:"configured" as const,policy:{version:1,allowedCountries:[],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:1,notificationToday:0}}};return{now,candidate,usage};}
+function requirementsFixture(){const now="2026-10-08T04:00:00.000Z",candidate={id:"00000000-0000-4000-8000-000000000001",name:"Candidata",version:4,configurationVersion:2,state:"draft" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now}]},usage={state:"configured" as const,policy:{version:1,allowedCountries:[],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:1,notificationToday:0}}};return{now,candidate,usage};}
 
 describe("visible activation prerequisites",()=>{
   it("should permit an explicit proposal for a production candidate with a recent email test independently of countries",()=>{const fixture=requirementsFixture();expect(assessMessagingActivationRequirements(fixture.candidate,fixture.usage,fixture.now)).toEqual({eligible:true,messages:[]});});
@@ -24,4 +24,5 @@ describe("visible activation prerequisites",()=>{
     expect(nextMessagingActivationFreshnessChange({...fixture.candidate,capabilities:[{...capability,testedAt:null}]},fixture.now)).toBeNull();
     expect(nextMessagingActivationFreshnessChange(null,fixture.now)).toBeNull();
   });
+  it("should not let a candidate sealed under a previous platform security be activated",()=>{const fixture=requirementsFixture();expect(assessMessagingActivationRequirements({...fixture.candidate,securityCurrent:false},fixture.usage,fixture.now)).toEqual({eligible:false,messages:["La candidata se guardó con una seguridad anterior de la plataforma; guardá la clave de Zavu otra vez antes de activar."]});});
 });

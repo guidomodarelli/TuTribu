@@ -89,6 +89,12 @@ describe("admission reviewer projection", () => {
     expect(projectAdmissionReview(record).eligibleActions).toEqual(["reject"]);
   });
 
+  it.each(["security_unconfigured", "recovery_locked"] as const)("should offer neither approval nor rejection while the platform requirement %s keeps every decision from being protected", (platformRequirement) => {
+    const record = reviewRecord();
+    expect(projectAdmissionReview(record).eligibleActions).toEqual(["reject", "approve"]);
+    expect(projectAdmissionReview(record, platformRequirement)).toMatchObject({ status: "pending", version: 1, eligibleActions: [] });
+  });
+
   it("should deny self decisions and expired requests without changing the recorded resource version", () => {
     const record = reviewRecord();
     record.review.reviewer!.userId = record.request.userId;

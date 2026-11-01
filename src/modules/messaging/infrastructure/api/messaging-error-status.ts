@@ -32,4 +32,6 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.upstreamPayloadUnusable]: HTTP_STATUS.badGateway,
   [MESSAGING_ERROR_CODE.publicContractUnusable]: HTTP_STATUS.serverError,
   [MESSAGING_ERROR_CODE.unexpectedFailure]: HTTP_STATUS.serverError,
+  // Definitive and below 5xx: nothing was registered, so the browser must not keep the write as uncertain.
+  [MESSAGING_ERROR_CODE.platformSecurityUnavailable]: HTTP_STATUS.conflict,
 } as const;

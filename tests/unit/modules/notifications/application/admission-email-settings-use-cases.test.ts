@@ -15,7 +15,7 @@ function fixture() {
   const actor: AdmissionActorFacts = { tribeId, userId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const repository: AdmissionNotificationEmailSettingsRepository = {
-    get: vi.fn(async () => ({ tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" })),
+    get: vi.fn(async () => ({ settings: { tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null })),
     change: vi.fn(async (_context, command) => ({ state: "started" as const, operationId: command.operationId })),
   };
   return { actor, account, repository, useCases: new AdmissionNotificationEmailSettingsUseCases(resolver, repository), query: { tribeId, requestId: randomUUID() }, command: { operationId: randomUUID(), confirmed: true as const, expectedVersion: 0, enabled: true, timeZone: "America/Argentina/Buenos_Aires" } };
@@ -25,7 +25,7 @@ describe("independent admission email authority", () => {
   // A normal current query does not initialize defaults.
   it("should resolve read-only OFF settings without writing configuration", async () => {
     const data = fixture();
-    expect(await data.useCases.read(data.query)).toMatchObject({ ok: true, value: { enabled: false, version: 0 } });
+    expect(await data.useCases.read(data.query)).toMatchObject({ ok: true, value: { settings: { enabled: false, version: 0 }, platformRequirement: null } });
     expect(data.repository.change).not.toHaveBeenCalled();
   });
 
@@ -48,6 +48,16 @@ describe("independent admission email authority", () => {
     const data = fixture(); data.account.session.expiresAt = new Date("2026-10-15T17:00:00Z");
     expect(await data.useCases.change({ ...data.query, ...data.command })).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
     expect(data.repository.change).not.toHaveBeenCalled();
+  });
+
+  it("should keep a platform requirement inside its current read and reject a platform-blocked change definitely, without an operation", async () => {
+    const data = fixture();
+    vi.mocked(data.repository.get).mockResolvedValueOnce({ settings: { tribeId: data.query.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "UTC" }, platformRequirement: "recovery_locked" });
+    expect(await data.useCases.read(data.query)).toMatchObject({ ok: true, value: { platformRequirement: "recovery_locked" } });
+    const cause = new Error("Synthetic platform security failure");
+    vi.mocked(data.repository.change).mockRejectedValueOnce(new AdmissionOperationError("platform_security_unavailable", { cause }));
+    const rejected = await data.useCases.change({ ...data.query, ...data.command });
+    expect(rejected).toEqual({ ok: false, failure: { code: "platform_security_unavailable", cause: expect.any(AdmissionOperationError) } });
   });
 
   it("should distinguish registered uncertain completion from an unrelated private storage failure", async () => {

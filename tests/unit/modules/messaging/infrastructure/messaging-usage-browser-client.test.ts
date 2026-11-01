@@ -38,4 +38,11 @@ describe("usage browser transport", () => {
     expect(await client.initialize("synthetic-academy", { operationId, confirmed: true }, cancelled.signal)).toEqual({ status: "aborted" });
     expect(transport).toHaveBeenCalledTimes(2);
   });
+  it("should report a write the platform could not protect as definitive, with its own copy and no retry", async () => {
+    const operationId = randomUUID(), body = { code: "platform_security_unavailable", message: "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.", requestId: "synthetic-request" };
+    const transport = vi.fn<typeof fetch>(async () => Response.json(body, { status: 409 }));
+    const client = createMessagingUsageBrowserClient({ fetch: transport, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.update("synthetic", { operationId, confirmed: true, expectedVersion: 3, allowedCountries: ["AR"], verificationDailyLimit: 1, notificationDailyLimit: 1 }, new AbortController().signal)).toEqual({ status: "failed", code: "platform_security_unavailable", message: body.message, uncertain: false });
+    expect(transport).toHaveBeenCalledOnce();
+  });
 });

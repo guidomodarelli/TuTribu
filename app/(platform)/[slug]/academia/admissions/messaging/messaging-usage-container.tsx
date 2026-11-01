@@ -81,7 +81,9 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   if (!privateVisible && (phase === PHASE.checking || phase === PHASE.reading)) return <p role="status">Consultando la cuenta y el uso actual…</p>;
   if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} retry={launchRead} />;
   const parsedDraft = parseMessagingUsageDraft(draft, state), writer: MessagingUsageWriter = { ready, client, checkViewer, controls, readCurrent };
-  const canSave = fresh && !isBusy && !uncertain && confirmed && parsedDraft.ok;
+  /** While the platform cannot protect a save, nothing on this page can be written; the saved configuration stays readable. */
+  const platformBlocked = ready.platformRequirement !== null;
+  const canSave = fresh && !isBusy && !uncertain && !platformBlocked && confirmed && parsedDraft.ok;
   /** A new UUID is created only after validation/current read and a fresh human confirmation, never while an original is pending. */
   const save = () => {
     if (!canSave || pending.current) { setErrorMessage(COPY.invalid); return; }
@@ -90,15 +92,15 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   /** @returns Nothing after restoring the current configuration as the draft, without consent or error. */
   const resetDraft = () => { setDraft(createMessagingUsageDraft(state)); setConfirmed(false); setStep(FIRST_STEP_INDEX); setErrorMessage(null); };
   return <MessagingUsage state={state} draft={draft} countryChoices={ready.countryChoices} editing={editing || !state.policy} step={step} confirmed={confirmed}
-    busy={isBusy} saving={phase === PHASE.writing} progressMessage={writeStep && WRITE_STEP_COPY[writeStep]} canEdit={fresh && !uncertain}
+    busy={isBusy} saving={phase === PHASE.writing} progressMessage={writeStep && WRITE_STEP_COPY[writeStep]} canEdit={fresh && !uncertain && !platformBlocked} platformRequirement={ready.platformRequirement}
     impact={parsedDraft.ok && state.policy ? describeMessagingUsageChangeImpact(state.policy, parsedDraft.value) : null}
     validationMessage={parsedDraft.ok ? null : parsedDraft.message} errorMessage={errorMessage} statusMessage={statusMessage} partialMessage={partialSave ? COPY.initializedOnly : null} canRetrySave={partialSave && canSave}
-    uncertain={uncertain} canRetry={canRetry && fresh} retryConfirmed={retryConfirmed}
+    uncertain={uncertain} canRetry={canRetry && fresh && !platformBlocked} retryConfirmed={retryConfirmed}
     onChange={(next) => { setDraft(next); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); }}
     onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }}
     onStepChange={(next) => { setStep(next); setStatusMessage(null); }}
-    onStartEditing={() => { if (isBusy || uncertain) return; resetDraft(); setStatusMessage(null); setEditing(true); }}
+    onStartEditing={() => { if (isBusy || uncertain || platformBlocked) return; resetDraft(); setStatusMessage(null); setEditing(true); }}
     onCancelEditing={() => { if (isBusy) return; resetDraft(); setPartialSave(false); setEditing(false); }}
     onSave={save} onReloadCurrent={launchRead} onRetryConfirm={(value) => { setRetryConfirmed(value); setErrorMessage(null); }}
-    onRetryOriginal={() => { if (pending.current && canRetry && fresh && retryConfirmed && !isBusy) void retryUsageOriginal(writer, state.policy, pending.current); }} />;
+    onRetryOriginal={() => { if (pending.current && canRetry && fresh && !platformBlocked && retryConfirmed && !isBusy) void retryUsageOriginal(writer, state.policy, pending.current); }} />;
 }

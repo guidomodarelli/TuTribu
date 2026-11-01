@@ -14,7 +14,7 @@ function fixture() {
   const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T07:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const current: AdmissionPolicyState = { policy: null, controlActivated: false, usage: null };
-  const reader = { read: vi.fn(async () => current) }, facts = { read: vi.fn(async (): Promise<AdmissionPolicyViewFacts> => ({ pendingRequestCount: 3, preparation: null, securityConfigured: true })) };
+  const reader = { read: vi.fn(async () => current) }, facts = { read: vi.fn(async (): Promise<AdmissionPolicyViewFacts> => ({ pendingRequestCount: 3, preparation: null, platformSecurity: null })) };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   return { tribeId, actor, current, reader, facts, query: { tribeId, requestId: randomUUID() }, useCase: new GetAdmissionPolicyUseCase(resolver, reader, facts) };
 }
@@ -37,16 +37,26 @@ describe("current admission policy view", () => {
 
   it("should name the missing hosting security as a platform requirement, with or without a saved policy", async () => {
     const data = fixture();
-    data.facts.read.mockResolvedValue({ pendingRequestCount: 0, preparation: null, securityConfigured: false });
+    data.facts.read.mockResolvedValue({ pendingRequestCount: 0, preparation: null, platformSecurity: "security_unconfigured" });
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { preparation: { state: "not_evaluated", requirements: ["admission_security_unconfigured", "policy_unavailable"] } } });
     data.current.policy = createDefaultAdmissionPolicy({ id: data.tribeId, tribeId: data.tribeId });
     const saved = await data.useCase.execute(data.query);
     expect(saved.ok && saved.value.preparation.requirements).toContain("admission_security_unconfigured");
   });
 
+  it("should name a platform recovery lock once, without evaluating the preparation the lock also blocks", async () => {
+    const data = fixture();
+    data.current.policy = createDefaultAdmissionPolicy({ id: data.tribeId, tribeId: data.tribeId });
+    data.facts.read.mockResolvedValue({ pendingRequestCount: 0, preparation: null, platformSecurity: "recovery_locked" });
+    const locked = await data.useCase.execute(data.query);
+    expect(locked).toMatchObject({ ok: true, value: { preparation: { state: "not_evaluated" } } });
+    expect(locked.ok && locked.value.preparation.requirements.filter((reason) => reason === "admission_recovery_locked")).toHaveLength(1);
+    expect(locked.ok && locked.value.preparation.requirements).not.toContain("admission_security_unconfigured");
+  });
+
   it("should announce the free conversion count only before the first activation", async () => {
     const data = fixture();
-    data.facts.read.mockResolvedValue({ pendingRequestCount: 0, preparation: null, securityConfigured: true, freeConversionMemberCount: 2 });
+    data.facts.read.mockResolvedValue({ pendingRequestCount: 0, preparation: null, platformSecurity: null, freeConversionMemberCount: 2 });
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { impact: { freeConversionMemberCount: 2 } } });
     data.current.controlActivated = true;
     const activated = await data.useCase.execute(data.query);
@@ -87,14 +97,14 @@ describe("current admission policy view", () => {
   it("should project only safe current preparation reasons and keep owner routing metadata out of the DTO", async () => {
     const data = fixture();
     data.current.policy = { ...createDefaultAdmissionPolicy({ id: data.tribeId, tribeId: data.tribeId }), requiresAdditionalVerification: true };
-    data.facts.read.mockResolvedValue({ pendingRequestCount: 4, securityConfigured: true, preparation: { tribeId: data.tribeId, isAcademy: true, controlActivated: false, preflightComplete: false, evaluatorEnabled: false, recoveryLocked: true, configuration: { tribeId: data.tribeId, channelPrepared: false, verificationQuotaPositive: true, usagePolicy: null } } });
+    data.facts.read.mockResolvedValue({ pendingRequestCount: 4, platformSecurity: null, preparation: { tribeId: data.tribeId, isAcademy: true, controlActivated: false, preflightComplete: false, evaluatorEnabled: false, recoveryLocked: true, configuration: { tribeId: data.tribeId, channelPrepared: false, verificationQuotaPositive: true, usagePolicy: null } } });
     const result = await data.useCase.execute(data.query);
     expect(result).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "evaluated", requirements: ["admission_preflight_incomplete", "admission_evaluator_unavailable", "admission_recovery_locked", "verification_unavailable"] }, impact: { pendingRequestCount: 4, historicalLinksProtected: false } } });
     if (result.ok) {
       expect(result.value.preparation).not.toHaveProperty("configuration");
       expect(result.value.preparation).not.toHaveProperty("tribeId");
     }
-    data.facts.read.mockResolvedValue({ pendingRequestCount: 4, securityConfigured: true, preparation: { tribeId: randomUUID(), isAcademy: true, controlActivated: false, preflightComplete: true, evaluatorEnabled: true, recoveryLocked: false, configuration: { tribeId: data.tribeId, channelPrepared: true, verificationQuotaPositive: true, usagePolicy: null } } });
+    data.facts.read.mockResolvedValue({ pendingRequestCount: 4, platformSecurity: null, preparation: { tribeId: randomUUID(), isAcademy: true, controlActivated: false, preflightComplete: true, evaluatorEnabled: true, recoveryLocked: false, configuration: { tribeId: data.tribeId, channelPrepared: true, verificationQuotaPositive: true, usagePolicy: null } } });
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
   });
 });

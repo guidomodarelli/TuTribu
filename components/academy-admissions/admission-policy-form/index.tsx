@@ -5,7 +5,7 @@ import { useId } from "react";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";
 import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import { ADMISSION_POLICY_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-policy";
-import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_LOCK_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_STEP, type AdmissionPolicyAction, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { PolicyActionFeedback, type AdmissionPolicyActivationBlock, type AdmissionPolicyFailure, type AdmissionPolicySettingsLinks } from "./policy-action-feedback";
 import { PolicyRulesSteps, admissionPolicyStepIds } from "./policy-rules-steps";
@@ -37,6 +37,8 @@ export type AdmissionPolicyFormProps = {
   finalLabel?: string;
   /** A reason only the TuTribu team can resolve is known: the draft notice explains it instead of offering to publish. */
   platformBlocked?: boolean;
+  /** The current read names the platform security every policy write needs: the page warns before any step and offers no write. */
+  writesBlocked?: boolean;
   rechecking?: boolean;
   /** Opens the final step with the saved rules, to publish them. */
   onReviewDraft?: () => void;
@@ -53,20 +55,39 @@ const STATE_BADGE = {
   [ADMISSION_POLICY_PUBLIC_STATE.unavailable]: { label: "Requiere revisión", tone: "danger" },
 } as const satisfies Record<AdmissionPolicyStateDto["state"], { label: string; tone: BadgeTone }>;
 
-/** @param props - Current safe state, its draft facts and the step shown. @returns The state badges with the draft, denial, unavailable and status notices. */
+/**
+ * @param state - Current safe state. @param draftUnpublished - Whether saved rules wait for their first activation.
+ * @returns What stays as it is while no policy write can be protected; the draft notice says it for saved rules.
+ */
+function platformLockCopy(state: AdmissionPolicyStateDto, draftUnpublished: boolean): string | null {
+  if (draftUnpublished) return null;
+  if (!state.policy) return ADMISSION_POLICY_PLATFORM_LOCK_COPY.unsaved;
+  if (!state.controlActivated) return null;
+  return state.policy.isOpen ? ADMISSION_POLICY_PLATFORM_LOCK_COPY.open : ADMISSION_POLICY_PLATFORM_LOCK_COPY.paused;
+}
+
+/** @param props - Current safe state, its draft facts and the step shown. @returns The draft notice text: publication, a platform block or writes the platform cannot protect. */
+function draftNoticeCopy(props: AdmissionPolicyFormProps): string {
+  if (props.writesBlocked) return ADMISSION_POLICY_PLATFORM_LOCK_COPY.draft;
+  return props.platformBlocked ? ADMISSION_POLICY_DRAFT_COPY.platformBlocked : ADMISSION_POLICY_DRAFT_COPY.description;
+}
+
+/** @param props - Current safe state, its draft facts and the step shown. @returns The state badges with the platform, draft, denial, unavailable and status notices. */
 function PolicySummary({ props, unavailable, draftUnpublished, finalStep }: { props: AdmissionPolicyFormProps; unavailable: boolean; draftUnpublished: boolean; finalStep: number }) {
   const badge = STATE_BADGE[props.state.state];
   const pending = props.state.impact.pendingRequestCount;
+  const lockCopy = props.writesBlocked && !unavailable ? platformLockCopy(props.state, draftUnpublished) : null;
   return <section className={styles.AdmissionPolicyForm__summary} aria-label="Estado actual">
     <ul className={styles.AdmissionPolicyForm__badges}>
       <li><Badge tone={badge.tone}>{badge.label}</Badge></li>
       <li><Badge tone="neutral">{pending === 1 ? "1 solicitud pendiente" : `${pending} solicitudes pendientes`}</Badge></li>
     </ul>
-    {!props.state.controlActivated && !unavailable && !props.state.policy && <p className={styles.AdmissionPolicyForm__lead}>Todavía no hay reglas de admisión. Completá los pasos: al final guardamos las reglas y activamos las admisiones en una sola acción.</p>}
+    {!props.state.controlActivated && !unavailable && !props.state.policy && !lockCopy && <p className={styles.AdmissionPolicyForm__lead}>Todavía no hay reglas de admisión. Completá los pasos: al final guardamos las reglas y activamos las admisiones en una sola acción.</p>}
+    {lockCopy && <p className={styles.AdmissionPolicyForm__platform}>{lockCopy}</p>}
     {draftUnpublished && <div className={styles.AdmissionPolicyForm__draft} role="group" aria-label={ADMISSION_POLICY_DRAFT_COPY.title}>
       <p className={styles.AdmissionPolicyForm__draftTitle}>{ADMISSION_POLICY_DRAFT_COPY.title}</p>
-      <p className={styles.AdmissionPolicyForm__lead}>{props.platformBlocked ? ADMISSION_POLICY_DRAFT_COPY.platformBlocked : ADMISSION_POLICY_DRAFT_COPY.description}</p>
-      {!props.platformBlocked && props.onReviewDraft && props.step !== finalStep && <Button variant="secondary" size="sm" disabled={props.busy || props.uncertain} onClick={props.onReviewDraft}>{ADMISSION_POLICY_DRAFT_COPY.action}</Button>}
+      <p className={styles.AdmissionPolicyForm__lead}>{draftNoticeCopy(props)}</p>
+      {!props.platformBlocked && !props.writesBlocked && props.onReviewDraft && props.step !== finalStep && <Button variant="secondary" size="sm" disabled={props.busy || props.uncertain} onClick={props.onReviewDraft}>{ADMISSION_POLICY_DRAFT_COPY.action}</Button>}
     </div>}
     {props.permissionDenied && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.permissionDenied}</p>}
     {unavailable && <p role="alert" className={`${styles.AdmissionPolicyForm__feedback} ${styles["AdmissionPolicyForm__feedback--alert"]}`}>{ADMISSION_POLICY_BROWSER_COPY.unavailable}</p>}
@@ -86,10 +107,15 @@ function PolicyOriginalRecovery({ props, retryId }: { props: AdmissionPolicyForm
   </section>;
 }
 
-/** @param unavailable - The policy needs a review only the team can do. @param uncertain - The original write result is unknown. @returns Why the rules cannot be changed now, or null. */
-function policyLockedReason(unavailable: boolean, uncertain: boolean): string | null {
+/**
+ * @param unavailable - The policy needs a review only the team can do. @param uncertain - The original write result is unknown.
+ * @param writesBlocked - The platform cannot protect any policy write yet.
+ * @returns Why the rules cannot be changed now, or null.
+ */
+function policyLockedReason(unavailable: boolean, uncertain: boolean, writesBlocked: boolean): string | null {
   if (unavailable) return ADMISSION_POLICY_BROWSER_COPY.unavailable;
-  return uncertain ? ADMISSION_POLICY_BROWSER_COPY.originalPending : null;
+  if (uncertain) return ADMISSION_POLICY_BROWSER_COPY.originalPending;
+  return writesBlocked ? ADMISSION_POLICY_PLATFORM_LOCK_COPY.finalBlocked : null;
 }
 
 /**
@@ -100,7 +126,8 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
   const editorTitleId = useId(), retryId = useId();
   const unavailable = props.state.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable;
   const showStatus = props.state.controlActivated && !props.editing;
-  const lockedReason = policyLockedReason(unavailable, props.uncertain);
+  const writesBlocked = props.writesBlocked ?? false;
+  const lockedReason = policyLockedReason(unavailable, props.uncertain, writesBlocked);
   const stepIds = admissionPolicyStepIds(props.editing);
   const contactStep = stepIds.indexOf(ADMISSION_POLICY_STEP.contact), finalStep = stepIds.length - 1;
   const draftUnpublished = Boolean(props.state.policy) && !props.state.controlActivated && !unavailable;
@@ -114,7 +141,7 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
     {props.uncertain && <PolicyOriginalRecovery props={props} retryId={retryId} />}
 
     {!unavailable && (showStatus
-      ? <PolicyStatusPanel rules={props.savedRules} busy={props.busy} locked={props.uncertain} pendingAction={props.pendingAction} pauseOpen={props.pauseOpen} pauseReason={props.pauseReason} feedback={feedback}
+      ? <PolicyStatusPanel rules={props.savedRules} busy={props.busy} locked={props.uncertain || writesBlocked} pendingAction={props.pendingAction} pauseOpen={props.pauseOpen} pauseReason={props.pauseReason} feedback={feedback}
         onPauseOpen={props.onPauseOpen} onPauseReason={props.onPauseReason} onPause={props.onPause} onResume={props.onResume} onEdit={props.onEdit} />
       : <section className={styles.AdmissionPolicyForm__editor} aria-labelledby={editorTitleId}>
         <div className={styles.AdmissionPolicyForm__editorHeading}>

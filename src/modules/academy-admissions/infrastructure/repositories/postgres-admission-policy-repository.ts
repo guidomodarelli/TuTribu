@@ -10,7 +10,8 @@ import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, requiresAdm
 import { proposeAdmissionPolicyActivation, type AdmissionPolicyActivationReason } from "../../domain/policies/admission-policy-activation";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { AdmissionPolicyRequirementError } from "../../domain/errors/admission-policy-requirement-error";
-import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { classifyMessagingPlatformSecurityFailure } from "@/src/modules/messaging/infrastructure/config/messaging-platform-security-failure";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_POLICY_ACTIVATION_ERROR, ADMISSION_POLICY_AUDIT, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS, ADMISSION_POLICY_CHANGE_OUTCOME } from "../../constants/admission-policy";
 import { ADMISSION_PROOF_STATUS, ADMISSION_VERIFICATION_PURPOSE } from "../../constants/admission-eligibility";
@@ -32,6 +33,14 @@ import { readSelectedMessagingResource } from "@/src/modules/messaging/infrastru
 /** @param code - Unmet requirement. @returns The `admission_ineligible` outcome carrying the requirement as its private, loggable cause. */
 function requirementUnmet(code: AdmissionPolicyActivationReason, cause?: unknown): AdmissionOperationError {
   return new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionPolicyRequirementError(code, { cause }) });
+}
+
+/**
+ * @param cause - Hosting security failure the ledger rejected a new original with.
+ * @returns The rules requirement that names it: a recovery lock, or security the platform has not configured or enrolled yet.
+ */
+function policyPlatformRequirement(cause: unknown): AdmissionPolicyActivationReason {
+  return classifyMessagingPlatformSecurityFailure(cause) === PLATFORM_SECURITY_REQUIREMENT.recoveryLocked ? ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked : ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured;
 }
 
 /**
@@ -90,44 +99,33 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return changedAt;
   }
 
-  /**
-   * Every policy write signs its original intent with the hosting messaging security. Without it the claim fails before anything is
-   * stored, so a new write is rejected as a definitive platform requirement instead of an unexpected failure the browser would keep as
-   * uncertain. A resend of an original that is already registered (for example, committed before the security went missing) stays
-   * unresolved instead, so the browser keeps the original intent to recover it once the security is back.
-   * @param command - Original scoped command. @param context - Current leader scope. @param operation - Exact sensitive operation.
-   * @throws AdmissionOperationError: admission_ineligible caused by admission_security_unconfigured, or operation_unresolved for a registered original.
-   */
-  private async assertSecurityConfigured(command: AdmissionOperationCommand, context: AuthorizedAdmissionContext, operation: ReauthenticationOperation): Promise<void> {
-    try { await this.readSecurityConfig(); }
-    catch (error) {
-      if (!(error instanceof MessagingCryptographyError)) throw error;
-      const registered = await this.execute(context, async (database) => {
-        await authorizeAdmissionPolicy(database, context, operation);
-        return (await database.execute<{ found: boolean }>(sql`select exists(select 1 from public.academy_admission_operations where actor_user_id=${command.actorUserId} and tribe_id=${command.tribeId} and operation_type=${command.operationType} and idempotency_key=${command.idempotencyKey}) as found`)).rows[0].found;
-      });
-      if (registered) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: error });
-      throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured, error);
-    }
-  }
-
   /** Original replay precedes new CAS; every phase independently checks current leadership. */
   private async run(intent: PolicyIntent, operation: ReauthenticationOperation, commandIntent: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<AdmissionPolicyMutationResult>): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     const command: AdmissionOperationCommand = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: intent.type, idempotencyKey: intent.operationId, intent: commandIntent };
-    await this.assertSecurityConfigured(command, intent.context, operation);
     // Each ledger transaction (claim, effect, recovery) lets its repeated leader checks reuse the locks of its first one; none uses a savepoint.
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, (database) => withReusedAdmissionLeaderAuthority(database, () => work(database))), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);
     try { return await ledger.run(command, admissionPolicyMutationResultSchema, async (database, ledgerId) => { await this.academy(database, intent.context.tribeId); return mutate(database, ledgerId); }); }
     catch (error) {
-      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved) {
-        try { const recovered = await ledger.read(command, admissionPolicyMutationResultSchema); if (recovered?.state === OPERATION_STATE.completed) return recovered; }
-        catch (recoveryError) {
-          if (recoveryError instanceof AdmissionOperationError) throw recoveryError;
-          throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: intent.operationId, cause: new AggregateError([error, recoveryError], "Admission policy original commit reconciliation failed", { cause: error }) });
-        }
-      }
+      // The ledger rejects a new original it cannot protect before registering anything; the rules page names that platform requirement.
+      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable) throw requirementUnmet(policyPlatformRequirement(error.cause), error.cause);
+      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved) return this.recoverUnresolved(ledger, command, error);
       throw error;
     }
+  }
+
+  /**
+   * A commit may have succeeded before its response was lost: the original is read before reporting it unresolved.
+   * @param ledger - Same original ledger. @param command - Original command. @param error - Unresolved outcome of the write.
+   * @returns The completed original when the registry proves it.
+   * @throws The unresolved outcome, a typed recovery failure, or an unresolved outcome carrying both causes.
+   */
+  private async recoverUnresolved(ledger: PostgresAdmissionOperationRepository, command: AdmissionOperationCommand, error: AdmissionOperationError): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
+    try { const recovered = await ledger.read(command, admissionPolicyMutationResultSchema); if (recovered?.state === OPERATION_STATE.completed) return recovered; }
+    catch (recoveryError) {
+      if (recoveryError instanceof AdmissionOperationError) throw recoveryError;
+      throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, recoveryError], "Admission policy original commit reconciliation failed", { cause: error }) });
+    }
+    throw error;
   }
 
   /** @param intent - Explicit first configuration, with no caller version/defaults. @returns Existing configuration unchanged, or version1 closed draft bound to the current messaging selection; never activates control. */

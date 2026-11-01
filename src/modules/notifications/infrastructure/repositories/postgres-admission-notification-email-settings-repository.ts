@@ -14,13 +14,14 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAdmissionVerificationReadinessReader } from "@/src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { VERIFICATION_EMAIL_CHANNEL } from "@/src/modules/messaging/constants/verification-delivery";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionNotificationEmailSettings } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationEmailSettingsChangePlan } from "../../domain/entities/admission-notification-email-settings";
-import type { AdmissionNotificationEmailSettingsCommand, AdmissionNotificationEmailSettingsRepository } from "../../domain/repositories/admission-notification-email-settings-repository";
+import type { AdmissionNotificationEmailSettingsCommand, AdmissionNotificationEmailSettingsCurrent, AdmissionNotificationEmailSettingsRepository } from "../../domain/repositories/admission-notification-email-settings-repository";
 import { planAdmissionNotificationEmailSettingsChange, resolveAdmissionNotificationEmailSettings } from "../../domain/policies/admission-notification-email-settings";
 import { admissionEmailSettingsChangeResultSchema } from "../../application/results/admission-email-settings-result-schemas";
 import { ADMISSION_EMAIL_SETTINGS_AUDIT, ADMISSION_EMAIL_SETTINGS_OPERATION, ADMISSION_EMAIL_SETTINGS_REJECTION, ADMISSION_EMAIL_SETTINGS_STATUS } from "../../constants/admission-notification-email-settings";
@@ -37,8 +38,13 @@ function mapSettings(row: SettingsRow): AdmissionNotificationEmailSettings {
 
 /** Separates read-only defaults, original confirmed outcomes and current tested email authority. */
 export class PostgresAdmissionNotificationEmailSettingsRepository implements AdmissionNotificationEmailSettingsRepository {
-  /** @param execute - Native current-user transaction executor. @param readSecurityConfig - Current local hosting configuration; never a provider call. */
-  constructor(private readonly execute: SettingsDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  /**
+   * @param execute - Native current-user transaction executor.
+   * @param readSecurityConfig - Current local hosting configuration; never a provider call.
+   * @param readPlatformSecurity - Runs, inside the authorized read transaction, the same hosting security checks the ledger runs before
+   * signing a change (import and enrolled proofs), without exposing keys; null when a change can be protected.
+   */
+  constructor(private readonly execute: SettingsDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly readPlatformSecurity: (database: RequestDatabase) => Promise<PlatformSecurityRequirement | null>) {}
 
   /** @param database - Original transaction. @param context - Server-resolved current native actor. @param mutate - Requires this settings action's own operation scope only when changing configuration. @returns After canonical leadership, session and academy checks. */
   private async authorize(database: RequestDatabase, context: AuthorizedAdmissionContext, mutate: boolean): Promise<void> {
@@ -66,15 +72,17 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
     return Boolean(result.channelPrepared && security && !current.recoveryLocked && security.environment === current.environment && security.securityEpoch === current.securityEpoch && current.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(security.credentialKeyId));
   }
 
-  /** @param context - Actual current leader/session and own tribe. @returns Read-only settings without credential, provider, ledger or initialization work. */
-  async get(context: AuthorizedAdmissionContext): Promise<AdmissionNotificationEmailSettings> {
+  /** @param context - Actual current leader/session and own tribe. @returns Read-only settings and the platform requirement that blocks changing them, without credential, provider, ledger or initialization work. */
+  async get(context: AuthorizedAdmissionContext): Promise<AdmissionNotificationEmailSettingsCurrent> {
     return this.execute(context, async (database) => {
       await this.authorize(database, context, false);
       const stored = await this.read(database, context.tribeId, false);
+      // Every change signs its original through the admission ledger; the leader learns before writing whether the platform can protect it.
+      const platformRequirement = await this.readPlatformSecurity(database);
       await this.authorize(database, context, false);
       const settings = resolveAdmissionNotificationEmailSettings(context.tribeId, stored);
       if (!settings) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      return settings;
+      return { settings, platformRequirement };
     });
   }
 

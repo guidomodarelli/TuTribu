@@ -82,9 +82,11 @@ function useConnectionsState(ready:ConnectionsReady|null){
 /** Every state of the connections route. */
 type ConnectionsState=ReturnType<typeof useConnectionsState>;
 
-/** @param ready - Server snapshot, when readable. @param state - Route state. @returns The candidate, provider channels, next action, shared block and the candidate whose key the Clave step can replace. */
+/** @param ready - Server snapshot, when readable. @param state - Route state. @returns The candidate, provider channels, next action, shared block (also while the platform cannot protect any write) and the candidate whose key the Clave step can replace. */
 function connectionsFacts(ready:ConnectionsReady|null,state:ConnectionsState){
   const leader=state.configuration?.audience===TRIBE_MEMBER_ROLE.leader?state.configuration:null,candidate=leader?.candidate??null;
+  /** Every write of this page waits for the TuTribu team while the current read reports a platform requirement. */
+  const platformBlocked=Boolean(leader?.platformRequirement);
   /** The candidate whose key the Clave step can replace: a separate candidate, never the selection the academy uses now. */
   const replaceable=candidate&&candidate.id!==leader?.selected?.id&&candidate.state!==MESSAGING_CONNECTION_STATE.disconnected?candidate:null;
   return{
@@ -92,7 +94,8 @@ function connectionsFacts(ready:ConnectionsReady|null,state:ConnectionsState){
     /** The single highlighted action, from the current own metadata at its observation time. */
     nextAction:leader?resolveMessagingConnectionsNextAction({...leader,observedAt:state.observedAt}):null,
     usage:leader?leader.usage:{state:"not_configured" as const,policy:null},
-    blocked:state.recoveryBusy||!ready||state.phase!==PHASE.idle||Boolean(state.pending)||state.needsCurrent,
+    platformBlocked,
+    blocked:state.recoveryBusy||!ready||state.phase!==PHASE.idle||Boolean(state.pending)||state.needsCurrent||platformBlocked,
     replaceable,replacementKey:replaceable?`${replaceable.id}:${replaceable.version}`:"",
   };
 }
@@ -118,10 +121,11 @@ type ConnectionsView=ReturnType<typeof connectionsFacts>&{
 };
 
 /** @param view - Route render facts. @returns The key and check form, with the Clave step reachable while a separate candidate key can be replaced. */
-function renderConnectionPanel({state,actions,replaceable,pendingAction,isBusy}:ConnectionsView){
-  const configuration=state.configuration as MessagingConfigurationResult,canSave=!state.pending&&!state.needsCurrent&&!isBusy;
-  const onReplaceKey=replaceable&&replaceable.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid?()=>{if(!isBusy)state.setCurrentStepId(messagingConnectionsStepId(STEP_KIND.key));}:undefined;
-  return<MessagingConnections configuration={configuration} name={state.name} apiKey={state.apiKey} confirmed={state.confirmed} busy={isBusy} saving={pendingAction===WRITE_ACTION.saveConnection} validating={pendingAction===WRITE_ACTION.validateCredential} canSave={canSave} validationAttempt={state.validationAttempt} validationConfirmed={state.validationConfirmed} canValidate={canSave&&state.validationConfirmed} fieldErrors={state.fieldErrors} onNameChange={(value)=>{state.setResumeConfirmed(false);state.setName(value);state.setFieldErrors((current)=>({...current,name:undefined}));}} focusKey={state.focusKey} onApiKeyChange={(value)=>{state.setResumeConfirmed(false);state.setFocusKey(false);state.setApiKey(value);state.setFieldErrors((current)=>({...current,apiKey:undefined}));}} onConfirmationChange={(value)=>{state.setConfirmed(value);state.setFieldErrors((current)=>({...current,confirmation:undefined}));}} onValidationConfirmationChange={(value)=>{state.setValidationConfirmed(value);}} onValidate={()=>{void actions.validate();}} onSave={()=>{void actions.save();}} onReplaceKey={onReplaceKey} />;
+function renderConnectionPanel({state,actions,replaceable,pendingAction,isBusy,platformBlocked}:ConnectionsView){
+  const configuration=state.configuration as MessagingConfigurationResult,canSave=!state.pending&&!state.needsCurrent&&!isBusy&&!platformBlocked;
+  // A key rejected by Zavu or sealed under a previous platform security is replaced from Clave; a proven current key is not.
+  const onReplaceKey=replaceable&&(replaceable.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid||!replaceable.securityCurrent)?()=>{if(!isBusy)state.setCurrentStepId(messagingConnectionsStepId(STEP_KIND.key));}:undefined;
+  return<MessagingConnections configuration={configuration} name={state.name} apiKey={state.apiKey} confirmed={state.confirmed} busy={isBusy||platformBlocked} saving={pendingAction===WRITE_ACTION.saveConnection} validating={pendingAction===WRITE_ACTION.validateCredential} canSave={canSave} validationAttempt={state.validationAttempt} validationConfirmed={state.validationConfirmed} canValidate={canSave&&state.validationConfirmed} fieldErrors={state.fieldErrors} onNameChange={(value)=>{state.setResumeConfirmed(false);state.setName(value);state.setFieldErrors((current)=>({...current,name:undefined}));}} focusKey={state.focusKey} onApiKeyChange={(value)=>{state.setResumeConfirmed(false);state.setFocusKey(false);state.setApiKey(value);state.setFieldErrors((current)=>({...current,apiKey:undefined}));}} onConfirmationChange={(value)=>{state.setConfirmed(value);state.setFieldErrors((current)=>({...current,confirmation:undefined}));}} onValidationConfirmationChange={(value)=>{state.setValidationConfirmed(value);}} onValidate={()=>{void actions.validate();}} onSave={()=>{void actions.save();}} onReplaceKey={onReplaceKey} />;
 }
 
 /** @param pending - Unresolved original. @param writingOriginal - Whether another write of the flow runs. @param notice - Persistent explanation. @param needsCurrent - Whether the configuration must be read again. @returns The explanation shown above the flow, if any. */
@@ -189,7 +193,7 @@ function renderStepContent(view:ConnectionsView,leader:LeaderConfiguration,step:
 /** @param view - Route render facts. @param leader - Current leader configuration. @returns The security section: lifecycle, preserved attempts and notification recovery. */
 function renderSecurity({ready,state,actions,lifecycleController,blockedActions,pendingAction,isBusy,recoveryBusyChanged}:ConnectionsView,leader:LeaderConfiguration){
   const catalog=ready.notificationCatalog;
-  return<><MessagingConnectionLifecycle connections={lifecycleController.connections} targetId={lifecycleController.targetId} retiring={lifecycleController.retiring} reason={lifecycleController.reason} confirmed={lifecycleController.confirmed} busy={blockedActions} acting={pendingAction===WRITE_ACTION.changeLifecycle} canAct={lifecycleController.canAct} onTarget={lifecycleController.targetChanged} onRetiring={lifecycleController.retiringChanged} onReason={lifecycleController.reasonChanged} onConfirm={lifecycleController.confirm} onAct={()=>{void lifecycleController.act();}} />{!state.pending&&state.history.length>0&&<MessagingConnectionsPreservedAttempts>{state.history.map((original)=><Button key={`${original.type}:${original.operationId}`} variant="secondary" size="sm" disabled={isBusy} onClick={()=>actions.restoreHistory(original)}>Consultar intento conservado</Button>)}</MessagingConnectionsPreservedAttempts>}<NotificationRecoveryContainer slug={ready.slug} viewerId={ready.viewerId} renderedAt={ready.renderedAt} initialCatalog={catalog?.status==="ready"?catalog.value:undefined} initialCatalogError={catalog?.status==="failed"?catalog.message:undefined} target={leader.selected} blocked={state.phase!==PHASE.idle||Boolean(state.pending)||state.needsCurrent} viewerVerified={state.phase!==PHASE.checking} verifyViewer={actions.checkViewer} onBusyChange={recoveryBusyChanged} /></>;
+  return<><MessagingConnectionLifecycle connections={lifecycleController.connections} targetId={lifecycleController.targetId} retiring={lifecycleController.retiring} reason={lifecycleController.reason} confirmed={lifecycleController.confirmed} busy={blockedActions} acting={pendingAction===WRITE_ACTION.changeLifecycle} canAct={lifecycleController.canAct} onTarget={lifecycleController.targetChanged} onRetiring={lifecycleController.retiringChanged} onReason={lifecycleController.reasonChanged} onConfirm={lifecycleController.confirm} onAct={()=>{void lifecycleController.act();}} />{!state.pending&&state.history.length>0&&<MessagingConnectionsPreservedAttempts>{state.history.map((original)=><Button key={`${original.type}:${original.operationId}`} variant="secondary" size="sm" disabled={isBusy} onClick={()=>actions.restoreHistory(original)}>Consultar intento conservado</Button>)}</MessagingConnectionsPreservedAttempts>}<NotificationRecoveryContainer slug={ready.slug} viewerId={ready.viewerId} renderedAt={ready.renderedAt} initialCatalog={catalog?.status==="ready"?catalog.value:undefined} initialCatalogError={catalog?.status==="failed"?catalog.message:undefined} target={leader.selected} platformRequirement={leader.platformRequirement} blocked={state.phase!==PHASE.idle||Boolean(state.pending)||state.needsCurrent} viewerVerified={state.phase!==PHASE.checking} verifyViewer={actions.checkViewer} onBusyChange={recoveryBusyChanged} /></>;
 }
 
 /** @param done - Whether the selection is already active. @param replacing - Whether a separate candidate would replace the selection. @returns The label of the final action. */
@@ -202,7 +206,7 @@ function finalActionLabel(done:boolean,replacing:boolean):string{
 function renderLeaderWorkspace(view:ConnectionsView,leader:LeaderConfiguration,connectionPanel:ReactNode){
   const{state,candidate,isBusy,pendingAction,diagnosticController,lifecycleController,activationController,actions}=view;
   const diagnosticHistory=<MessagingDiagnosticHistory references={state.diagnosticReferences} busy={isBusy||Boolean(state.pending)} onRead={(reference)=>{void actions.readIssued(reference);}} onClearEarlier={actions.clearEarlier} />;
-  const action=view.nextAction??resolveMessagingConnectionsNextAction({selected:leader.selected,candidate,usage:leader.usage,observedAt:state.observedAt});
+  const action=view.nextAction??resolveMessagingConnectionsNextAction({selected:leader.selected,candidate,usage:leader.usage,observedAt:state.observedAt,platformRequirement:leader.platformRequirement});
   const flow=resolveMessagingConnectionsFlow({selected:leader.selected,candidate,usage:leader.usage,observedAt:state.observedAt});
   // A step that left the flow (a channel reconfigured away) falls back to the step the next action points to.
   const actionStepId=messagingConnectionsActionStepId(action),foundIndex=flow.findIndex((step)=>step.id===state.currentStepId),currentIndex=foundIndex>=0?foundIndex:Math.max(0,flow.findIndex((step)=>step.id===actionStepId));
@@ -216,7 +220,7 @@ function renderLeaderWorkspace(view:ConnectionsView,leader:LeaderConfiguration,c
   const steps=flow.map((step,index)=>({id:step.id,title:step.title,description:step.description,content:index===currentIndex?renderStepContent(view,leader,step,{connectionPanel,activeNext:done}):null,blockedReason:step.blockedReason??(isBusy&&index===currentIndex?FLOW_COPY.busy:undefined)}));
   const replacing=Boolean(candidate&&leader.selected&&leader.selected.id!==candidate.id);
   const finalAction={label:finalActionLabel(done,replacing),loading:pendingAction===WRITE_ACTION.activateCandidate,disabled:done||!activationController.canActivate,onRun:()=>{void activationController.activate();}};
-  return<MessagingConnectionsWorkspace selected={leader.selected} candidate={candidate} nextAction={action} nextActionInView={actionInView} usageHref={`/${encodeURIComponent(view.ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} onNextAction={openNextAction} busy={isBusy} attention={renderAttention(view)} onReadCurrent={()=>{void actions.readCurrent();}} readingCurrent={state.readingCurrent} currentReadFailed={state.currentReadFailed} steps={steps} current={currentIndex} onCurrentChange={moveTo} finalAction={finalAction} recovery={diagnosticHistory} security={renderSecurity(view,leader)} securityOpen={state.securityOpen} onSecurityToggle={()=>state.setSecurityOpen((open)=>!open)} />;
+  return<MessagingConnectionsWorkspace selected={leader.selected} candidate={candidate} platformRequirement={leader.platformRequirement} nextAction={action} nextActionInView={actionInView} usageHref={`/${encodeURIComponent(view.ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} onNextAction={openNextAction} busy={isBusy} attention={renderAttention(view)} onReadCurrent={()=>{void actions.readCurrent();}} readingCurrent={state.readingCurrent} currentReadFailed={state.currentReadFailed} steps={steps} current={currentIndex} onCurrentChange={moveTo} finalAction={finalAction} recovery={diagnosticHistory} security={renderSecurity(view,leader)} securityOpen={state.securityOpen} onSecurityToggle={()=>state.setSecurityOpen((open)=>!open)} />;
 }
 
 /** Controllers of the guided steps, wired to the route operations. */
@@ -261,7 +265,7 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
   if(!ready||state.phase===PHASE.unavailable)return<AdmissionRouteError embedded {...resolveMessagingRouteRecovery(initialState.kind==="unavailable"?initialState.code:null,{pathname,search:searchParams?.toString()??""})} message={initialState.kind==="unavailable"?initialState.message:state.notice??COPY.viewerChanged} />;
   if(!state.configuration)return null;
   const pendingAction=state.phase===PHASE.writing?state.writingAction:null,isBusy=state.recoveryBusy||state.phase!==PHASE.idle;
-  const view:ConnectionsView={...facts,...controllers,ready,state,pendingAction,isBusy,blockedActions:isBusy||Boolean(state.pending)||state.needsCurrent};
+  const view:ConnectionsView={...facts,...controllers,ready,state,pendingAction,isBusy,blockedActions:isBusy||Boolean(state.pending)||state.needsCurrent||facts.platformBlocked};
   const connectionPanel=renderConnectionPanel(view);
   if(state.configuration.audience!==TRIBE_MEMBER_ROLE.leader)return connectionPanel;
   return renderLeaderWorkspace(view,state.configuration,connectionPanel);

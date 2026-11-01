@@ -10,7 +10,8 @@ import type { AdmissionNotificationEmailSettingsOperationResult, AdmissionNotifi
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionNotificationEmailSettingsCommandSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
-import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_LEADER_STEP_ORDER, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
+import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_LEADER_STEP_ORDER, ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_PREFERENCE_STATUS as PREFERENCE_STATUS } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_EMAIL_SETTINGS_STATUS as EMAIL_STATUS } from "@/src/modules/notifications/constants/admission-notification-email-settings";
@@ -31,6 +32,7 @@ export const REVIEW_STEP_INDEX = ADMISSION_NOTIFICATION_SETTINGS_LEADER_STEP_ORD
 /** Stable setters and refs of the settings container; their identity never changes between renders. */
 export type SettingsControls = {
   setPreference: (value: AdmissionNotificationPreferenceView) => void; setEmail: (value: AdmissionNotificationEmailSettingsView | null) => void;
+  setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void;
   setMode: (value: AdmissionNotificationPreferenceMode) => void; setDraft: (value: AdmissionNotificationEmailSettingsDraft) => void;
   setPhase: Dispatch<SetStateAction<SettingsPhase>>; setFresh: (value: boolean) => void; setPrivateVisible: (value: boolean) => void; setConfirmed: (value: boolean) => void;
   setHasPending: (value: boolean) => void; setCanRetry: (value: boolean) => void; setError: (value: string | null) => void; setStatus: (value: string | null) => void;
@@ -42,8 +44,21 @@ export type SettingsControls = {
 export type SettingsSession = { ready: SettingsReady; client: AdmissionNotificationSettingsBrowserClient; controls: SettingsControls };
 /** A session that can also reread current state after a replayed write. */
 export type SettingsWriter = SettingsSession & { readCurrent: (signal: AbortSignal, options?: ReadOptions) => Promise<boolean> };
-/** Values on screen when the leader asked to save. */
-export type SettingsSaveView = { preference: AdmissionNotificationPreferenceView | null; email: AdmissionNotificationEmailSettingsView | null; draft: AdmissionNotificationEmailSettingsDraft; mode: AdmissionNotificationPreferenceMode; confirmed: boolean; fresh: boolean; canRetry: boolean };
+/** Values on screen when the leader asked to save, with the platform requirement the last read reported. */
+export type SettingsSaveView = { preference: AdmissionNotificationPreferenceView | null; email: AdmissionNotificationEmailSettingsView | null; draft: AdmissionNotificationEmailSettingsDraft; mode: AdmissionNotificationPreferenceMode; confirmed: boolean; fresh: boolean; canRetry: boolean; platformRequirement: PlatformSecurityRequirement | null };
+/**
+ * Outcome of one write inside a chained save: confirmed; definitely rejected with nothing applied, so the other, independent write still
+ * runs (`checkByRead` asks a current read to decide what stays visible); or stopped (uncertain, cancelled, session lost, viewer changed),
+ * so nothing else runs.
+ */
+type SettingsWriteOutcome = { status: "saved" } | { status: "rejected"; checkByRead: boolean } | { status: "stopped" };
+/** Names each write outcome of a chained save. */
+const WRITE_STATUS = { saved: "saved", rejected: "rejected", stopped: "stopped" } as const satisfies Record<string, SettingsWriteOutcome["status"]>;
+const WRITE_SAVED: SettingsWriteOutcome = { status: WRITE_STATUS.saved }, WRITE_STOPPED: SettingsWriteOutcome = { status: WRITE_STATUS.stopped };
+/** @param code - Definite write rejection, or null for a business rejection inside a reply. @returns The rejected outcome, read again when the rejection depends on current access or the platform. */
+function rejectedWrite(code: AdmissionErrorCode | null): SettingsWriteOutcome {
+  return { status: WRITE_STATUS.rejected, checkByRead: code !== null && ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ.includes(code) };
+}
 
 /** Only the currently owned, uncancelled slot may apply asynchronous state or clear a stored original. @param controls - Stable controls. @param signal - Signal of the work. @returns Whether that work still owns the slot. */
 function isSlotCurrent(controls: SettingsControls, signal: AbortSignal): boolean {
@@ -56,9 +71,13 @@ function settledSettingsPhase(current: SettingsPhase, pending: AdmissionNotifica
   return pending ? PHASE.uncertain : PHASE.idle;
 }
 
-/** Hides previously authorized data after current authority is denied, preserving inaccessible original storage. @param controls - Stable controls. @param code - Failure code. @param message - Safe message. @returns Whether the failure was a lost authority. */
-function hideInaccessibleSettings(controls: SettingsControls, code: AdmissionErrorCode, message: string): boolean {
-  if (code !== ADMISSION_ERROR_CODE.authenticationRequired && code !== ADMISSION_ERROR_CODE.permissionDenied && code !== ADMISSION_ERROR_CODE.resourceUnavailable) return false;
+/**
+ * Hides previously authorized data after a write finds the session gone, preserving the original for the account that sent it. A denied
+ * or unavailable resource does not hide anything by itself: a current read decides it (see {@link ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ}).
+ * @param controls - Stable controls. @param code - Failure code. @param message - Safe message. @returns Whether the failure was a lost session.
+ */
+function hideAfterSessionLoss(controls: SettingsControls, code: AdmissionErrorCode, message: string): boolean {
+  if (code !== ADMISSION_ERROR_CODE.authenticationRequired) return false;
   controls.setPrivateVisible(false); controls.setFresh(false); controls.setConfirmed(false); controls.setCanRetry(false);
   controls.setStatus(null); controls.setProgress(null); controls.setError(message);
   return true;
@@ -127,6 +146,8 @@ async function recoverEmailOriginal(session: SettingsSession, original: Admissio
   const result = await client.operation(ready.slug, original.operationId, signal);
   if (result.status === STATUS.aborted || !await isReplyCurrent(session, signal)) return { stop: true };
   if (result.status !== STATUS.ready) {
+    // A registered original the platform cannot verify yet stays pending, like a started one; it never hides the personal preference.
+    if (result.code === ADMISSION_ERROR_CODE.operationUnresolved) { controls.setCanRetry(true); controls.setError(COPY.originalStarted); return { stop: false, recovered: false, succeeded: false }; }
     if (result.code !== ADMISSION_ERROR_CODE.resourceUnavailable) { controls.setPrivateVisible(false); controls.setError(result.message); return { stop: true }; }
     controls.setCanRetry(true); controls.setError(COPY.originalAbsent);
     return { stop: false, recovered: false, succeeded: false };
@@ -161,14 +182,16 @@ async function readCurrentEmail(session: SettingsSession, signal: AbortSignal, r
   if (currentEmail.status === STATUS.aborted || !await isReplyCurrent(session, signal)) return false;
   if (currentEmail.status === STATUS.failed) { controls.setPrivateVisible(false); controls.setError(currentEmail.message); return false; }
   if (!await acceptSettingsResult(session, currentEmail.value, signal) || !isSlotCurrent(controls, signal)) return false;
-  const initializeDraft = !controls.hasEmailView.current; controls.hasEmailView.current = true; controls.setEmail(currentEmail.value.data);
-  if (resetDraft || initializeDraft && !controls.pending.current) resetSettingsEmailDraft(controls, currentEmail.value.data);
+  const { settings, platformRequirement } = currentEmail.value.data;
+  const initializeDraft = !controls.hasEmailView.current; controls.hasEmailView.current = true; controls.setEmail(settings); controls.setPlatformRequirement(platformRequirement);
+  // While the platform cannot protect a change the fields cannot be edited, so they follow what is saved (a retained original keeps its own values).
+  if (resetDraft || (initializeDraft || platformRequirement !== null) && !controls.pending.current) resetSettingsEmailDraft(controls, settings);
   return true;
 }
 
 /** Retains inaccessible privileged storage for its original account; personal preferences remain independent. @param controls - Stable controls. @returns Nothing after showing only the personal preference. */
 function showPreferenceOnly(controls: SettingsControls): void {
-  rememberSettingsIntent(controls, null); controls.loaded.current = false; controls.hasEmailView.current = false; controls.setEmail(null);
+  rememberSettingsIntent(controls, null); controls.loaded.current = false; controls.hasEmailView.current = false; controls.setEmail(null); controls.setPlatformRequirement(null);
   controls.setPrivateVisible(true); controls.setFresh(true);
 }
 
@@ -195,61 +218,68 @@ export async function readSettingsCurrent(session: SettingsSession, signal: Abor
   finally { if (isSlotCurrent(controls, signal)) controls.setPhase((current) => settledSettingsPhase(current, controls.pending.current)); }
 }
 
-/** @param session - Current route session. @param result - Failed email write. @returns Nothing after explaining it; a definite failure releases the original so the same save can run again. */
-function failEmailWrite({ ready, controls }: SettingsSession, result: { code: AdmissionErrorCode; message: string; uncertain: boolean }): void {
-  if (hideInaccessibleSettings(controls, result.code, result.message)) return;
+/**
+ * @param session - Current route session. @param result - Failed email write.
+ * @returns The write outcome after explaining it. Only a lost session, a legacy session-change answer or an uncertain reply keep the original;
+ * a definite rejection (a platform requirement included) registered nothing, so the original is released and never offered again.
+ */
+function failEmailWrite({ ready, controls }: SettingsSession, result: { code: AdmissionErrorCode; message: string; uncertain: boolean }): SettingsWriteOutcome {
+  if (hideAfterSessionLoss(controls, result.code, result.message)) return WRITE_STOPPED;
   controls.setError(result.message);
-  if (result.code === ADMISSION_ERROR_CODE.reauthenticationRequired) { controls.setCanRetry(true); controls.setFresh(true); }
-  // A definite failure applied nothing: the original is released and the same save can run again.
-  else if (!result.uncertain) { writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); rememberSettingsIntent(controls, null); controls.setFresh(true); }
+  // The legacy session-change answer is resent with the same reference once the leader confirms again.
+  if (result.code === ADMISSION_ERROR_CODE.reauthenticationRequired) { controls.setCanRetry(true); controls.setFresh(true); return WRITE_STOPPED; }
+  if (result.uncertain) return WRITE_STOPPED;
+  writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); rememberSettingsIntent(controls, null); controls.setFresh(true);
+  return rejectedWrite(result.code);
 }
 
-/** @param writer - Current route session. @param operation - Terminal email operation. @param signal - Current write. @returns Whether the tribe email is confirmed saved, after releasing the original. */
-async function applyEmailTerminal(writer: SettingsWriter, operation: Extract<AdmissionNotificationEmailSettingsOperationResult, { state: "completed" }>, signal: AbortSignal): Promise<boolean> {
+/** @param writer - Current route session. @param operation - Terminal email operation. @param signal - Current write. @returns The write outcome after releasing the original: saved, a business rejection, or stopped when the replay's current read did not complete. */
+async function applyEmailTerminal(writer: SettingsWriter, operation: Extract<AdmissionNotificationEmailSettingsOperationResult, { state: "completed" }>, signal: AbortSignal): Promise<SettingsWriteOutcome> {
   const { ready, controls } = writer, terminal = operation.result;
   writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); rememberSettingsIntent(controls, null);
-  if (terminal.status === EMAIL_STATUS.rejected) { const message = ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY[terminal.reason]; controls.setError(message); toast.error(message); return false; }
+  if (terminal.status === EMAIL_STATUS.rejected) { const message = ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY[terminal.reason]; controls.setError(message); toast.error(message); return rejectedWrite(null); }
   // A replay answers with historical settings; only an independent current read may update the fields.
-  if (operation.replayed) return await writer.readCurrent(signal, { resetEmailDraft: true }) && isSlotCurrent(controls, signal);
+  if (operation.replayed) return await writer.readCurrent(signal, { resetEmailDraft: true }) && isSlotCurrent(controls, signal) ? WRITE_SAVED : WRITE_STOPPED;
   controls.setEmail(terminal.settings); resetSettingsEmailDraft(controls, terminal.settings);
-  return true;
+  return WRITE_SAVED;
 }
 
-/** Persists before transport and retains the same original body through uncertainty or a legacy session-change answer. @param writer - Current route session. @param input - Original command. @param signal - Current write. @returns Whether the tribe email is confirmed saved. */
-async function writeEmailSettings(writer: SettingsWriter, input: AdmissionNotificationEmailSettingsCommand, signal: AbortSignal): Promise<boolean> {
+/** Persists before transport and retains the same original body through uncertainty or a legacy session-change answer. @param writer - Current route session. @param input - Original command. @param signal - Current write. @returns Whether the tribe email was saved, definitely rejected or stopped. */
+async function writeEmailSettings(writer: SettingsWriter, input: AdmissionNotificationEmailSettingsCommand, signal: AbortSignal): Promise<SettingsWriteOutcome> {
   const { ready, client, controls } = writer;
   let dispatched = false;
   try {
     writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, input); rememberSettingsIntent(controls, input); dispatched = true;
     const result = await client.changeEmail(ready.slug, input, signal);
-    if (result.status === STATUS.aborted || !await isReplyCurrent(writer, signal)) return false;
-    if (result.status === STATUS.failed) { failEmailWrite(writer, result); return false; }
-    if (!await acceptSettingsResult(writer, result.value, signal) || !isSlotCurrent(controls, signal)) return false;
-    if (result.value.data.state === OPERATION_STATE.started) { controls.setError(COPY.uncertain); toast.info(COPY.uncertain); return false; }
+    if (result.status === STATUS.aborted || !await isReplyCurrent(writer, signal)) return WRITE_STOPPED;
+    if (result.status === STATUS.failed) return failEmailWrite(writer, result);
+    if (!await acceptSettingsResult(writer, result.value, signal) || !isSlotCurrent(controls, signal)) return WRITE_STOPPED;
+    if (result.value.data.state === OPERATION_STATE.started) { controls.setError(COPY.uncertain); toast.info(COPY.uncertain); return WRITE_STOPPED; }
     return await applyEmailTerminal(writer, result.value.data, signal);
   } catch {
     if (isSlotCurrent(controls, signal)) { if (!dispatched) controls.loaded.current = false; controls.setError(dispatched ? COPY.uncertain : COPY.storageFailed); }
-    return false;
+    return WRITE_STOPPED;
   }
 }
 
-/** Saves only the current recipient's CAS choice; lost replies require a read instead of an automatic retry. @param session - Current route session. @param change - Preference change. @param signal - Current write. @returns Whether the preference is confirmed saved. */
-async function writePreferenceSettings(session: SettingsSession, change: AdmissionNotificationPreferenceChange, signal: AbortSignal): Promise<boolean> {
+/** Saves only the current recipient's CAS choice; lost replies require a read instead of an automatic retry. @param session - Current route session. @param change - Preference change. @param signal - Current write. @returns Whether the preference was saved, definitely rejected or stopped. */
+async function writePreferenceSettings(session: SettingsSession, change: AdmissionNotificationPreferenceChange, signal: AbortSignal): Promise<SettingsWriteOutcome> {
   const { ready, client, controls } = session;
   try {
     const result = await client.changePreference(ready.slug, change, signal);
-    if (result.status === STATUS.aborted || !await isReplyCurrent(session, signal)) return false;
+    if (result.status === STATUS.aborted || !await isReplyCurrent(session, signal)) return WRITE_STOPPED;
     if (result.status === STATUS.failed) {
-      if (hideInaccessibleSettings(controls, result.code, result.message)) return false;
+      if (hideAfterSessionLoss(controls, result.code, result.message)) return WRITE_STOPPED;
       controls.setError(result.uncertain ? COPY.preferenceUncertain : result.message);
-      if (!result.uncertain) controls.setFresh(true);
-      return false;
+      if (result.uncertain) return WRITE_STOPPED;
+      controls.setFresh(true);
+      return rejectedWrite(result.code);
     }
-    if (!await acceptSettingsResult(session, result.value, signal) || !isSlotCurrent(controls, signal)) return false;
-    if (result.value.data.status === PREFERENCE_STATUS.rejected) { controls.setError(COPY.preferenceConflict); toast.error(COPY.preferenceConflict); return false; }
+    if (!await acceptSettingsResult(session, result.value, signal) || !isSlotCurrent(controls, signal)) return WRITE_STOPPED;
+    if (result.value.data.status === PREFERENCE_STATUS.rejected) { controls.setError(COPY.preferenceConflict); toast.error(COPY.preferenceConflict); return rejectedWrite(null); }
     controls.setPreference(result.value.data.preference); controls.setMode(result.value.data.preference.mode); controls.modeEdited.current = false;
-    return true;
-  } catch { if (isSlotCurrent(controls, signal)) controls.setError(COPY.preferenceUncertain); return false; }
+    return WRITE_SAVED;
+  } catch { if (isSlotCurrent(controls, signal)) controls.setError(COPY.preferenceUncertain); return WRITE_STOPPED; }
 }
 
 /** @param controls - Stable controls. @param view - Values on screen. @param emailPlan - What the save does with the tribe email. @returns The email command to write, null when nothing changes, or undefined when the draft is invalid. */
@@ -260,27 +290,57 @@ function emailCommandFor(controls: SettingsControls, { email, draft }: SettingsS
   return parsed.success ? parsed.data : undefined;
 }
 
-/** @param writer - Current route session. @param emailInput - Email command, if any. @param preferenceChange - Preference change, if any. @param signal - Current write. @returns Whether every planned write was confirmed, after reporting what stayed saved. */
-async function runSettingsWrites(writer: SettingsWriter, emailInput: AdmissionNotificationEmailSettingsCommand | null, preferenceChange: AdmissionNotificationPreferenceChange | null, signal: AbortSignal): Promise<boolean> {
-  const { controls } = writer;
-  if (emailInput) {
-    controls.setSaving(SAVE_STEP.email);
-    if (!await writeEmailSettings(writer, emailInput, signal)) { if (preferenceChange && isSlotCurrent(controls, signal)) controls.setProgress(COPY.preferencePending); return false; }
-  }
-  if (preferenceChange) {
-    controls.setSaving(SAVE_STEP.preference); controls.setPhase(PHASE.writing);
-    if (!await writePreferenceSettings(writer, preferenceChange, signal)) { if (emailInput && isSlotCurrent(controls, signal)) controls.setProgress(COPY.emailSavedPreferencePending); return false; }
-  }
-  return true;
+/** @param outcome - Outcome of a write that ran, or null when it was not planned. @returns Whether it was not planned or confirmed saved. */
+function isSavedOrSkipped(outcome: SettingsWriteOutcome | null): boolean {
+  return outcome === null || outcome.status === WRITE_STATUS.saved;
 }
 
-/** Writes only what changed, the tribe email first, in one request slot; a failure reports what stayed saved and stops the chain. @param writer - Current route session. @param view - Values on screen. @returns Nothing after the save settles. */
+/** @param outcome - Outcome of a write that ran, or null. @returns Whether a current read must decide what stays visible after it. */
+function isCheckedByRead(outcome: SettingsWriteOutcome | null): boolean {
+  return outcome?.status === WRITE_STATUS.rejected && outcome.checkByRead;
+}
+
+/** @param email - Outcome of the tribe email write, if planned. @param preference - Outcome of the preference write, if planned. @returns What stayed saved after a partial save, or null when there is nothing to add. */
+function partialSaveProgress(email: SettingsWriteOutcome | null, preference: SettingsWriteOutcome | null): string | null {
+  if (!email || !preference) return null;
+  if (email.status === WRITE_STATUS.saved) return preference.status === WRITE_STATUS.saved ? null : COPY.emailSavedPreferencePending;
+  return preference.status === WRITE_STATUS.saved ? COPY.preferenceSavedEmailFailed : COPY.emailNotSaved;
+}
+
+/**
+ * Writes the tribe email first and then the independent personal preference. An uncertain or interrupted email stops the chain (its
+ * original must be consulted first); a definite email rejection applied nothing, so the preference still runs.
+ * @param writer - Current route session. @param emailInput - Email command, if any. @param preferenceChange - Preference change, if any. @param signal - Current write.
+ * @returns Whether every planned write was confirmed, after reporting what stayed saved and, for a rejection that depends on current access
+ * or the platform, reading the current state again.
+ */
+async function runSettingsWrites(writer: SettingsWriter, emailInput: AdmissionNotificationEmailSettingsCommand | null, preferenceChange: AdmissionNotificationPreferenceChange | null, signal: AbortSignal): Promise<boolean> {
+  const { controls } = writer;
+  let email: SettingsWriteOutcome | null = null, preference: SettingsWriteOutcome | null = null;
+  if (emailInput) {
+    controls.setSaving(SAVE_STEP.email);
+    email = await writeEmailSettings(writer, emailInput, signal);
+    if (email.status === WRITE_STATUS.stopped) { if (preferenceChange && isSlotCurrent(controls, signal)) controls.setProgress(COPY.preferencePending); return false; }
+  }
+  if (preferenceChange && isSlotCurrent(controls, signal)) {
+    controls.setSaving(SAVE_STEP.preference); controls.setPhase(PHASE.writing);
+    preference = await writePreferenceSettings(writer, preferenceChange, signal);
+  }
+  if (!isSlotCurrent(controls, signal)) return false;
+  const progress = partialSaveProgress(email, preference);
+  if (progress) controls.setProgress(progress);
+  // A denied, unavailable or platform-blocked write applied nothing: a current read decides what stays visible and names the requirement.
+  if (preference?.status !== WRITE_STATUS.stopped && (isCheckedByRead(email) || isCheckedByRead(preference))) { controls.setSaving(null); await writer.readCurrent(signal); }
+  return isSavedOrSkipped(email) && isSavedOrSkipped(preference);
+}
+
+/** Writes only what changed, the tribe email first, in one request slot; a failure reports what stayed saved, and only an uncertain email stops the independent preference. @param writer - Current route session. @param view - Values on screen. @returns Nothing after the save settles. */
 export async function saveNotificationSettings(writer: SettingsWriter, view: SettingsSaveView): Promise<void> {
-  const { controls } = writer, { preference, email, draft, mode, confirmed, fresh, canRetry } = view;
+  const { controls } = writer, { preference, email, draft, mode, confirmed, fresh, canRetry, platformRequirement } = view;
   if (!preference || !fresh || controls.busy.current) return;
   // Consent comes before a new operation id exists; a retained original keeps its own id.
   if (email !== null && !confirmed) return;
-  const emailPlan = emailPlanFor({ email, draft, pending: controls.pending.current !== null, canRetry });
+  const emailPlan = emailPlanFor({ email, draft, pending: controls.pending.current !== null, canRetry, platformBlocked: platformRequirement !== null });
   const preferenceChange = hasPreferenceChange(preference, mode) ? { mode, expectedVersion: preference.version } : null;
   const emailInput = emailCommandFor(controls, view, emailPlan);
   if (emailInput === undefined) { controls.setError(COPY.invalid); return; }

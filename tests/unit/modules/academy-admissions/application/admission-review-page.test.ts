@@ -14,7 +14,7 @@ function fixture() {
   const now = new Date("2026-10-07T03:00:00Z"), tribeId = randomUUID();
   const account: AuthenticatedAccount = { userId: "synthetic-reviewer", normalizedEmail: "reviewer@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T04:00:00Z") }, googleAccount: null, identityEvidence: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
-  const review = { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [], nextCursor: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: false, failure: { code: "resource_unavailable" } })) };
+  const review = { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [], nextCursor: null, platformRequirement: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: false, failure: { code: "resource_unavailable" } })) };
   const resolveTribe = { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) };
   const page = new GetAdmissionReviewPageUseCase(accounts, { review, resolveTribe }, () => now);
   return { accounts, account, tribeId, review, resolveTribe, page, query: { slug: "synthetic-academy", requestId: randomUUID() } };
@@ -33,7 +33,7 @@ describe("current reviewer SSR snapshot", () => {
   it("should expose one stable viewer-scoped snapshot without session, email, Google account or writer ports", async () => {
     const data = fixture();
     const result = await data.page.execute(data.query);
-    expect(result).toMatchObject({ ok: true, value: { kind: "ready", viewerId: data.account.userId, slug: data.query.slug, renderedAt: "2026-10-07T03:00:00.000Z", page: { items: [], nextCursor: null } } });
+    expect(result).toMatchObject({ ok: true, value: { kind: "ready", viewerId: data.account.userId, slug: data.query.slug, renderedAt: "2026-10-07T03:00:00.000Z", page: { items: [], nextCursor: null, platformRequirement: null } } });
     expect(JSON.stringify(result)).not.toContain(data.account.session.id);
     expect(JSON.stringify(result)).not.toContain(data.account.normalizedEmail);
     expect(data.review.list).toHaveBeenCalledTimes(1);

@@ -2,6 +2,7 @@
 
 import { ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_ORDER, ADMISSION_SETUP_STEP_STATUS, type AdmissionSetupStepId, type AdmissionSetupStepStatus } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT } from "@/src/modules/messaging/constants/messaging-usage";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Current facts of each settings area; `null` when that area could not be read for this viewer. */
 export type AdmissionSetupFacts = {
@@ -28,6 +29,11 @@ export type AdmissionSetupFacts = {
    * closed academy admissions mean the leader has to switch them on in academy management first.
    */
   activation?: { platformBlocked: boolean; admissionsClosed?: boolean } | null;
+  /**
+   * Platform security the rules read names: while it is missing or locked no admission write can be protected (rules, messaging,
+   * quotas, notices), so only the TuTribu team can let the leader continue.
+   */
+  platformSecurity?: PlatformSecurityRequirement | null;
 };
 
 export type AdmissionSetupStep = {
@@ -50,6 +56,11 @@ export type AdmissionSetupProgress = {
   required: number;
   /** First required step still pending, else the first optional one; `null` when nothing is left. */
   next: AdmissionSetupStepId | null;
+  /**
+   * One notice replaces every step action while the platform cannot protect admission writes; `rulesSaved` tells whether a
+   * draft or active rules exist, so the notice never mentions saved rules that do not exist.
+   */
+  platformSecurity: { requirement: PlatformSecurityRequirement; rulesSaved: boolean } | null;
 };
 
 /**
@@ -67,17 +78,21 @@ export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): Admiss
   const activated = policy.open || policy.paused;
   const draftRules = policy.exists && !activated;
   const connected = messaging?.connected ?? false;
+  const platformSecurity = facts.platformSecurity ?? null;
+  /** The single platform notice already explains why nothing can be opened; the opening step repeats no other block. */
+  const activation = platformSecurity ? null : facts.activation ?? null;
   const byId: Record<AdmissionSetupStepId, AdmissionSetupStep | null> = {
     rules: { id: ADMISSION_SETUP_STEP.rules, status: stepStatus(policy.exists, true), ...(draftRules ? { draft: true } : {}) },
     connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}) },
     usage: { id: ADMISSION_SETUP_STEP.usage, status: stepStatus(usageReady, needsMessaging), ...(lowNoticeQuota ? { lowNoticeQuota: true } : {}) },
-    open: { id: ADMISSION_SETUP_STEP.open, status: stepStatus(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...activationFlags(activated, facts.activation ?? null) },
+    open: { id: ADMISSION_SETUP_STEP.open, status: stepStatus(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...activationFlags(activated, activation) },
     notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(notifications !== null && notifications.emailEnabled && notifications.receivesEmail, false), ...(notifications?.emailEnabled && !notifications.receivesEmail ? { emailOmitted: true } : {}) },
   };
   const steps = ADMISSION_SETUP_STEP_ORDER.map((id) => byId[id]).filter((step): step is AdmissionSetupStep => step !== null);
   const requiredSteps = steps.filter((step) => isRequired(step.id, needsMessaging));
   const next = steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.pending) ?? steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.optional) ?? null;
-  return { steps, completed: requiredSteps.filter((step) => step.status === ADMISSION_SETUP_STEP_STATUS.done).length, required: requiredSteps.length, next: next?.id ?? null };
+  return { steps, completed: requiredSteps.filter((step) => step.status === ADMISSION_SETUP_STEP_STATUS.done).length, required: requiredSteps.length, next: next?.id ?? null,
+    platformSecurity: platformSecurity ? { requirement: platformSecurity, rulesSaved: policy.exists } : null };
 }
 
 /** @returns Whether the saved usage covers every quota the rules and notices need. */

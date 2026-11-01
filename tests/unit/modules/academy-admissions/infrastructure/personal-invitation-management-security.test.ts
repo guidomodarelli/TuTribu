@@ -7,6 +7,8 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareAllowlistManagement } from "@/tests/support/allowlist-management-database-fixture";
 import { PostgresPersonalInvitationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal invitation management security", () => {
   it("should deny old sensitive contexts and confirmed replay before keys after the session or canonical leadership is lost", async () => {
@@ -51,7 +53,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       const repository = new PostgresPersonalInvitationRepository((_context, run) => database.withContext(fixture.own, run), async () => security);
       const context = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation), action: "manage_invitations" as const };
       const input = { context, operationId: randomUUID(), confirmed: true as const, contact: { type: "email" as const, value: "recipient@example.test" }, internalName: "Material original", requiresAllowlist: false, allowlistExemptionAcknowledged: true };
-      await expect(repository.create(input)).rejects.toMatchObject({ code: "connection_incomplete" });
+      // A platform lock is a definitive platform rejection, not an incomplete academy connection: nothing is registered.
+      await expect(repository.create(input)).rejects.toMatchObject({ code: ADMISSION_ERROR_CODE.platformSecurityUnavailable, cause: expect.objectContaining({ code: MESSAGING_CRYPTO_ERROR.recoveryLocked }) });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]);
       });

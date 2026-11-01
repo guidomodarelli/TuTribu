@@ -10,10 +10,12 @@ import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_
 import { ADMISSION_POLICY_BLOCK_RESOLUTION, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON, ADMISSION_POLICY_FLOW_FAILURE_COPY, ADMISSION_POLICY_FLOW_STAGE_COPY, isAdmissionPolicyPlatformReason, type AdmissionPolicyBlockReason, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import styles from "./styles.module.scss";
 
-/** Requirements found when activating or resuming; the rules are already saved, so nothing chosen is lost. */
+/** Requirements found when a policy write was blocked, with what that write kept. */
 export type AdmissionPolicyActivationBlock = {
   message: string;
   note: string;
+  /** What the blocked write kept, read next to reasons only the TuTribu team can resolve; never claims a save that did not happen. */
+  platformNote: string;
   preflightReasons: AdmissionPreflightReason[];
   requirements: AdmissionPolicyActivationReason[];
 };
@@ -62,10 +64,10 @@ function BlockDestination({ reason, links, busy, rechecking, onReviewContact, on
 }
 
 /**
- * @param props - Platform reasons and recovery actions.
+ * @param props - Platform reasons, what the blocked write kept and recovery actions.
  * @returns The callout for reasons only the TuTribu team can resolve, with a copyable diagnostic code, a recheck and a report.
  */
-function PlatformBlock({ reasons, busy, rechecking, onRecheck }: { reasons: AdmissionPolicyBlockReason[]; busy: boolean; rechecking?: boolean; onRecheck?: () => void }) {
+function PlatformBlock({ reasons, note, busy, rechecking, onRecheck }: { reasons: AdmissionPolicyBlockReason[]; note: string; busy: boolean; rechecking?: boolean; onRecheck?: () => void }) {
   const [reportUnavailable, setReportUnavailable] = useState(false);
   /** @param reason - Internal reason, which is neither secret nor personal data. */
   const copy = async (reason: string) => {
@@ -74,7 +76,7 @@ function PlatformBlock({ reasons, busy, rechecking, onRecheck }: { reasons: Admi
   };
   return <div className={styles.PolicyActionFeedback__platform} role="group" aria-label={ADMISSION_POLICY_PLATFORM_COPY.title}>
     <p className={styles.PolicyActionFeedback__title}>{ADMISSION_POLICY_PLATFORM_COPY.title}</p>
-    <p className={styles.PolicyActionFeedback__note}>{ADMISSION_POLICY_PLATFORM_COPY.explanation}</p>
+    <p className={styles.PolicyActionFeedback__note}>{`${ADMISSION_POLICY_PLATFORM_COPY.explanation} ${note}`}</p>
     <ul className={styles.PolicyActionFeedback__reasons}>
       {reasons.map((reason) => <li key={reason}>
         <span className={styles.PolicyActionFeedback__reasonText}>{reasonCopy(reason)}</span>
@@ -109,7 +111,7 @@ export function PolicyActionFeedback(props: PolicyActionFeedbackProps) {
           <BlockDestination reason={reason} links={props.links} busy={props.busy} rechecking={props.rechecking} onReviewContact={props.onReviewContact}
             onRecheck={props.onRecheck} showRecheck={reason === firstRecheck && platformReasons.length === 0} /></li>)}
       </ul>}
-      {platformReasons.length > 0 && <PlatformBlock reasons={platformReasons} busy={props.busy} rechecking={props.rechecking} onRecheck={props.onRecheck} />}
+      {platformReasons.length > 0 && <PlatformBlock reasons={platformReasons} note={block.platformNote} busy={props.busy} rechecking={props.rechecking} onRecheck={props.onRecheck} />}
       <p className={styles.PolicyActionFeedback__note}>{block.note}</p>
     </section>}
     {props.errorMessage && <div role="alert" className={styles.PolicyActionFeedback__recovery}>

@@ -28,10 +28,10 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 /** Provides only own public reviewer data and transport outcomes. */
 function fixture(selected = true) {
   const request: AdmissionReviewDto = { id: requestId, status: "pending", version: 1, submittedAt: "2026-10-07T01:00:00Z", expiresAt: "2026-11-06T01:00:00Z", source: "common", needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: "synthetic-applicant", name: "Solicitante sintético" }, rawContact: "applicant@example.test", contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" }, evidence: { kind: "declared" }, eligibleActions: ["reject", "approve"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, applicantMessage: "Quiero participar." };
-  const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-07T01:00:00Z", filters: DEFAULT_ADMISSION_REVIEW_SELECTION, page: { items: [request], nextCursor: null }, selected: selected ? request : null };
+  const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-07T01:00:00Z", filters: DEFAULT_ADMISSION_REVIEW_SELECTION, page: { items: [request], nextCursor: null, platformRequirement: null }, selected: selected ? request : null };
   const client = {
     viewer: vi.fn<AdmissionReviewBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
-    reviewList: vi.fn<AdmissionReviewBrowserClient["reviewList"]>(async () => ({ status: "ready", value: { items: [request], nextCursor: null } })),
+    reviewList: vi.fn<AdmissionReviewBrowserClient["reviewList"]>(async () => ({ status: "ready", value: { items: [request], nextCursor: null, platformRequirement: null } })),
     reviewDetail: vi.fn<AdmissionReviewBrowserClient["reviewDetail"]>(async () => ({ status: "ready", value: request })),
     operation: vi.fn<AdmissionReviewBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
     decide: vi.fn<AdmissionReviewBrowserClient["decide"]>(async () => ({ status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } })),
@@ -73,7 +73,7 @@ describe("visible reviewer inbox refresh", () => {
   it.each([false, true])("should reconcile the server age highlight in the visible inbox or detail %s without another timer or route refresh", async (selected) => {
     const data = fixture(selected);
     const highlighted = { ...data.request, pendingAgeThresholdReached: true };
-    data.client.reviewList.mockResolvedValueOnce({ status: "ready", value: { items: [highlighted], nextCursor: null } });
+    data.client.reviewList.mockResolvedValueOnce({ status: "ready", value: { items: [highlighted], nextCursor: null, platformRequirement: null } });
     data.client.reviewDetail.mockResolvedValueOnce({ status: "ready", value: highlighted });
     await act(async () => { render(data.node, { wrapper: Providers }); });
     expect(screen.queryByText("Pendiente hace tres días o más")).not.toBeInTheDocument();
@@ -91,7 +91,7 @@ describe("visible reviewer inbox refresh", () => {
   it("should show a newly available pending request after fifteen seconds without refreshing the route", async () => {
     const data = fixture(false);
     const incoming = { ...data.request, id: "02d6f9d4-f47a-4eb6-bbae-7a82b7c3dace", applicant: { id: "synthetic-new-applicant", name: "Nueva persona solicitante" } };
-    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [incoming, data.request], nextCursor: null } });
+    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [incoming, data.request], nextCursor: null, platformRequirement: null } });
     await act(async () => { render(data.node, { wrapper: Providers }); });
     expect(screen.queryByText("Nueva persona solicitante")).not.toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
@@ -122,7 +122,7 @@ describe("visible reviewer inbox refresh", () => {
     data.state.filters = { ...DEFAULT_ADMISSION_REVIEW_SELECTION, limit: 1 };
     data.state.page.nextCursor = "own-second-page";
     let refreshed = false;
-    data.client.reviewList.mockImplementation(async (_slug, cursor) => ({ status: "ready", value: cursor ? { items: [older], nextCursor: null } : { items: [{ ...data.request, applicant: { ...data.request.applicant, name: refreshed ? "Nombre actualizado" : data.request.applicant.name } }], nextCursor: "own-second-page" } }));
+    data.client.reviewList.mockImplementation(async (_slug, cursor) => ({ status: "ready", value: cursor ? { items: [older], nextCursor: null, platformRequirement: null } : { items: [{ ...data.request, applicant: { ...data.request.applicant, name: refreshed ? "Nombre actualizado" : data.request.applicant.name } }], nextCursor: "own-second-page", platformRequirement: null } }));
     await act(async () => { render(data.node, { wrapper: Providers }); });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore })));
     expect(screen.getByText("Persona de la segunda página")).toBeVisible();
@@ -174,7 +174,7 @@ describe("visible reviewer inbox refresh", () => {
     expect(data.client.reviewList).toHaveBeenCalledTimes(1);
     expect(screen.queryByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).not.toBeInTheDocument();
     expect(transport.mock.calls.map(([input]) => String(input))).toEqual(["/api/notifications", "/api/notifications"]);
-    await act(async () => currentPage.resolve({ status: "ready", value: { items: [], nextCursor: null } }));
+    await act(async () => currentPage.resolve({ status: "ready", value: { items: [], nextCursor: null, platformRequirement: null } }));
     expect(data.client.decide).not.toHaveBeenCalled();
     expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -403,7 +403,7 @@ describe("native reviewer container", () => {
 
   it("should advance an empty scanned page with the same applied filters and preserve that selection after opening and closing detail", async () => {
     const data = fixture(false), cursor = "opaque-own-continuation";
-    data.state.page = { items: [], nextCursor: cursor };
+    data.state.page = { items: [], nextCursor: cursor, platformRequirement: null };
     data.state.filters = { limit: 25, status: "pending", source: "common", needsVerification: false, requiresExceptionReason: false, search: "Solicitante" };
     render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore })).toBeEnabled());
@@ -454,7 +454,7 @@ describe("native reviewer container", () => {
     data.state.page.items = [data.request, second];
     let decided = false;
     data.client.decide.mockImplementation(async () => { decided = true; return { status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } }; });
-    data.client.reviewList.mockImplementation(async () => ({ status: "ready", value: { items: [decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request, second], nextCursor: null } }));
+    data.client.reviewList.mockImplementation(async () => ({ status: "ready", value: { items: [decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request, second], nextCursor: null, platformRequirement: null } }));
     data.client.reviewDetail.mockImplementation(async (_slug, id) => {
       if (id === secondId) return { status: "ready", value: second };
       return { status: "ready", value: decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request };

@@ -3,6 +3,8 @@ import "server-only";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { ResolveAdmissionContextUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { createIdentityBoundExecutor } from "@/src/modules/academy-admissions/infrastructure/composition/identity-bound-executor";
 import { AdmissionNotificationPreferencesUseCases } from "./application/use-cases/admission-notification-preferences-use-cases";
 import { AdmissionNotificationEmailSettingsUseCases } from "./application/use-cases/admission-notification-email-settings-use-cases";
@@ -83,14 +85,15 @@ export function buildNotificationsModule(
 /**
  * Composes independent own preferences and leader email settings under the existing guarded executor.
  * @param dependencies - Native current-account provider and transaction owner; no browser authority is accepted.
- * @param options - Admission-owned current resolver and lazily read server security for explicit email mutations only.
+ * @param options - Admission-owned current resolver, lazily read server security for explicit email mutations only, and the read of the
+ * platform requirement that runs inside the leader's email read transaction.
  * @returns Explicit read/write use cases without a provider client, dispatcher or implicit settings initialization.
  */
-export function buildAdmissionNotificationSettingsModule(dependencies: AuthenticatedFeatureDependencies, options: { resolver: Pick<ResolveAdmissionContextUseCase, "execute">; readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+export function buildAdmissionNotificationSettingsModule(dependencies: AuthenticatedFeatureDependencies, options: { resolver: Pick<ResolveAdmissionContextUseCase, "execute">; readSecurityConfig: () => Promise<MessagingSecurityConfig>; readPlatformSecurity: (database: RequestDatabase) => Promise<PlatformSecurityRequirement | null> }) {
   const execute = createIdentityBoundExecutor(dependencies);
   const useCases = {
     preferences: new AdmissionNotificationPreferencesUseCases(options.resolver, new PostgresAdmissionNotificationPreferenceRepository(execute)),
-    email: new AdmissionNotificationEmailSettingsUseCases(options.resolver, new PostgresAdmissionNotificationEmailSettingsRepository(execute, options.readSecurityConfig)),
+    email: new AdmissionNotificationEmailSettingsUseCases(options.resolver, new PostgresAdmissionNotificationEmailSettingsRepository(execute, options.readSecurityConfig, options.readPlatformSecurity)),
   };
   return { useCases, createPage: (resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) => new GetAdmissionNotificationSettingsPageUseCase(dependencies.accounts, { ...useCases, resolveTribe }, dependencies.clock) };
 }

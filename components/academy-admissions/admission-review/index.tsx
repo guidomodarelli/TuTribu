@@ -3,6 +3,8 @@ import { ArrowLeftIcon } from "lucide-react";
 import { useId, type ReactNode, type Ref } from "react";
 import { Badge, Button, Checkbox, EmptyState, type BadgeTone } from "@golfo/ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY, ADMISSION_REVIEW_STATUS_LABEL, ADMISSION_REVIEW_SOURCE_LABEL, ADMISSION_REVIEW_PENDING_ACTION, type AdmissionReviewPendingAction } from "@/src/modules/academy-admissions/constants/admission-review-ui";
@@ -26,6 +28,8 @@ export type AdmissionReviewProps = {
   batch?: ReactNode;
   recovery?: ReactNode;
   batchSelection?: { ids: ReadonlySet<string>; disabled: boolean; onToggle: (id: string, checked: boolean) => void };
+  /** Why the platform cannot protect a decision now, as the last inbox read reported it; while present the inbox explains it and offers no decision. */
+  platformRequirement?: PlatformSecurityRequirement | null;
   historyHref?: string;
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
   /** `busy` covers reads, writes and navigation; `pendingAction` names only the write the reviewer pressed. */
@@ -72,6 +76,7 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
   // A retry keeps its recovery controls mounted so the pressed retry shows progress instead of disappearing.
   const retrying = props.pendingAction === ADMISSION_REVIEW_PENDING_ACTION.retry, recovering = props.uncertain || retrying, reading = props.busy && !props.pendingAction;
   return <div className={styles.AdmissionReview}>
+    {props.platformRequirement && <PlatformSecurityNotice requirement={props.platformRequirement} consequence={ADMISSION_REVIEW_UI_COPY.platformConsequence} />}
     {!selected && props.filters}
     <div className={styles.AdmissionReview__toolbar}>
       {selected && <Button variant="ghost" size="sm" onClick={props.onClose} disabled={props.busy || props.uncertain}><ArrowLeftIcon className={styles.AdmissionReview__backIcon} aria-hidden="true" />{ADMISSION_REVIEW_UI_COPY.close}</Button>}

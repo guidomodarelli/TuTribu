@@ -1,7 +1,9 @@
 import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
-import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts, isMessagingHostingSecurityConfigured } from "./messaging/infrastructure/config/messaging-hosting-security";
+import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts, readMessagingHostingPlatformRequirement } from "./messaging/infrastructure/config/messaging-hosting-security";
+import { PLATFORM_SECURITY_REQUIREMENT } from "./shared/constants/platform-security";
+
 import { buildTribesModule, buildTribeMembershipLifecycleModule, buildTribeLifecycleModule } from "./tribes/setup";
 import { TribeLifecycleError } from "./tribes/domain/errors/tribe-lifecycle-error";
 import { TRIBE_LIFECYCLE_ERROR } from "./tribes/constants/tribe-lifecycle";
@@ -23,6 +25,7 @@ import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/reposito
 import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
 import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository";
 import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter, createAdmissionScopeClosureWriter } from "./academy-admissions/setup";
+import { createAdmissionPlatformSecurityReader } from "./academy-admissions/infrastructure/composition/admission-platform-security";
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import { buildMessagingModule, buildMessagingWorkModule, buildAdmissionMessagingMaintenanceModule } from "./messaging/setup";
@@ -114,6 +117,23 @@ import { CloudflareImagesSitepingScreenshotStorage } from "./siteping/infrastruc
 import { PostgresSitepingFeedbackRepository } from "./siteping/infrastructure/repositories/postgres-siteping-feedback-repository";
 
 /**
+ * One definition of "the platform cannot protect admissions" for public reads: the same hosting settings the writers sign with
+ * (missing, unusable or locked), so the entry never offers a form, a code or an account change that every write would reject.
+ * @returns Whether new admission work is closed by the platform.
+ */
+async function isAdmissionPlatformClosed(): Promise<boolean> {
+  return (await readMessagingHostingPlatformRequirement()) !== null;
+}
+
+/**
+ * The preflight names an explicit platform recovery lock only; unconfigured security is named by the rules read as its own requirement.
+ * @returns Whether the hosting security is configured and locked for recovery.
+ */
+async function isAdmissionPlatformRecoveryLocked(): Promise<boolean> {
+  return (await readMessagingHostingPlatformRequirement()) === PLATFORM_SECURITY_REQUIREMENT.recoveryLocked;
+}
+
+/**
  * Correlation id used by infrastructure loggers when the caller did not
  * propagate one for the current request.
  */
@@ -138,7 +158,7 @@ function createAuthenticatedRequestDependencies(databaseClient: RequestScopedDat
  * @returns Canonical academy tribe routing, read without session identity.
  */
 function createAcademyRequestRouting(admission: ReturnType<typeof buildAcademyAdmissionsModule>, databaseClient: RequestScopedDatabaseClient) {
-  return admission.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  return admission.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: isAdmissionPlatformClosed }).useCases;
 }
 type RequestModuleContextOverrides = {
   databaseConnectionUsage?: DatabaseConnectionUsage;
@@ -271,7 +291,7 @@ function buildRequestTribesModule({
   requestId: string | undefined;
 }) {
   return buildTribesModule({
-    academyAdmissionEntry: academyAdmissions.createAcademyEntryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig() }),
+    academyAdmissionEntry: academyAdmissions.createAcademyEntryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: isAdmissionPlatformClosed, readSecurityConfig: () => readMessagingHostingSecurityConfig() }),
     tribeAcademyAdmissionRepository: new PostgresTribeAcademyAdmissionRepository(
       executeWithRequestContext
     ),
@@ -603,17 +623,18 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
   const databaseClient = await createServerDatabaseClient(usage);
   const admissionModule = buildAcademyAdmissionsModule(createAuthenticatedRequestDependencies(databaseClient));
   const manualModule = admissionModule.createManualRequestModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime, async () => readMessagingHostingSecurityFacts().recoveryLocked) });
+  const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime, isAdmissionPlatformRecoveryLocked) });
   const queryModule = createAcademyRequestRouting(admissionModule, databaseClient);
   // The rules page evaluates the same preparation as the activation, so a denied activation can name what is missing.
-  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: policyModule.composePreparation, isSecurityConfigured: isMessagingHostingSecurityConfigured });
+  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: policyModule.composePreparation, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
   return {
     queries: queryModule,
     policyQuery: policyQueryModule.useCases,
     policyPage: policyQueryModule.createPage(queryModule.resolveTribe),
     policyCommands: policyModule.useCases,
-    policyPreflight: admissionModule.createPreflightModule({ runtime: manualModule.runtime, readRecoveryLock: async () => readMessagingHostingSecurityFacts().recoveryLocked }).useCases,
-    reviews: admissionModule.createReviewQueryModule({ readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases,
+    policyPreflight: admissionModule.createPreflightModule({ runtime: manualModule.runtime, readRecoveryLock: isAdmissionPlatformRecoveryLocked }).useCases,
+    // The inbox closes with the decision writers' own rule: the hosting security they sign with, attested in the reviewer transaction.
+    reviews: admissionModule.createReviewQueryModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCases,
     observations: admissionModule.createActivityQueryModule().useCases,
     manual: manualModule.useCases,
   };
@@ -626,7 +647,7 @@ export async function createAllowlistRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const resolveTribe = createAcademyRequestRouting(admissionModule, databaseClient).resolveTribe;
   const allowlist = admissionModule.createAllowlistModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  const policyQuery = admissionModule.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: isMessagingHostingSecurityConfigured });
+  const policyQuery = admissionModule.createPolicyQueryModule({ composePreparation: null, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
   return { resolveTribe, allowlist: allowlist.useCases, imports: allowlist.imports, page: allowlist.createPage(resolveTribe, policyQuery.useCases), policyPage: policyQuery.createPage(resolveTribe) };
 }
 /** @returns Only personal preview over the guarded backend connection, without provider calls or caller-selected identity. */
@@ -644,13 +665,14 @@ export async function createPersonalInvitationManagementRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const resolveTribe = createAcademyRequestRouting(admissionModule, databaseClient).resolveTribe;
   const personal = admissionModule.createPersonalInvitationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  const policy = admissionModule.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: isMessagingHostingSecurityConfigured });
+  const policy = admissionModule.createPolicyQueryModule({ composePreparation: null, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
   return { resolveTribe, invitations: personal.useCases, publicOrigin: resolvePublicAppBaseUrl, page: personal.createPage(resolveTribe, policy.useCases) };
 }
 /** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */
 export async function createMessagingUsageRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
   const { dependencies, routing } = await openRoutedMessagingRequest(usage);
-  const usageModule = buildMessagingModule(dependencies).createUsageModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  // The page shows, from its own read, whether the ledger can protect a save, with the same checks a save runs.
+  const usageModule = buildMessagingModule(dependencies).createUsageModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), readPlatformRequirement: createAdmissionPlatformSecurityReader(() => readMessagingHostingSecurityConfig()) });
   return { usage: usageModule.useCases, operation: usageModule.operation, createPage: () => usageModule.createPage(routing.resolveTribe, getMessagingUsageCountryChoices()), resolveTribe: routing.resolveTribe };
 }
 
@@ -713,18 +735,19 @@ export async function createMessagingCredentialValidationRequestModule(usage: Da
 /** @param usage - Native read connection purpose; this path does not load keyrings or contact a provider. @returns Current leader/guardian configuration and canonical tenant routing. */
 export async function createMessagingConfigurationRequestModule(usage:DatabaseConnectionUsage=DATABASE_CONNECTION_USAGE.request){
   const { databaseClient, dependencies, routing } = await openRoutedMessagingRequest(usage);
-  const configuration=buildMessagingModule(dependencies).createConfigurationModule({readSecurityFacts:async()=>readMessagingHostingSecurityFacts()});
+  // The leader's read reports whether the ledger can protect the connection writes, with the same checks those writes run.
+  const configuration=buildMessagingModule(dependencies).createConfigurationModule({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),readPlatformRequirement:createAdmissionPlatformSecurityReader(()=>readMessagingHostingSecurityConfig())});
   const providerAdapters=createRequestMessagingProviderAdapters(databaseClient);
   return{configuration:configuration.useCases,resolveTribe:routing.resolveTribe,createPage:()=>configuration.createPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))}),createSummaryPage:()=>configuration.createSummaryPage(routing.resolveTribe,{read:()=>providerAdapters.catalog.map((provider)=>({id:provider.id,channels:[...provider.channels]}))})};
 }
 
-/** @returns Own preference and independent leader email settings with native owner transactions, current session authority and canonical routing; no provider adapters or sends are composed. */
+/** @returns Own preference and independent leader email settings with native owner transactions, current session authority and canonical routing; no provider adapters or sends are composed. The leader's email read also attests, as the ledger does, whether the platform can protect a change. */
 export async function createAdmissionNotificationSettingsRequestModule() {
   const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
   const dependencies = createAuthenticatedRequestDependencies(databaseClient);
   const admissions = buildAcademyAdmissionsModule(dependencies);
   const routing = createAcademyRequestRouting(admissions, databaseClient);
-  const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: () => readMessagingHostingSecurityConfig(), readPlatformSecurity: createAdmissionPlatformSecurityReader(() => readMessagingHostingSecurityConfig()) });
   return { resolveTribe: routing.resolveTribe, ...notifications.useCases, page: notifications.createPage(routing.resolveTribe) };
 }
 

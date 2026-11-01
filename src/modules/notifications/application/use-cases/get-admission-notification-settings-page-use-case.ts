@@ -13,7 +13,7 @@ import type { AdmissionNotificationEmailSettingsUseCases } from "./admission-not
 import { toAdmissionNotificationEmailSettingsView, toAdmissionNotificationPreferenceView } from "../results/admission-notification-settings-projection";
 import { admissionNotificationSettingsPageStateSchema, ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND } from "../../constants/admission-notification-settings-page";
 
-/** The role hint chooses whether an independently authorized email read is shown; it never grants email configuration authority. */
+/** The role hint chooses whether an independently authorized email read is shown; it never grants email configuration authority. The platform requirement only concerns the tribe email, so a viewer without it never receives one. */
 export class GetAdmissionNotificationSettingsPageUseCase extends LiveAccountTribePageUseCase<AuthenticatedAccount, AdmissionFailure, { ok: false; failure: AdmissionFailure }, ReturnType<typeof admissionOperationFailure>> {
   /** @param accounts - Native global identity. @param readers - Canonical tenant resolver and current authorized settings readers. @param clock - Fresh session validity clock. */
   constructor(accounts: AuthenticatedAccountProvider, private readonly readers: { resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">; preferences: Pick<AdmissionNotificationPreferencesUseCases, "read">; email: Pick<AdmissionNotificationEmailSettingsUseCases, "read"> }, clock: () => Date) { super(accounts, readers, clock, ADMISSION_TRIBE_PAGE_FAILURES); }
@@ -29,9 +29,9 @@ export class GetAdmissionNotificationSettingsPageUseCase extends LiveAccountTrib
       if (preference.value.preference.tribeId !== selection.tribeId || preference.value.preference.recipientUserId !== first.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const email = preference.value.canConfigureEmail ? emailRead : null;
       if (email && !email.ok) return email;
-      if (email?.ok && email.value.tribeId !== selection.tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+      if (email?.ok && email.value.settings.tribeId !== selection.tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const { current } = await confirm();
-      return { ok: true as const, value: admissionNotificationSettingsPageStateSchema.parse({ kind: ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.ready, slug: query.slug, tribeId: selection.tribeId, viewerId: current.userId, preference: toAdmissionNotificationPreferenceView(preference.value.preference), canConfigureEmail: preference.value.canConfigureEmail, email: email?.ok ? toAdmissionNotificationEmailSettingsView(email.value) : null }) };
+      return { ok: true as const, value: admissionNotificationSettingsPageStateSchema.parse({ kind: ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.ready, slug: query.slug, tribeId: selection.tribeId, viewerId: current.userId, preference: toAdmissionNotificationPreferenceView(preference.value.preference), canConfigureEmail: preference.value.canConfigureEmail, email: email?.ok ? toAdmissionNotificationEmailSettingsView(email.value.settings) : null, platformRequirement: email?.ok ? email.value.platformRequirement : null }) };
     });
   }
 }

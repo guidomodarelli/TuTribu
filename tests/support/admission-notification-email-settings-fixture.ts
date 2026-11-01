@@ -6,6 +6,7 @@ import { prepareContactVerificationDatabase } from "./contact-verification-datab
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { PostgresAdmissionNotificationEmailSettingsRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-email-settings-repository";
+import { createAdmissionPlatformSecurityReader } from "@/src/modules/academy-admissions/infrastructure/composition/admission-platform-security";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
@@ -43,7 +44,7 @@ export async function prepareAdmissionEmailSettings(database: AcademyAdmissionTe
     const result = await database.withContext(own, run);
     if (loseReply && typeof result === "object" && result !== null && "state" in result && result.state === "completed") { loseReply = false; throw new Error("Synthetic settings COMMIT reply lost"); }
     return result;
-  }, readSecurityConfig);
+  }, readSecurityConfig, createAdmissionPlatformSecurityReader(readSecurityConfig));
   /** @returns After selecting only the native synthetic version; no production activation is claimed. */
   const selectConnection = () => database.withContext(own, (transaction) => transaction.execute(sql`update public.tenant_messaging_connections set is_selected=true,selected_version=1,is_candidate=false,candidate_version=null,state='active' where id=${connectionId} and tribe_id=${tribeId}`));
   /** @returns After marking this exact synthetic sender/version tested; no provider call or diagnostic receipt is fabricated. */

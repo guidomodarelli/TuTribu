@@ -11,6 +11,8 @@ import { ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH } from "@/src/modu
 import { ADMISSION_NOTIFICATION_TIME_ZONE_HELP, ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS as OPTIONS, ADMISSION_NOTIFICATION_PREFERENCE_SUMMARY as SUMMARY, ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL, ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL } from "@/src/modules/notifications/constants/admission-notification-settings-options";
 import { ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, type AdmissionNotificationSettingsEmailPlan, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 import { isKnownTimeZone } from "@/lib/date-time/time-zone";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import styles from "./styles.module.scss";
 
 /** What the final save writes: the tribe email outcome and whether the personal preference changes. */
@@ -28,6 +30,8 @@ export type AdmissionNotificationSettingsProps = {
   draft: AdmissionNotificationEmailSettingsDraft;
   /** Whether the tribe sends admission email, or null when this viewer cannot know it. */
   tribeEmailEnabled: boolean | null;
+  /** Why the platform cannot protect a tribe email change right now; null when it can or the viewer cannot configure that email. */
+  platformRequirement: PlatformSecurityRequirement | null;
   plan: AdmissionNotificationSettingsPlan;
   /** True shows the steps (or the member form); false shows the saved summary. */
   editing: boolean;
@@ -117,15 +121,25 @@ function MemberTribeNotice({ tribeEmailEnabled }: Pick<AdmissionNotificationSett
     : <Alert tone="info" title="El correo de admisión lo habilita el líder de la tribu">Si todavía no lo habilitó, no vas a recibir correos hasta que lo haga.</Alert>;
 }
 
+/** @param props - Recovery state and platform requirement. @returns Whether the tribe email fields cannot be edited: an original waits to be retried as it was sent, or the platform cannot protect a change. */
+function isTribeEmailLocked({ pending, platformRequirement }: Pick<AdmissionNotificationSettingsProps, "pending" | "platformRequirement">): boolean {
+  return pending || platformRequirement !== null;
+}
+
+/** @param props - Platform requirement of the tribe email. @returns The block that says only the TuTribu team can resolve it, or nothing while the platform can protect a change. */
+function TribeEmailPlatformNotice({ platformRequirement }: Pick<AdmissionNotificationSettingsProps, "platformRequirement">) {
+  return platformRequirement ? <PlatformSecurityNotice requirement={platformRequirement} consequence={COPY.platformConsequence} /> : null;
+}
+
 /**
  * @param draft - Edited tribe email settings.
- * @param pending - Whether an earlier change is waiting to be retried as it was sent.
+ * @param locked - Whether the fields cannot be edited (a retained original or a platform requirement).
  * @returns Why the zone blocks the step (missing, or a name the runtime does not recognize), or `null`; checked here so a
  * mistyped zone is caught next to its field instead of failing at the final save.
  */
-function describeZoneProblem(draft: AdmissionNotificationSettingsProps["draft"], pending: boolean): string | null {
+function describeZoneProblem(draft: AdmissionNotificationSettingsProps["draft"], locked: boolean): string | null {
   const zone = draft.timeZone.trim();
-  if (!draft.enabled || pending) return null;
+  if (!draft.enabled || locked) return null;
   if (!zone) return COPY.zoneRequired;
   return isKnownTimeZone(zone) ? null : COPY.zoneUnknown;
 }
@@ -136,14 +150,16 @@ function zoneBlockedReason(problem: string | null): string | undefined {
   return problem === COPY.zoneUnknown ? COPY.zoneFix : problem;
 }
 
-/** @param props - Edited email fields and recovery state. @returns The tribe email switch, its zone and the messaging requirement. */
-function TribeEmailFields({ draft, pending, messagingHref, onDraft }: Pick<AdmissionNotificationSettingsProps, "draft" | "pending" | "messagingHref" | "onDraft">) {
-  const zoneHelpId = useId(), zoneErrorId = useId(), zoneProblem = describeZoneProblem(draft, pending), zoneUnknown = zoneProblem === COPY.zoneUnknown;
+/** @param props - Edited email fields, recovery state and platform requirement. @returns The tribe email switch, its zone and the messaging requirement, locked while the platform cannot protect a change. */
+function TribeEmailFields({ draft, pending, platformRequirement, messagingHref, onDraft }: Pick<AdmissionNotificationSettingsProps, "draft" | "pending" | "platformRequirement" | "messagingHref" | "onDraft">) {
+  const locked = isTribeEmailLocked({ pending, platformRequirement });
+  const zoneHelpId = useId(), zoneErrorId = useId(), zoneProblem = describeZoneProblem(draft, locked), zoneUnknown = zoneProblem === COPY.zoneUnknown;
   return <div className={styles.AdmissionNotificationSettings__fields}>
-    <Checkbox label="Habilitar correo de admisión" description="Se aplica a las solicitudes nuevas y respeta la frecuencia que elija cada responsable." checked={draft.enabled} disabled={pending} onCheckedChange={(checked) => onDraft({ ...draft, enabled: checked === true })} />
+    <TribeEmailPlatformNotice platformRequirement={platformRequirement} />
+    <Checkbox label="Habilitar correo de admisión" description="Se aplica a las solicitudes nuevas y respeta la frecuencia que elija cada responsable." checked={draft.enabled} disabled={locked} onCheckedChange={(checked) => onDraft({ ...draft, enabled: checked === true })} />
     {/* Plain help instead of the field's animated description, which splits "09:00" into rolling digits and is read twice. */}
     {draft.enabled && <div className={styles.AdmissionNotificationSettings__zone}>
-      <Input label="Zona horaria de la tribu" description={undefined} error={undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneUnknown ? `${zoneHelpId} ${zoneErrorId}` : zoneHelpId} aria-invalid={zoneProblem ? true : undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
+      <Input label="Zona horaria de la tribu" description={undefined} error={undefined} value={draft.timeZone} disabled={locked} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-describedby={zoneUnknown ? `${zoneHelpId} ${zoneErrorId}` : zoneHelpId} aria-invalid={zoneProblem ? true : undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />
       <p id={zoneHelpId} className={styles.AdmissionNotificationSettings__help}>{ADMISSION_NOTIFICATION_TIME_ZONE_HELP}</p>
       {/* A plain row, like the help: the field's animated error row would announce the message twice. */}
       {zoneUnknown && <p id={zoneErrorId} role="alert" className={styles.AdmissionNotificationSettings__error}>{COPY.zoneUnknown}</p>}
@@ -159,8 +175,8 @@ function reviewOutcome(draft: AdmissionNotificationSettingsProps["draft"], mode:
   return draft.enabled ? SUMMARY[mode] : "Con el correo de la tribu deshabilitado no vas a recibir correos de revisión.";
 }
 
-/** @param props - Drafts, plan and consent. @returns A readable summary of what will be saved and the single confirmation. */
-function ReviewSummary({ draft, mode, plan, confirmed, onConfirm }: Pick<AdmissionNotificationSettingsProps, "draft" | "mode" | "plan" | "confirmed" | "onConfirm">) {
+/** @param props - Drafts, plan, platform requirement and consent. @returns A readable summary of what will be saved, why the tribe email cannot change when the platform blocks it, and the single confirmation. */
+function ReviewSummary({ draft, mode, plan, platformRequirement, confirmed, onConfirm }: Pick<AdmissionNotificationSettingsProps, "draft" | "mode" | "plan" | "platformRequirement" | "confirmed" | "onConfirm">) {
   const outcome = reviewOutcome(draft, mode);
   return <div className={styles.AdmissionNotificationSettings__fields}>
     <dl className={styles.AdmissionNotificationSettings__facts}>
@@ -173,6 +189,7 @@ function ReviewSummary({ draft, mode, plan, confirmed, onConfirm }: Pick<Admissi
         <dd className={styles.AdmissionNotificationSettings__value}>{modeLabel(mode)}<Badge size="sm" tone={plan.preference ? "info" : "neutral"}>{plan.preference ? ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL.changed : ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL.unchanged}</Badge></dd>
       </div>
     </dl>
+    <TribeEmailPlatformNotice platformRequirement={platformRequirement} />
     <p className={styles.AdmissionNotificationSettings__note}>{outcome}</p>
     <Checkbox label="Revisé el resumen y quiero guardar estos avisos." checked={confirmed} onCheckedChange={(checked) => onConfirm(checked === true)} />
   </div>;
@@ -190,6 +207,7 @@ function SettingsSummary(props: AdmissionNotificationSettingsProps) {
       <div className={styles.AdmissionNotificationSettings__fact}><dt className={styles.AdmissionNotificationSettings__term}>Frecuencia</dt><dd className={styles.AdmissionNotificationSettings__value}>{modeLabel(preference.mode)}</dd></div>
     </dl>
     <p className={styles.AdmissionNotificationSettings__lead}>{sentence}</p>
+    {email && <TribeEmailPlatformNotice platformRequirement={props.platformRequirement} />}
     {!email && preference.mode !== MODE.omitted && <MemberTribeNotice tribeEmailEnabled={props.tribeEmailEnabled} />}
     <div className={styles.AdmissionNotificationSettings__actions}><Button variant="primary" onClick={props.onEdit} disabled={props.busy}>Cambiar avisos</Button></div>
     <Feedback saving={props.saving} error={props.error} progress={props.progress} status={props.status} />
@@ -212,14 +230,16 @@ function MemberForm(props: AdmissionNotificationSettingsProps) {
 
 /** @param props - Current state of the tribe leader. @returns Three small steps: tribe email, personal frequency, and review with one save. */
 function LeaderSteps(props: AdmissionNotificationSettingsProps) {
-  const zoneProblem = describeZoneProblem(props.draft, props.pending);
+  const zoneProblem = describeZoneProblem(props.draft, isTribeEmailLocked(props));
   const steps: GuidedStep[] = [
-    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneBlockedReason(zoneProblem) },
+    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} platformRequirement={props.platformRequirement} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneBlockedReason(zoneProblem) },
     { id: GUIDED_STEP.frequency, title: "Cómo querés recibir los avisos", description: "Elegí la frecuencia de tus correos. Esta elección es sólo tuya.", content: <>
       <FrequencyField mode={props.mode} busy={props.busy} onMode={props.onMode} />
-      {!props.draft.enabled && props.mode !== MODE.omitted && <Alert tone="info" title="El correo de la tribu va a quedar deshabilitado">Mientras esté deshabilitado nadie recibe correos de revisión. Podés habilitarlo en el paso anterior.</Alert>}
+      {!props.draft.enabled && props.mode !== MODE.omitted && <Alert tone="info" title="El correo de la tribu va a quedar deshabilitado">{props.platformRequirement
+        ? "Mientras esté deshabilitado nadie recibe correos de revisión. Vas a poder habilitarlo cuando el equipo de TuTribu lo resuelva."
+        : "Mientras esté deshabilitado nadie recibe correos de revisión. Podés habilitarlo en el paso anterior."}</Alert>}
     </> },
-    { id: GUIDED_STEP.review, title: "Revisá y guardá", description: "Guardamos sólo lo que cambió.", content: <ReviewSummary draft={props.draft} mode={props.mode} plan={props.plan} confirmed={props.confirmed} onConfirm={props.onConfirm} />, blockedReason: saveBlockedReason(props, true) },
+    { id: GUIDED_STEP.review, title: "Revisá y guardá", description: "Guardamos sólo lo que cambió.", content: <ReviewSummary draft={props.draft} mode={props.mode} plan={props.plan} platformRequirement={props.platformRequirement} confirmed={props.confirmed} onConfirm={props.onConfirm} />, blockedReason: saveBlockedReason(props, true) },
   ];
   return <GuidedSteps label="Configurar avisos de admisión" steps={steps} current={props.step} onCurrentChange={props.onStep} busy={props.busy}
     finalAction={{ label: "Guardar avisos", loading: props.saving !== null, onRun: props.onSave }}

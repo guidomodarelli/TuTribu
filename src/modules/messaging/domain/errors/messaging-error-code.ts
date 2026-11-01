@@ -5,4 +5,5 @@ export type MessagingErrorCode=
   |"credential_validation_limit_reached"|"verification_code_incorrect"|"challenge_expired"|"challenge_invalidated"
   |"verification_attempts_exceeded"|"reauthentication_required"|"connection_incomplete"|"usage_policy_missing"|"missing_capability"
   |"invalid_credentials"|"upstream_rejected"|"provider_rate_limited"|"transport_timeout"|"dependency_unavailable"
-  |"delivery_unknown"|"operation_unresolved"|"upstream_payload_unusable"|"public_contract_unusable"|"unexpected_failure";
+  |"delivery_unknown"|"operation_unresolved"|"upstream_payload_unusable"|"public_contract_unusable"|"unexpected_failure"
+  |"platform_security_unavailable";

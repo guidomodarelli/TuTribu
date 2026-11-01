@@ -11,6 +11,7 @@ import { PersonalInvitationContainer } from "@/app/(admission)/admissions/invita
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { ThemedToaster } from "@golfo/ui";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
+import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import { createPersonalInvitationBrowserScope } from "@/lib/academy-admissions/personal-invitation-scope";
@@ -131,6 +132,13 @@ describe("personal invitation page workflow", () => {
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Consultar estado" })).toBeNull();
     expect(data.client.viewer).not.toHaveBeenCalled(); expect(data.client.submit).not.toHaveBeenCalled();
+  });
+  it("should not offer a retry while the platform cannot protect personal invitations, since reloading fails the same way", () => {
+    const data = fixture(), state: PersonalInvitationPageState = { kind: "unavailable", code: "platform_security_unavailable", message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable };
+    render(<Providers token={data.token}><PersonalInvitationContainer initialState={state} client={data.client} contactClient={data.contactClient} /></Providers>);
+    expect(screen.getByRole("alert")).toHaveTextContent("equipo de TuTribu");
+    expect(screen.queryByRole("button", { name: "Reintentar" })).toBeNull();
+    expect(data.client.viewer).not.toHaveBeenCalled();
   });
   it("should render deterministic safe SSR and hydrate without requesting a code or redeeming the invitation", async () => {
     const data = fixture(), container = document.createElement("div"), errors: unknown[] = [];

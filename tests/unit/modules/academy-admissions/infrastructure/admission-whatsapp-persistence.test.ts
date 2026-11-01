@@ -36,10 +36,10 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native declare
       await expect(data.writer.updateWhatsappNumber({ ...intent, operationId: randomUUID(), expectedVersion: 2, whatsappNumber: null })).rejects.toMatchObject({ code: "whatsapp_number_required" });
       await expect(data.writer.updateWhatsappNumber({ ...intent, operationId: randomUUID(), userId: other.applicantId, sessionId: other.sessionId })).rejects.toMatchObject({ code: "permission_denied" });
       await expect(data.writer.updateWhatsappNumber({ ...intent, operationId: randomUUID(), userId: data.userId, sessionId: data.sessionId })).rejects.toMatchObject({ code: "permission_denied" });
-      const reviewer = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run), async () => false);
-      const record = await reviewer.readDetail(data.scope, pending.admissionRequestId);
-      if (!record) throw new Error("Owned synthetic review unavailable");
-      expect(projectAdmissionReview(record)).toMatchObject({ applicant: { name: "Synthetic batch applicant" }, whatsappNumber: intent.whatsappNumber, eligibleActions: ["reject", "approve"] });
+      const reviewer = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run), async () => null);
+      const detail = await reviewer.readDetail(data.scope, pending.admissionRequestId);
+      if (!detail) throw new Error("Owned synthetic review unavailable");
+      expect(projectAdmissionReview(detail.record, detail.platformRequirement)).toMatchObject({ applicant: { name: "Synthetic batch applicant" }, whatsappNumber: intent.whatsappNumber, eligibleActions: ["reject", "approve"] });
       const operation = await new PostgresAdmissionOperationReader((current, run) => database.withContext({ userId: current.userId, email: null }, run)).read(scope, intent.operationId);
       expect(admissionOperationRecoveryEnvelopeSchema.parse(operation)).toMatchObject({ operationType: "update_admission_whatsapp", operation: { state: "completed", result: { version: 2 } } });
       expect(JSON.stringify(operation)).not.toContain(intent.whatsappNumber);

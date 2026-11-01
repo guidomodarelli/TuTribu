@@ -9,7 +9,7 @@ import type { MessagingUsageBrowserResult } from "@/src/modules/messaging/applic
 
 /** @returns An exact candidate and own browser ports; React, validators and transport result guards remain real. */
 function capabilitiesFixture() {
-  const candidate: MessagingConfigurationConnection = { id: randomUUID(), name: "Candidata de correo", version: 1, configurationVersion: 1, state: "draft", credentialState: "valid", credentialMode: "production", maskedCredential: "••••••••", capabilities: [] };
+  const candidate: MessagingConfigurationConnection = { id: randomUUID(), name: "Candidata de correo", version: 1, configurationVersion: 1, state: "draft", credentialState: "valid", credentialMode: "production", maskedCredential: "••••••••", securityCurrent: true, capabilities: [] };
   const client: MessagingResourcesBrowserClient = { read: vi.fn<MessagingResourcesBrowserClient["read"]>(async (scope) => ({ status: "ready", value: { connectionId: scope.connectionId, configurationVersion: scope.configurationVersion, items: [] } })), configure: vi.fn<MessagingResourcesBrowserClient["configure"]>() };
   const feedback = vi.fn(), configure = vi.fn(async () => {});
   const options = { candidate, slug: "synthetic", client, availableChannels: ["email"] as const, blocked: false, configure, feedback, conflict: vi.fn(),

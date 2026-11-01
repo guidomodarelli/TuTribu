@@ -18,9 +18,17 @@ export function requireReadyScope(initial: ReadyAllowlistImportState | null): Re
   return initial;
 }
 
-/** @param code - Failure code of a denial or a failed write. @returns Whether it keeps the flow blocked on screen. */
+/**
+ * @param code - Failure code of a denial or a failed write.
+ * @returns Whether it keeps the flow blocked on screen: a conflict to consult, or a platform block only the TuTribu team can lift.
+ */
 export function isBlockingImportFailure(code: string): boolean {
-  return code === ADMISSION_ERROR_CODE.allowlistImportConflict || code === ADMISSION_ERROR_CODE.policyConflict;
+  return code === ADMISSION_ERROR_CODE.allowlistImportConflict || code === ADMISSION_ERROR_CODE.policyConflict || code === ADMISSION_ERROR_CODE.platformSecurityUnavailable;
+}
+
+/** @param intent - Dispatched original. @param code - Its denial or definitive failure. @returns Whether the saved import can no longer be confirmed, so the leader needs a new preview. */
+export function isUnusableImportConfirmation(intent: AllowlistImportBrowserIntent, code: string): boolean {
+  return intent.type === OPERATION.confirmAllowlistImport && code === ADMISSION_ERROR_CODE.resourceUnavailable;
 }
 
 /** @param intent - Dispatched original. @param result - Unvalidated completed result. @returns The reference the original confirmed, or null when it cannot belong to it. */

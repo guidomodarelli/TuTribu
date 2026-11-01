@@ -8,7 +8,7 @@ import { createMessagingUsageDraft, messagingUsageBrowserIntentSchema, type Mess
 import { messagingUsagePolicyStateSchema, type MessagingUsagePolicyDto, type MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, MESSAGING_USAGE_WRITE_STEP as WRITE_STEP, type MessagingUsageBrowserPhase, type MessagingUsageWriteStep } from "@/src/modules/messaging/constants/messaging-usage";
+import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES, MESSAGING_USAGE_INTENT_KEEPING_FAILURES, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, MESSAGING_USAGE_WRITE_STEP as WRITE_STEP, type MessagingUsageBrowserPhase, type MessagingUsageWriteStep } from "@/src/modules/messaging/constants/messaging-usage";
 import { MESSAGING_USAGE_POLICY_STATE } from "@/src/modules/messaging/constants/messaging-limits";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 
@@ -63,19 +63,29 @@ function restoreStoredUsageIntent({ ready, controls }: MessagingUsageSession): v
   controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
 }
 
+/** @param session - Current route session. @returns Nothing after removing the stored original from storage and memory. */
+function forgetUsageIntent({ ready, controls }: MessagingUsageSession): void {
+  writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null;
+}
+
 /** @param session - Current route session. @param intent - Stored original command. @param signal - Current read. @returns Whether the read stops, recovered the original or continues to the current configuration. */
-async function recoverUsageOriginal({ ready, client, checkViewer, controls }: MessagingUsageSession, intent: MessagingUsageBrowserIntent, signal: AbortSignal): Promise<UsageRecoveryOutcome> {
+async function recoverUsageOriginal(session: MessagingUsageSession, intent: MessagingUsageBrowserIntent, signal: AbortSignal): Promise<UsageRecoveryOutcome> {
+  const { ready, client, checkViewer, controls } = session;
   controls.setPrivateVisible(false);
   const original = await client.operation(ready.slug, intent.input.operationId, signal);
   if (signal.aborted || original.status === "aborted") return "stop";
   if (!await checkViewer(signal) || signal.aborted) return "stop";
   if (original.status === "ready") {
     if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId || original.value.state !== "completed") { controls.setErrorMessage(COPY.uncertain); return "stop"; }
-    writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null; controls.setStatusMessage(COPY.recovered);
+    forgetUsageIntent(session); controls.setStatusMessage(COPY.recovered);
     controls.setEditing(false); controls.setPartialSave(false); controls.setStep(FIRST_STEP_INDEX);
     return "recovered";
   }
-  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { controls.setCanRetry(true); controls.setErrorMessage(COPY.retry); return "continue"; }
+  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) {
+    // While the platform cannot protect a save, an unregistered original can never be retried: forget it instead.
+    if (ready.platformRequirement) { forgetUsageIntent(session); controls.setStatusMessage(COPY.platformForgotten); return "continue"; }
+    controls.setCanRetry(true); controls.setErrorMessage(COPY.retry); return "continue";
+  }
   controls.setErrorMessage(original.message);
   return "stop";
 }
@@ -112,12 +122,17 @@ export async function readUsageCurrent(session: MessagingUsageSession, signal: A
   finally { if (!signal.aborted) controls.setPhase((current) => settledUsagePhase(current, controls.pending.current)); }
 }
 
-/** @param session - Current route session. @param result - Failed write answer. @returns The failure, or a stop when private authority was lost; certain failures forget the stored original. */
-function usageWriteFailure({ ready, controls }: MessagingUsageSession, result: Extract<MessagingUsageBrowserResult<unknown>, { status: "failed" }>): MessagingUsageWriteOutcome {
+/**
+ * @param session - Current route session.
+ * @param result - Failed write answer.
+ * @returns The failure, or a stop when private authority was lost. A definitive rejection registered nothing, so its stored
+ * original is forgotten before any other outcome; only a session answer keeps it so signing in again can still recover it.
+ */
+function usageWriteFailure(session: MessagingUsageSession, result: Extract<MessagingUsageBrowserResult<unknown>, { status: "failed" }>): MessagingUsageWriteOutcome {
+  const { controls } = session;
   controls.setErrorMessage(result.message);
+  if (!result.uncertain && !MESSAGING_USAGE_INTENT_KEEPING_FAILURES.includes(result.code)) forgetUsageIntent(session);
   if (MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES.includes(result.code)) { controls.setPrivateVisible(false); controls.setCanRetry(false); return STOPPED; }
-  /** A legacy session-change answer keeps the original intent so reloading can still recover it. */
-  if (!result.uncertain && result.code !== MESSAGING_ERROR_CODE.reauthenticationRequired) { writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null; }
   return { status: "failed", code: result.code, uncertain: controls.pending.current !== null };
 }
 
@@ -148,7 +163,7 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
   if (!projected.policy) return STOPPED;
   if (isUnexpectedUpdate(intent, base, projected.policy)) { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
   controls.setState(projected);
-  writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null;
+  forgetUsageIntent(writer);
   return { status: "completed", policy: projected.policy };
 }
 

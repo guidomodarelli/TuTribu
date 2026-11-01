@@ -21,7 +21,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private man
       let securityReads = 0;
       const personal = admissions.createPersonalInvitationModule({ readSecurityConfig: async () => { securityReads += 1; return fixture.config; } });
       const routing = admissions.createQueryModule({ executePublic: (run) => database.withContext({ userId: null, email: null }, run), readRecoveryLock: async () => false });
-      const page = personal.createPage(routing.useCases.resolveTribe, admissions.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: async () => true }).useCases), input = { params: { slug: `allowlist-${fixture.tribeId}` }, query: {} };
+      const page = personal.createPage(routing.useCases.resolveTribe, admissions.createPolicyQueryModule({ composePreparation: null, readSecurityConfig: async () => fixture.config }).useCases), input = { params: { slug: `allowlist-${fixture.tribeId}` }, query: {} };
       const absent = await loadPersonalInvitationManagementPageState(input, async () => page);
       expect(absent).toMatchObject({ kind: "ready", contactType: "email", hasUsableAllowlist: false, page: { items: [], nextCursor: null } });
       const repository = new PostgresPersonalInvitationRepository((_context, run) => database.withContext(fixture.own, run), async () => fixture.config);

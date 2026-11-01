@@ -19,6 +19,7 @@ function fixture() {
   const policy: MessagingUsagePolicyResult = { version: 1, allowedCountries: [], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } };
   const operations: MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult> = {
     read: vi.fn<MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult>["read"]>(async () => ({ state: "not_configured", policy: null })),
+    readPage: vi.fn<MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult>["readPage"]>(async () => ({ usage: { state: "not_configured", policy: null }, platformRequirement: null })),
     initialize: vi.fn<MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult>["initialize"]>(async (_context, operationId) => ({ state: "completed", operationId, replayed: false, result: policy })),
     update: vi.fn<MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult>["update"]>(async (_context, input) => ({ state: "completed", operationId: input.operationId, replayed: false, result: { ...policy, version: input.expectedVersion + 1, allowedCountries: input.allowedCountries, verificationDailyLimit: input.verificationDailyLimit, notificationDailyLimit: input.notificationDailyLimit } })),
   };

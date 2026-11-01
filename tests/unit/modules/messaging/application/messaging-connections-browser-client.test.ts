@@ -31,4 +31,9 @@ describe("connection wizard own browser transport",()=>{
     fetch.mockResolvedValueOnce(Response.json({...value,result:{...value.result,version:3}}));expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toMatchObject({status:"failed",uncertain:true,code:"public_contract_unusable"});
   });
 
+  it("should report a key save the platform could not protect as definitive, so the stored original is released",async()=>{
+    const input={operationId:randomUUID(),confirmed:true as const,providerId:"zavu" as const,name:"Conexión",apiKey:randomUUID()},body={code:"platform_security_unavailable",message:"La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.",requestId:"synthetic-request"};
+    const fetch=vi.fn<typeof globalThis.fetch>(async()=>Response.json(body,{status:409})),client=createMessagingConnectionsBrowserClient({fetch,viewer:async()=>({status:"ready",value:null})});
+    expect(await client.create("synthetic",input,new AbortController().signal)).toEqual({status:"failed",code:"platform_security_unavailable",message:body.message,uncertain:false});expect(fetch).toHaveBeenCalledTimes(1);
+  });
 });

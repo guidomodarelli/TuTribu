@@ -20,6 +20,8 @@ export const MESSAGING_CONNECTIONS_FLOW_COPY={
   selectedActive:"La conexión seleccionada ya está activa. Solo hace falta guardar otra clave en Clave si querés reemplazarla.",
   credentialRequired:"Comprobá la credencial para seguir.",
   channelRequired:"Guardá al menos un canal para seguir.",
+  /** The candidate was sealed under a previous platform security, so its key must be saved again before any other step. */
+  securityOutdated:"Guardá la clave de Zavu otra vez para seguir: esta se guardó con una seguridad anterior de la plataforma.",
   /** @param channel - Visible channel label. */
   testRequired:(channel:string)=>`Confirmá el código de ${channel} para seguir.`,
   /** A test consumes the daily code quota, so it waits until Países y cupos is saved. */
@@ -30,14 +32,23 @@ export const MESSAGING_CONNECTIONS_FLOW_COPY={
   security:"Seguridad y retiro",steps:"Volver a los pasos",securityRegion:"Seguridad",
 } as const;
 /** Advisory progress derived from own metadata; the server still decides every requirement at commit time. */
-export type MessagingConnectionsNextStep="saveCandidate"|"validateCredential"|"prepareChannel"|"testChannel"|"activate"|"active";
-export const MESSAGING_CONNECTIONS_NEXT_STEP={saveCandidate:"saveCandidate",validateCredential:"validateCredential",prepareChannel:"prepareChannel",testChannel:"testChannel",activate:"activate",active:"active"} as const satisfies Record<MessagingConnectionsNextStep,MessagingConnectionsNextStep>;
+export type MessagingConnectionsNextStep="saveCandidate"|"validateCredential"|"prepareChannel"|"testChannel"|"activate"|"active"|"platformBlocked";
+/** `platformBlocked` means no step can be protected until the TuTribu team resolves the platform security; nothing is left to the leader. */
+export const MESSAGING_CONNECTIONS_NEXT_STEP={saveCandidate:"saveCandidate",validateCredential:"validateCredential",prepareChannel:"prepareChannel",testChannel:"testChannel",activate:"activate",active:"active",platformBlocked:"platformBlocked"} as const satisfies Record<MessagingConnectionsNextStep,MessagingConnectionsNextStep>;
 /** Destination of the single highlighted action: a flow step (a test step names its channel), the security section, or the usage page. */
 export type MessagingConnectionsNextActionTarget={kind:"step";step:MessagingConnectionsStepKind}|{kind:"security"}|{kind:"usage"};
 /** Copy of the single next action; every sentence says what is missing and why. Channel names come from the presentation labels. */
 export const MESSAGING_CONNECTIONS_NEXT_ACTION_COPY={
   region:"Próxima acción",
   saveCandidate:{title:"Guardá la clave de Zavu",reason:"Todavía no hay una conexión candidata para probar y activar.",action:"Ir a Clave"},
+  /** Every write of this page waits for the platform; the notice above explains it and offers the report. */
+  platformBlocked:{title:"Los pasos esperan al equipo de TuTribu",reason:"Guardar la clave, comprobarla, preparar canales, probarlos y activar vuelven a estar disponibles cuando la plataforma pueda proteger la mensajería."},
+  /** The selection was sealed under a previous platform security and no candidate replaces it yet. */
+  securityOutdatedSelected:{title:"Guardá la clave de Zavu otra vez",reason:"La conexión seleccionada se guardó con una seguridad anterior de la plataforma y ya no puede enviar mensajes. Guardá la clave en Clave para reemplazarla.",action:"Ir a Clave"},
+  /** A separate candidate sealed under a previous platform security: retiring it leaves the selection untouched. */
+  securityOutdatedCandidate:{title:"Guardá la clave de Zavu otra vez",reason:"La candidata se guardó con una seguridad anterior de la plataforma y no puede comprobarse, probarse ni activarse. Retirala en Clave y guardá la clave otra vez; la conexión seleccionada no cambia.",action:"Reemplazar la clave"},
+  /** The outdated candidate is also the selection: retiring it removes the academy's selection too. */
+  securityOutdatedSelection:{title:"Guardá la clave de Zavu otra vez",reason:"Esta conexión es la seleccionada y la candidata a la vez, y se guardó con una seguridad anterior de la plataforma. Retirala en Seguridad y retiro y guardá la clave otra vez: retirarla también quita la selección de la academia.",action:"Ir a Seguridad y retiro"},
   suspendedCandidate:{title:"La candidata está suspendida",reason:"Una candidata suspendida no puede activarse y sigue ocupando su lugar. Retirala en Seguridad y retiro para guardar otra clave; la conexión seleccionada no cambia.",action:"Ir a Seguridad y retiro"},
   /** The suspended candidate is also the selection: retiring it would remove the academy's selection too. */
   suspendedSelection:{title:"La conexión seleccionada está suspendida",reason:"Esta conexión es la seleccionada y la candidata a la vez. Retirarla también quita la selección de la academia; revisala en Seguridad y retiro antes de decidir.",action:"Ir a Seguridad y retiro"},

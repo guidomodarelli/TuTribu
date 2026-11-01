@@ -7,6 +7,7 @@ import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-da
 import {prepareMessagingConnectionCreation} from "@/tests/support/messaging-connection-fixture";
 import {PostgresAuthenticatedAccountProvider} from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import {buildMessagingModule} from "@/src/modules/messaging/setup";
+import {createAdmissionPlatformSecurityReader} from "@/src/modules/academy-admissions/infrastructure/composition/admission-platform-security";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native configuration projections",()=>{
   it("should read leader absence/candidate/usage without effects and restrict the same account after transfer to guardian alert",async()=>{
@@ -15,9 +16,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native configuration
       const accounts=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.context.actorUserId,sessionId:fixture.context.sessionId}),(_identity,run)=>database.withContext(fixture.fixture.own,run));
       let recoveryReads=0;
       let currentEpoch=fixture.fixture.config.securityEpoch;
-      const reader=buildMessagingModule({accounts,clock:()=>new Date(),execute:(_account,run)=>database.withContext(fixture.fixture.own,run)}).createConfigurationModule({readSecurityFacts:async()=>{recoveryReads+=1;return{environment:fixture.fixture.config.environment,securityEpoch:currentEpoch,recoveryLocked:false};}}).useCases;
+      const reader=buildMessagingModule({accounts,clock:()=>new Date(),execute:(_account,run)=>database.withContext(fixture.fixture.own,run)}).createConfigurationModule({readSecurityFacts:async()=>{recoveryReads+=1;return{environment:fixture.fixture.config.environment,securityEpoch:currentEpoch,recoveryLocked:false};},readPlatformRequirement:createAdmissionPlatformSecurityReader(async()=>fixture.fixture.config)}).useCases;
       const query={tribeId,requestId:randomUUID()};
-      expect(await reader.execute(query)).toMatchObject({ok:true,value:{audience:"leader",selected:null,candidate:null,usage:{state:"not_configured",policy:null}}});
+      expect(await reader.execute(query)).toMatchObject({ok:true,value:{audience:"leader",selected:null,candidate:null,usage:{state:"not_configured",policy:null},platformRequirement:null}});
       const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Candidata privada",apiKey:randomUUID()});
       if(created.state!=="completed")throw new Error("Expected candidate");
       await database.withContext(fixture.fixture.own,async(transaction)=>{
@@ -25,8 +26,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native configuration
 
       });
       const snapshot=await reader.execute(query);
-      expect(snapshot).toMatchObject({ok:true,value:{audience:"leader",selected:null,candidate:{id:created.result.id,name:"Candidata privada",version:1,configurationVersion:1,state:"draft",credentialState:"not_validated",credentialMode:"unknown",maskedCredential:"••••••••",capabilities:[]},usage:{state:"configured",policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:0,notificationDailyLimit:0,consumption:{verificationToday:0,notificationToday:0}}}}});
-      expect(recoveryReads).toBe(0);
+      expect(snapshot).toMatchObject({ok:true,value:{audience:"leader",selected:null,candidate:{id:created.result.id,name:"Candidata privada",version:1,configurationVersion:1,state:"draft",credentialState:"not_validated",credentialMode:"unknown",maskedCredential:"••••••••",securityCurrent:true,capabilities:[]},usage:{state:"configured",policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:0,notificationDailyLimit:0,consumption:{verificationToday:0,notificationToday:0}}}}});
+      // A candidate sealed under another platform epoch stays listed, but never as current.
+      currentEpoch=randomUUID();
+      expect(await reader.execute(query)).toMatchObject({ok:true,value:{audience:"leader",candidate:{id:created.result.id,securityCurrent:false},platformRequirement:null}});
+      currentEpoch=fixture.fixture.config.securityEpoch;
+      expect(recoveryReads).toBe(3);
       const guardianUserId=randomUUID(),guardianSessionId=randomUUID(),guardianPrincipal={userId:guardianUserId,email:`${guardianUserId}@example.test`};
       await database.withContext(fixture.fixture.own,async(transaction)=>{
         await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${guardianUserId},'Synthetic current guardian',${guardianPrincipal.email},false,clock_timestamp(),clock_timestamp())`);
@@ -34,7 +39,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native configuration
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${guardianUserId},'guardian','active')`);
       });
       const guardianAccounts=new PostgresAuthenticatedAccountProvider(async()=>({userId:guardianUserId,sessionId:guardianSessionId}),(_identity,run)=>database.withContext(guardianPrincipal,run));
-      const guardianReader=buildMessagingModule({accounts:guardianAccounts,clock:()=>new Date(),execute:(_account,run)=>database.withContext(guardianPrincipal,run)}).createConfigurationModule({readSecurityFacts:async()=>({environment:fixture.fixture.config.environment,securityEpoch:currentEpoch,recoveryLocked:false})}).useCases;
+      const guardianReader=buildMessagingModule({accounts:guardianAccounts,clock:()=>new Date(),execute:(_account,run)=>database.withContext(guardianPrincipal,run)}).createConfigurationModule({readSecurityFacts:async()=>({environment:fixture.fixture.config.environment,securityEpoch:currentEpoch,recoveryLocked:false}),readPlatformRequirement:createAdmissionPlatformSecurityReader(async()=>fixture.fixture.config)}).useCases;
       expect(await guardianReader.execute(query)).toEqual({ok:true,value:{audience:"guardian",operationalAlert:"not_configured"}});
       await database.withContext(fixture.fixture.own,async(transaction)=>{
         await transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=false,is_selected=true,selected_version=1,candidate_version=null,state='active',version=version+1 where id=${created.result.id}`);
@@ -53,7 +58,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native configuration
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${nextLeader},'leader','active')`);
       });
       expect(await reader.execute(query)).toEqual({ok:true,value:{audience:"guardian",operationalAlert:"attention_required"}});
-      expect(recoveryReads).toBe(1);
+      expect(recoveryReads).toBe(4);
       expect(await guardianReader.execute(query)).toEqual({ok:true,value:{audience:"guardian",operationalAlert:"attention_required"}});
       expect(await reader.execute(query)).toEqual({ok:true,value:{audience:"guardian",operationalAlert:"attention_required"}});
       currentEpoch=randomUUID();

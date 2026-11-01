@@ -20,7 +20,7 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 
 /** @returns A current import page whose own browser port answers with another account. */
 function fixture() {
-  const state: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId: randomUUID(), renderedAt: "2026-10-09T08:00:00Z", contactType: "email", policyVersion: 1 };
+  const state: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId: randomUUID(), renderedAt: "2026-10-09T08:00:00Z", contactType: "email", policyVersion: 1, platformRequirement: null };
   const unused = async () => ({ status: "failed" as const, code: "resource_unavailable" as const, message: "Recurso no disponible.", uncertain: false });
   const client: AllowlistImportBrowserClient = {
     viewer: vi.fn<AllowlistImportBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: randomUUID() } })),
@@ -49,7 +49,7 @@ describe("allowlist import selection", () => {
   /** @returns A saved import of the current viewer whose rows span several pages, and own ports that read it. */
   function savedImport() {
     const viewerId = randomUUID(), importId = randomUUID();
-    const state: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: new Date().toISOString(), contactType: "email", policyVersion: 1 };
+    const state: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: new Date().toISOString(), contactType: "email", policyVersion: 1, platformRequirement: null };
     const rows: AllowlistImportDto["rows"] = Array.from({ length: ROW_COUNT }, (_row, index) => {
       const rowNumber = index + 1, base = { rowNumber, identity: `fila-${rowNumber}@example.test`, displayName: null, selected: false };
       if (WITH_RESULT.has(rowNumber)) return { ...base, errors: [], outcome: "added" as const, version: 1 };

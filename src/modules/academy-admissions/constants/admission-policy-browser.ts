@@ -1,6 +1,7 @@
 /** Fixed same-origin paths keep browser intents independent of provider endpoints. @module admission-policy-browser-constants */
 import type { AdmissionPreflightReason } from "../domain/policies/admission-activation-preflight";
 import type { AdmissionPolicyActivationReason } from "../domain/policies/admission-policy-activation";
+import type { AdmissionPolicyBlockedAction } from "./admission-policy-flow";
 
 export const ADMISSION_POLICY_BROWSER_PATH = { policy: "policy", preflight: "policy/preflight", activate: "policy/activate", pause: "policy/pause" } as const;
 /** Scopes an original browser intention by its native viewer and current tribe. */
@@ -25,6 +26,8 @@ export const ADMISSION_POLICY_BROWSER_COPY = {
   changedMeanwhile: "La configuración cambió mientras tanto. Revisá el resumen y volvé a confirmar.",
   activationIneligible: "Todavía falta un requisito para activar las admisiones.",
   resumeIneligible: "Todavía falta un requisito para reanudar las admisiones.",
+  pauseIneligible: "Todavía falta un requisito para pausar las admisiones.",
+  pauseBlockedNote: "Las admisiones siguen abiertas. Cuando se resuelva, volvé a tocar «Confirmar pausa».",
   rulesKept: "Las reglas ya quedaron guardadas como borrador. Al reintentar seguimos desde el paso que falló.",
   activationBlockedNote: "Tus reglas quedaron guardadas como borrador. Cuando lo resuelvas, volvé a tocar «Guardar y activar admisiones».",
   resumeBlockedNote: "Las admisiones siguen pausadas. Cuando lo resuelvas, volvé a tocar «Reanudar admisiones».",
@@ -78,10 +81,10 @@ export const ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY = {
   sms_alternative_unavailable: "La alternativa SMS todavía no está preparada.",
 } satisfies Record<AdmissionPolicyActivationReason, string>;
 
-/** Copy of the callout for reasons only the TuTribu team can resolve. */
+/** Copy of the callout for reasons only the TuTribu team can resolve; what the blocked write kept comes from its action. */
 export const ADMISSION_POLICY_PLATFORM_COPY = {
   title: "Depende del equipo de TuTribu",
-  explanation: "Esto no es algo que puedas cambiar desde tu academia. Lo que ya elegiste quedó guardado como borrador.",
+  explanation: "Esto no es algo que puedas cambiar desde tu academia.",
   diagnosticLabel: "Código de diagnóstico",
   copy: "Copiar código",
   copied: "Código copiado.",
@@ -90,7 +93,29 @@ export const ADMISSION_POLICY_PLATFORM_COPY = {
   report: "Reportar el problema",
   reportUnavailable: "No pudimos abrir el reporte. Escribile al equipo de TuTribu e incluí el código de diagnóstico.",
   rechecked: "Volvimos a comprobar: todavía falta resolver lo que se indica.",
-  recheckedReady: "Volvimos a comprobar y ya no hay bloqueos. Podés activar las admisiones.",
+} as const;
+
+/**
+ * Message, next step, platform consequence and recheck confirmation of each blocked policy write. The consequence says only what
+ * is true for that write: nothing chosen is presented as saved when the write that would have saved it was rejected.
+ */
+export const ADMISSION_POLICY_BLOCKED_ACTION_COPY = {
+  activation: { message: ADMISSION_POLICY_BROWSER_COPY.activationIneligible, note: ADMISSION_POLICY_BROWSER_COPY.activationBlockedNote, platform: "Lo que ya elegiste quedó guardado como borrador.", ready: "Volvimos a comprobar y ya no hay bloqueos. Podés activar las admisiones." },
+  resume: { message: ADMISSION_POLICY_BROWSER_COPY.resumeIneligible, note: ADMISSION_POLICY_BROWSER_COPY.resumeBlockedNote, platform: "Las admisiones siguen pausadas.", ready: "Volvimos a comprobar y ya no hay bloqueos. Podés reanudar las admisiones." },
+  save: { message: ADMISSION_POLICY_BROWSER_COPY.saveIneligible, note: ADMISSION_POLICY_BROWSER_COPY.saveBlockedNote, platform: "Las reglas vigentes no cambiaron.", ready: "Volvimos a comprobar y ya no hay bloqueos. Podés guardar los cambios." },
+  /** Creating or saving the rules on the way to activating them: nothing new was stored. */
+  draft: { message: ADMISSION_POLICY_BROWSER_COPY.draftIneligible, note: ADMISSION_POLICY_BROWSER_COPY.draftBlockedNote, platform: "Mientras tanto no se guarda nada: lo que elijas queda solo en esta pantalla y se pierde si salís.", ready: "Volvimos a comprobar y ya no hay bloqueos. Podés guardar y activar las reglas." },
+  pause: { message: ADMISSION_POLICY_BROWSER_COPY.pauseIneligible, note: ADMISSION_POLICY_BROWSER_COPY.pauseBlockedNote, platform: "Las admisiones siguen abiertas: se siguen recibiendo solicitudes.", ready: "Volvimos a comprobar y ya no hay bloqueos. Podés pausar las admisiones o editar sus reglas." },
+} as const satisfies Record<AdmissionPolicyBlockedAction, { message: string; note: string; platform: string; ready: string }>;
+
+/** Rules page copy while the platform cannot protect any policy write, shown above the form before any step is walked. */
+export const ADMISSION_POLICY_PLATFORM_LOCK_COPY = {
+  unsaved: "Todavía no hay reglas de admisión y por ahora no se pueden guardar: depende del equipo de TuTribu. Podés recorrer los pasos, pero lo que elijas no se guarda.",
+  draft: "Tus reglas siguen guardadas como borrador, pero por ahora no se pueden cambiar ni activar: depende del equipo de TuTribu.",
+  open: "Las admisiones siguen abiertas, pero por ahora no se pueden pausar ni cambiar sus reglas: depende del equipo de TuTribu.",
+  paused: "Las admisiones siguen pausadas y por ahora no se pueden reanudar ni cambiar sus reglas: depende del equipo de TuTribu.",
+  /** Why the final action of the guided flow is disabled. */
+  finalBlocked: "Por ahora no se pueden guardar las reglas: depende del equipo de TuTribu.",
 } as const;
 
 /** Copy of the actions that resolve a reason on another page or step. */

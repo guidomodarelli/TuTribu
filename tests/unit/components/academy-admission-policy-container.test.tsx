@@ -44,6 +44,15 @@ function fixture(lifecycle: "draft" | "not_configured" | "active" | "paused" = "
   return { policy, state, client, node: <AdmissionPolicyContainer initialState={state} client={client} /> };
 }
 
+/** A denied write whose original was not registered: the browser keeps no intent and shows the rules requirements instead. */
+const ineligible = { status: "failed" as const, code: "admission_ineligible" as const, message: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.", uncertain: false };
+/** A write whose result is unknown: the original intent stays stored for its recovery. */
+const unconfirmed = { status: "failed" as const, code: "dependency_unavailable" as const, message: "No pudimos confirmar el resultado.", uncertain: true };
+/** @param policy - Current state. @param requirements - Requirements the read lists. @returns The same state as read with those requirements, before evaluating the preparation. */
+function withRequirements(policy: AdmissionPolicyStateDto, requirements: AdmissionPolicyStateDto["preparation"]["requirements"]): AdmissionPolicyStateDto {
+  return { ...policy, preparation: { state: "not_evaluated", requirements } };
+}
+
 /** Waits for the initial account check, then walks every step up to the review. */
 async function goToReview() {
   await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
@@ -162,8 +171,13 @@ describe("guided policy route workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
     const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
-    expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+    const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+    expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+    expect(platform).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Mientras tanto no se guarda nada: lo que elijas queda solo en esta pantalla y se pierde si salís.");
+    expect(platform).not.toHaveTextContent("quedó guardado como borrador");
     expect(block).toHaveTextContent("Lo que elegiste sigue en esta pantalla.");
+    expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Todavía no hay reglas de admisión y por ahora no se pueden guardar: depende del equipo de TuTribu.");
+    expect(screen.getByRole("button", { name: "Guardar y activar admisiones" })).toBeDisabled();
     expect(screen.queryByText(/consultá el resultado de la operación anterior/)).not.toBeInTheDocument();
     expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
@@ -460,6 +474,181 @@ describe("guided policy route workflow", () => {
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
 
+  describe("platform security", () => {
+    it("should explain a pause the platform security blocks while admissions stay open, without a retry", async () => {
+      const data = fixture("active");
+      data.client.pausePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Pausar admisiones" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Pausar admisiones" }));
+      fireEvent.change(screen.getByLabelText("Motivo de la pausa"), { target: { value: "Cierre de cohorte" } });
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar pausa" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para pausar las admisiones.");
+      expect(block).toHaveTextContent("Las admisiones siguen abiertas. Cuando se resuelva, volvé a tocar «Confirmar pausa».");
+      const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Las admisiones siguen abiertas: se siguen recibiendo solicitudes.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+      expect(screen.queryByText(/Falta un requisito actual para resolver el ingreso/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirmar pausa" })).toBeDisabled();
+      expect(screen.getByLabelText("Motivo de la pausa")).toHaveValue("Cierre de cohorte");
+      expect(screen.getByRole("heading", { name: "Admisiones abiertas" })).toBeInTheDocument();
+      expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+      expect(data.client.pausePolicy).toHaveBeenCalledOnce();
+    });
+
+    it("should warn before the steps when the rules read names the platform security, keep it while the draft changes and never send a write", async () => {
+      const data = fixture("not_configured");
+      render(<AdmissionPolicyContainer initialState={{ ...data.state, policy: withRequirements(data.policy, ["admission_security_unconfigured", "policy_unavailable"]) }} client={data.client} />, { wrapper: Providers });
+      expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Todavía no hay reglas de admisión y por ahora no se pueden guardar: depende del equipo de TuTribu. Podés recorrer los pasos, pero lo que elijas no se guarda.");
+      const block = screen.getByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
+      const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Mientras tanto no se guarda nada: lo que elijas queda solo en esta pantalla y se pierde si salís.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+      expect(platform).not.toHaveTextContent("borrador");
+      await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("radio", { name: "Lista de habilitados" }));
+      expect(screen.getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("admission_security_unconfigured");
+      await goToReview(); await confirm();
+      const final = screen.getByRole("button", { name: "Guardar y activar admisiones" });
+      expect(final).toBeDisabled();
+      expect(screen.getByText("Por ahora no se pueden guardar las reglas: depende del equipo de TuTribu.")).toBeInTheDocument();
+      fireEvent.click(final);
+      expect(data.client.initializePolicy).not.toHaveBeenCalled();
+      expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    });
+
+    it("should keep paused admissions closed to a resume while the platform recovery lock is listed", async () => {
+      const data = fixture("paused");
+      render(<AdmissionPolicyContainer initialState={{ ...data.state, policy: withRequirements(data.policy, ["admission_recovery_locked"]) }} client={data.client} />, { wrapper: Providers });
+      const block = screen.getByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para reanudar las admisiones.");
+      const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Las admisiones siguen pausadas.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+      expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Las admisiones siguen pausadas y por ahora no se pueden reanudar ni cambiar sus reglas: depende del equipo de TuTribu.");
+      await waitFor(() => expect(within(platform).getByRole("button", { name: "Volver a comprobar" })).toBeEnabled());
+      expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Editar reglas" })).toBeDisabled();
+      // Once the team lifts the lock, rechecking reopens the resume without another decision.
+      fireEvent.click(within(platform).getByRole("button", { name: "Volver a comprobar" }));
+      await waitFor(() => expect(screen.getByText("Volvimos a comprobar y ya no hay bloqueos. Podés reanudar las admisiones.")).toHaveAttribute("role", "status"));
+      expect(screen.queryByRole("region", { name: "Lo que falta resolver" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeEnabled();
+      expect(data.client.readPreflight).not.toHaveBeenCalled();
+      expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    });
+
+    it("should say the current rules did not change when saving active rules lacks the platform security", async () => {
+      const data = fixture("active");
+      data.client.updatePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Editar reglas" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Editar reglas" }));
+      fireEvent.click(screen.getByRole("radio", { name: "Lista de habilitados" }));
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para guardar estos cambios.");
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Las reglas vigentes no cambiaron.");
+      expect(block).not.toHaveTextContent("borrador");
+      expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+    });
+
+    it("should say admissions stay paused when a resume lacks the platform security", async () => {
+      const data = fixture("paused");
+      data.client.updatePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Reanudar admisiones" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para reanudar las admisiones.");
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Las admisiones siguen pausadas.");
+      expect(screen.getByRole("heading", { name: "Admisiones pausadas" })).toBeInTheDocument();
+    });
+
+    it("should show the platform block on «Volver a comprobar» after a save the recovery lock denied, naming the cause once", async () => {
+      const data = fixture("not_configured");
+      data.client.initializePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_recovery_locked", "policy_unavailable"]) });
+      data.client.readPreflight.mockResolvedValue({ status: "ready", value: { prepared: false, reasons: ["preflight_policy_unavailable", "preflight_recovery_locked"] } });
+      render(data.node, { wrapper: Providers });
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+      fireEvent.click(within(block).getByRole("button", { name: "Volver a comprobar" }));
+      await waitFor(() => expect(screen.getByText("Volvimos a comprobar: todavía falta resolver lo que se indica.")).toBeInTheDocument());
+      const rechecked = screen.getByRole("region", { name: "Lo que falta resolver" });
+      const platform = within(rechecked).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("La plataforma pausó las admisiones mientras recupera un servicio.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+      expect(platform).not.toHaveTextContent("preflight_recovery_locked");
+      expect(within(platform).getAllByRole("listitem")).toHaveLength(1);
+      expect(rechecked).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
+      expect(data.client.readPreflight).toHaveBeenCalledOnce();
+      expect(data.client.initializePolicy).toHaveBeenCalledOnce();
+    });
+
+    it("should show the failed reread after a denied save instead of an empty requirements block", async () => {
+      const data = fixture("not_configured");
+      data.client.initializePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la configuración actual.", uncertain: false });
+      render(data.node, { wrapper: Providers });
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Todavía falta un requisito para guardar las reglas. No pudimos consultar la configuración actual."));
+      expect(screen.queryByRole("region", { name: "Lo que falta resolver" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Falta un requisito actual para resolver el ingreso/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Consultar configuración actual" })).toBeEnabled());
+      expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+    });
+
+    it.each([
+      { scenario: "a pause", lifecycle: "active" as const, method: "pausePolicy" as const, message: "Todavía falta un requisito para pausar las admisiones.", consequence: "Las admisiones siguen abiertas: se siguen recibiendo solicitudes." },
+      { scenario: "a resume", lifecycle: "paused" as const, method: "updatePolicy" as const, message: "Todavía falta un requisito para reanudar las admisiones.", consequence: "Las admisiones siguen pausadas." },
+      { scenario: "a change to active rules", lifecycle: "active" as const, method: "updatePolicy" as const, message: "Todavía falta un requisito para guardar estos cambios.", consequence: "Las reglas vigentes no cambiaron." },
+    ])("should explain a retried original of $scenario with its own action, never «Guardar y activar admisiones»", async ({ lifecycle, method, message, consequence }) => {
+      const data = fixture(lifecycle);
+      data.client[method].mockResolvedValueOnce(unconfirmed).mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValueOnce({ status: "ready", value: data.policy }).mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      if (method === "pausePolicy") {
+        await waitFor(() => expect(screen.getByRole("button", { name: "Pausar admisiones" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Pausar admisiones" }));
+        fireEvent.change(screen.getByLabelText("Motivo de la pausa"), { target: { value: "Cierre de cohorte" } });
+        fireEvent.click(screen.getByRole("button", { name: "Confirmar pausa" }));
+      } else if (lifecycle === "paused") {
+        await waitFor(() => expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Reanudar admisiones" }));
+      } else {
+        await waitFor(() => expect(screen.getByRole("button", { name: "Editar reglas" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Editar reglas" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Lista de habilitados" }));
+        await goToReview(); await confirm();
+        fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+      }
+      await waitFor(() => expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeEnabled());
+      const original = readAdmissionPolicyIntent(viewerId, slug);
+      fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
+      fireEvent.click(await screen.findByRole("checkbox", { name: /Confirmo reintentar/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent(message);
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent(consequence);
+      expect(block).not.toHaveTextContent("Guardar y activar admisiones");
+      expect(data.client[method]).toHaveBeenCalledTimes(2);
+      expect(data.client[method].mock.calls[1][1]).toEqual(original!.input);
+      expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+    });
+  });
+
   describe("memberships blocked by payment", () => {
     it("should tell the leader before activating how many memberships blocked by payment become free members, without an extra step", async () => {
       const data = fixture();
@@ -507,6 +696,19 @@ describe("guided policy route workflow", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeEnabled());
       expect(screen.getByRole("region", { name: "Lo que falta resolver" })).toHaveTextContent("El canal para comprobar el contacto todavía no está preparado.");
       expect(data.client.activatePolicy).not.toHaveBeenCalled();
+    });
+
+    it("should name a missing platform security once even when the preflight reads it as a recovery lock, and offer no publication", async () => {
+      const data = fixture();
+      render(<AdmissionPolicyContainer initialState={{ ...data.state, policy: withRequirements(data.policy, ["admission_security_unconfigured"]) }} client={data.client} initialPreflight={{ prepared: false, reasons: ["preflight_recovery_locked"] }} />, { wrapper: Providers });
+      const platform = screen.getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+      expect(platform).not.toHaveTextContent("preflight_recovery_locked");
+      expect(platform).toHaveTextContent("Lo que ya elegiste quedó guardado como borrador.");
+      const notice = screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" });
+      expect(notice).toHaveTextContent("Tus reglas siguen guardadas como borrador, pero por ahora no se pueden cambiar ni activar: depende del equipo de TuTribu.");
+      await waitFor(() => expect(within(platform).getByRole("button", { name: "Volver a comprobar" })).toBeEnabled());
+      expect(screen.queryByRole("button", { name: "Revisar y activar" })).not.toBeInTheDocument();
     });
 
     it("should open the final step from a return link", async () => {

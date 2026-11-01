@@ -26,7 +26,7 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 /** Supplies only current application state and feature-owned asynchronous outcomes. */
 function fixture(configured = true) {
   const policy = { version: 3, allowedCountries: ["AR"], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 2, notificationToday: 1 } };
-  const state: Extract<MessagingUsagePageState, { kind: "ready" }> = { kind: "ready", slug, tribeId, viewerId, renderedAt: "2026-10-07T12:00:00Z", usage: configured ? { state: "configured", policy } : { state: "not_configured", policy: null }, countryChoices: [{ value: "AR", label: "Argentina" }, { value: "US", label: "Estados Unidos" }] };
+  const state: Extract<MessagingUsagePageState, { kind: "ready" }> = { kind: "ready", slug, tribeId, viewerId, renderedAt: "2026-10-07T12:00:00Z", usage: configured ? { state: "configured", policy } : { state: "not_configured", policy: null }, platformRequirement: null, countryChoices: [{ value: "AR", label: "Argentina" }, { value: "US", label: "Estados Unidos" }] };
   const client = {
     viewer: vi.fn<MessagingUsageBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
     read: vi.fn<MessagingUsageBrowserClient["read"]>(async () => ({ status: "ready", value: { state: "configured", policy } })),
@@ -215,7 +215,7 @@ describe("guided usage route workflow", () => {
     expect(data.client.update).not.toHaveBeenCalled();
   });
 
-  it("should withhold the old private policy after a mutation reports lost current authority", async () => {
+  it("should withhold the old private policy after a mutation reports lost current authority and forget the unregistered original", async () => {
     const data = fixture();
     data.client.update.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para modificar el uso.", uncertain: false });
     render(data.node, { wrapper: Providers });
@@ -223,7 +223,54 @@ describe("guided usage route workflow", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso"));
     expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument();
     expect(screen.queryByText(/2 códigos y 1 avisos consumidos hoy/)).not.toBeInTheDocument();
-    expect(readMessagingUsageIntent(viewerId, slug)?.input.operationId).toBe(data.client.update.mock.calls[0][1].operationId);
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+  });
+
+  it("should keep the page and forget the original when a save is rejected as unavailable while the current read still works", async () => {
+    const data = fixture();
+    data.client.update.mockResolvedValueOnce({ status: "failed", code: "resource_unavailable", message: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.resourceUnavailable], uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await saveVerificationChange("120");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.resourceUnavailable]));
+    expect(screen.getByText(/2 códigos y 1 avisos consumidos hoy/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Consultar operación original" })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+  });
+
+  it("should release a save the platform rejected as definitive, with its copy and no recovery of the same original", async () => {
+    const data = fixture();
+    data.client.update.mockResolvedValueOnce({ status: "failed", code: "platform_security_unavailable", message: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.platformSecurityUnavailable], uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await saveVerificationChange("120");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/depende del equipo de TuTribu/));
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Consultar operación original" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Configuración actual: versión 3/)).toBeInTheDocument();
+    expect(data.client.update).toHaveBeenCalledOnce();
+  });
+
+  it("should explain the platform block, keep the saved configuration readable and disable every save while the platform cannot protect it", async () => {
+    const data = fixture(); data.state.platformRequirement = "security_unconfigured";
+    render(data.node, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: "Depende del equipo de TuTribu" });
+    expect(notice).toHaveTextContent("admission_security_unconfigured"); expect(notice).toHaveTextContent(/no se pueden guardar países ni cupos/);
+    expect(screen.getByText(/Configuración actual: versión 3/)).toBeInTheDocument();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Cambiar países y cupos" })).toBeDisabled();
+    expect(data.client.update).not.toHaveBeenCalled(); expect(data.client.initialize).not.toHaveBeenCalled();
+  });
+
+  it("should forget a stored original that was never registered while the platform cannot protect a save, instead of offering its retry", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/El guardado anterior no quedó registrado y no hace falta reintentarlo/)).toBeInTheDocument());
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar operación original" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("admission_recovery_locked");
+    expect(data.client.update).not.toHaveBeenCalled();
   });
 
   it("should ignore a late aborted usage read after a newer current version and counters are displayed", async () => {

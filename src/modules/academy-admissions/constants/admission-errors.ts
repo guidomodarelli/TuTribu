@@ -10,7 +10,8 @@ export type AdmissionErrorCode =
   | "admissions_paused" | "admission_ineligible" | "membership_recovery_required" | "connection_incomplete" | "usage_policy_missing"
   | "missing_capability" | "invalid_credentials" | "upstream_rejected" | "provider_rate_limited"
   | "transport_timeout" | "dependency_unavailable" | "delivery_unknown" | "operation_unresolved"
-  | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure" | "whatsapp_number_required";
+  | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure" | "whatsapp_number_required"
+  | "platform_security_unavailable";
 
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
 export const ADMISSION_ERROR_CODE = {
@@ -89,4 +90,5 @@ export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.upstreamPayloadUnusable]: "No pudimos interpretar la respuesta de mensajería. Conservá los datos y consultá el estado.",
   [ADMISSION_ERROR_CODE.publicContractUnusable]: "No pudimos mostrar el resultado de la operación. Conservá los datos y consultá el estado.",
   [ADMISSION_ERROR_CODE.unexpectedFailure]: "No pudimos completar la operación de admisión. Conservá los datos y consultá el estado.",
+  [ADMISSION_ERROR_CODE.platformSecurityUnavailable]: "Esta operación depende del equipo de TuTribu: la plataforma todavía no puede protegerla. No se registró ningún cambio.",
 } as const;

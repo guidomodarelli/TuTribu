@@ -14,7 +14,7 @@ import type { AdmissionNotificationEmailSettingsUseCases } from "../../applicati
 import { ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION } from "../../constants/admission-notification-settings-http";
 import { ADMISSION_EMAIL_SETTINGS_STATUS } from "../../constants/admission-notification-email-settings";
 import { ADMISSION_NOTIFICATION_PREFERENCE_STATUS } from "../../constants/admission-notification-preference";
-import { admissionNotificationPreferenceChangeSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsViewSchema, admissionNotificationEmailSettingsOperationSchema } from "../../constants/admission-notification-settings-schemas";
+import { admissionNotificationPreferenceChangeSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsReadResultSchema, admissionNotificationEmailSettingsOperationSchema } from "../../constants/admission-notification-settings-schemas";
 import { toAdmissionNotificationPreferenceView, toAdmissionNotificationEmailSettingsView, toAdmissionNotificationEmailSettingsOperationView } from "./admission-notification-settings-mapper";
 import { PERSONAL_INVITATION_VIEWER_HEADER, personalInvitationViewerMetadataSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
 
@@ -94,7 +94,7 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
       } catch (error) { return boundary.unexpected(error); }
     },
 
-    /** @param request - Current leader request. @param context - Framework tenant. @returns Read-only current settings without loading provider keys or creating the default row. */
+    /** @param request - Current leader request. @param context - Framework tenant. @returns Read-only current settings and the closed platform requirement, without loading provider credentials or creating the default row. */
     async readEmailSettings(request: Request, context: SettingsRouteContext): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION.emailRead });
       try {
@@ -102,8 +102,8 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
         if (!scope.usable) return scope.response;
         const result = await scope.services.email.read({ tribeId: scope.tribeId, requestId: scope.requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
-        if (result.value.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return bindViewer(boundary.success(admissionNotificationEmailSettingsViewSchema, toAdmissionNotificationEmailSettingsView(result.value)), result);
+        if (result.value.settings.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
+        return bindViewer(boundary.success(admissionNotificationEmailSettingsReadResultSchema, { settings: toAdmissionNotificationEmailSettingsView(result.value.settings), platformRequirement: result.value.platformRequirement }), result);
       } catch (error) { return boundary.unexpected(error); }
     },
 

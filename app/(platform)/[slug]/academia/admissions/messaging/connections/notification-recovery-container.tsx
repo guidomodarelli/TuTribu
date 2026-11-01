@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNotificationRecoveryLocalSnapshot } from "./notification-recovery-local-snapshot";
 import { MessagingNotificationRecovery } from "@/components/academy-admissions/messaging-notification-recovery";
 import type { MessagingConfigurationConnection } from "@/src/modules/messaging/application/results/messaging-configuration-result";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import type { NotificationDeliveryCatalogResult } from "@/src/modules/messaging/application/results/notification-delivery-catalog-result";
 import type { NotificationRecoveryBrowserClient } from "@/src/modules/messaging/application/ports/notification-recovery-browser-client";
 import type { NotificationRecoveryIntentStore, NotificationRecoveryReference } from "@/src/modules/messaging/application/ports/notification-recovery-intent-store";
@@ -11,6 +12,7 @@ import { notificationRecoveryBrowserClient } from "@/lib/messaging/notification-
 import { notificationRecoveryIntentStore } from "@/lib/messaging/notification-recovery-intent-store";
 import { NOTIFICATION_RECOVERY_UI_COPY as COPY, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import { NOTIFICATION_RECOVERY_HISTORY_LIMIT } from "@/src/modules/messaging/constants/notification-recovery-intent";
+import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 import { archiveRecoveryOriginal, clearCompletedRecovery, isRecoveryEligible, isRecoveryTargetPrepared, readRecoveryCatalog, readRecoveryOriginal, recoverNotification, restoreRecoveryHistory, selectRecoveryDelivery, stopRecoveryObservation, type NotificationRecoveryContext, type RecoveryMessage } from "./notification-recovery-actions";
 import { TIMER_MAXIMUM_DELAY_MS } from "@/src/constants/time";
 
@@ -19,6 +21,8 @@ export type NotificationRecoveryContainerProps = {
   slug: string; viewerId: string; renderedAt: string;
   target: MessagingConfigurationConnection | null;
   blocked: boolean; viewerVerified: boolean;
+  /** What only the TuTribu team can resolve before a recovery can be protected; reads stay available while it is set. */
+  platformRequirement?: PlatformSecurityRequirement | null;
   initialCatalog?: NotificationDeliveryCatalogResult;
   initialCatalogError?: string;
   verifyViewer: (signal: AbortSignal) => Promise<boolean>;
@@ -41,11 +45,14 @@ function readySnapshot(local: LocalRecoverySnapshot) {
   return local?.state === "ready" ? local.value : null;
 }
 
+/** Feedback that outlives the scope it was given in, because it explains why the original reference just went away. */
+const SCOPE_INDEPENDENT_FEEDBACK: ReadonlySet<string> = new Set([COPY.currentRequired, COPY.archived, COPY.platformForgotten, MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.platformSecurityUnavailable]]);
+
 /** @param local - Guarded local snapshot. @param storageAvailable - Whether saving still works. @param notice - Latest scoped feedback. @param confirmationScope - Current selection scope. @returns Storage failure first, then feedback still valid for the current scope. */
 function resolveRecoveryMessage(local: LocalRecoverySnapshot, storageAvailable: boolean, notice: RecoveryNotice | null, confirmationScope: string): RecoveryMessage | null {
   if (local?.state === "unavailable" || !storageAvailable) return { kind: "alert", text: COPY.storageUnavailable };
   if (!notice) return null;
-  return notice.scope === confirmationScope || notice.text === COPY.currentRequired || notice.text === COPY.archived ? { kind: notice.kind, text: notice.text } : null;
+  return notice.scope === confirmationScope || SCOPE_INDEPENDENT_FEEDBACK.has(notice.text) ? { kind: notice.kind, text: notice.text } : null;
 }
 
 /** @param selected - Selected notice, if any. @returns Its parsed deadline, or null when absent or invalid. */
@@ -98,10 +105,10 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
   /** A new recovery is no longer available once the notice's deadline passed; a preserved original keeps its own recovery. */
   const expired = !reference && selectedDeadlineMs !== null && selectedDeadlineMs <= clockMs;
   const canRead = local?.state === "ready" && storageAvailable && viewerAvailable && props.viewerVerified && !props.blocked;
-  const targetPrepared = isRecoveryTargetPrepared(props.target);
+  const targetPrepared = isRecoveryTargetPrepared(props.target), platformBlocked = Boolean(props.platformRequirement);
   /** @returns This render's facts, refs and setters for one explicit handler; refs are only read when a handler runs. */
-  const recoveryContext = (): NotificationRecoveryContext => ({ slug: props.slug, viewerId: props.viewerId, target: props.target, client, store, verifyViewer: props.verifyViewer, onBusyChange: props.onBusyChange, catalog, selected, selectedDeliveryId, reference, history, historyFull, canRead, confirmed, mayResume, canArchive, archiveConfirmed, originalCompleted, busy, targetPrepared,
+  const recoveryContext = (): NotificationRecoveryContext => ({ slug: props.slug, viewerId: props.viewerId, target: props.target, client, store, verifyViewer: props.verifyViewer, onBusyChange: props.onBusyChange, catalog, selected, selectedDeliveryId, reference, history, historyFull, canRead, confirmed, mayResume, canArchive, archiveConfirmed, originalCompleted, busy, targetPrepared, platformBlocked,
     mounted, observation, originalReference, setCatalog, setSelectedDeliveryId, setReference, setHistory, setStorageAvailable, setViewerAvailable, setBusy, setWriteAction, setMayResume, setOriginalCompleted, setCanArchive, setArchiveConsent, setClockMs, setConfirmed, setMessage });
-  return <MessagingNotificationRecovery items={catalog?.items ?? []} selectedDeliveryId={selectedDeliveryId} targetName={props.target?.name ?? null} catalogAvailable={catalog !== null} hasMore={Boolean(catalog?.nextCursor)} busy={busy} writeAction={busy ? writeAction : null} canRead={canRead} canRecover={canRead && !reference && !historyFull && isRecoveryEligible({ selected, target: props.target, targetPrepared }, new Date(clockMs))} expired={expired} confirmed={confirmed} hasReference={reference !== null} originalCompleted={originalCompleted} mayResume={canRead && mayResume} canArchive={canArchive} archiveConfirmed={archiveConfirmed} historyCount={history.length} historyFull={historyFull} message={message} onArchiveConfirm={(value) => { setArchiveConsent(reference ? { checked: value, operationId: reference.operationId } : null); setMessage(null); }} onArchive={() => { void archiveRecoveryOriginal(recoveryContext()); }} onRestoreHistory={(index) => { void restoreRecoveryHistory(recoveryContext(), index); }}
+  return <MessagingNotificationRecovery items={catalog?.items ?? []} selectedDeliveryId={selectedDeliveryId} targetName={props.target?.name ?? null} catalogAvailable={catalog !== null} hasMore={Boolean(catalog?.nextCursor)} busy={busy} writeAction={busy ? writeAction : null} canRead={canRead} canRecover={canRead && !platformBlocked && !reference && !historyFull && isRecoveryEligible({ selected, target: props.target, targetPrepared }, new Date(clockMs))} expired={expired} confirmed={confirmed} hasReference={reference !== null} originalCompleted={originalCompleted} mayResume={canRead && !platformBlocked && mayResume} canArchive={canArchive} archiveConfirmed={archiveConfirmed} historyCount={history.length} historyFull={historyFull} message={message} onArchiveConfirm={(value) => { setArchiveConsent(reference ? { checked: value, operationId: reference.operationId } : null); setMessage(null); }} onArchive={() => { void archiveRecoveryOriginal(recoveryContext()); }} onRestoreHistory={(index) => { void restoreRecoveryHistory(recoveryContext(), index); }}
     onSelect={(deliveryId) => { selectRecoveryDelivery(recoveryContext(), deliveryId); }} onConfirm={(value) => { setConfirmed(value); setMessage(null); }} onRefresh={() => { void readRecoveryCatalog(recoveryContext()); }} onMore={() => { void readRecoveryCatalog(recoveryContext(), true); }} onRecover={() => { void recoverNotification(recoveryContext()); }} onReadOriginal={() => { void readRecoveryOriginal(recoveryContext()); }} onResumeOriginal={() => { void recoverNotification(recoveryContext(), true); }} onClearCompleted={() => { clearCompletedRecovery(recoveryContext()); }} onStopObserving={() => { stopRecoveryObservation(recoveryContext()); }} />;
 }

@@ -101,6 +101,50 @@ describe("AdmissionSetupGuideFallback", () => {
   });
 });
 
+describe("AdmissionSetupGuide platform security", () => {
+  it("shows one platform notice and no step action while no admission write can be protected, without mentioning a draft", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: false, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: { connected: false, usage: null }, notifications: null, activation: { platformBlocked: true }, platformSecurity: "security_unconfigured",
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+
+    const notice = screen.getByRole("region", { name: "Depende del equipo de TuTribu" });
+    expect(notice).toHaveTextContent("La plataforma todavía no tiene configurada la seguridad que protege estas operaciones.");
+    expect(notice).toHaveTextContent("Todavía no se puede configurar ni guardar nada de las admisiones: ni las reglas, ni la mensajería, ni los cupos.");
+    expect(notice).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    expect(screen.getAllByText("Depende del equipo de TuTribu")).toHaveLength(1);
+    expect(screen.getByRole("region", { name: "Configurá las admisiones" })).not.toHaveTextContent(/borrador/i);
+  });
+
+  it("says saved rules are kept when the platform locks admission writes after they were saved", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: null, notifications: null, platformSecurity: "recovery_locked",
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+
+    const notice = screen.getByRole("region", { name: "Depende del equipo de TuTribu" });
+    expect(notice).toHaveTextContent("La plataforma pausó estas operaciones mientras recupera un servicio.");
+    expect(notice).toHaveTextContent("lo que ya guardaste se conserva");
+    expect(notice).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+    expect(screen.queryByRole("link", { name: "Abrir las admisiones" })).not.toBeInTheDocument();
+  });
+
+  it("does not mention a draft on the opening step when a platform reason blocks it before any rules were saved", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: false, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: null, notifications: null, activation: { platformBlocked: true },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+
+    expect(screen.getByText("Depende del equipo de TuTribu: la plataforma todavía no permite activar las admisiones de esta academia.")).toBeInTheDocument();
+    expect(screen.queryByText(/borrador/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Definir las reglas" })).toHaveAttribute("href", "/tribu/academia/admissions/settings");
+  });
+});
+
 describe("AdmissionSetupGuide drafts", () => {
   it("marks a saved candidate connection as an unpublished draft", () => {
     const progress = deriveAdmissionSetupProgress({

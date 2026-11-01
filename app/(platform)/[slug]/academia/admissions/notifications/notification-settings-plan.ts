@@ -33,11 +33,16 @@ function hasEmailChange(email: AdmissionNotificationEmailSettingsView | null, dr
   return email !== null && (draft.enabled !== email.enabled || emailTimeZoneFor(email, draft) !== email.timeZone);
 }
 
-/** Facts of the current recovery state that decide the email part of a save. */
-type EmailPlanInput = { email: AdmissionNotificationEmailSettingsView | null; draft: AdmissionNotificationEmailSettingsDraft; pending: boolean; canRetry: boolean };
-/** @param input - Current email, draft and original recovery state. @returns What the final save does with the tribe email; an original always wins over a new edit. */
-export function emailPlanFor({ email, draft, pending, canRetry }: EmailPlanInput): AdmissionNotificationSettingsEmailPlan {
-  if (pending) return canRetry ? EMAIL_PLAN.retry : EMAIL_PLAN.blocked;
+/** Facts of the current recovery state that decide the email part of a save; `platformBlocked` is true while the platform cannot protect an email change. */
+type EmailPlanInput = { email: AdmissionNotificationEmailSettingsView | null; draft: AdmissionNotificationEmailSettingsDraft; pending: boolean; canRetry: boolean; platformBlocked: boolean };
+/**
+ * @param input - Current email, draft, original recovery state and platform block.
+ * @returns What the final save does with the tribe email; an original always wins over a new edit, and while the platform cannot protect a
+ * change nothing is written (a retained original waits, it is not retried).
+ */
+export function emailPlanFor({ email, draft, pending, canRetry, platformBlocked }: EmailPlanInput): AdmissionNotificationSettingsEmailPlan {
+  if (pending) return canRetry && !platformBlocked ? EMAIL_PLAN.retry : EMAIL_PLAN.blocked;
+  if (platformBlocked) return EMAIL_PLAN.unchanged;
   return hasEmailChange(email, draft) ? EMAIL_PLAN.save : EMAIL_PLAN.unchanged;
 }
 

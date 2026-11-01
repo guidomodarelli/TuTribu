@@ -15,6 +15,7 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_POLICY_PUBLIC_STATE } from "../../constants/admission-policy";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
+import { readAdmissionPlatformRequirement } from "../results/admission-platform-requirement";
 
 /** The single SSR entrypoint combines metadata, current policy and exact-type list availability. */
 export class GetPersonalInvitationManagementPageUseCase {
@@ -50,7 +51,7 @@ export class GetPersonalInvitationManagementPageUseCase {
       if (!page.ok) return page;
       await assertViewer();
       const now = this.clock(), { cursor, ...filters } = query.filters;
-      const value: PersonalInvitationManagementPageState = personalInvitationManagementPageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: tribe.value.tribeId, viewerId: viewer.userId, renderedAt: now.toISOString(), contactType, requiresAdditionalVerification: policy.value.policy?.requiresAdditionalVerification ?? false, allowedCountries: policy.value.usage?.allowedCountries ?? [], hasUsableAllowlist, page: page.value, query: { ...filters, ...(cursor ? { cursor: [cursor.createdAt, cursor.id].join(PERSONAL_INVITATION_CURSOR.separator) } : {}) } });
+      const value: PersonalInvitationManagementPageState = personalInvitationManagementPageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: tribe.value.tribeId, viewerId: viewer.userId, renderedAt: now.toISOString(), contactType, platformRequirement: readAdmissionPlatformRequirement(policy.value), requiresAdditionalVerification: policy.value.policy?.requiresAdditionalVerification ?? false, allowedCountries: policy.value.usage?.allowedCountries ?? [], hasUsableAllowlist, page: page.value, query: { ...filters, ...(cursor ? { cursor: [cursor.createdAt, cursor.id].join(PERSONAL_INVITATION_CURSOR.separator) } : {}) } });
       return { ok: true as const, value };
     } catch (error) { return admissionOperationFailure(error); }
   }

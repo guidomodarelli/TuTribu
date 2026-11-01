@@ -7,6 +7,8 @@ export const TRIBE_MEMBERSHIP_LIFECYCLE_ERROR = {
   authenticationRequired: "authentication_required", permissionDenied: "permission_denied", invalidInput: "invalid_input",
   resourceUnavailable: "resource_unavailable", membershipConflict: "membership_conflict", idempotencyConflict: "idempotency_conflict",
   operationUnresolved: "operation_unresolved", publicContractUnusable: "public_contract_unusable", unexpectedFailure: "unexpected_failure",
+  /** The platform cannot protect the original yet; nothing was registered and only the TuTribu team can fix it. */
+  platformSecurityUnavailable: "platform_security_unavailable",
 } as const;
 /** Owns the explicit set of commands accepted at the HTTP boundary. */
 export const TRIBE_MEMBERSHIP_LIFECYCLE_ACTIONS = ["leave", "remove", "block"] as const;

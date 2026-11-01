@@ -5,20 +5,21 @@ import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { ThemedToaster } from "@golfo/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAllowlistImportWorkflow } from "@/hooks/use-allowlist-import-workflow";
-import { writeAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
 import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-import-browser-client";
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { createAllowlistImportDraftStoreFixture } from "@/tests/support/allowlist-import-draft-store-fixture";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ALLOWLIST_IMPORT_WRITE_ACTION, ALLOWLIST_IMPORT_BROWSER_COPY, ALLOWLIST_IMPORT_STEP } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { readAllowlistImport, writeAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
 
 afterEach(() => window.sessionStorage.clear());
 /** @returns Own current scope and a saved preview with one valid and one invalid record. */
 function fixture() {
   const viewerId = randomUUID(), importId = randomUUID(), draft = { fileName: "synthetic.csv", csvText: "identity,display_name\nsynthetic@example.test,Nombre\ninvalid,Nombre" };
   const now = Date.now();
-  const initialState: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, renderedAt: new Date(now).toISOString() };
+  const initialState: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, platformRequirement: null, renderedAt: new Date(now).toISOString() };
   const snapshot: AllowlistImportDto = { importId, state: "preview", sourceVersion: 1, expiresAt: new Date(now + ADMISSION_LIMIT.csvRetentionMs).toISOString(), counts: { selected: 0, added: 0, unchanged: 0, skipped: 0, conflict: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "Nombre", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", displayName: "Nombre", selected: false, errors: ["admission_contact_invalid"] }] };
   const client: AllowlistImportBrowserClient = { viewer: vi.fn(async () => ({ status: "ready" as const, value: { id: viewerId } })), operation: vi.fn(), policy: vi.fn(), read: vi.fn(async () => ({ status: "ready" as const, value: snapshot })), write: vi.fn(async (_slug, intent) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: intent.operationId, replayed: false, result: { importId, sourceVersion: 1, expiresAt: snapshot.expiresAt } } })), file: vi.fn() };
   return { initialState, client, importId, draft, snapshot, drafts: createAllowlistImportDraftStoreFixture() };
@@ -133,5 +134,64 @@ describe("explicit import workflow", () => {
     const { result } = renderHook(() => useAllowlistImportWorkflow(data));
     await waitFor(() => expect(result.current.privateVisible).toBe(false));
     expect(result.current.ready).toBe(false); expect(result.current.snapshot).toBeNull(); expect(data.client.write).not.toHaveBeenCalled();
+  });
+  it("should ask for a new preview when the saved import can no longer be confirmed instead of leaving it unusable", async () => {
+    const data = fixture();
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: null, unresolved: [] });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    // A rotated hosting security (or an expired preview) closes this import for good: the server answers resource_unavailable.
+    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: ADMISSION_ERROR_MESSAGE.resource_unavailable, uncertain: false });
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.confirm());
+    expect(result.current.errorMessage).toBe(ALLOWLIST_IMPORT_BROWSER_COPY.previewUnavailable);
+    expect(result.current.snapshot).toBeNull(); expect(result.current.hasSavedImport).toBe(false); expect(result.current.step).toBe(ALLOWLIST_IMPORT_STEP.upload);
+    expect(result.current.pending).toBeNull(); expect(result.current.draft).toMatchObject(data.draft);
+    // The kept file previews again as a new original.
+    vi.mocked(data.client.write).mockImplementation(async (_slug, intent) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: intent.operationId, replayed: false, result: { importId: data.importId, sourceVersion: 1, expiresAt: data.snapshot.expiresAt } } }));
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.preview());
+    expect(vi.mocked(data.client.write).mock.calls.at(-1)?.[1]).toMatchObject({ type: "preview_allowlist_import" });
+    expect(result.current.snapshot).toEqual(data.snapshot);
+  });
+  it("should release a preview the platform could not protect and keep the platform copy on screen", async () => {
+    const data = fixture(), code = ADMISSION_ERROR_CODE.platformSecurityUnavailable;
+    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => result.current.changeDraft(data.draft)); act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.preview());
+    expect(result.current.pending).toBeNull(); expect(result.current.errorMessage).toBe(ADMISSION_ERROR_MESSAGE[code]);
+    expect((await readAllowlistImport(data.initialState.viewerId, "synthetic", { files: data.drafts }))?.pending).toBeNull();
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.preview());
+    const [first, second] = vi.mocked(data.client.write).mock.calls.map(([, intent]) => intent.operationId);
+    expect(second).toBeDefined(); expect(second).not.toBe(first); expect(data.client.operation).not.toHaveBeenCalled();
+  });
+  it("should discard only an original the server proves absent and keep the file", async () => {
+    const data = fixture();
+    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "Recurso no disponible.", uncertain: false });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => result.current.changeDraft(data.draft)); act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.preview());
+    expect(result.current.pending).not.toBeNull(); expect(result.current.originalAbsent).toBe(false);
+    act(() => result.current.discardOriginal());
+    expect(result.current.pending).not.toBeNull();
+    await act(async () => result.current.readOriginal());
+    expect(result.current.errorMessage).toBe(ALLOWLIST_IMPORT_BROWSER_COPY.absent); expect(result.current.originalAbsent).toBe(true);
+    act(() => result.current.discardOriginal());
+    expect(result.current.pending).toBeNull(); expect(result.current.originalAbsent).toBe(false); expect(result.current.draft).toMatchObject(data.draft);
+    expect(await screen.findByText(ALLOWLIST_IMPORT_BROWSER_COPY.discarded)).toBeInTheDocument();
+    expect(data.client.write).toHaveBeenCalledOnce();
+  });
+  it("should not dispatch a preview or a confirmation while the read reports a platform requirement", async () => {
+    const data = fixture(), initialState = { ...data.initialState, platformRequirement: "recovery_locked" as const };
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: null, unresolved: [] });
+    const { result } = renderHook(() => useAllowlistImportWorkflow({ ...data, initialState }));
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.confirm());
+    await act(async () => result.current.preview());
+    expect(data.client.write).not.toHaveBeenCalled(); expect(result.current.policy.platformRequirement).toBe("recovery_locked");
   });
 });

@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAllowlistWorkflow } from "@/hooks/use-allowlist-workflow";
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistPageState } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
-import { writeAllowlistWorkflow } from "@/lib/academy-admissions/allowlist-intent";
+import { readAllowlistWorkflow, writeAllowlistWorkflow } from "@/lib/academy-admissions/allowlist-intent";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 
 afterEach(() => window.sessionStorage.clear());
@@ -19,7 +20,7 @@ function WithToaster({ children }: { children: ReactNode }) { return <>{children
 function fixture() {
   const viewerId = randomUUID(), entryId = randomUUID();
   const entry = { id: entryId, version: 1, contactType: "email" as const, identity: "entry+tag@example.test", displayName: "Original", status: "enabled" as const, source: "manual" as const, createdAt: "2026-10-09T05:00:00Z", updatedAt: "2026-10-09T05:00:00Z" };
-  const initialState: Extract<AllowlistPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: "2026-10-09T05:00:00Z", contactType: "email", page: { items: [entry], nextCursor: null }, query: { limit: 25 } };
+  const initialState: Extract<AllowlistPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: "2026-10-09T05:00:00Z", contactType: "email", platformRequirement: null, page: { items: [entry], nextCursor: null }, query: { limit: 25 } };
   const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: initialState.page })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: entry })), operation: vi.fn<AllowlistBrowserClient["operation"]>(), write: vi.fn<AllowlistBrowserClient["write"]>(async (_slug, intent) => ({ status: "ready", value: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { entryId, version: 2, created: false, changed: true } } })) };
   return { entry, client, initialState };
 }
@@ -183,5 +184,53 @@ describe("list workflow ownership", () => {
     // A plain failure the leader can retry is the write's own toast; nothing stays blocked on the form.
     expect(await screen.findByText(message)).toBeInTheDocument(); expect(result.current.errorMessage).toBeNull(); expect(result.current.confirmed).toBe(false); expect(result.current.draft.displayName).toBe("Conservar");
     expect(result.current.pending).toBeNull(); expect(data.client.write).toHaveBeenCalledOnce();
+  });
+  it("should release the original and keep the platform copy next to the form when the platform cannot protect the write", async () => {
+    const data = fixture(), code = ADMISSION_ERROR_CODE.platformSecurityUnavailable;
+    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+    const { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.select(data.entry)); act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Conservar" }); result.current.setConfirmed(true); });
+    await act(async () => result.current.save());
+    expect(result.current.pending).toBeNull(); expect(result.current.phase).toBe("idle");
+    expect(result.current.errorMessage).toBe(ADMISSION_ERROR_MESSAGE[code]); expect(result.current.draft.displayName).toBe("Conservar");
+    expect(readAllowlistWorkflow(data.initialState.viewerId, data.initialState.slug)?.pending).toBeNull();
+    // Nothing waits for the original: the leader can read the list and a later save is a new original.
+    act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.save());
+    const [first, second] = vi.mocked(data.client.write).mock.calls.map(([, intent]) => intent.input.operationId);
+    expect(second).toBeDefined(); expect(second).not.toBe(first); expect(data.client.operation).not.toHaveBeenCalled();
+  });
+
+  it("should offer to discard an original the server proves absent instead of blocking the whole list", async () => {
+    const data = fixture();
+    vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "Recurso no disponible.", uncertain: false });
+    const { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.select(data.entry)); act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Borrador" }); result.current.setConfirmed(true); });
+    await act(async () => result.current.save());
+    expect(result.current.phase).toBe("uncertain"); expect(result.current.originalAbsent).toBe(false);
+    // An uncertain original is never discarded before a consult proves it absent.
+    act(() => result.current.discardOriginal());
+    expect(result.current.pending).not.toBeNull();
+    await act(async () => result.current.readOriginal());
+    expect(result.current.errorMessage).toBe(ALLOWLIST_BROWSER_COPY.absent); expect(result.current.originalAbsent).toBe(true);
+    act(() => result.current.discardOriginal());
+    expect(result.current.pending).toBeNull(); expect(result.current.phase).toBe("idle"); expect(result.current.originalAbsent).toBe(false);
+    expect(result.current.draft.displayName).toBe("Borrador"); expect(result.current.confirmed).toBe(false);
+    expect(readAllowlistWorkflow(data.initialState.viewerId, data.initialState.slug)?.pending).toBeNull();
+    expect(await screen.findByText(ALLOWLIST_BROWSER_COPY.discarded)).toBeInTheDocument();
+    await act(async () => result.current.searchEntries());
+    expect(data.client.list).toHaveBeenCalledOnce(); expect(data.client.write).toHaveBeenCalledOnce();
+  });
+
+  it("should not dispatch a write while the read reports a platform requirement", async () => {
+    const data = fixture(), initialState = { ...data.initialState, platformRequirement: "security_unconfigured" as const };
+    const { result } = renderHook(() => useAllowlistWorkflow({ ...data, initialState }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => { result.current.changeDraft({ ...result.current.draft, identity: "new@example.test" }); result.current.setConfirmed(true); });
+    await act(async () => result.current.save());
+    expect(data.client.write).not.toHaveBeenCalled(); expect(result.current.pending).toBeNull();
   });
 });

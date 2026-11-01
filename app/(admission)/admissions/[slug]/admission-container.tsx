@@ -387,7 +387,13 @@ function useAdmissionWriteResults({ refs, setters, applyState, clearIntent, refr
   const handleFailedWrite = useCallback(async (intent: AdmissionPendingIntent, result: FailedWriteResult, signal: AbortSignal) => { const { activeRef, currentStateRef, whatsappConfirmationRef } = refs;
     if (result.uncertain) { setErrorMessage(result.message); setters.setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     setErrorMessage(result.message, feedbackOriginOf(intent));
+    // A definitive refusal registered nothing: its local intent is released, never kept to be recovered or resent.
     clearIntent(); if (intent.kind === ADMISSION_WHATSAPP_INTENT_KIND) { setters.setWhatsappConfirmed(false); whatsappConfirmationRef.current = null; await refresh(signal); }
+    // Only the TuTribu team can lift a platform refusal: the current projection is read again so a page the platform closed stops offering the form, and the refusal stays visible.
+    if (result.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable) {
+      if (intent.kind !== ADMISSION_WHATSAPP_INTENT_KIND) await refresh(signal);
+      if (isLive(activeRef, signal)) setErrorMessage(result.message, feedbackOriginOf(intent));
+    }
     // A list or contact-binding refusal can follow a change made after this page loaded; the current overview then explains it and offers another account.
     if (intent.kind === "submit" && ACCOUNT_CHANGE_SUBMISSION_CODES.has(result.code) && await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) {
       const current = currentStateRef.current;
@@ -769,7 +775,8 @@ function useAdmissionPresentation({ workflow, contactModel, requestPage, changeD
   const flowBlocked = values.phase !== ADMISSION_UI_PHASE.idle || values.accountChanged || !values.formReady || contactBusy;
   const showsWhatsappEditor = showsWhatsappEditorFor({ values, currentPending });
   // Each error shows once, next to the step, action or field that produced it; when the page no longer offers that place, on the page itself.
-  const errorAnchored = isErrorAnchored({ errorOrigin, offersSubmitStep: offersSubmission && flowMode === ADMISSION_REQUEST_FLOW_MODE.submit, offersCancel: values.state.kind === "ready" && values.state.request !== null && !values.accountChanged, showsWhatsappEditor });
+  // A submission error stays in the final step only while that step is open; a resend from the page's recovery shows it on the page.
+  const errorAnchored = isErrorAnchored({ errorOrigin, offersSubmitStep: offersSubmission && flowMode === ADMISSION_REQUEST_FLOW_MODE.submit && values.step === flowSteps.length - 1, offersCancel: values.state.kind === "ready" && values.state.request !== null && !values.accountChanged, showsWhatsappEditor });
   const placedErrorOrigin = errorAnchored ? errorOrigin : ADMISSION_FEEDBACK_ORIGIN.page;
   const errorAt = (origin: AdmissionFeedbackOrigin) => placedErrorOrigin === origin ? errorMessage : null;
   const flowInput = contactState && (offersSubmission || flowMode === ADMISSION_REQUEST_FLOW_MODE.apply) ? { workflow, contactModel, contactState, flowMode, flowBlocked, submitErrorMessage: errorAt(ADMISSION_FEEDBACK_ORIGIN.submit), changeDraft, submit } : null;

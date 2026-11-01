@@ -319,10 +319,10 @@ export async function readIssuedDiagnostic(context: ConnectionsContext, referenc
   }));
 }
 
-/** @param context - Current render facts. @param result - Original initial candidate metadata. @returns Nothing after applying only its incremental view facts and clearing private input. */
+/** @param context - Current render facts. @param result - Original initial candidate metadata, just sealed under the current platform security. @returns Nothing after applying only its incremental view facts and clearing private input. */
 function applyCreated(context: ConnectionsContext, result: MessagingConnectionMutationResult): void {
   context.setApiKey(""); context.setConfirmed(false);
-  context.setConfiguration((current) => current?.audience === "leader" ? { ...current, candidate: { ...result, credentialState: MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated, credentialMode: MESSAGING_CREDENTIAL_MODE.unknown, capabilities: [] } } : current);
+  context.setConfiguration((current) => current?.audience === "leader" ? { ...current, candidate: { ...result, credentialState: MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated, credentialMode: MESSAGING_CREDENTIAL_MODE.unknown, securityCurrent: true, capabilities: [] } } : current);
   if (retainIntent(context, null)) emitFeedback(context, { kind: "status", text: COPY.saved });
   context.setPhase(PHASE.idle);
 }
@@ -380,7 +380,7 @@ function diagnosticRecoveryNotice(confirmedAbsent: boolean, archivable: boolean)
   return archivable ? DIAGNOSTIC_RECOVERY_COPY.absent : DIAGNOSTIC_RECOVERY_COPY.absentWaiting;
 }
 
-/** A test is never resumed. Only a confirmed absence that lasted the whole window is its read result (no billable send), so only then can it stop being followed; a started original keeps blocking. @param context - Current render facts. @param run - Route snapshot and current observation. @param pending - Unresolved original. @param confirmedAbsent - Whether the registry confirmed it absent. @returns Nothing after offering its resume or archive. */
+/** A test is never resumed. Only a confirmed absence that lasted the whole window is its read result (no billable send), so only then can it stop being followed; a started original keeps blocking. @param context - Current render facts. @param run - Route snapshot and current observation. @param pending - Unresolved original. @param confirmedAbsent - Whether the registry confirmed it absent. @returns Nothing after offering its resume or archive, or after forgetting an unregistered original the platform cannot protect. */
 async function followUnresolvedOriginal(context: ConnectionsContext, { ready, controller }: OperationRun, pending: MessagingConnectionsPendingIntent, confirmedAbsent: boolean): Promise<void> {
   const diagnosticArchivable = trackDiagnosticAbsence(context, pending, confirmedAbsent, Date.now());
   const current = await readFreshConfiguration(context, { ready, controller });
@@ -388,6 +388,13 @@ async function followUnresolvedOriginal(context: ConnectionsContext, { ready, co
   if (current.status !== "ready") { context.setCanResume(false); holdPending(context, COPY.pending); return; }
   applyConfiguration(context, current.value); context.setResumeConfirmed(false); context.setArchiveConfirmed(false);
   const leader = current.value.audience === TRIBE_MEMBER_ROLE.leader;
+  // While the platform cannot protect a write, an unregistered original can never be resumed: forget it instead of asking for the key again.
+  // A test keeps its own absence window, since its send is billable.
+  if (confirmedAbsent && !isDiagnosticIntent(pending) && current.value.audience === TRIBE_MEMBER_ROLE.leader && current.value.platformRequirement) {
+    context.setApiKey(""); context.setCanResume(false);
+    if (retainIntent(context, null)) emitFeedback(context, { kind: "status", text: RECOVERY_COPY.platformForgotten });
+    return;
+  }
   if (isDiagnosticIntent(pending)) { context.setCanResume(false); context.setCanArchive(diagnosticArchivable && leader); context.setNotice(diagnosticRecoveryNotice(confirmedAbsent, diagnosticArchivable)); }
   else { context.setCanResume(Boolean(pending.original)); context.setCanArchive(leader); context.setNotice(pending.original ? RECOVERY_COPY.originalUnconfirmed : RECOVERY_COPY.originalMissing); }
 }
@@ -711,6 +718,8 @@ async function runResume(context: ConnectionsContext, { ready, controller }: Ope
   if (!outcome || !await stillCurrent(context, controller)) return;
   // Observe the original separately; a successful replay is never substituted for the current view.
   if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed || outcome.status === "failed" && outcome.uncertain) { context.setNotice(RECOVERY_COPY.consultAgain); emitFeedback(context, { kind: "status", text: RECOVERY_COPY.resumed }); }
+  // The platform rejected the replay before registering it: nothing is left to resume, so the original is released.
+  else if (outcome.status === "failed" && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) { if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message }); }
   else emitFeedback(context, { kind: "alert", text: outcome.status === "failed" ? outcome.message : COPY.pending });
 }
 

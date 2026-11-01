@@ -5,7 +5,7 @@ import type { AdmissionNotificationSettingsBrowserClient, AdmissionNotificationS
 import { ADMISSION_NOTIFICATION_SETTINGS_API as API, ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_PREFERENCE_STATUS as PREFERENCE_STATUS } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_EMAIL_SETTINGS_STATUS as EMAIL_STATUS } from "@/src/modules/notifications/constants/admission-notification-email-settings";
-import { admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsViewSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationEmailSettingsOperationSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
+import { admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsReadResultSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationEmailSettingsOperationSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
 import { PERSONAL_INVITATION_VIEWER_HEADER, personalInvitationViewerMetadataSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
@@ -55,7 +55,7 @@ export function createAdmissionNotificationSettingsApiClient(options: { fetch?: 
   return {
     viewer: options.viewer ?? admissionApiClient.viewer,
     readPreference: (slug, signal) => request(`${base(slug)}/${API.preference}`, admissionNotificationPreferenceReadResultSchema, signal),
-    readEmail: (slug, signal) => request(`${base(slug)}/${API.email}`, admissionNotificationEmailSettingsViewSchema, signal),
+    readEmail: (slug, signal) => request(`${base(slug)}/${API.email}`, admissionNotificationEmailSettingsReadResultSchema, signal),
     changePreference: async (slug, input, signal) => {
       const parsed = admissionNotificationPreferenceChangeSchema.safeParse(input);
       if (!parsed.success) return failure(ADMISSION_ERROR_CODE.invalidInput);

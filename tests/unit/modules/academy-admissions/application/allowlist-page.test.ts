@@ -10,6 +10,7 @@ import { loadAllowlistPageState } from "@/src/modules/academy-admissions/infrast
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { AllowlistCommandWriter, AllowlistReader } from "@/src/modules/academy-admissions/domain/repositories/allowlist-management";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** @returns Real application readers with doubles confined to own account/persistence ports. */
 function fixture() {
@@ -20,21 +21,31 @@ function fixture() {
   const reader: AllowlistReader = { list: vi.fn(async () => ({ entries: [], nextCursor: null })), read: vi.fn(async () => null) };
   const writer: AllowlistCommandWriter = { create: vi.fn(), update: vi.fn() };
   const policyReader = { read: vi.fn(async () => ({ policy: null, controlActivated: false, usage: null })) };
-  const policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null, securityConfigured: true }) });
+  /** Platform fact the rules read attests; null while the platform can protect every list write. */
+  const platform: { requirement: PlatformSecurityRequirement | null } = { requirement: null };
+  const policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null, platformSecurity: platform.requirement }) });
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "synthetic-academy" }) });
   const useCase = new GetAllowlistPageUseCase(accounts, { allowlist: new ManageAllowlistUseCases(resolver, reader, writer), policy, resolveTribe }, () => now);
-  return { now, tribeId, account, accounts, actor, reader, writer, policyReader, useCase, input: { params: { slug: "synthetic-academy" }, query: {} } };
+  return { now, tribeId, account, accounts, actor, reader, writer, policyReader, platform, useCase, input: { params: { slug: "synthetic-academy" }, query: {} } };
 }
 
 describe("allowlist SSR page", () => {
   it("should project one filtered current leader page without policy creation, writes or native session data", async () => {
     const data = fixture(), cursorId = randomUUID(), cursor = `2026-10-09T07:00:00.123456Z~${cursorId}`;
     const state = await loadAllowlistPageState({ ...data.input, query: { limit: "20", search: "Grupo", status: "disabled", cursor } }, async () => data.useCase);
-    expect(state).toMatchObject({ kind: "ready", viewerId: data.account.userId, contactType: null, page: { items: [], nextCursor: null }, query: { limit: 20, search: "Grupo", status: "disabled", cursor } });
+    expect(state).toMatchObject({ kind: "ready", viewerId: data.account.userId, contactType: null, platformRequirement: null, page: { items: [], nextCursor: null }, query: { limit: 20, search: "Grupo", status: "disabled", cursor } });
     expect(data.reader.list).toHaveBeenCalledOnce();
     expect(data.reader.list).toHaveBeenCalledWith(expect.objectContaining({ role: "leader", tribeId: data.tribeId }), { limit: 20, search: "Grupo", status: "disabled", cursor: { createdAt: "2026-10-09T07:00:00.123456Z", id: cursorId } });
     expect(data.writer.create).not.toHaveBeenCalled(); expect(data.writer.update).not.toHaveBeenCalled();
     expect(state).not.toHaveProperty("session"); expect(state).not.toHaveProperty("normalizedEmail");
+  });
+
+  it.each([["security_unconfigured"], ["recovery_locked"]] as const)("should name the %s platform requirement so the list blocks its writes but still shows its entries", async (requirement) => {
+    const data = fixture(); data.platform.requirement = requirement;
+    const state = await loadAllowlistPageState(data.input, async () => data.useCase);
+    expect(state).toMatchObject({ kind: "ready", platformRequirement: requirement, page: { items: [], nextCursor: null } });
+    expect(data.reader.list).toHaveBeenCalledOnce();
+    expect(data.writer.create).not.toHaveBeenCalled(); expect(data.writer.update).not.toHaveBeenCalled();
   });
 
   it("should close a guardian or changed native session without exposing the partial list", async () => {

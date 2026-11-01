@@ -14,6 +14,9 @@ import { TRIBE_MEMBER_ROLE } from "../../constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "../../constants/tribe-page-access";
 import { TRIBE_LIFECYCLE_ACTION, TRIBE_LIFECYCLE_ACTIONS, TRIBE_LIFECYCLE_AUDIT_CONTEXT, TRIBE_LIFECYCLE_ERROR, TRIBE_LIFECYCLE_OPERATION } from "../../constants/tribe-lifecycle";
 import { TribeLifecycleError } from "../../domain/errors/tribe-lifecycle-error";
+import { classifyMessagingPlatformSecurityFailure } from "@/src/modules/messaging/infrastructure/config/messaging-platform-security-failure";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
 import type { TribeLifecycleContext, TribeLifecycleInput, TribeLifecycleWriter, TribeLifecycleResult } from "../../domain/repositories/tribe-lifecycle-repository";
 import { tribeLifecycleResultSchema } from "../../constants/tribe-lifecycle-result";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
@@ -30,6 +33,24 @@ type OriginalRow = { actor_user_id: string|null; action: string; fingerprint_key
 export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
   /** @param execute - Request-bound guarded owner executor. @param security - Current retained operation MAC keys. @param admission - Scope closure on the original transaction. */
   constructor(private readonly execute: TribeLifecycleDatabaseExecutor, private readonly security: () => Promise<MessagingSecurityConfig>, private readonly admission: AdmissionScopeClosureFactory) {}
+
+  /**
+   * @param unavailable - Closed outcome when the platform cannot protect the original: definitive for a new change, unresolved for a recovery.
+   * @param operationId - Original identity, named by an unresolved recovery.
+   * @returns The signer of the original intent, read before any transaction.
+   * @throws TribeLifecycleError with the hosting security failure as cause when the platform cannot protect it.
+   */
+  private async fingerprint(unavailable: typeof TRIBE_LIFECYCLE_ERROR.platformSecurityUnavailable | typeof TRIBE_LIFECYCLE_ERROR.operationUnresolved, operationId: string) {
+    try {
+      const config = await this.security();
+      // A recovery lock would otherwise surface later, inside the transaction, as an incomplete connection.
+      if (config.recoveryLocked) throw new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked);
+      return createAdmissionOperationFingerprint(config);
+    } catch (error) {
+      if (!classifyMessagingPlatformSecurityFailure(error)) throw error;
+      throw new TribeLifecycleError(unavailable, { cause: error, ...(unavailable === TRIBE_LIFECYCLE_ERROR.operationUnresolved ? { operationId } : {}) });
+    }
+  }
 
   /** @param database - Existing transaction. @param context - Actual native account/session. @returns A current private account without requiring a surviving membership or tribe for historical recovery. */
   private async identity(database: RequestDatabase, context: TribeLifecycleContext) {
@@ -62,7 +83,8 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
   /** @param context - Actual native identity. @param input - Original intent. @returns A known original or null, without locking or mutating a live tribe. */
   async recover(context: TribeLifecycleContext, input: TribeLifecycleInput) {
     try {
-      const fingerprint = createAdmissionOperationFingerprint(await this.security());
+      // A recovery never discards an original it cannot verify yet: it stays unresolved until the platform security is back.
+      const fingerprint = await this.fingerprint(TRIBE_LIFECYCLE_ERROR.operationUnresolved, input.operationId);
       return await this.execute(context, async (database) => { await this.identity(database, context); return this.original(database, context, input, fingerprint); });
     } catch (error) { if (error instanceof TribeLifecycleError) throw error; throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.unexpectedFailure, { cause: error }); }
   }
@@ -93,7 +115,8 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
   /** @param context - Native actor and fixed UUID scope. @param input - Original confirmed action/CAS. @returns The original committed metadata; a lost commit response is reconciled before another mutation. */
   async change(context: TribeLifecycleContext, input: TribeLifecycleInput): Promise<AdmissionOperationResult<TribeLifecycleResult>> {
     if (!input.confirmed || !TRIBE_LIFECYCLE_ACTIONS.includes(input.action)) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.invalidInput);
-    const fingerprint = createAdmissionOperationFingerprint(await this.security()), command = this.command(context, input);
+    // Nothing is registered yet: a platform that cannot protect the change rejects it definitively instead of an unexpected failure.
+    const fingerprint = await this.fingerprint(TRIBE_LIFECYCLE_ERROR.platformSecurityUnavailable, input.operationId), command = this.command(context, input);
     let transactionStaged = false;
     try {
       return await this.execute(context, async (database) => {

@@ -47,4 +47,6 @@ export const ADMISSION_REVIEW_UI_COPY = {
   reload: "Recargar con la cuenta actual", declared: "Contacto declarado: no acredita verificación", none: "Solicitud sin contacto verificado",
   base: "Correo acreditado por Google para la cuenta", local: "Contacto verificado para esta solicitud de la academia",
   pendingAgeHighlight: "Pendiente hace tres días o más",
+  /** What stays unavailable in the inbox while the platform cannot protect a decision. */
+  platformConsequence: "Esto no es algo que puedas resolver desde tu academia. Mientras tanto podés revisar las solicitudes, pero no aprobarlas ni rechazarlas.",
 } as const;
