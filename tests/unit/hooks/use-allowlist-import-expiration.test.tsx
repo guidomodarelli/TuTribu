@@ -13,7 +13,7 @@ afterEach(() => { window.sessionStorage.clear(); vi.useRealTimers(); });
 describe("historical import recovery after retention", () => {
   it("should finish a genuinely completed preview even when its temporary rows are no longer available, without another POST", async () => {
     const viewerId = randomUUID(), importId = randomUUID(), operationId = randomUUID(), draft = { fileName: "old.csv", csvText: "identity,display_name\nsynthetic@example.test,Nombre" };
-    const initialState: AllowlistImportPageState = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, renderedAt: "2026-10-09T08:00:00Z" };
+    const initialState: AllowlistImportPageState = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, platformRequirement: null, renderedAt: "2026-10-09T08:00:00Z" };
     const client: AllowlistImportBrowserClient = { viewer: vi.fn(async () => ({ status: "ready" as const, value: { id: viewerId } })), read: vi.fn(async () => ({ status: "failed" as const, code: "resource_unavailable" as const, message: "La importación ya no está disponible.", uncertain: false })), operation: vi.fn(async () => ({ status: "ready" as const, value: { type: "preview_allowlist_import" as const, operationId, state: "completed" as const, replayed: true, result: { importId, sourceVersion: 1, expiresAt: "2026-10-08T08:00:00Z" } } })), write: vi.fn(), policy: vi.fn(), file: vi.fn() };
     const drafts = createAllowlistImportDraftStoreFixture(), saved = await drafts.save(viewerId, "synthetic", draft, new AbortController().signal);
     writeAllowlistImport({ viewerId, slug: "synthetic", draft: saved, importId: null, selection: [], pending: { type: "preview_allowlist_import", operationId, expectedPolicyVersion: 1, contactType: "email" }, unresolved: [] });
@@ -26,7 +26,7 @@ describe("historical import recovery after retention", () => {
   });
   it("should end an active initialization deadline with visible feedback rather than leaving disabled controls indefinitely", async () => {
     vi.useFakeTimers();
-    const initialState: AllowlistImportPageState = { kind: "ready", viewerId: randomUUID(), tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, renderedAt: "2026-10-09T08:00:00Z" };
+    const initialState: AllowlistImportPageState = { kind: "ready", viewerId: randomUUID(), tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, platformRequirement: null, renderedAt: "2026-10-09T08:00:00Z" };
     const client: AllowlistImportBrowserClient = { viewer: vi.fn<AllowlistImportBrowserClient["viewer"]>(async (signal) => new Promise((resolve) => signal.addEventListener("abort", () => resolve({ status: "aborted" }), { once: true }))), read: vi.fn(), operation: vi.fn(), write: vi.fn(), policy: vi.fn(), file: vi.fn() };
     const { result } = renderHook(() => useAllowlistImportWorkflow({ initialState, client }));
     await act(async () => { await vi.advanceTimersByTimeAsync(ALLOWLIST_BROWSER_TIMEOUT_MS + 1); });

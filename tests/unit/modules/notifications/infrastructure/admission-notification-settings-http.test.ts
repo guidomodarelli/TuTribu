@@ -16,7 +16,7 @@ function fixture() {
     change: vi.fn<AdmissionNotificationPreferencesUseCases["change"]>(async () => ({ ok: true, value: { status: "changed", preference: { ...preference, mode: "daily", version: 1, effectiveFrom: "2026-10-15 19:00:00.123456+00" } }, viewerId: userId })),
   };
   const email = {
-    read: vi.fn<AdmissionNotificationEmailSettingsUseCases["read"]>(async () => ({ ok: true, value: settings, viewerId: userId })),
+    read: vi.fn<AdmissionNotificationEmailSettingsUseCases["read"]>(async () => ({ ok: true, value: { settings, platformRequirement: null }, viewerId: userId })),
     change: vi.fn<AdmissionNotificationEmailSettingsUseCases["change"]>(async () => ({ ok: true, value: { state: "started", operationId }, viewerId: userId })),
   };
   const services = { resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) }, preferences, email };
@@ -62,9 +62,31 @@ describe("admission notification settings HTTP", () => {
     const response = await data.handlers.readEmailSettings(data.request(), data.context);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" });
+    expect(await response.json()).toEqual({ settings: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null });
     expect(data.services.email.change).not.toHaveBeenCalled();
     expect(data.services.preferences.read).not.toHaveBeenCalled();
+  });
+
+  it("should publish the closed platform requirement of the current read without any key or environment detail", async () => {
+    const data = fixture();
+    data.services.email.read.mockResolvedValueOnce({ ok: true, value: { settings: data.settings, platformRequirement: "security_unconfigured" }, viewerId: data.userId });
+
+    const response = await data.handlers.readEmailSettings(data.request(), data.context);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ settings: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: "security_unconfigured" });
+  });
+
+  it("should answer a platform-blocked email change as a definite conflict that names no operation", async () => {
+    const data = fixture();
+    data.services.email.change.mockResolvedValueOnce({ ok: false, failure: { code: "platform_security_unavailable" } });
+
+    const response = await data.handlers.changeEmailSettings(data.request(data.command), data.context);
+
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body).toMatchObject({ code: "platform_security_unavailable" });
+    expect(body).not.toHaveProperty("operation");
   });
 
   it.each([{ mode: "unknown", expectedVersion: 0 }, { mode: "daily", expectedVersion: -1 }, { mode: "daily", expectedVersion: 0, userId: "browser-actor" }])("should reject untrusted preference input $mode at version $expectedVersion before opening composition", async (body) => {
@@ -134,7 +156,7 @@ describe("admission notification settings HTTP", () => {
     expect(await response.json()).toEqual({ state: "completed", operationId: data.operationId, replayed: true, result: { status: "changed", settings: { enabled: true, version: 1, timeZone: "Asia/Kolkata" } } });
     expect(data.services.email.read).not.toHaveBeenCalled();
     const current = await data.handlers.readEmailSettings(data.request(), data.context);
-    expect(await current.json()).toEqual({ enabled: false, version: 2, timeZone: "UTC" });
+    expect(await current.json()).toEqual({ settings: { enabled: false, version: 2, timeZone: "UTC" }, platformRequirement: null });
   });
 
   // Own-result guards run once at the public boundary, independently of upstream/SQL contracts.

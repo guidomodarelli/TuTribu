@@ -28,6 +28,8 @@ export type NotificationRecoveryContext = {
   catalog: NotificationDeliveryCatalogResult | null; selected: NotificationDeliveryCatalogItem | undefined; selectedDeliveryId: string;
   reference: NotificationRecoveryReference | null; history: NotificationRecoveryReference[]; historyFull: boolean;
   canRead: boolean; confirmed: boolean; mayResume: boolean; canArchive: boolean; archiveConfirmed: boolean; originalCompleted: boolean; busy: boolean; targetPrepared: boolean;
+  /** Whether the platform cannot protect a recovery now; reads stay available, writes are withheld. */
+  platformBlocked: boolean;
   mounted: RefObject<boolean>; observation: RefObject<AbortController | null>; originalReference: RefObject<NotificationRecoveryReference | null>;
   setCatalog: Dispatch<SetStateAction<NotificationDeliveryCatalogResult | null>>; setSelectedDeliveryId: (value: string | null) => void;
   setReference: (value: NotificationRecoveryReference | null) => void; setHistory: (value: NotificationRecoveryReference[]) => void;
@@ -117,17 +119,25 @@ function clearOriginalFollowUp(context: NotificationRecoveryContext): void {
   context.setConfirmed(false); context.setMayResume(false); context.setCanArchive(false); context.setArchiveConsent(null);
 }
 
-/** @param context - Current render facts. @param original - Exact preserved original attempt. @param signal - Current observation. @returns Nothing after one explicit POST; ambiguity retains the original. */
+/** @param context - Current render facts. @param message - Feedback that explains why the original was forgotten. @returns Nothing after forgetting an original that was never registered, once its removal is stored. */
+function forgetUnregisteredOriginal(context: NotificationRecoveryContext, message: RecoveryMessage): void {
+  if (!preserveRecovery(context, null)) return;
+  context.originalReference.current = null; context.setReference(null); context.setOriginalCompleted(false); context.setArchiveConsent(null); context.setMessage(message);
+}
+
+/** @param context - Current render facts. @param original - Exact preserved original attempt. @param signal - Current observation. @returns Nothing after one explicit POST; ambiguity retains the original and a platform rejection, which registered nothing, forgets it. */
 async function submitRecovery(context: NotificationRecoveryContext, original: NotificationRecoveryReference, signal: AbortSignal): Promise<void> {
   const outcome = await context.client.recover({ slug: context.slug, deliveryId: original.deliveryId }, { operationId: original.operationId, expectedVersion: original.expectedVersion, targetConnectionId: original.targetConnectionId, expectedTargetVersion: original.expectedTargetVersion, confirmed: true, reason: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.cause }, signal);
   if (!await isViewerCurrent(context, signal)) return;
   clearOriginalFollowUp(context);
   if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed && isBoundResult(outcome.value.result, original)) { context.setOriginalCompleted(true); context.setMessage({ kind: "status", text: COPY.completed }); }
+  else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) forgetUnregisteredOriginal(context, { kind: "alert", text: outcome.message });
   else context.setMessage({ kind: "alert", text: outcome.status === "failed" && !outcome.uncertain ? outcome.message : COPY.pending });
 }
 
 /** @param context - Current render facts. @param resume - Whether the user explicitly reuses a consulted preserved original. @returns The feedback that blocks this attempt, or null when it may proceed. */
 function recoveryBlock(context: NotificationRecoveryContext, resume: boolean): RecoveryMessage | null {
+  if (context.platformBlocked) return { kind: "alert", text: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.platformSecurityUnavailable] };
   if (!context.confirmed) return { kind: "alert", text: COPY.consentRequired };
   const selectable = resume ? context.reference !== null && context.mayResume : !context.reference && isRecoveryEligible(context, new Date());
   return selectable ? null : { kind: "alert", text: COPY.selectionRequired };
@@ -176,6 +186,8 @@ export async function readRecoveryOriginal(context: NotificationRecoveryContext)
     const outcome = await context.client.operation({ slug: context.slug, operationId: original.operationId }, signal);
     if (!await isViewerCurrent(context, signal)) return;
     clearOriginalFollowUp(context);
+    // While the platform cannot protect a recovery, an unregistered original can never be resumed: forget it instead.
+    if (context.platformBlocked && outcome.status === "failed" && outcome.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredOriginal(context, { kind: "status", text: COPY.platformForgotten }); return; }
     const consultation = classifyOriginalConsultation(outcome, original);
     if (consultation.completed) context.setOriginalCompleted(true);
     else if (consultation.resumable) { context.setMayResume(true); context.setCanArchive(true); }

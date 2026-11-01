@@ -24,7 +24,9 @@ import { REAUTHENTICATION_OPERATION as OPERATION } from "@/src/modules/auth/cons
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { allowlistImportDraftStore } from "@/lib/academy-admissions/allowlist-import-draft-store";
 import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-selection";
-import { closeAllowlistImportScope, interruptedActionMessage, isBlockingImportFailure, readUsableWriteResult, releaseAllowlistImportRun, requireReadyScope } from "@/hooks/use-allowlist-import-workflow-support";
+import { closeAllowlistImportScope, interruptedActionMessage, isBlockingImportFailure, isUnusableImportConfirmation, readUsableWriteResult, releaseAllowlistImportRun, requireReadyScope } from "@/hooks/use-allowlist-import-workflow-support";
+import { readAdmissionPlatformRequirement } from "@/src/modules/academy-admissions/application/results/admission-platform-requirement";
+import { PLATFORM_SECURITY_NOTICE_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 
 type AllowlistImportWorkflowOptions = { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient; drafts?: AllowlistImportDraftStore };
 type OriginalValue = { operationId: string; state: "started" | "completed"; result?: unknown };
@@ -39,16 +41,19 @@ function useAllowlistImportState(options: AllowlistImportWorkflowOptions) {
   /** Rendered twin of `authorityLost`: once the account or the authority is gone, the page offers its way back. */
   const [accessLost, setAccessLost] = useState(false);
   const [snapshot, setSnapshot] = useState<AllowlistImportDto | null>(null), snapshotRef = useRef<AllowlistImportDto | null>(null);
-  const [policy, setPolicy] = useState({ contactType: initial?.contactType ?? null, version: initial?.policyVersion ?? null });
+  /** The platform requirement travels with the policy: both come from the same rules read and both decide whether a write may start. */
+  const [policy, setPolicy] = useState({ contactType: initial?.contactType ?? null, version: initial?.policyVersion ?? null, platformRequirement: initial?.platformRequirement ?? null });
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [confirmed, setConfirmed] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
   /** `busy` covers reads and writes; this names only the server write in flight, so its control alone shows progress. */
   const [writeAction, setWriteAction] = useState<AllowlistImportWriteAction | null>(null);
   const [initializationFailed, setInitializationFailed] = useState(false), [initializationRevision, setInitializationRevision] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false), [policyConflict, setPolicyConflict] = useState(false), [originalChecked, setOriginalChecked] = useState(false), [step, setStep] = useState<number>(ALLOWLIST_IMPORT_STEP.upload);
+  /** Operation id of the original the last consult proved absent: only that one may be discarded. */
+  const [absentOriginalId, setAbsentOriginalId] = useState<string | null>(null);
   const activeRef = useRef(false), generationRef = useRef(0), occupiedRef = useRef(false), authorityLostRef = useRef(false), controllerRef = useRef<AbortController | null>(null), downloadCleanupRef = useRef(new Set<() => void>()), writeToastRef = useRef<WriteToast | null>(null);
   const live = useCallback((signal: AbortSignal, scope: number) => activeRef.current && generationRef.current === scope && !signal.aborted, []);
-  return { initial, client, drafts, stored, setStored, currentRef, accessLost, setAccessLost, snapshot, setSnapshot, snapshotRef, policy, setPolicy, ready, setReady, busy, setBusy, confirmed, setConfirmed, privateVisible, setPrivateVisible, writeAction, setWriteAction, initializationFailed, setInitializationFailed, initializationRevision, setInitializationRevision, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, policyConflict, setPolicyConflict, originalChecked, setOriginalChecked, step, setStep, activeRef, generationRef, occupiedRef, authorityLostRef, controllerRef, downloadCleanupRef, writeToastRef, live };
+  return { initial, client, drafts, stored, setStored, currentRef, accessLost, setAccessLost, snapshot, setSnapshot, snapshotRef, policy, setPolicy, ready, setReady, busy, setBusy, confirmed, setConfirmed, privateVisible, setPrivateVisible, writeAction, setWriteAction, initializationFailed, setInitializationFailed, initializationRevision, setInitializationRevision, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, policyConflict, setPolicyConflict, originalChecked, setOriginalChecked, step, setStep, absentOriginalId, setAbsentOriginalId, activeRef, generationRef, occupiedRef, authorityLostRef, controllerRef, downloadCleanupRef, writeToastRef, live };
 }
 type AllowlistImportState = ReturnType<typeof useAllowlistImportState>;
 
@@ -95,14 +100,18 @@ function useAllowlistImportReads(state: AllowlistImportState) {
     snapshotRef.current = parsed.data; setSnapshot(parsed.data); setConflict(false); setConfirmed(false);
     return true;
   }, [authorize, client, currentRef, forgetUnavailableImport, initial, live, persist, reportFailure, setConfirmed, setConflict, setErrorMessage, setSnapshot, snapshotRef]);
-  return { persist, reportFailure, announceFailure, authorize, fetchCurrent };
+  return { persist, reportFailure, announceFailure, authorize, fetchCurrent, forgetUnavailableImport };
 }
 type AllowlistImportReads = ReturnType<typeof useAllowlistImportReads>;
 
 /** @param state - Workflow state. @param reads - Record and read steps. @returns The bounded action runner and the original consumers. */
 function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistImportReads) {
   const { initial, client, currentRef, occupiedRef, authorityLostRef, controllerRef, activeRef, generationRef, writeToastRef, live, setBusy, setWriteAction, setErrorMessage, setFieldError, setStatusMessage, setOriginalChecked, setStep, setConfirmed, setConflict, setPolicyConflict } = state;
-  const { persist, reportFailure, announceFailure, authorize, fetchCurrent } = reads;
+  const { persist, reportFailure, announceFailure, authorize, fetchCurrent, forgetUnavailableImport } = reads;
+  /** A confirmation the server can no longer apply (expired, purged or protected with rotated security) needs a new preview of the same file. */
+  const releaseUnusableImport = useCallback(() => {
+    forgetUnavailableImport(); setStep(ALLOWLIST_IMPORT_STEP.upload); announceFailure(COPY.previewUnavailable, true);
+  }, [announceFailure, forgetUnavailableImport, setStep]);
   /** @param action - One user operation. @param message - Own progress copy. @param write - The pressed write when an original is being dispatched. @returns After bounded action cleanup; cancellation never implies rollback. */
   const run = useCallback(async (action: (signal: AbortSignal, scope: number) => Promise<void>, message: string = COPY.reading, write: AllowlistImportWriteAction | null = null) => {
     if (!initial || occupiedRef.current || authorityLostRef.current) return;
@@ -123,8 +132,9 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
   const consumeDenial = useCallback((intent: AllowlistImportBrowserIntent, code: ImportDenialCode) => {
     if (!persist({ ...currentRef.current, pending: null, unresolved: currentRef.current.unresolved.filter((original) => original.operationId !== intent.operationId) })) return;
     setConfirmed(false); setConflict(code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(code === ADMISSION_ERROR_CODE.policyConflict);
+    if (isUnusableImportConfirmation(intent, code)) { releaseUnusableImport(); return; }
     announceFailure(ADMISSION_ERROR_MESSAGE[code], isBlockingImportFailure(code));
-  }, [announceFailure, currentRef, persist, setConfirmed, setConflict, setPolicyConflict]);
+  }, [announceFailure, currentRef, persist, releaseUnusableImport, setConfirmed, setConflict, setPolicyConflict]);
   /** @param intent - Immutable original proposal. @param result - Completed original result. @param signal - Action scope. @param scope - Render generation. @returns After original/current reconciliation, without overwriting rows from historical counts. */
   const consumeCompleted = useCallback(async (intent: AllowlistImportBrowserIntent, result: unknown, signal: AbortSignal, scope: number) => {
     const data = readUsableWriteResult(intent, result);
@@ -152,6 +162,14 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
     if (denial.success) { consumeDenial(intent, denial.data.code); return; }
     await consumeCompleted(intent, value.result, signal, scope);
   }, [consumeCompleted, consumeDenial, fetchCurrent, setErrorMessage, setOriginalChecked, setStep]);
+  /** @param intent - Dispatched original. @param result - Its definitive failure. Clears the original and shows why; a conflict, a platform block or a closed import stays on screen. */
+  const rejectDispatch = useCallback((intent: AllowlistImportBrowserIntent, result: Extract<AllowlistBrowserResult<unknown>, { status: "failed" }>) => {
+    if (!persist({ ...currentRef.current, pending: null })) return;
+    setConfirmed(false); if (reportFailure(result)) return;
+    if (isUnusableImportConfirmation(intent, result.code)) { releaseUnusableImport(); return; }
+    setConflict(result.code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(result.code === ADMISSION_ERROR_CODE.policyConflict);
+    if (!isBlockingImportFailure(result.code)) { setErrorMessage(null); announceFailure(result.message, false); }
+  }, [announceFailure, currentRef, persist, releaseUnusableImport, reportFailure, setConfirmed, setConflict, setErrorMessage, setPolicyConflict]);
   /** @param intent - Exact new or explicitly reconciled command. @param signal - Action scope. @param scope - Render generation. @returns After recording before POST and retaining uncertainty after an incomplete reply. */
   const dispatch = useCallback(async (intent: AllowlistImportBrowserIntent, signal: AbortSignal, scope: number) => {
     const prior = currentRef.current.pending;
@@ -161,32 +179,64 @@ function useAllowlistImportWrites(state: AllowlistImportState, reads: AllowlistI
     const result = await client.write(requireReadyScope(initial).slug, intent, currentRef.current.draft, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     if (result.status === "ready") await consume({ intent, value: result.value, signal, scope });
-    else if (result.status === "failed" && !result.uncertain) {
-      if (!persist({ ...currentRef.current, pending: null })) return;
-      setConfirmed(false); if (reportFailure(result)) return;
-      setConflict(result.code === ADMISSION_ERROR_CODE.allowlistImportConflict); setPolicyConflict(result.code === ADMISSION_ERROR_CODE.policyConflict);
-      if (!isBlockingImportFailure(result.code)) { setErrorMessage(null); announceFailure(result.message, false); }
-    } else { setConfirmed(false); setErrorMessage(COPY.uncertain); }
-  }, [announceFailure, authorize, client, consume, currentRef, initial, live, persist, reportFailure, setConfirmed, setConflict, setErrorMessage, setOriginalChecked, setPolicyConflict]);
+    else if (result.status === "failed" && !result.uncertain) rejectDispatch(intent, result);
+    else { setConfirmed(false); setErrorMessage(COPY.uncertain); }
+  }, [authorize, client, consume, currentRef, initial, live, persist, rejectDispatch, setConfirmed, setErrorMessage, setOriginalChecked]);
   return { run, consume, dispatch };
 }
 type AllowlistImportWrites = ReturnType<typeof useAllowlistImportWrites>;
 
-/** @param state - Workflow state. @param reads - Record and read steps. @param writes - Action runner and consumers. @returns Read-only recovery of the original and the current resource. */
+/** @param state - Workflow state. @param reads - Record and read steps. @param writes - Action runner and consumers. @returns Read-only recovery of the original and the current resource with the platform requirement of its writes. */
 function useAllowlistImportRecovery(state: AllowlistImportState, reads: AllowlistImportReads, writes: AllowlistImportWrites) {
-  const { initial, client, currentRef, live, setErrorMessage, setStep } = state;
-  const { authorize, reportFailure, fetchCurrent } = reads;
+  const { initial, client, currentRef, occupiedRef, authorityLostRef, absentOriginalId, live, setErrorMessage, setStep, setAbsentOriginalId, setOriginalChecked, setConfirmed, setPolicy } = state;
+  const { authorize, reportFailure, fetchCurrent, persist } = reads;
   const { run, consume } = writes;
   const readOriginal = useCallback(() => run(async (signal, scope) => {
     const intent = currentRef.current.pending ?? currentRef.current.unresolved[0];
     if (!intent) return;
+    setAbsentOriginalId(null);
     const original = await client.operation(requireReadyScope(initial).slug, intent.operationId, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     if (original.status === "ready" && original.value.type === intent.type) await consume({ intent, value: original.value, signal, scope, originalRead: true });
-    else { if (original.status === "failed" && reportFailure(original)) return; setErrorMessage(original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable ? COPY.absent : COPY.uncertain); }
-  }), [authorize, client, consume, currentRef, initial, live, reportFailure, run, setErrorMessage]);
-  const readCurrent = useCallback(() => run(async (signal, scope) => { if (currentRef.current.importId && await fetchCurrent(currentRef.current.importId, signal, scope)) setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review)); }), [currentRef, fetchCurrent, run, setStep]);
-  return { readOriginal, readCurrent };
+    else {
+      if (original.status === "failed" && reportFailure(original)) return;
+      const absent = original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable;
+      setAbsentOriginalId(absent ? intent.operationId : null); setErrorMessage(absent ? COPY.absent : COPY.uncertain);
+    }
+  }), [authorize, client, consume, currentRef, initial, live, reportFailure, run, setAbsentOriginalId, setErrorMessage]);
+  /** Forgets only the original the server proved absent; the file and the selection stay, so a new write is a new original. */
+  const discardOriginal = useCallback(() => {
+    const current = currentRef.current;
+    if (!absentOriginalId || occupiedRef.current || authorityLostRef.current) return;
+    const next = { ...current, pending: current.pending?.operationId === absentOriginalId ? null : current.pending, unresolved: current.unresolved.filter((original) => original.operationId !== absentOriginalId) };
+    if (!persist(next)) return;
+    setAbsentOriginalId(null); setOriginalChecked(false); setConfirmed(false); setErrorMessage(null); toast.info(COPY.discarded);
+  }, [absentOriginalId, authorityLostRef, currentRef, occupiedRef, persist, setAbsentOriginalId, setConfirmed, setErrorMessage, setOriginalChecked]);
+  /**
+   * Rereads the platform requirement, so a resolved problem re-enables the import without reloading the page.
+   * Only the requirement is replaced: a changed rules version still surfaces as a policy conflict on the next write.
+   * @param signal - Action scope. @param scope - Render generation. @returns The current requirement, or undefined when the read did not settle it.
+   */
+  const refreshPlatformRequirement = useCallback(async (signal: AbortSignal, scope: number) => {
+    const rules = await client.policy(requireReadyScope(initial).slug, signal);
+    if (!live(signal, scope) || !await authorize(signal, scope)) return undefined;
+    if (rules.status === "failed") { reportFailure(rules); return undefined; }
+    if (rules.status !== "ready") return undefined;
+    const platformRequirement = readAdmissionPlatformRequirement(rules.value);
+    setPolicy((current) => ({ ...current, platformRequirement }));
+    return platformRequirement;
+  }, [authorize, client, initial, live, reportFailure, setPolicy]);
+  const readCurrent = useCallback(() => run(async (signal, scope) => {
+    const importId = currentRef.current.importId;
+    if (importId && await fetchCurrent(importId, signal, scope)) setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review));
+    // An expired or unreadable saved import still rereads the requirement: the progress is not what the platform block depends on.
+    if (live(signal, scope) && !authorityLostRef.current) await refreshPlatformRequirement(signal, scope);
+  }), [authorityLostRef, currentRef, fetchCurrent, live, refreshPlatformRequirement, run, setStep]);
+  /** Rechecks the platform block on its own, so a first import without any saved preview can start once the TuTribu team resolves it. */
+  const recheckPlatform = useCallback(() => run(async (signal, scope) => {
+    if (await refreshPlatformRequirement(signal, scope)) toast.info(PLATFORM_SECURITY_NOTICE_COPY.rechecked);
+  }), [refreshPlatformRequirement, run]);
+  return { readOriginal, readCurrent, recheckPlatform, discardOriginal };
 }
 
 /** @param state - Workflow state. @param reads - Identity and current reads. Restores the stored draft once per scope without dispatching any write. */
@@ -243,7 +293,7 @@ function useAllowlistImportDraftActions(state: AllowlistImportState, reads: Allo
     else if (result.status === "ready") { if (result.rowCount === 0) { setFieldError(COPY.empty); return; } await saveChosenDraft(result.draft, signal, scope); }
   }, COPY.uploading), [currentRef, live, run, saveChosenDraft, setConfirmed, setFieldError]);
   const preview = useCallback(async () => {
-    if (!ready || occupiedRef.current || currentRef.current.pending || currentRef.current.unresolved.length || !policy.contactType || !policy.version || policyConflict) return;
+    if (!ready || occupiedRef.current || currentRef.current.pending || currentRef.current.unresolved.length || !policy.contactType || !policy.version || policy.platformRequirement || policyConflict) return;
     if (!confirmed) { setFieldError(COPY.confirmation); return; }
     const count = currentRef.current.draft ? countAllowlistImportRows(currentRef.current.draft.csvText) : null;
     if (count === null || count === 0) { setFieldError(COPY.file); return; }
@@ -260,12 +310,12 @@ function isClosedImport(resource: AllowlistImportDto): boolean {
 
 /** @param state - Workflow state. @param reads - Record step. @param writes - Action runner and dispatch. @returns Row selection and the confirmation write. */
 function useAllowlistImportSelection(state: AllowlistImportState, reads: AllowlistImportReads, writes: AllowlistImportWrites) {
-  const { currentRef, occupiedRef, ready, confirmed, conflict, originalChecked, snapshotRef, setConfirmed, setFieldError, setErrorMessage, setStatusMessage } = state;
+  const { currentRef, occupiedRef, ready, confirmed, conflict, originalChecked, policy, snapshotRef, setConfirmed, setFieldError, setErrorMessage, setStatusMessage } = state;
   const { persist } = reads;
   const { run, dispatch } = writes;
   const confirm = useCallback(async () => {
     const resource = snapshotRef.current, pending = currentRef.current.pending;
-    if (!ready || occupiedRef.current || conflict || !resource || isClosedImport(resource)) return;
+    if (!ready || occupiedRef.current || conflict || policy.platformRequirement || !resource || isClosedImport(resource)) return;
     if (pending && (pending.type !== OPERATION.confirmAllowlistImport || !originalChecked)) return;
     if (Date.parse(resource.expiresAt) <= Date.now()) { setFieldError(COPY.expired); return; }
     if (!confirmed) { setFieldError(COPY.confirmation); return; }
@@ -274,7 +324,7 @@ function useAllowlistImportSelection(state: AllowlistImportState, reads: Allowli
     if (selectedRows.length === 0 || selectedRows.length !== currentRef.current.selection.length) { setFieldError(COPY.selection); return; }
     const intent: AllowlistImportBrowserIntent = { type: OPERATION.confirmAllowlistImport, operationId: newAdmissionOperationId(), importId: resource.importId, expectedVersion: resource.sourceVersion, selectedRows };
     await run((signal, scope) => dispatch(intent, signal, scope), COPY.confirming, pending ? WRITE_ACTION.resume : WRITE_ACTION.confirm);
-  }, [confirmed, conflict, currentRef, dispatch, occupiedRef, originalChecked, ready, run, setFieldError, snapshotRef]);
+  }, [confirmed, conflict, currentRef, dispatch, occupiedRef, originalChecked, policy.platformRequirement, ready, run, setFieldError, snapshotRef]);
   const selectRow = useCallback((rowNumber: number, selected: boolean) => {
     const row = snapshotRef.current?.rows.find((record) => record.rowNumber === rowNumber);
     if (!ready || occupiedRef.current || !row || !isSelectableAllowlistImportRow(row) || currentRef.current.pending && !originalChecked) return;
@@ -292,14 +342,14 @@ function useAllowlistImportSelection(state: AllowlistImportState, reads: Allowli
 
 /** @param state - Workflow state. @param reads - Identity and failure steps. @param writes - Action runner and dispatch. @returns Policy refresh, downloads, previous original reconciliation and initialization retry. */
 function useAllowlistImportServerActions(state: AllowlistImportState, reads: AllowlistImportReads, writes: AllowlistImportWrites) {
-  const { initial, client, currentRef, occupiedRef, authorityLostRef, originalChecked, live, snapshotRef, downloadCleanupRef, setPolicy, setPolicyConflict, setConfirmed, setInitializationRevision } = state;
+  const { initial, client, currentRef, occupiedRef, authorityLostRef, originalChecked, policy, live, snapshotRef, downloadCleanupRef, setPolicy, setPolicyConflict, setConfirmed, setInitializationRevision } = state;
   const { authorize, reportFailure } = reads;
   const { run, dispatch } = writes;
   const readPolicy = useCallback(() => run(async (signal, scope) => {
     if (currentRef.current.pending) return;
     const result = await client.policy(requireReadyScope(initial).slug, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
-    if (result.status === "ready") { setPolicy({ contactType: result.value.policy?.contactType ?? null, version: result.value.policy?.version ?? null }); setPolicyConflict(false); setConfirmed(false); }
+    if (result.status === "ready") { setPolicy({ contactType: result.value.policy?.contactType ?? null, version: result.value.policy?.version ?? null, platformRequirement: readAdmissionPlatformRequirement(result.value) }); setPolicyConflict(false); setConfirmed(false); }
     else if (result.status === "failed") reportFailure(result);
   }), [authorize, client, currentRef, initial, live, reportFailure, run, setConfirmed, setPolicy, setPolicyConflict]);
   const download = useCallback((kind: "template" | "report") => run(async (signal, scope) => {
@@ -311,9 +361,9 @@ function useAllowlistImportServerActions(state: AllowlistImportState, reads: All
   const reconcilePrevious = useCallback(() => run(async (signal, scope) => {
     const intent = currentRef.current.unresolved[0], resource = snapshotRef.current;
     const outcomes = new Set(resource?.rows.filter((row) => row.outcome !== undefined).map((row) => row.rowNumber));
-    if (!intent || currentRef.current.pending || !originalChecked || !resource || !intent.selectedRows.every((number) => outcomes.has(number))) return;
+    if (!intent || currentRef.current.pending || !originalChecked || policy.platformRequirement || !resource || !intent.selectedRows.every((number) => outcomes.has(number))) return;
     await dispatch(intent, signal, scope);
-  }, COPY.confirming, WRITE_ACTION.reconcile), [currentRef, dispatch, originalChecked, run, snapshotRef]);
+  }, COPY.confirming, WRITE_ACTION.reconcile), [currentRef, dispatch, originalChecked, policy.platformRequirement, run, snapshotRef]);
   const retryInitialization = useCallback(() => { if (!occupiedRef.current && !authorityLostRef.current) setInitializationRevision((revision) => revision + 1); }, [authorityLostRef, occupiedRef, setInitializationRevision]);
   return { readPolicy, download, reconcilePrevious, retryInitialization };
 }
@@ -323,11 +373,11 @@ export function useAllowlistImportWorkflow(options: AllowlistImportWorkflowOptio
   const state = useAllowlistImportState(options);
   const reads = useAllowlistImportReads(state);
   const writes = useAllowlistImportWrites(state, reads);
-  const { readOriginal, readCurrent } = useAllowlistImportRecovery(state, reads, writes);
+  const { readOriginal, readCurrent, recheckPlatform, discardOriginal } = useAllowlistImportRecovery(state, reads, writes);
   useAllowlistImportHydration(state, reads);
   const { changeDraft, upload, preview } = useAllowlistImportDraftActions(state, reads, writes);
   const { confirm, selectRow, selectAllValidRows } = useAllowlistImportSelection(state, reads, writes);
   const { readPolicy, download, reconcilePrevious, retryInitialization } = useAllowlistImportServerActions(state, reads, writes);
-  const { accessLost, ready, busy, writeAction, confirmed, setConfirmed, snapshot, step, setStep, occupiedRef, initializationFailed, stored, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked } = state;
-  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupiedRef.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
+  const { accessLost, ready, busy, writeAction, confirmed, setConfirmed, snapshot, step, setStep, occupiedRef, initializationFailed, stored, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, absentOriginalId } = state;
+  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupiedRef.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, originalAbsent: absentOriginalId !== null, discardOriginal, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, recheckPlatform, readPolicy, download, reconcilePrevious };
 }

@@ -10,7 +10,7 @@ const missingUsage={state:"not_configured" as const,policy:null};
 const usage={state:"configured" as const,policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
 /** @param patch - Facts that differ from a valid production candidate with a tested email and an untested SMS. @returns Own projected metadata. */
 function connection(patch:Partial<MessagingConfigurationConnection>={}):MessagingConfigurationConnection{
-  return{id:"00000000-0000-4000-8000-000000000001",name:"Candidata",version:3,configurationVersion:2,state:"ready",credentialState:"valid",credentialMode:"production",maskedCredential:"••••••••",capabilities:[{channel:"email",state:"prepared",checkedAt:fresh,testedAt:fresh},{channel:"sms",state:"unprepared",checkedAt:fresh,testedAt:null}],...patch};
+  return{id:"00000000-0000-4000-8000-000000000001",name:"Candidata",version:3,configurationVersion:2,state:"ready",credentialState:"valid",credentialMode:"production",maskedCredential:"••••••••",securityCurrent:true,capabilities:[{channel:"email",state:"prepared",checkedAt:fresh,testedAt:fresh},{channel:"sms",state:"unprepared",checkedAt:fresh,testedAt:null}],...patch};
 }
 /** @param candidate - Candidate under test. @returns Step ids with their blocked reasons. */
 const flow=(candidate:MessagingConfigurationConnection|null,policy:typeof usage|typeof missingUsage=usage)=>resolveMessagingConnectionsFlow({candidate,usage:policy,observedAt}).map((step)=>[step.id,step.blockedReason]);
@@ -40,5 +40,9 @@ describe("messaging connections flow",()=>{
     const resume=(candidate:MessagingConfigurationConnection|null)=>messagingConnectionsActionStepId(resolveMessagingConnectionsNextAction({selected:null,candidate,usage,observedAt}));
     expect(resume(null)).toBe("key");expect(resume(connection({credentialState:"not_validated"}))).toBe("credential");expect(resume(connection({capabilities:[]}))).toBe("channels");expect(resume(connection())).toBe("test:sms");
     expect(resume(connection({capabilities:[{channel:"email",state:"prepared",checkedAt:fresh,testedAt:fresh}]}))).toBe("activation");expect(resume(connection({state:"suspended"}))).toBeNull();
+  });
+  it("should block the credential and later steps of a candidate sealed under a previous platform security",()=>{
+    const blocked="Guardá la clave de Zavu otra vez para seguir: esta se guardó con una seguridad anterior de la plataforma.";
+    expect(flow(connection({securityCurrent:false}))).toEqual(expect.arrayContaining([["credential",blocked],["channels",blocked]]));
   });
 });

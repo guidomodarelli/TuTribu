@@ -24,15 +24,14 @@ import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/a
 import {ADMISSION_CONTACT_TYPE} from "@/src/modules/academy-admissions/constants/admission-contact";
 import {ADMISSION_CONTACT_MASK,ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH} from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
 import {connectionDiagnosticIssuanceSchema} from "@/src/modules/messaging/application/results/connection-diagnostic-issuance-result";
-import {closedAdmissionFailureCode,type MessagingContextDatabaseExecutor} from "./messaging-operation-failure-code";
+import {knownConnectionFailureCode,type MessagingContextDatabaseExecutor} from "./messaging-operation-failure-code";
 
 /** Every callback is a short protected native transaction; none invokes the provider. */
 export type DiagnosticIssuanceDatabaseExecutor=MessagingContextDatabaseExecutor<AuthorizedMessagingContext>;
 /** Reuses issuance primitives while keeping diagnostic authority, proof isolation and transport ownership in messaging. */
-/** @param error - Failure of the operation. @returns Its messaging code when known, otherwise an unexpected failure. */
+/** @param error - Failure of the operation. @returns Its budget code, or the connection code of a ledger or hosting security failure, otherwise an unexpected failure. */
 function knownFailureCode(error:unknown){
-  if(error instanceof AdmissionOperationError)return closedAdmissionFailureCode(error);
-  return error instanceof MessagingUsageBudgetError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure;
+  return error instanceof MessagingUsageBudgetError?error.code:knownConnectionFailureCode(error);
 }
 
 export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosticIssueOperations{

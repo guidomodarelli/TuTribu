@@ -26,6 +26,8 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   const ready = initialState.kind === PAGE_KIND.ready ? initialState : null;
   const viewerTimeZone = useViewerTimeZone();
   const [preference, setPreference] = useState(ready?.preference ?? null), [email, setEmail] = useState(ready?.email ?? null);
+  /** Why the platform cannot protect a tribe email change right now, as the last read reported it. */
+  const [platformRequirement, setPlatformRequirement] = useState(ready?.platformRequirement ?? null);
   const [mode, setMode] = useState<AdmissionNotificationPreferenceMode>(ready ? draftModeFor(ready.preference) : ADMISSION_NOTIFICATION_RECOMMENDED_MODE);
   const [draft, setDraft] = useState<AdmissionNotificationEmailSettingsDraft>(() => draftFromEmail(ready?.email ?? null));
   const [phase, setPhase] = useState<SettingsPhase>(PHASE.checking), [fresh, setFresh] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
@@ -41,7 +43,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   /** A zone the person typed is never replaced by the browser suggestion. */
   const zoneEdited = useRef(false);
   /** Setters and refs never change identity, so one stable bundle serves every read and write. */
-  const controls = useMemo<SettingsControls>(() => ({ setPreference, setEmail, setMode, setDraft, setPhase, setFresh, setPrivateVisible, setConfirmed, setHasPending, setCanRetry, setError, setStatus, setProgress, setSaving, setEditing, setStep, pending, loaded, busy, slot, hasEmailView, modeEdited, zoneEdited }), []);
+  const controls = useMemo<SettingsControls>(() => ({ setPreference, setEmail, setPlatformRequirement, setMode, setDraft, setPhase, setFresh, setPrivateVisible, setConfirmed, setHasPending, setCanRetry, setError, setStatus, setProgress, setSaving, setEditing, setStep, pending, loaded, busy, slot, hasEmailView, modeEdited, zoneEdited }), []);
 
   /** Recovers an immutable original first, then reads current state without applying an historical version over it. @returns Whether the current state was read completely. */
   const readCurrent = useCallback(async (signal: AbortSignal, options: ReadOptions = {}) => {
@@ -94,13 +96,13 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   };
 
   return <AdmissionNotificationSettings preference={preference} mode={mode} email={email} draft={draft} tribeEmailEnabled={email ? email.enabled : null}
-    plan={{ email: emailPlanFor({ email, draft, pending: hasPending, canRetry }), preference: hasPreferenceChange(preference, mode) }}
+    platformRequirement={platformRequirement} plan={{ email: emailPlanFor({ email, draft, pending: hasPending, canRetry, platformBlocked: platformRequirement !== null }), preference: hasPreferenceChange(preference, mode) }}
     editing={editing} step={step} busy={isBusy} disabled={!fresh} confirmed={confirmed} pending={hasPending} saving={saving}
     error={error} status={status} progress={progress} canCancel={settled} messagingHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`}
     onMode={(value) => { modeEdited.current = true; setMode(value); setConfirmed(false); setError(null); setStatus(null); }}
     onDraft={changeDraft} onConfirm={setConfirmed} onStep={setStep}
     onEdit={() => { setEditing(true); setStep(pending.current ? REVIEW_STEP_INDEX : 0); setStatus(null); }} onCancel={cancel}
-    onSave={() => { void saveNotificationSettings({ ready, client, controls, readCurrent }, { preference, email, draft, mode, confirmed, fresh, canRetry }); }} onRead={launchRead} />;
+    onSave={() => { void saveNotificationSettings({ ready, client, controls, readCurrent }, { preference, email, draft, mode, confirmed, fresh, canRetry, platformRequirement }); }} onRead={launchRead} />;
 }
 
 /** @param props - Whether a read is still checking, its safe error and the retry. @returns Progress while checking, otherwise the recovery for withheld settings. */

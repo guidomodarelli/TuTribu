@@ -7,6 +7,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareAdmissionEmailSettings as prepareSettings } from "@/tests/support/admission-notification-email-settings-fixture";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { PostgresAdmissionNotificationEmailSettingsRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-email-settings-repository";
+import { createAdmissionPlatformSecurityReader } from "@/src/modules/academy-admissions/infrastructure/composition/admission-platform-security";
 import { mapAdmissionActivityStorage, type AdmissionActivityStorageRow } from "@/src/modules/academy-admissions/infrastructure/repositories/admission-activity-storage-mapper";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent admission email settings", { concurrent: true }, () => {
@@ -15,25 +16,28 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareSettings(database);
       const originalCounts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries) as deliveries,(select count(*)::int from public.academy_admission_policies) as policies`)).rows[0]);
-      expect(await fixture.repository.get(fixture.read)).toEqual({ tribeId: fixture.change.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" });
+      expect(await fixture.repository.get(fixture.read)).toEqual({ settings: { tribeId: fixture.change.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null });
       expect(await fixture.repository.change(fixture.change, fixture.command(0, true))).toMatchObject({ state: "completed", result: { status: "rejected", reason: "email_capability_unavailable" } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as count from public.admission_email_settings where tribe_id=${fixture.change.tribeId}`)).rows[0])).toEqual({ count: 0 });
       await fixture.selectConnection();
       expect(await fixture.repository.change(fixture.change, fixture.command(0, true))).toMatchObject({ state: "completed", result: { status: "rejected", reason: "email_capability_unavailable" } });
       await fixture.prepareEmail();
       fixture.setRecoveryLocked(true);
-      await expect(fixture.repository.change(fixture.change, fixture.command(0, true))).rejects.toMatchObject({ code: "resource_unavailable" });
+      // The read names the platform requirement before the leader writes; the write registers nothing and is a definite rejection.
+      expect(await fixture.repository.get(fixture.read)).toMatchObject({ settings: { enabled: false, version: 0 }, platformRequirement: "recovery_locked" });
+      await expect(fixture.repository.change(fixture.change, fixture.command(0, true))).rejects.toMatchObject({ code: "platform_security_unavailable" });
       fixture.setRecoveryLocked(false);
+      expect((await fixture.repository.get(fixture.read)).platformRequirement).toBeNull();
       const enabled = await fixture.repository.change(fixture.change, fixture.command(0, true));
       expect(enabled).toMatchObject({ state: "completed", result: { status: "changed", settings: { enabled: true, version: 1 } } });
-      const first = await fixture.repository.get(fixture.read);
+      const first = (await fixture.repository.get(fixture.read)).settings;
       const native = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ exact: string; now: string }>(sql`select (extract(epoch from enabled_at)*1000000)::bigint::text as exact,(extract(epoch from clock_timestamp())*1000000)::bigint::text as now from public.admission_email_settings where tribe_id=${fixture.change.tribeId}`)).rows[0]);
       expect(first.enabledAtMicroseconds).toBe(Number(native.exact));
       expect(first.enabledAtMicroseconds).toBeLessThanOrEqual(Number(native.now));
       expect(await fixture.repository.change(fixture.change, fixture.command(1, true))).toMatchObject({ state: "completed", result: { status: "unchanged", settings: first } });
       const shifted = await fixture.repository.change(fixture.change, fixture.command(1, true, "Asia/Kolkata"));
       expect(shifted).toMatchObject({ state: "completed", result: { status: "changed", settings: { enabled: true, version: 2, timeZone: "Asia/Kolkata" } } });
-      const second = await fixture.repository.get(fixture.read);
+      const second = (await fixture.repository.get(fixture.read)).settings;
       expect(second.enabledAtMicroseconds).toBeGreaterThan(first.enabledAtMicroseconds!);
       fixture.setCredentialAvailable(false);
       expect(await fixture.repository.change(fixture.change, fixture.command(2, false, "Asia/Kolkata"))).toMatchObject({ state: "completed", result: { status: "changed", settings: { enabled: false, version: 3, enabledAtMicroseconds: null } } });
@@ -54,7 +58,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
       expect(await fixture.repository.change(fixture.change, fixture.command(0, true))).toMatchObject({ state: "completed", result: { status: "rejected", reason: "email_settings_version_conflict" } });
       await fixture.repository.change(fixture.change, fixture.command(1, false));
       expect(await fixture.repository.change(fixture.change, original)).toMatchObject({ state: "completed", replayed: true, result: { status: "changed", settings: { version: 1, enabled: true } } });
-      expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 2, enabledAtMicroseconds: null });
+      expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ enabled: false, version: 2, enabledAtMicroseconds: null });
       const audit = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select resource_version,metadata from public.academy_admission_audit_events where tribe_id=${fixture.change.tribeId} and resource_type='admission_email_settings' order by resource_version`)).rows);
       expect(audit).toEqual([
         { resource_version: 1, metadata: { previousVersion: null, enabled: true, timeZone: "America/Argentina/Buenos_Aires" } },
@@ -91,10 +95,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
           staged = (await transaction.execute(sql`select settings.version,settings.time_zone,(select count(*)::int from public.academy_admission_audit_events where tribe_id=${fixture.change.tribeId} and resource_type='admission_email_settings') as audits from public.admission_email_settings settings where tribe_id=${fixture.change.tribeId}`)).rows[0];
           throw error;
         }
-      }), async () => fixture.config);
+      }), async () => fixture.config, createAdmissionPlatformSecurityReader(async () => fixture.config));
       await expect(guarded.change(fixture.change, fixture.command(1, false, "America/New_York"))).rejects.toMatchObject({ code: "authentication_required" });
       expect(staged).toEqual({ version: 2, time_zone: "America/New_York", audits: 2 });
-      expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 1, timeZone: "Asia/Kolkata", enabled: false });
+      expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 1, timeZone: "Asia/Kolkata", enabled: false });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as audits from public.academy_admission_audit_events where tribe_id=${fixture.change.tribeId} and resource_type='admission_email_settings'`)).rows[0])).toEqual({ audits: 1 });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);

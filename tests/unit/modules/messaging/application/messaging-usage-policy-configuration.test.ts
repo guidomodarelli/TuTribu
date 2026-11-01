@@ -17,6 +17,8 @@ import { makeSignature } from "better-auth/crypto";
 import { PostgresMessagingUsageOperationReader } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader";
 import { messagingUsageOperationRecoverySchema } from "@/src/modules/messaging/application/results/messaging-usage-operation-result";
 import { buildMessagingModule } from "@/src/modules/messaging/setup";
+import { createAdmissionPlatformSecurityReader } from "@/src/modules/academy-admissions/infrastructure/composition/admission-platform-security";
+import { createUnenrolledSecurityConfig } from "@/tests/support/admission-unenrolled-security-config";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { chromium, webkit, type Page } from "@playwright/test";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
@@ -65,6 +67,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
       const usageModule = buildMessagingModule({ accounts, execute: (_account, run) => database.withContext(fixture.own, run), clock: () => new Date() }).createUsageModule({ readSecurityConfig: async () => fixture.config });
       expect(await usageModule.useCases.initialize({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId, confirmed: true })).toMatchObject({ ok: true, value: { state: "completed", operationId, result: { version: 1, allowedCountries: [] } } });
       expect(await usageModule.useCases.read({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { state: "configured", policy: { version: 1 } } });
+      // The page read reports, from the same authorized transaction, whether the ledger can protect a save; without that read it fails closed.
+      expect(await usageModule.useCases.readPage({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "unexpected_failure" } });
+      const pageModule = (readSecurityConfig: () => Promise<typeof fixture.config>) => buildMessagingModule({ accounts, execute: (_account, run) => database.withContext(fixture.own, run), clock: () => new Date() }).createUsageModule({ readSecurityConfig, readPlatformRequirement: createAdmissionPlatformSecurityReader(readSecurityConfig) }).useCases;
+      expect(await pageModule(async () => fixture.config).readPage({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { usage: { state: "configured", policy: { version: 1 } }, platformRequirement: null } });
+      expect(await pageModule(async () => ({ ...fixture.config, recoveryLocked: true })).readPage({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { platformRequirement: "recovery_locked" } });
+      // Keys rotated without enrolling their proofs: the page says so and a save is a definitive platform rejection that registers nothing.
+      const unenrolled = await createUnenrolledSecurityConfig(fixture.config);
+      expect(await pageModule(async () => unenrolled).readPage({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { platformRequirement: "security_unconfigured" } });
+      const rejected = await pageModule(async () => unenrolled).update({ tribeId: fixture.tribeId, requestId: randomUUID(), ...messagingUsagePolicyUpdateSchema.parse({ expectedVersion: 1, allowedCountries: ["AR"], operationId: randomUUID(), verificationDailyLimit: 100, notificationDailyLimit: 200, confirmed: true }) });
+      expect(rejected).toMatchObject({ ok: false, failure: { code: "platform_security_unavailable" } });
+      expect(rejected.ok ? null : rejected.failure.operation).toBeUndefined();
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.contexts.read.sessionId}`));
       expect(await usageModule.useCases.read({ tribeId: fixture.tribeId, requestId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
       expect(await usageModule.operation.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId })).toMatchObject({ ok: false, failure: { code: "authentication_required" } });

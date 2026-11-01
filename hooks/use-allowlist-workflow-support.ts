@@ -55,6 +55,11 @@ export function readOriginalFailureMessage(original: AllowlistBrowserResult<unkn
   return original.code === ADMISSION_ERROR_CODE.resourceUnavailable ? COPY.absent : original.message;
 }
 
+/** @param original - Read of the pending original. @returns Whether the server proved it was never registered, so the leader may discard it. */
+export function isAbsentOriginal(original: AllowlistBrowserResult<unknown>): boolean {
+  return original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable;
+}
+
 /** @param contactType - Policy contact type. @param proposal - Confirmed draft. @returns The original to dispatch, or null when the contact or name is invalid. */
 export function buildAllowlistIntent(contactType: NonNullable<ReadyAllowlistState["contactType"]>, proposal: AllowlistDraft): AllowlistBrowserIntent | null {
   try {

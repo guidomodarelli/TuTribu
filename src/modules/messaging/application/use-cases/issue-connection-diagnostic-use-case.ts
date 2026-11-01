@@ -22,7 +22,7 @@ export class IssueConnectionDiagnosticUseCase{
     try{
       const recipient=normalizeAdmissionContact({type:input.channel===MESSAGING_PUBLIC_CHANNEL.email?ADMISSION_CONTACT_TYPE.email:ADMISSION_CONTACT_TYPE.phone,value:input.recipient,...(input.country?{country:input.country}:{})});
       if(recipient.status!==ADMISSION_CONTACT_NORMALIZATION_STATUS.valid)return{ok:false as const,failure:messagingFailure(MESSAGING_ERROR_CODE.invalidInput)};
-      const authorization=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operation:REAUTHENTICATION_OPERATION.diagnoseMessagingConnection});
+      const authorization=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operationId:input.operationId,operation:REAUTHENTICATION_OPERATION.diagnoseMessagingConnection});
       if(!authorization.allowed)return{ok:false as const,failure:authorization.failure};
       const value=await this.operations.issue(authorization.context,{operationId:input.operationId,expectedVersion:input.expectedVersion,confirmed:input.confirmed,channel:input.channel,recipient:recipient.contact,...(input.currentChallengeId?{currentChallengeId:input.currentChallengeId}:{})});
       if(value.state===OPERATION_STATE.completed&&!value.replayed&&value.result.outcome==="issued"){

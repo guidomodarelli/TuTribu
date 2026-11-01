@@ -8,12 +8,14 @@ import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/appl
 import { type AdmissionPolicyStateDto, admissionPolicyStateResultSchema } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import type { AdmissionPolicyActivationReason } from "@/src/modules/academy-admissions/domain/policies/admission-policy-activation";
+import type { AdmissionPreflightReason } from "@/src/modules/academy-admissions/domain/policies/admission-activation-preflight";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { createAdmissionPolicyDraft, admissionPolicyBrowserIntentSchema, admissionPolicyDraftSchema, type AdmissionPolicyBrowserIntent, type validateAdmissionPolicyBrowserDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
 import type { AdmissionPolicyActivationBlock, AdmissionPolicyFailure } from "@/components/academy-admissions/admission-policy-form";
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
-import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_BLOCK_RESOLUTION, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON, type AdmissionPolicyBlockReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY, ADMISSION_POLICY_PLATFORM_COPY, ADMISSION_POLICY_BLOCKED_ACTION_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_BLOCK_RESOLUTION, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON, type AdmissionPolicyBlockReason, ADMISSION_POLICY_BLOCKED_ACTION as BLOCKED, type AdmissionPolicyBlockedAction, ADMISSION_POLICY_PLATFORM_SECURITY_COVERED_PREFLIGHT, ADMISSION_POLICY_PLATFORM_SECURITY_REASON, readAdmissionPolicyPlatformSecurity } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_POLICY_OPERATION, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_RULE_FIELDS } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
@@ -25,16 +27,6 @@ export type PolicyReady = Extract<AdmissionPolicyPageState, { kind: "ready" }>;
 type WriteOutcome = "completed" | "failed" | "uncertain" | "stopped";
 type WriteResult = { outcome: WriteOutcome; code?: AdmissionErrorCode };
 const WRITE_OUTCOME = { completed: "completed", failed: "failed", uncertain: "uncertain", stopped: "stopped" } as const satisfies Record<string, WriteOutcome>;
-/** Which requirement explanation follows a denied activation, resume or save of active rules. */
-type BlockedAction = "activation" | "resume" | "save" | "draft";
-/** Message and next step shown with the requirements of each denied action. */
-const BLOCKED_ACTION_COPY = {
-  activation: { message: COPY.activationIneligible, note: COPY.activationBlockedNote },
-  resume: { message: COPY.resumeIneligible, note: COPY.resumeBlockedNote },
-  save: { message: COPY.saveIneligible, note: COPY.saveBlockedNote },
-  /** Creating or saving the rules on the way to activating them: nothing new was stored. */
-  draft: { message: COPY.draftIneligible, note: COPY.draftBlockedNote },
-} as const satisfies Record<BlockedAction, { message: string; note: string }>;
 /** Whether a recovery consultation stops the read, recovered the original or lets the read continue. */
 type PolicyRecoveryOutcome = "stop" | "recovered" | "continue";
 
@@ -77,6 +69,20 @@ function pendingRequirements(state: AdmissionPolicyStateDto): AdmissionPolicyAct
 export function blockReasons(block: AdmissionPolicyActivationBlock | null): AdmissionPolicyBlockReason[] {
   return block ? [...block.preflightReasons, ...block.requirements].filter((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] !== ADMISSION_POLICY_BLOCK_RESOLUTION.selfResolved) : [];
 }
+
+/**
+ * Builds every requirements block with the copy of the blocked write; a cause is listed once, so a preflight reason that restates a
+ * listed platform security requirement (missing settings are read as a recovery lock there) is left out.
+ * @param action - Blocked write. @param preflightReasons - Unmet preflight reasons. @param requirements - Pending requirements.
+ * @returns The block shown next to the action.
+ */
+function requirementsBlock(action: AdmissionPolicyBlockedAction, preflightReasons: readonly AdmissionPreflightReason[], requirements: readonly AdmissionPolicyActivationReason[]): AdmissionPolicyActivationBlock {
+  const copy = ADMISSION_POLICY_BLOCKED_ACTION_COPY[action];
+  const securityListed = readAdmissionPolicyPlatformSecurity(requirements) !== null;
+  return { message: copy.message, note: copy.note, platformNote: copy.platform,
+    preflightReasons: preflightReasons.filter((reason) => !securityListed || !ADMISSION_POLICY_PLATFORM_SECURITY_COVERED_PREFLIGHT.includes(reason)), requirements: [...new Set(requirements)] };
+}
+
 /**
  * @param preflight - Informational preflight.
  * @param state - Current saved policy, whose evaluated requirements (channel, quota, countries) the preflight does not cover.
@@ -85,8 +91,35 @@ export function blockReasons(block: AdmissionPolicyActivationBlock | null): Admi
 export function draftBlock(preflight: AdmissionPolicyPreflightDto | null | undefined, state: AdmissionPolicyStateDto | null): AdmissionPolicyActivationBlock | null {
   const preflightReasons = preflight && !preflight.prepared ? preflight.reasons : [];
   const requirements = (state ? pendingRequirements(state) : []).filter((requirement) => !preflight || !ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS.includes(requirement));
-  const block = { message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons, requirements };
+  const block = requirementsBlock(BLOCKED.activation, preflightReasons, requirements);
   return blockReasons(block).length ? block : null;
+}
+
+/**
+ * @param state - Current configuration. @param editing - Whether activated rules are being edited.
+ * @returns The write the page offers next, whose copy explains a block found without pressing it (on opening or rechecking).
+ */
+function nextPolicyAction(state: AdmissionPolicyStateDto, editing: boolean): AdmissionPolicyBlockedAction {
+  if (!state.policy) return BLOCKED.draft;
+  if (!state.controlActivated) return BLOCKED.activation;
+  if (editing) return BLOCKED.save;
+  return state.policy.isOpen ? BLOCKED.pause : BLOCKED.resume;
+}
+
+/** @param state - Current configuration. @returns The platform security requirement every policy write needs, or null when writes can be protected. */
+export function policyPlatformSecurity(state: AdmissionPolicyStateDto): PlatformSecurityRequirement | null {
+  return readAdmissionPolicyPlatformSecurity(pendingRequirements(state));
+}
+
+/**
+ * A platform security requirement of the current read blocks every write, so the page shows it before any step is walked and
+ * keeps it while the draft changes; only a new read clears it.
+ * @param state - Current configuration. @param editing - Whether activated rules are being edited.
+ * @returns The block of that requirement for the write the page offers next, or null when writes can be protected.
+ */
+export function platformSecurityBlock(state: AdmissionPolicyStateDto, editing: boolean): AdmissionPolicyActivationBlock | null {
+  const requirement = policyPlatformSecurity(state);
+  return requirement ? requirementsBlock(nextPolicyAction(state, editing), [], [ADMISSION_POLICY_PLATFORM_SECURITY_REASON[requirement]]) : null;
 }
 
 /** @param reason - Browser validation outcome of the draft. @returns Its explanation, or null for a valid draft. */
@@ -305,16 +338,20 @@ async function refreshPolicyBeforeWrite(session: PolicyReadSession, signal: Abor
   return { outcome: WRITE_OUTCOME.stopped };
 }
 
-/** Rereads the configuration after a denied activation or resume and lists what the leader still has to resolve. @param session - Current route session. @param signal - Current write. @param blocked - Denied action. @param proposedRequirements - Requirements the proposed rules add. @returns Nothing. */
-async function showPolicyRequirements(session: PolicyReadSession, signal: AbortSignal, blocked: BlockedAction, proposedRequirements: readonly AdmissionPolicyActivationReason[] = []): Promise<void> {
+/**
+ * Rereads the configuration after a denied write and lists what the leader still has to resolve. When that read fails, its own
+ * failure is shown after the denial instead of an empty block, and «Consultar configuración actual» reads it again.
+ * @param session - Current route session. @param signal - Current write. @param blocked - Denied action. @param proposedRequirements - Requirements the proposed rules add.
+ * @returns Nothing.
+ */
+async function showPolicyRequirements(session: PolicyReadSession, signal: AbortSignal, blocked: AdmissionPolicyBlockedAction, proposedRequirements: readonly AdmissionPolicyActivationReason[] = []): Promise<void> {
   const { ready, client, controls } = session;
   const current = await client.readPolicy(ready.slug, signal);
   if (signal.aborted || current.status === "aborted" || !await checkPolicyViewer(session, signal)) return;
-  if (current.status === "ready") { commitPolicyState(controls, current.value); markPolicyFresh(controls, true); }
-  controls.setErrorMessage(null); controls.setFailure(null);
-  const savedRequirements = current.status === "ready" ? pendingRequirements(current.value) : [];
-  controls.setActivationBlock({ message: BLOCKED_ACTION_COPY[blocked].message, note: BLOCKED_ACTION_COPY[blocked].note,
-    preflightReasons: [], requirements: [...new Set([...proposedRequirements, ...savedRequirements])] });
+  controls.setFailure(null);
+  if (current.status === "failed") { showPolicyFailure(controls, current.code, `${ADMISSION_POLICY_BLOCKED_ACTION_COPY[blocked].message} ${current.message}`); return; }
+  commitPolicyState(controls, current.value); markPolicyFresh(controls, true); controls.setErrorMessage(null);
+  controls.setActivationBlock(requirementsBlock(blocked, [], [...proposedRequirements, ...pendingRequirements(current.value)]));
 }
 
 /** What a final save writes: the proposed rules, whether it also activates, and the failure being retried. */
@@ -337,7 +374,7 @@ async function settlePolicySave(session: PolicyReadSession, signal: AbortSignal,
   if (result.outcome === WRITE_OUTCOME.completed) return true;
   if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) {
     if (!activating) controls.setConfirmed(false);
-    await showPolicyRequirements(session, signal, activating ? "draft" : "save", proposedVerificationRequirements(proposed, controls.stateRef.current));
+    await showPolicyRequirements(session, signal, activating ? BLOCKED.draft : BLOCKED.save, proposedVerificationRequirements(proposed, controls.stateRef.current));
     return false;
   }
   reportPolicyFailure(controls, STAGE.saving, false, result);
@@ -367,13 +404,13 @@ async function activateSavedPolicy(session: PolicySession, signal: AbortSignal):
   if (preflight.status === "failed") { showPolicyFailure(controls, preflight.code, preflight.message); controls.setFailure({ stage: STAGE.checking, rulesSaved: true }); return; }
   if (!preflight.value.prepared) {
     controls.setErrorMessage(null); controls.setFailure(null);
-    controls.setActivationBlock({ message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons: preflight.value.reasons, requirements: [] });
+    controls.setActivationBlock(requirementsBlock(BLOCKED.activation, preflight.value.reasons, []));
     return;
   }
   controls.setStage(STAGE.activating);
   const intent = buildPolicyIntent(controls, ADMISSION_POLICY_OPERATION.activate); if (!intent) return;
   const result = await sendPolicyIntent(session, intent, signal);
-  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) { await showPolicyRequirements(session, signal, "activation"); return; }
+  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) { await showPolicyRequirements(session, signal, BLOCKED.activation); return; }
   if (result.outcome !== WRITE_OUTCOME.completed) { reportPolicyFailure(controls, STAGE.activating, true, result); return; }
   controls.setConfirmed(false); controls.setStep(0);
   succeedPolicy(controls, controls.stateRef.current?.policy?.isOpen ? COPY.activatedOpen : COPY.activatedPaused);
@@ -392,7 +429,11 @@ export async function runFinalPolicyWrites(session: PolicySession, plan: FinalPo
   await activateSavedPolicy(session, signal);
 }
 
-/** Closes new requests with the reason the contract requires; the saved draft closes too. @param session - Current route session. @param pauseReason - Reason given. @param signal - Current write. @returns Nothing. */
+/**
+ * Closes new requests with the reason the contract requires; the saved draft closes too. The pause signs its intent like every
+ * policy write, so a requirement it cannot meet (the platform security) is explained with what stays open, never as a retry.
+ * @param session - Current route session. @param pauseReason - Reason given. @param signal - Current write. @returns Nothing.
+ */
 export async function pausePolicyWrites(session: PolicyReadSession, pauseReason: string, signal: AbortSignal): Promise<void> {
   const { controls } = session;
   controls.setStage(STAGE.pausing);
@@ -400,6 +441,7 @@ export async function pausePolicyWrites(session: PolicyReadSession, pauseReason:
   if (refreshed.outcome !== WRITE_OUTCOME.completed) { reportPolicyFailure(controls, STAGE.pausing, false, refreshed); return; }
   const intent = buildPolicyIntent(controls, ADMISSION_POLICY_OPERATION.pause, { reason: pauseReason }); if (!intent) return;
   const result = await sendPolicyIntent(session, intent, signal);
+  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) { await showPolicyRequirements(session, signal, BLOCKED.pause); return; }
   if (result.outcome !== WRITE_OUTCOME.completed) { reportPolicyFailure(controls, STAGE.pausing, false, result); return; }
   controls.setPauseOpen(false); controls.setPauseReason(""); succeedPolicy(controls, COPY.paused);
 }
@@ -412,35 +454,52 @@ export async function resumePolicyWrites(session: PolicyReadSession, signal: Abo
   if (refreshed.outcome !== WRITE_OUTCOME.completed || !controls.stateRef.current) { reportPolicyFailure(controls, STAGE.resuming, false, refreshed); return; }
   const intent = buildPolicyIntent(controls, ADMISSION_POLICY_OPERATION.update, { ...createAdmissionPolicyDraft(controls.stateRef.current), isOpen: true }); if (!intent) return;
   const result = await sendPolicyIntent(session, intent, signal);
-  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) { await showPolicyRequirements(session, signal, "resume"); return; }
+  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) { await showPolicyRequirements(session, signal, BLOCKED.resume); return; }
   if (result.outcome !== WRITE_OUTCOME.completed) { reportPolicyFailure(controls, STAGE.resuming, false, result); return; }
   succeedPolicy(controls, COPY.resumed);
+}
+
+/**
+ * @param intent - Stored original. @param state - Configuration the original was sent from.
+ * @returns The write the original was: a first save or a draft change, a change to active rules, a resume, a pause or an activation.
+ */
+function originalBlockedAction(intent: AdmissionPolicyBrowserIntent, state: AdmissionPolicyStateDto | null): AdmissionPolicyBlockedAction {
+  if (intent.type === ADMISSION_POLICY_OPERATION.activate) return BLOCKED.activation;
+  if (intent.type === ADMISSION_POLICY_OPERATION.pause) return BLOCKED.pause;
+  if (intent.type === ADMISSION_POLICY_OPERATION.initialize || !state?.controlActivated) return BLOCKED.draft;
+  /** An update of active rules that reopens paused admissions is the resume; any other one saves changes. */
+  return intent.input.isOpen && !state.policy?.isOpen ? BLOCKED.resume : BLOCKED.save;
 }
 
 /** Resends the exact original payload and UUID. @param session - Current route session. @param intent - Stored original. @param signal - Current write. @returns Nothing. */
 export async function retryPolicyOriginal(session: PolicyReadSession, intent: AdmissionPolicyBrowserIntent, signal: AbortSignal): Promise<void> {
   session.controls.setStage(STAGE.retrying);
+  const blocked = originalBlockedAction(intent, session.controls.stateRef.current);
   const result = await sendPolicyIntent(session, intent, signal);
   session.controls.setRetryConfirmed(false);
   if (result.outcome === WRITE_OUTCOME.completed) { succeedPolicy(session.controls, COPY.recovered); return; }
-  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) await showPolicyRequirements(session, signal, intent.type === ADMISSION_POLICY_OPERATION.activate ? "activation" : "draft");
+  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) await showPolicyRequirements(session, signal, blocked);
 }
 
-/** @param controlActivated - Whether admission control is active. @param preflight - Fresh preflight, if read. @param requirements - Pending requirements of the saved policy. @returns The block describing what still needs work. */
-function recheckBlock(controlActivated: boolean, preflight: AdmissionPolicyPreflightDto | null, requirements: AdmissionPolicyActivationReason[]): AdmissionPolicyActivationBlock {
-  const copy = controlActivated ? BLOCKED_ACTION_COPY.resume : BLOCKED_ACTION_COPY.activation;
-  return { message: copy.message, note: copy.note,
-    preflightReasons: preflight && !preflight.prepared ? preflight.reasons : [], requirements };
-}
-
-/** @param session - Current route session. @param next - Fresh requirements block. @returns Nothing after showing it, or the ready notice when nothing is missing. */
-function applyRecheckBlock({ controls }: PolicySession, next: AdmissionPolicyActivationBlock): void {
-  if (!blockReasons(next).length) { controls.setActivationBlock(null); controls.setStatusMessage(ADMISSION_POLICY_PLATFORM_COPY.recheckedReady); return; }
+/**
+ * Shows what still needs work for the write the page offers next, or says that write can be done again.
+ * @param session - Current route session. @param state - Fresh configuration. @param editing - Whether activated rules are being edited.
+ * @param preflight - Fresh preflight, if read.
+ * @returns Nothing after showing the block, or the ready notice of that write when nothing is missing.
+ */
+function applyRecheckBlock({ controls }: PolicySession, state: AdmissionPolicyStateDto, editing: boolean, preflight: AdmissionPolicyPreflightDto | null): void {
+  const action = nextPolicyAction(state, editing);
+  const next = requirementsBlock(action, preflight && !preflight.prepared ? preflight.reasons : [], pendingRequirements(state));
+  if (!blockReasons(next).length) { controls.setActivationBlock(null); controls.setStatusMessage(ADMISSION_POLICY_BLOCKED_ACTION_COPY[action].ready); return; }
   controls.setActivationBlock(next); controls.setStatusMessage(ADMISSION_POLICY_PLATFORM_COPY.rechecked);
 }
 
-/** Volver a comprobar: rereads the configuration and the requirements, without writing or asking for another decision. @param session - Current route session. @param controller - Read slot of this recheck. @returns Nothing after releasing the slot. */
-async function recheckPolicyRequirements(session: PolicySession, controller: AbortController): Promise<void> {
+/**
+ * Volver a comprobar: rereads the configuration and the requirements, without writing or asking for another decision.
+ * @param session - Current route session. @param controller - Read slot of this recheck. @param editing - Whether activated rules are being edited.
+ * @returns Nothing after releasing the slot.
+ */
+async function recheckPolicyRequirements(session: PolicySession, controller: AbortController, editing: boolean): Promise<void> {
   const { ready, client, controls } = session, { signal } = controller;
   try {
     if (!await checkPolicyViewer(session, signal)) return;
@@ -448,19 +507,18 @@ async function recheckPolicyRequirements(session: PolicySession, controller: Abo
     if (signal.aborted || current.status === "aborted" || !await checkPolicyViewer(session, signal)) return;
     if (current.status === "failed") { showPolicyFailure(controls, current.code, current.message); return; }
     commitPolicyState(controls, current.value); markPolicyFresh(controls, true);
-    const requirements = pendingRequirements(current.value);
     const preflight = current.value.controlActivated ? null : await client.readPreflight(ready.slug, signal);
     if (signal.aborted || preflight?.status === "aborted" || !await checkPolicyViewer(session, signal)) return;
     if (preflight?.status === "failed") { showPolicyFailure(controls, preflight.code, preflight.message); return; }
-    applyRecheckBlock(session, recheckBlock(current.value.controlActivated, preflight?.status === "ready" ? preflight.value : null, requirements));
+    applyRecheckBlock(session, current.value, editing, preflight?.status === "ready" ? preflight.value : null);
   } catch { if (!signal.aborted) controls.setErrorMessage(COPY.storageFailed); }
   finally { if (controls.readController.current === controller) { controls.busy.current = false; controls.setRechecking(false); } }
 }
 
-/** @param session - Current route session. @returns Nothing after starting one recheck in the read slot. */
-export function startPolicyRecheck(session: PolicySession): void {
+/** @param session - Current route session. @param editing - Whether activated rules are being edited. @returns Nothing after starting one recheck in the read slot. */
+export function startPolicyRecheck(session: PolicySession, editing: boolean): void {
   const { controls } = session;
   controls.busy.current = true; controls.readController.current?.abort(); const controller = new AbortController(); controls.readController.current = controller;
   controls.setRechecking(true); controls.setStatusMessage(null); controls.setErrorMessage(null);
-  void recheckPolicyRequirements(session, controller);
+  void recheckPolicyRequirements(session, controller, editing);
 }

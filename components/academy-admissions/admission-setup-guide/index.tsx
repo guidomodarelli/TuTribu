@@ -6,14 +6,15 @@
  * Adapted from the Arc "Release readiness" block: the checks come from the
  * server instead of checkboxes, the single final action is a link to the next
  * settings page, copy is in Spanish and styles are a BEM SCSS module. It renders
- * on the server and needs no client JavaScript.
+ * on the server; only the shared platform notice hydrates, for its copy and report actions.
  */
 
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { ButtonLink } from "@/components/navigation/link";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
 import { ROUTES } from "@/src/constants/routes";
 import type { AdmissionSetupProgress } from "@/src/modules/academy-admissions/application/queries/admission-setup-progress";
-import { ADMISSION_SETUP_GUIDE_COPY as COPY, ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_COPY as STEP_COPY, ADMISSION_SETUP_STEP_POLICY_ENTRY, ADMISSION_SETUP_STEP_SEGMENT, ADMISSION_SETUP_STEP_STATUS as STATUS, type AdmissionSetupStepId } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
+import { ADMISSION_SETUP_GUIDE_COPY as COPY, ADMISSION_SETUP_PLATFORM_COPY, ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_COPY as STEP_COPY, ADMISSION_SETUP_STEP_POLICY_ENTRY, ADMISSION_SETUP_STEP_SEGMENT, ADMISSION_SETUP_STEP_STATUS as STATUS, type AdmissionSetupStepId } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { admissionPolicyStepHref } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
 import styles from "./styles.module.scss";
 
@@ -38,7 +39,8 @@ function setupStepHref(slug: string, id: AdmissionSetupStepId, draft: boolean): 
 /** @param step - One derived setup step. @returns Why the opening step is not done yet, or null for any other reason. */
 function openStepDetail(step: SetupStep): string | null {
   if (step.id !== ADMISSION_SETUP_STEP.open) return null;
-  if (step.platformBlocked) return STEP_COPY.open.platformBlocked;
+  /** A draft is mentioned only when rules were saved: without them the opening step has nothing kept. */
+  if (step.platformBlocked) return step.draft ? STEP_COPY.open.platformBlocked : STEP_COPY.open.platformBlockedUnsaved;
   if (step.admissionsClosed) return STEP_COPY.open.admissionsClosed;
   return step.paused ? STEP_COPY.open.paused : null;
 }
@@ -59,8 +61,13 @@ function SetupStepMarker({ done, optional, number }: { done: boolean; optional: 
   return optional ? "·" : number;
 }
 
-/** @param props - One derived step, the tribe slug, whether it is the next step and its required-step number. @returns The checklist row with its badges, detail and, when next, its action. */
-function SetupStepItem({ step, slug, isNext, number }: { step: SetupStep; slug: string; isNext: boolean; number: number | undefined }) {
+/**
+ * @param props - One derived step, the tribe slug, whether it is the next step, its required-step number and whether steps may link
+ * to their page (never while the platform cannot protect admission writes).
+ * @returns The checklist row with its badges, detail and, when next, its action.
+ */
+function SetupStepItem({ step, slug, isNext, number, actionable }: { step: SetupStep; slug: string; isNext: boolean; number: number | undefined; actionable: boolean }) {
+  const offersAction = isNext && actionable;
   const copy = STEP_COPY[step.id];
   const done = step.status === STATUS.done;
   const optional = step.status === STATUS.optional;
@@ -78,14 +85,15 @@ function SetupStepItem({ step, slug, isNext, number }: { step: SetupStep; slug: 
         </span>
         <span className={styles.AdmissionSetupGuide__detail}>{setupStepDetail(step)}</span>
       </div>
-      {isNext && step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={ROUTES.tribes.academyManage(slug)} variant="primary" size="sm">{STEP_COPY.open.academyAction}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
-      {isNext && !step.platformBlocked && !step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={setupStepHref(slug, step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+      {offersAction && step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={ROUTES.tribes.academyManage(slug)} variant="primary" size="sm">{STEP_COPY.open.academyAction}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+      {offersAction && !step.platformBlocked && !step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={setupStepHref(slug, step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
     </li>
   );
 }
 
 /**
- * Shows the leader's setup as a short ordered checklist with one next action.
+ * Shows the leader's setup as a short ordered checklist with one next action; while the platform cannot protect admission writes,
+ * a single «Depende del equipo de TuTribu» notice replaces that action.
  *
  * @param props - Tribe slug for the links and the derived setup progress.
  * @returns Nothing once every step is done; otherwise the checklist.
@@ -103,6 +111,10 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
         <p className={styles.AdmissionSetupGuide__description}>{COPY.description}</p>
       </header>
 
+      {progress.platformSecurity && <div className={styles.AdmissionSetupGuide__platform}>
+        <PlatformSecurityNotice requirement={progress.platformSecurity.requirement} consequence={progress.platformSecurity.rulesSaved ? ADMISSION_SETUP_PLATFORM_COPY.saved : ADMISSION_SETUP_PLATFORM_COPY.unsaved} />
+      </div>}
+
       <div className={styles.AdmissionSetupGuide__progress}>
         <div className={styles.AdmissionSetupGuide__progressMeta}>
           <span>{allRequiredDone ? "Lo necesario está listo" : `${progress.completed} de ${progress.required} pasos necesarios listos`}</span>
@@ -113,7 +125,7 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
       </div>
 
       <ol className={styles.AdmissionSetupGuide__steps} aria-label={COPY.listLabel}>
-        {progress.steps.map((step) => <SetupStepItem key={step.id} step={step} slug={slug} isNext={step.id === progress.next} number={numbers.get(step.id)} />)}
+        {progress.steps.map((step) => <SetupStepItem key={step.id} step={step} slug={slug} isNext={step.id === progress.next} number={numbers.get(step.id)} actionable={!progress.platformSecurity} />)}
       </ol>
     </section>
   );

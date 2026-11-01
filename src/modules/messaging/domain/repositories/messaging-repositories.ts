@@ -26,8 +26,21 @@ export interface MessagingAuthorizationReader {
 }
 export type MessagingSecurityFacts = { environment: string; securityEpoch: string; recoveryLocked: boolean };
 export interface MessagingSecurityFactsProvider {
-  /** Reads external security state for each operation; PostgreSQL cannot restore this authority. */
+  /**
+   * Reads external security state for each operation; PostgreSQL cannot restore this authority.
+   * @throws MessagingPlatformSecurityError when the platform cannot protect the operation at all (missing or unusable security).
+   */
   getCurrentSecurityFacts(): Promise<MessagingSecurityFacts>;
+}
+/** Exact original of one sensitive write: its actor, tenant, fixed server operation and caller UUID. */
+export type MessagingOriginalOperation = { actorUserId: string; tribeId: string; operation: string; operationId: string };
+export interface MessagingOriginalOperationLookup {
+  /**
+   * Tells a retried original that the ledger already registered from a new one, without locking it or reading its intent.
+   * @param original - Exact original identity, scoped to the current actor and tribe.
+   * @returns Whether that original already has a ledger row.
+   */
+  isRegistered(original: MessagingOriginalOperation): Promise<boolean>;
 }
 /** Private common identity; a context is not a public permission token. */
 export type MessagingSecretResourceScope = {

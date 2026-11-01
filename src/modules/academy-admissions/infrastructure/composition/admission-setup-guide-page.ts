@@ -15,7 +15,7 @@ import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notificati
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { loadAdmissionPreflightState } from "./admission-preflight-page";
 import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
-import { isAdmissionPolicyPlatformReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { isAdmissionPolicyPlatformReason, readAdmissionPolicyPlatformSecurity } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_PREFLIGHT_REASON } from "@/src/modules/academy-admissions/constants/admission-preflight";
 
 /** Server-selected openers of each area's own page use case, supplied by the route entrypoint. */
@@ -48,7 +48,7 @@ export async function loadAdmissionSetupGuideState(input: unknown, open: Admissi
   if (policyState.kind !== "ready") return null;
   const messaging = readMessagingFacts(messagingState);
   if (!messaging.leader) return null;
-  return { slug: policyState.slug, progress: deriveAdmissionSetupProgress({ policy: readPolicyFacts(policyState), messaging: messaging.facts, notifications: readNotificationFacts(notificationState), activation: readActivationFacts(preflight) }) };
+  return { slug: policyState.slug, progress: deriveAdmissionSetupProgress({ policy: readPolicyFacts(policyState), messaging: messaging.facts, notifications: readNotificationFacts(notificationState), activation: readActivationFacts(preflight), platformSecurity: readPlatformSecurityFacts(policyState) }) };
 }
 
 /** @param input - Untrusted page input. @returns Only its route params, for loaders that accept no query. */
@@ -64,6 +64,14 @@ function readActivationFacts(preflight: AdmissionPolicyPreflightDto | null): Adm
   if (!preflight) return null;
   const blocked = !preflight.prepared;
   return { platformBlocked: blocked && preflight.reasons.some(isAdmissionPolicyPlatformReason), admissionsClosed: blocked && preflight.reasons.includes(ADMISSION_PREFLIGHT_REASON.evaluatorDisabled) };
+}
+
+/**
+ * The rules read lists the platform security every admission write signs with (the same checks the writers run): while it names
+ * one, the guide offers no step, since every rules, messaging and quota save would be rejected.
+ */
+function readPlatformSecurityFacts(state: Extract<AdmissionPolicyPageState, { kind: "ready" }>): AdmissionSetupFacts["platformSecurity"] {
+  return readAdmissionPolicyPlatformSecurity([...state.policy.preparation.requirements, ...(state.policy.policy?.requirements ?? [])]);
 }
 
 /** Maps the rules page state to the guide's policy facts. */

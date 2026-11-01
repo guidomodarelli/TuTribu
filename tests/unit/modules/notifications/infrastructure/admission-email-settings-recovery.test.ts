@@ -32,7 +32,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original em
       const baseline = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as operations,sum(version)::int as versions from public.academy_admission_operations where tribe_id=${fixture.read.tribeId}`)).rows[0]);
 
       expect(await current.operation.execute(query)).toEqual({ ok: true, value: { type: "update_admission_email_settings", state: "completed", operationId: first.operationId, replayed: true, result: { status: "changed", settings: { enabled: false, version: 1, timeZone: "Asia/Kolkata" } } } });
-      expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 2, timeZone: "UTC" });
+      expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ enabled: false, version: 2, timeZone: "UTC" });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.read.sessionId}`));
       await expect(fixture.repository.change(fixture.change, fixture.command(2, true))).rejects.toMatchObject({ code: "authentication_required" });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.read.sessionId}`));

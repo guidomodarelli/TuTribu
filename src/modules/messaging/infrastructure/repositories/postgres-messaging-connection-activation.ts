@@ -10,11 +10,11 @@ import type {MessagingConnectionVersion,MessagingConnectionCapability} from "@/s
 import type {ConnectionDiagnostic} from "@/src/modules/messaging/domain/entities/connection-diagnostic";
 import {PostgresAdmissionOperationRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import {AdmissionOperationError} from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
+import {knownConnectionFailureCode} from "./messaging-operation-failure-code";
 import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";
 import {MessagingSecretAccessError} from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
-import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_CONNECTION_STATE,MESSAGING_CONNECTION_SLOT} from "@/src/modules/messaging/constants/messaging-connection";
 import {MESSAGING_CONNECTION_REPLACEMENT} from "@/src/modules/messaging/constants/messaging-connection-replacement";
 import {MESSAGING_PUBLIC_CHANNEL,MESSAGING_GENERIC_CREDENTIAL_MASK} from "@/src/modules/messaging/constants/messaging-public-contract";
@@ -84,7 +84,7 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
   /** @param context - Current exact scope. @returns Real DB-only ledger with current authority before replay and after the effect. */
   private ledger(context:AuthorizedMessagingContext){return new PostgresAdmissionOperationRepository((run)=>executeMessagingLedger(()=>this.execute(context,run)),async(database)=>{await this.authorize(database,context);return true;},this.readSecurityConfig);}
   /** @param error - Original private failure. @returns Safe connection error preserving a genuinely registered original operation. */
-  private failure(error:unknown){if(error instanceof MessagingConnectionOperationError)return error;const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:MESSAGING_ERROR_CODE.unexpectedFailure;return new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});}
+  private failure(error:unknown){if(error instanceof MessagingConnectionOperationError)return error;const code=knownConnectionFailureCode(error);return new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});}
   /** @param context - Native exact actor/session/resource. @param input - Stable confirmed lifecycle CAS. @returns Original selection/retirement/dependency commit without loading plaintext, RPC or changing usage/settings flags. */
   async activate(context:AuthorizedMessagingContext,input:MessagingConnectionActivationInput){
     const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:REAUTHENTICATION_OPERATION.activateMessagingConnection,idempotencyKey:input.operationId,intent:{connectionId:context.connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}},ledger=this.ledger(context);

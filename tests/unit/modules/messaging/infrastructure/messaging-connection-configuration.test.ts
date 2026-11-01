@@ -11,6 +11,7 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 import {createMessagingSecretCipher,type MessagingSecretEnvelope} from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import {prepareContactVerificationIssuer} from "@/tests/support/contact-verification-issuance-fixture";
 import {expectMessageDeliveryCancellationAudits} from "@/tests/support/message-delivery-cancellation-audit-assertions";
+import {createUnenrolledSecurityConfig} from "@/tests/support/admission-unenrolled-security-config";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("immutable SQL configuration",()=>{
   it("should cancel the original queued diagnostic with the current configuration ledger once while preserving its delivery identity",async()=>{
@@ -58,6 +59,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("immutable SQL config
       const owner=new PostgresMessagingConnectionConfiguration(execute,async()=>fixture.fixture.config),input={operationId:randomUUID(),expectedVersion:1,confirmed:true as const,channel:"email"as const,senderId};
       const inspection={credential,sender:{resourceId:senderId,name:"Remitente confirmado",channels:["email"as const],canSendWhatsappTemplates:false}};
       expect(await owner.prepare(context,input)).toEqual({state:"prepared",configurationVersion:1,changed:true});
+      // Ledger keys rotated without enrolling their proofs: the change is refused as a platform requirement before any provider inspection.
+      const unenrolled=await createUnenrolledSecurityConfig(fixture.fixture.config),rotated={...fixture.fixture.config,keyrings:{...fixture.fixture.config.keyrings,operation_payload:unenrolled.keyrings.operation_payload,contact_fingerprint:unenrolled.keyrings.contact_fingerprint}};
+      await expect(new PostgresMessagingConnectionConfiguration(execute,async()=>rotated).prepare(context,{...input,operationId:randomUUID()})).rejects.toMatchObject({code:"platform_security_unavailable"});
       const first=await owner.commit(context,input,inspection);expect(first).toMatchObject({state:"completed",result:{version:2,configurationVersion:2,changed:true,state:"draft"}});
       const audit=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select event.metadata,event.created_at=connection.updated_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.tenant_messaging_connections connection on connection.id=event.resource_id and connection.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${context.connectionId} and event.event_type='configure_messaging_connection'`)).rows);
       expect(audit).toEqual([{metadata:{fromState:"draft",toState:"draft",previousVersion:1,configurationVersion:2,previousConfigurationVersion:1,channel:"email"},owner_clock:true,idempotency_key:input.operationId}]);

@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 await page.getByRole("form", { name: "Configurar avisos de admisión", exact: true }).waitFor();
               };
               for (const entry of entries) await reachNotificationsFrom(entry);
-              expect(errors).toEqual([]); expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 0 });
+              expect(errors).toEqual([]); expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ enabled: false, version: 0 });
               const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as deliveries from public.message_deliveries where tribe_id=${tribeId}`)).rows[0]);
               expect(effects).toEqual({ deliveries: 0 });
               expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);

@@ -50,6 +50,14 @@
     @include workspace-panel.subtitle;
   }
 
+  // No policy write can be protected yet: the warning sits above the steps, before the leader walks them.
+  &__platform {
+    @include workspace-panel.callout;
+
+    margin: 0;
+    border-inline-start-color: var(--warning, var(--accent));
+  }
+
   &__editor {
     @include workspace-panel.section;
   }

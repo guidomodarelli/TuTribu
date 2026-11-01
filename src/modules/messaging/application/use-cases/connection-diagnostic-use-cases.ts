@@ -26,7 +26,7 @@ export class VerifyConnectionDiagnosticUseCase {
    */
   async execute(input: VerifyConnectionDiagnosticInput) {
     try {
-      const authorization = await this.resolver.execute({ tribeId: input.tribeId, connectionId: input.connectionId, operation: CONNECTION_DIAGNOSTIC_VERIFY_OPERATION, requestId: input.requestId });
+      const authorization = await this.resolver.execute({ tribeId: input.tribeId, connectionId: input.connectionId, operation: CONNECTION_DIAGNOSTIC_VERIFY_OPERATION, requestId: input.requestId, operationId: input.operationId });
       if (!authorization.allowed) return { ok: false as const, failure: authorization.failure };
       const value = await this.operations.verify({ context: authorization.context, diagnosticId: input.diagnosticId, operationId: input.operationId, code: input.code });
       return { ok: true as const, value };

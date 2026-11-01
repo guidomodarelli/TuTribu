@@ -53,4 +53,5 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.upstreamPayloadUnusable]: "No pudimos interpretar la respuesta de mensajería. Conservá los datos y consultá el estado.",
   [MESSAGING_ERROR_CODE.publicContractUnusable]: "No pudimos mostrar el resultado de la operación. Conservá los datos y consultá el estado.",
   [MESSAGING_ERROR_CODE.unexpectedFailure]: "No pudimos completar la operación de mensajería. Conservá los datos y consultá el estado.",
+  [MESSAGING_ERROR_CODE.platformSecurityUnavailable]: "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.",
 } as const;

@@ -13,6 +13,7 @@ import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/au
 import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { PersonalInvitationReader, PersonalInvitationCommandWriter } from "@/src/modules/academy-admissions/domain/repositories/personal-invitation-management";
 import type { AdmissionPolicyState } from "@/src/modules/academy-admissions/domain/repositories/admission-policy-management";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** @returns Actual read-only use cases with controlled doubles only at own identity/storage ports. */
 function fixture() {
@@ -23,11 +24,13 @@ function fixture() {
   const invitation = createPersonalInvitation({ id: randomUUID(), tribeId, actorUserId: userId, contact: { type: "email", value: "recipient@example.test" }, internalName: "Grupo inicial", requiresAllowlist: true, allowlistExemptionAcknowledged: false, now, policy: { contactType: "email", requiresAdditionalVerification: false } });
   const reader: PersonalInvitationReader = { list: vi.fn(async () => ({ invitations: [invitation], nextCursor: null })), read: vi.fn(async () => invitation) }, writer: PersonalInvitationCommandWriter = { create: vi.fn(), rename: vi.fn(), revoke: vi.fn() };
   const current: AdmissionPolicyState = { policy: createDefaultAdmissionPolicy({ id: tribeId, tribeId }), controlActivated: false, usage: null };
-  const policyReader = { read: vi.fn(async () => current) }, policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null, securityConfigured: true }) });
+  /** Platform fact the rules read attests; null while the platform can protect issuing, renaming and revoking. */
+  const platform: { requirement: PlatformSecurityRequirement | null } = { requirement: null };
+  const policyReader = { read: vi.fn(async () => current) }, policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null, platformSecurity: platform.requirement }) });
   const availability = { hasUsableAllowlist: vi.fn(async () => true) }, invitations = new ManagePersonalInvitationsUseCases(resolver, reader, writer);
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "synthetic-academy" }) });
   const page = new GetPersonalInvitationManagementPageUseCase(accounts, { invitations, policy, resolveTribe, resolveContext: resolver, availability }, () => now);
-  return { now, tribeId, account, accounts, actor, current, reader, writer, invitation, invitations, availability, page, input: { params: { slug: "synthetic-academy" }, query: {} } };
+  return { now, tribeId, account, accounts, actor, current, reader, writer, invitation, invitations, availability, page, platform, input: { params: { slug: "synthetic-academy" }, query: {} } };
 }
 
 describe("personal invitation management SSR", () => {
@@ -48,11 +51,18 @@ describe("personal invitation management SSR", () => {
   it("should project exact-type list availability and private lifecycle dates without secret material", async () => {
     const data = fixture(), cursor = "2026-10-09T09:00:00.123456Z~" + randomUUID();
     const state = await loadPersonalInvitationManagementPageState({ ...data.input, query: { limit: "20", status: "active", cursor } }, async () => data.page);
-    expect(state).toMatchObject({ kind: "ready", viewerId: data.account.userId, contactType: "email", requiresAdditionalVerification: false, hasUsableAllowlist: true, query: { limit: 20, status: "active", cursor }, page: { items: [{ id: data.invitation.id, version: 1, createdAt: data.now.toISOString(), redeemedAt: null, revokedAt: null, authorizationRevokedAt: null }] } });
+    expect(state).toMatchObject({ kind: "ready", viewerId: data.account.userId, contactType: "email", platformRequirement: null, requiresAdditionalVerification: false, hasUsableAllowlist: true, query: { limit: 20, status: "active", cursor }, page: { items: [{ id: data.invitation.id, version: 1, createdAt: data.now.toISOString(), redeemedAt: null, revokedAt: null, authorizationRevokedAt: null }] } });
     expect(data.availability.hasUsableAllowlist).toHaveBeenCalledWith(expect.objectContaining({ userId: data.account.userId, role: "leader" }), "email");
     expect(data.reader.list).toHaveBeenCalledOnce();
     for (const method of [data.writer.create, data.writer.rename, data.writer.revoke]) expect(method).not.toHaveBeenCalled();
     for (const field of ["session", "normalizedEmail", "initialToken", "invitationUrl", "keyrings", "tokenHash"]) expect(state).not.toHaveProperty(field);
+  });
+
+  it.each([["security_unconfigured"], ["recovery_locked"]] as const)("should name the %s platform requirement while keeping the private history readable", async (requirement) => {
+    const data = fixture(); data.platform.requirement = requirement;
+    const state = await loadPersonalInvitationManagementPageState(data.input, async () => data.page);
+    expect(state).toMatchObject({ kind: "ready", platformRequirement: requirement, page: { items: [{ id: data.invitation.id }] } });
+    for (const method of [data.writer.create, data.writer.rename, data.writer.revoke]) expect(method).not.toHaveBeenCalled();
   });
 
   it("should distinguish list absence and phone policy without inventing an enabled code or list", async () => {

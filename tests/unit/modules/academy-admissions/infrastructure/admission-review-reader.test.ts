@@ -10,6 +10,7 @@ import { projectAdmissionReview } from "@/src/modules/academy-admissions/applica
 import { admissionReviewQuerySchema } from "@/src/modules/academy-admissions/infrastructure/api/admission-request-schemas";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 
 describe("current admission reviewer SQL", () => {
   it.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("should read only current leader/guardian scope oldest-first and close on current role/session revocation", async () => {
@@ -26,7 +27,7 @@ describe("current admission reviewer SQL", () => {
         for (const id of [tribeId, foreignTribeId]) {
           await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${id},'Synthetic review academy',${`review-${id}`},${leaderId})`);
           await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${id},'academy',true)`);
-          await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${id},true,${activatedAt})`);
+          await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at,requires_whatsapp_number) values (${id},true,${activatedAt},false)`);
         }
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active'),(${tribeId},${guardianId},'guardian','active')`);
         for (const id of [tribeId, foreignTribeId]) await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activatedAt} where id=${id}`);
@@ -35,8 +36,9 @@ describe("current admission reviewer SQL", () => {
       await database.grantTablesToNonBypass(["tribes", "tribe_members", "tribe_invitations", "tribe_academy_settings", "user", "session", "account", "global_session_identity_bindings", "global_identity_evidence", "academy_admission_requests", "academy_admission_policies"]);
       const scope = { tribeId, userId: guardianId, sessionId: guardianSession, requestId: randomUUID() };
       for (const role of ["runtime", "non_bypass"] as const) {
-        const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, role), async () => false);
+        const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, role), async () => null);
         const first = await reader.readList(scope, { limit: 1, status: "pending" });
+        expect(first.platformRequirement).toBeNull();
         expect(first.records.map((record) => record.request.id)).toEqual([firstRequest]);
         expect(first.nextCursor).toEqual(expect.any(String));
         const parsed = admissionReviewQuerySchema.parse({ cursor: first.nextCursor, limit: "1", status: "pending" });
@@ -49,7 +51,7 @@ describe("current admission reviewer SQL", () => {
         expect(excluded.records).toEqual([]);
         expect(excluded.nextCursor).toBe(first.nextCursor);
         const excludedLast = await reader.readList(scope, { ...admissionReviewQuerySchema.parse({ limit: "1", cursor: excluded.nextCursor }), requiresExceptionReason: true });
-        expect(excludedLast).toEqual({ records: [], nextCursor: null });
+        expect(excludedLast).toEqual({ records: [], nextCursor: null, platformRequirement: null });
         expect((await reader.readList(scope, { limit: 25, requiresExceptionReason: false })).records.map((record) => record.request.id)).toEqual([firstRequest, secondRequest]);
         expect(await reader.readDetail(scope, foreignRequest)).toBeNull();
         expect(projectAdmissionReview(first.records[0])).toMatchObject({ id: firstRequest, evidence: { kind: "declared" }, eligibleActions: ["reject", "approve"], applicantMessage: "Quiero participar." });
@@ -57,11 +59,11 @@ describe("current admission reviewer SQL", () => {
         expect((await reader.readList({ ...scope, userId: leaderId, sessionId: leaderSession }, { limit: 25 })).records).toHaveLength(2);
       }
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: guardianId, sessionId: guardianSession }), (identity, run) => database.withContext({ userId: identity.userId, email: null }, run, "non_bypass"));
-      const reviewModule = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run, "non_bypass") }).createReviewQueryModule({ readRecoveryLock: async () => false });
+      const reviewModule = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run, "non_bypass") }).createReviewQueryModule({ readSecurityConfig: async () => fixture.config });
       expect(await reviewModule.useCases.review.detail({ tribeId, admissionRequestId: firstRequest, requestId: randomUUID() })).toMatchObject({ ok: true, value: { id: firstRequest, applicant: { id: applicantId } } });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',allow_common_exceptions=true,version=version+1 where tribe_id=${tribeId}`));
       for (const role of ["runtime", "non_bypass"] as const) {
-        const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, role), async () => false);
+        const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, role), async () => null);
         const exceptions = await reader.readList(scope, { limit: 25, requiresExceptionReason: true, source: "common", status: "pending", needsVerification: false });
         expect(exceptions.records.map((record) => record.request.id)).toEqual([firstRequest, secondRequest]);
         expect(exceptions.records.map((record) => projectAdmissionReview(record).restrictions.requiresExceptionReason)).toEqual([true, true]);
@@ -72,22 +74,25 @@ describe("current admission reviewer SQL", () => {
         expect((await reader.readList(scope, { limit: 25, requiresExceptionReason: false })).records).toEqual([]);
         expect((await reader.readList(scope, { limit: 25, requiresExceptionReason: true, source: "personal" })).records).toEqual([]);
         expect((await reader.readList(scope, { limit: 25, requiresExceptionReason: true, needsVerification: true })).records).toEqual([]);
-        const lockedReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, role), async () => true);
+        const lockedReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, role), async () => PLATFORM_SECURITY_REQUIREMENT.recoveryLocked);
         expect((await lockedReader.readList(scope, { limit: 25, requiresExceptionReason: true })).records).toEqual([]);
+        const locked = await lockedReader.readList(scope, { limit: 25 });
+        expect(locked.platformRequirement).toBe(PLATFORM_SECURITY_REQUIREMENT.recoveryLocked);
+        expect(locked.records.map((record) => projectAdmissionReview(record, locked.platformRequirement).eligibleActions)).toEqual([[], []]);
       }
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${tribeId}`));
-      const proofReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => false);
+      const proofReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => null);
       const needsProof = await proofReader.readList(scope, { limit: 25, needsVerification: true, requiresExceptionReason: false });
       expect(needsProof.records.map((record) => record.request.id)).toEqual([firstRequest, secondRequest]);
       expect(needsProof.records.map((record) => projectAdmissionReview(record))).toEqual(expect.arrayContaining([expect.objectContaining({ needsVerification: true, restrictions: expect.objectContaining({ requiresExceptionReason: false }) })]));
       expect((await proofReader.readList(scope, { limit: 25, requiresExceptionReason: true })).records).toEqual([]);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,is_open=false,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${tribeId}`));
-      const pausedReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => false);
+      const pausedReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => null);
       expect((await pausedReader.readList(scope, { limit: 25, needsVerification: true })).records.map((record) => record.request.id)).toEqual([]);
       const pausedFalse = await pausedReader.readList(scope, { limit: 25, needsVerification: false });
       expect(pausedFalse.records.map((record) => projectAdmissionReview(record).needsVerification)).toEqual([false, false]);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='tribemate' where tribe_id=${tribeId} and user_id=${guardianId}`));
-      const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => false);
+      const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => null);
       await expect(reader.readDetail(scope, firstRequest)).rejects.toMatchObject({ code: "permission_denied" });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${leaderSession}`));
       await expect(reader.readList({ ...scope, userId: leaderId, sessionId: leaderSession }, { limit: 25 })).rejects.toMatchObject({ code: "authentication_required" });

@@ -11,7 +11,7 @@ function fixture() {
   const value = { id: requestId, status: "pending" as const, version: 1, submittedAt: "2026-10-07T00:00:00.000Z", expiresAt: "2026-11-06T00:00:00.000Z", source: "common" as const, needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: randomUUID(), name: "Solicitante" }, evidence: { kind: "none" as const }, eligibleActions: ["reject" as const, "approve" as const], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
   const services = {
     resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) },
-    review: { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [value], nextCursor: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: true, value })) },
+    review: { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [value], nextCursor: null, platformRequirement: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: true, value })) },
   };
   const open = vi.fn(async () => services);
   return { tribeId, requestId, value, services, open, handlers: createAdmissionReviewHandlers(open), context: { params: Promise.resolve({ slug: "synthetic-academy" }) } };
@@ -41,7 +41,7 @@ describe("current admission review HTTP", () => {
 
   it("should pass normalized oldest-first selection to application and allowlist private reviewer responses", async () => {
     const data = fixture();
-    data.services.review.list.mockResolvedValueOnce({ ok: true, value: { items: [{ ...data.value, internalReason: "Sólo revisores", externalMessage: "Mensaje externo", applicantMessage: "Mi presentación", providerToken: "synthetic-private-field" }], nextCursor: null } } as unknown as Awaited<ReturnType<GetAdmissionReviewUseCases["list"]>>);
+    data.services.review.list.mockResolvedValueOnce({ ok: true, value: { items: [{ ...data.value, internalReason: "Sólo revisores", externalMessage: "Mensaje externo", applicantMessage: "Mi presentación", providerToken: "synthetic-private-field" }], nextCursor: null, platformRequirement: null } } as unknown as Awaited<ReturnType<GetAdmissionReviewUseCases["list"]>>);
     const response = await data.handlers.list(new Request("https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests?limit=1&status=pending&search=%20Solicitante%20"), data.context);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
@@ -71,6 +71,6 @@ describe("current admission review HTTP", () => {
     const response = await data.handlers.list(new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests?${search}`), data.context);
     expect(response.status).toBe(200);
     expect(data.services.review.list).toHaveBeenCalledWith(expect.objectContaining({ tribeId: data.tribeId, requiresExceptionReason, needsVerification: false, source: "common", status: "pending", submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z" }));
-    expect(await response.json()).toMatchObject({ items: [data.value], nextCursor: null });
+    expect(await response.json()).toMatchObject({ items: [data.value], nextCursor: null, platformRequirement: null });
   });
 });

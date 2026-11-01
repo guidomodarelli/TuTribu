@@ -59,9 +59,9 @@
     },
     {
       "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
-      "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
+      "reason": "Función inyectada por la raíz de composición (boundary) para cerrar la entrada y el preflight con la misma regla de seguridad de plataforma que los escritores: se declara explícita para que sus cambios invaliden la cobertura.",
       "role": "server",
-      "symbol": "readMessagingRecoveryLock"
+      "symbol": "readMessagingHostingPlatformRequirement"
     },
     {
       "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",

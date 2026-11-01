@@ -52,9 +52,15 @@
     },
     {
       "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
-      "reason": "Función inyectada por la raíz de composición (boundary) al módulo de consulta de políticas de admisión: se declara explícita para que sus cambios invaliden la cobertura.",
+      "reason": "Función inyectada por la raíz de composición (boundary) al módulo de consulta de políticas de admisión, que atesta con ella la seguridad de plataforma: se declara explícita para que sus cambios invaliden la cobertura.",
       "role": "server",
-      "symbol": "isMessagingHostingSecurityConfigured"
+      "symbol": "readMessagingHostingSecurityConfig"
+    },
+    {
+      "path": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts",
+      "reason": "Función inyectada por la raíz de composición (boundary) para cerrar la entrada y el preflight con la misma regla de seguridad de plataforma que los escritores: se declara explícita para que sus cambios invaliden la cobertura.",
+      "role": "server",
+      "symbol": "readMessagingHostingPlatformRequirement"
     }
   ],
   "origin": "curated"

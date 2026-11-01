@@ -18,4 +18,9 @@ export const MESSAGING_CONNECTION_ERROR_CODE = {
   upstreamPayloadUnusable: "upstream_payload_unusable",
   publicContractUnusable: "public_contract_unusable",
   unexpectedFailure: "unexpected_failure",
+  /**
+   * The deployment cannot protect the operation with its hosting messaging security (missing, unusable, not enrolled or
+   * locked for recovery). A definitive rejection that registered nothing; only the TuTribu team can resolve it.
+   */
+  platformSecurityUnavailable: "platform_security_unavailable",
 } as const;

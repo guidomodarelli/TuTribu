@@ -10,6 +10,7 @@ import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provi
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistPageState } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
 import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
+import { PLATFORM_SECURITY_DIAGNOSTIC_CODE, PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
 
 const router = { back: vi.fn(), bfcacheId: "allowlist-tests", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
@@ -26,8 +27,8 @@ async function backStep() { await changeGuidedStep(screen.getByRole("button", { 
 function fixture() {
   const viewerId = randomUUID(), entryId = randomUUID();
   const entry = { id: entryId, version: 1, contactType: "email" as const, identity: "group+tag@example.test", displayName: "Grupo", status: "enabled" as const, source: "manual" as const, createdAt: "2026-10-09T08:00:00Z", updatedAt: "2026-10-09T08:00:00Z" };
-  const state: Extract<AllowlistPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: "2026-10-09T08:00:00Z", contactType: "email", page: { items: [entry], nextCursor: null }, query: { limit: 25 } };
-  const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: { items: [], nextCursor: null } })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: { ...entry, version: 2, displayName: "Nombre actual" } })), operation: vi.fn(), write: vi.fn<AllowlistBrowserClient["write"]>(async () => ({ status: "failed", code: "allowlist_conflict", message: "La entrada cambió. Revisala y volvé a confirmar.", uncertain: false })) };
+  const state: Extract<AllowlistPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic-academy", tribeId: randomUUID(), viewerId, renderedAt: "2026-10-09T08:00:00Z", contactType: "email", platformRequirement: null, page: { items: [entry], nextCursor: null }, query: { limit: 25 } };
+  const client: AllowlistBrowserClient = { viewer: vi.fn<AllowlistBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })), list: vi.fn<AllowlistBrowserClient["list"]>(async () => ({ status: "ready", value: { items: [], nextCursor: null, platformRequirement: null } })), read: vi.fn<AllowlistBrowserClient["read"]>(async () => ({ status: "ready", value: { ...entry, version: 2, displayName: "Nombre actual" } })), operation: vi.fn(), write: vi.fn<AllowlistBrowserClient["write"]>(async () => ({ status: "failed", code: "allowlist_conflict", message: "La entrada cambió. Revisala y volvé a confirmar.", uncertain: false })) };
   return { entry, state, client };
 }
 
@@ -41,6 +42,59 @@ describe("allowlist route controls", () => {
     expect(screen.getByRole("link", { name: ALLOWLIST_BROWSER_COPY.noPolicyAction })).toHaveAttribute("href", "/synthetic-academy/academia/admissions/settings");
     expect(screen.queryByLabelText("Correo de la entrada")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+  });
+
+  it("should explain the platform block, keep the entries readable and offer no way to add or edit one", async () => {
+    const data = fixture(); render(<AllowlistContainer initialState={{ ...data.state, platformRequirement: "recovery_locked" }} client={data.client} />, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    expect(within(notice).getByText(PLATFORM_SECURITY_REQUIREMENT_COPY.recovery_locked)).toBeVisible();
+    expect(within(notice).getByText(ALLOWLIST_BROWSER_COPY.platformConsequence)).toBeVisible();
+    expect(within(notice).getByText(PLATFORM_SECURITY_DIAGNOSTIC_CODE.recovery_locked)).toBeVisible();
+    expect(screen.getByText(data.entry.identity)).toBeVisible();
+    // The initial account check ends; editing stays disabled because of the platform, not because the page is checking.
+    await waitFor(() => expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.reading)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled();
+    expect(screen.queryByLabelText("Correo de la entrada")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: ALLOWLIST_BROWSER_COPY.noPolicyAction })).not.toBeInTheDocument();
+    expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should re-enable adding and editing in the same session when a list read reports the platform problem resolved", async () => {
+    const data = fixture();
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: null } });
+    render(<AllowlistContainer initialState={{ ...data.state, platformRequirement: "recovery_locked" }} client={data.client} />, { wrapper: Providers });
+    await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    fireEvent.click(screen.getByText("Buscar y filtrar entradas"));
+    const search = screen.getByRole("button", { name: "Buscar" }); await waitFor(() => expect(search).not.toBeDisabled());
+    fireEvent.click(search);
+    await waitFor(() => expect(screen.queryByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeEnabled();
+    expect(data.client.list).toHaveBeenCalledOnce(); expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should lift the platform block from its own recheck, keeping the applied filters, without a reload", async () => {
+    const data = fixture();
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: null } });
+    render(<AllowlistContainer initialState={{ ...data.state, platformRequirement: "recovery_locked" }} client={data.client} />, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    const recheck = within(notice).getByRole("button", { name: PLATFORM_SECURITY_NOTICE_COPY.recheck }); await waitFor(() => expect(recheck).toBeEnabled());
+    fireEvent.click(recheck);
+    await waitFor(() => expect(screen.queryByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeEnabled();
+    expect(vi.mocked(data.client.list).mock.calls[0]?.[1]).toEqual(data.state.query); expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should block adding and editing in the same session when a list read reports a new platform requirement", async () => {
+    const data = fixture();
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: "security_unconfigured" } });
+    render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    fireEvent.click(screen.getByText("Buscar y filtrar entradas"));
+    const search = screen.getByRole("button", { name: "Buscar" }); await waitFor(() => expect(search).not.toBeDisabled());
+    fireEvent.click(search);
+    const notice = await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    expect(within(notice).getByText(PLATFORM_SECURITY_DIAGNOSTIC_CODE.security_unconfigured)).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled());
+    expect(data.client.write).not.toHaveBeenCalled();
   });
 
   it("should show contact validation before dispatch and clear it when the proposal changes", async () => {
@@ -154,7 +208,7 @@ describe("allowlist «Ver más»", () => {
     expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.reading)).not.toBeInTheDocument();
 
     // The next page repeats the shown entry; it is listed once, followed by the new one.
-    await act(async () => { finish({ status: "ready", value: { items: [data.entry, second], nextCursor: "synthetic-cursor-2" } }); });
+    await act(async () => { finish({ status: "ready", value: { items: [data.entry, second], nextCursor: "synthetic-cursor-2", platformRequirement: null } }); });
     await waitFor(() => expect(screen.getAllByRole("button", { name: /^Editar / }).map((button) => button.getAttribute("aria-label"))).toEqual([`Editar ${data.entry.identity}`, `Editar ${second.identity}`]));
 
     fireEvent.click(screen.getByRole("button", { name: "Ver más entradas" }));

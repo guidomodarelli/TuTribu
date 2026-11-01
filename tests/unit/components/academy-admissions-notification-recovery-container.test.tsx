@@ -12,7 +12,7 @@ import { NOTIFICATION_RECOVERY_UI_COPY } from "@/src/modules/messaging/constants
 /** @returns Own metadata and controlled boundary ports; libraries and UI remain real. */
 function prepareContainer() {
   const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2099-10-11T13:00:00Z", recoveryDeliveryId: null };
-  const target = { id: randomUUID(), name: "Conexión nueva", version: 8, configurationVersion: 2, state: "active" as const, credentialState: "valid" as const, credentialMode: "production" as const, maskedCredential: "••••••••" as const, capabilities: [{ channel: "email" as const, state: "prepared" as const, checkedAt: item.createdAt, testedAt: item.createdAt }] };
+  const target = { id: randomUUID(), name: "Conexión nueva", version: 8, configurationVersion: 2, state: "active" as const, credentialState: "valid" as const, credentialMode: "production" as const, maskedCredential: "••••••••" as const, securityCurrent: true, capabilities: [{ channel: "email" as const, state: "prepared" as const, checkedAt: item.createdAt, testedAt: item.createdAt }] };
   const result = { originalDeliveryId: item.id, recoveryDeliveryId: randomUUID(), originalVersion: 3, targetConnectionId: target.id, targetConnectionVersion: 2 };
   let snapshot: NotificationRecoverySnapshot = { draft: { deliveryId: item.id, targetConnectionId: target.id }, reference: null };
   let persist = true;
@@ -197,5 +197,29 @@ describe("notification recovery container", () => {
     expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeVisible();
     expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.expired, {}, { timeout: 3000 })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+  });
+  it("should forget a recovery the platform rejected before registering it, with its copy and nothing to resume", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), message = "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.";
+    vi.mocked(fixture.props.client!.recover).mockResolvedValue({ status: "failed", code: "platform_security_unavailable", message, uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    expect(fixture.snapshot.reference).toBeNull();
+    expect(screen.queryByRole("button", { name: "Consultar recuperación original" })).not.toBeInTheDocument();
+    expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+  });
+  it("should keep reading notices but withhold recoveries while the platform cannot protect them, and forget an unregistered original", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), original = { operationId: randomUUID(), deliveryId: fixture.item.id, expectedVersion: 2, targetConnectionId: fixture.target.id, expectedTargetVersion: 8 };
+    fixture.setSnapshot({ draft: { deliveryId: fixture.item.id, targetConnectionId: fixture.target.id }, reference: original });
+    vi.mocked(fixture.props.client!.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "El recurso solicitado no está disponible.", uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} platformRequirement="recovery_locked" />);
+    await user.click(await screen.findByRole("button", { name: "Consultar recuperación original" }));
+    await waitFor(() => expect(screen.getByText(NOTIFICATION_RECOVERY_UI_COPY.platformForgotten)).toBeInTheDocument());
+    expect(fixture.snapshot.reference).toBeNull();
+    expect(screen.queryByRole("button", { name: /Reanudar/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled()); await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
+    expect(fixture.props.client!.recover).not.toHaveBeenCalled();
   });
 });

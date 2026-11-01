@@ -3,7 +3,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import type { MessagingUsageContext, MessagingUsageSensitiveContext, MessagingUsageUpdate, MessagingUsageOperations } from "@/src/modules/messaging/domain/repositories/messaging-usage-operations";
+import type { MessagingUsageContext, MessagingUsageSensitiveContext, MessagingUsageUpdate, MessagingUsageOperations, MessagingUsagePageRead } from "@/src/modules/messaging/domain/repositories/messaging-usage-operations";
 import type { MessagingUsagePolicyResult, MessagingUsagePolicyStateResult } from "@/src/modules/messaging/application/results/messaging-usage-policy-result";
 import { messagingUsagePolicySchema, messagingUsagePolicyStateSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { MessagingUsageOperationError } from "@/src/modules/messaging/domain/errors/messaging-usage-operation-error";
@@ -19,6 +19,7 @@ import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/
 import { authorizeMessagingUsage } from "./postgres-messaging-usage-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
 import type { MessagingUsageDatabaseExecutor } from "./messaging-usage-database-executor";
+import type { MessagingPlatformRequirementReader } from "./messaging-platform-requirement-reader";
 import { createAdmissionUsageAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import { PostgresAdmissionAuditRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
@@ -30,8 +31,9 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
   /**
    * @param execute - Guarded current-actor executor used independently for claim, effect and reconciliation.
    * @param readSecurityConfig - Local keyring reader for the shared operation ledger; no provider call under locks.
+   * @param readPlatformRequirement - The ledger's own checks for the page read; without it the page read fails closed.
    */
-  constructor(private readonly execute: MessagingUsageDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  constructor(private readonly execute: MessagingUsageDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly readPlatformRequirement: MessagingPlatformRequirementReader | null = null) {}
 
   /** Reads only the exact tribe's configuration, acquiring its row lock after authority and the ledger. */
   private async readLocked(database: RequestDatabase, tribeId: string, mutation: boolean): Promise<PolicyRow | undefined> {
@@ -56,19 +58,38 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
     return new MessagingUsageOperationError(MESSAGING_ERROR_CODE.unexpectedFailure, { cause: error });
   }
 
+  /** @param database - Authorized read transaction. @param context - Current tribe. @returns Current own configuration or not_configured, rechecking authority after the projection. */
+  private async readState(database: RequestDatabase, context: MessagingUsageContext): Promise<MessagingUsagePolicyStateResult> {
+    await authorizeMessagingUsage(database, context);
+    const row = await this.readLocked(database, context.tribeId, false);
+    const result = row ? { state: MESSAGING_USAGE_POLICY_STATE.configured, policy: await this.project(database, context, row) } : { state: MESSAGING_USAGE_POLICY_STATE.notConfigured, policy: null };
+    await authorizeMessagingUsage(database, context);
+    return messagingUsagePolicyStateSchema.parse(result);
+  }
+
   /**
    * Queries absence without a write or fabricated persisted resource version.
    * @param context - Current server session and authorized tribe; no sensitive operation required for reading.
    * @returns Current own configuration or not_configured, without initialization or external work.
    */
   async read(context: MessagingUsageContext): Promise<MessagingUsagePolicyStateResult> {
+    try { return await this.execute(context, (database) => this.readState(database, context)); }
+    catch (error) { throw this.failure(error); }
+  }
+
+  /**
+   * Reads the page in one authorized transaction: the configuration and whether the ledger can protect its writes now.
+   * @param context - Current server session and authorized tribe.
+   * @returns Current own configuration plus the platform requirement, null when writes can be protected.
+   * @throws MessagingUsageOperationError, unexpected_failure when composed without the requirement read.
+   */
+  async readPage(context: MessagingUsageContext): Promise<MessagingUsagePageRead<MessagingUsagePolicyStateResult>> {
+    const readPlatformRequirement = this.readPlatformRequirement;
+    if (!readPlatformRequirement) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.unexpectedFailure);
     try {
       return await this.execute(context, async (database) => {
-        await authorizeMessagingUsage(database, context);
-        const row = await this.readLocked(database, context.tribeId, false);
-        const result = row ? { state: MESSAGING_USAGE_POLICY_STATE.configured, policy: await this.project(database, context, row) } : { state: MESSAGING_USAGE_POLICY_STATE.notConfigured, policy: null };
-        await authorizeMessagingUsage(database, context);
-        return messagingUsagePolicyStateSchema.parse(result);
+        const usage = await this.readState(database, context);
+        return { usage, platformRequirement: await readPlatformRequirement(database) };
       });
     } catch (error) { throw this.failure(error); }
   }

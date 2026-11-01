@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema } from "@/src/modules/academy-admissions/constants/admission-route-input";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { admissionNotificationPreferenceViewSchema, admissionNotificationEmailSettingsViewSchema, admissionNotificationEmailSettingsCommandSchema } from "./admission-notification-settings-schemas";
+import { admissionNotificationPreferenceViewSchema, admissionNotificationEmailSettingsViewSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationPlatformRequirementSchema } from "./admission-notification-settings-schemas";
 import type { AdmissionNotificationSettingsPageState } from "../application/results/admission-notification-settings-page-state";
 
 /** The leaf exists independently of admission policy and OTP configuration. */
@@ -19,9 +19,9 @@ export const ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS = { ready: "ready", 
 export const ADMISSION_NOTIFICATION_SETTINGS_PAGE_LOG = { feature: "notifications", operation: "load_admission_notification_settings", failed: "Admission notification settings page could not load safe state" } as const;
 /** Rejects browser-supplied role, recipient, account or alternative action before native composition. */
 export const admissionNotificationSettingsPageInputSchema = z.strictObject({ params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema });
-/** An actual leader must have an authorized email projection; guardians never receive one. */
+/** An actual leader must have an authorized email projection; guardians never receive one, nor its platform requirement. */
 export const admissionNotificationSettingsPageStateSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal(ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.ready), slug: admissionTribeParamsSchema.shape.slug, tribeId: z.uuid(), viewerId: z.string().min(1), preference: admissionNotificationPreferenceViewSchema, canConfigureEmail: z.boolean(), email: admissionNotificationEmailSettingsViewSchema.nullable() }).refine((state) => state.canConfigureEmail ? state.email !== null : state.email === null),
+  z.strictObject({ kind: z.literal(ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.ready), slug: admissionTribeParamsSchema.shape.slug, tribeId: z.uuid(), viewerId: z.string().min(1), preference: admissionNotificationPreferenceViewSchema, canConfigureEmail: z.boolean(), email: admissionNotificationEmailSettingsViewSchema.nullable(), platformRequirement: admissionNotificationPlatformRequirementSchema }).refine((state) => state.canConfigureEmail ? state.email !== null : state.email === null && state.platformRequirement === null),
   z.strictObject({ kind: z.literal(ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND.unavailable), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === ADMISSION_ERROR_MESSAGE[state.code]),
 ]) satisfies z.ZodType<AdmissionNotificationSettingsPageState>;
 /** Storage retains an exact prior command, not the editor's current consent. */

@@ -14,6 +14,7 @@ import type { AdmissionNotificationSettingsPageState } from "@/src/modules/notif
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
 import { ADMISSION_NOTIFICATION_SETTINGS_COPY } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
+import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-notification-leader", slug = "synthetic-academy";
 const originalId = "f5536335-668a-4b6e-a972-f76c95c7c822";
@@ -22,12 +23,12 @@ const router = { back: vi.fn(), bfcacheId: "notification-settings-test", forward
 function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>; }
 /** @returns Only owned current DTOs and controllable application transport ports. */
 function fixture() {
-  const state: Extract<AdmissionNotificationSettingsPageState, { kind: "ready" }> = { kind: "ready", slug, tribeId, viewerId, preference: { mode: "grouped", version: 0, source: "implicit" }, canConfigureEmail: true, email: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" } };
+  const state: Extract<AdmissionNotificationSettingsPageState, { kind: "ready" }> = { kind: "ready", slug, tribeId, viewerId, preference: { mode: "grouped", version: 0, source: "implicit" }, canConfigureEmail: true, email: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null };
   const client = {
     viewer: vi.fn<AdmissionNotificationSettingsBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
     readPreference: vi.fn<AdmissionNotificationSettingsBrowserClient["readPreference"]>(async () => ({ status: "ready", value: { viewerId, data: { preference: state.preference, canConfigureEmail: state.canConfigureEmail } } })),
     changePreference: vi.fn<AdmissionNotificationSettingsBrowserClient["changePreference"]>(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { status: "changed", preference: { mode: input.mode, version: input.expectedVersion + 1, source: "stored" } } } })),
-    readEmail: vi.fn<AdmissionNotificationSettingsBrowserClient["readEmail"]>(async () => ({ status: "ready", value: { viewerId, data: state.email! } })),
+    readEmail: vi.fn<AdmissionNotificationSettingsBrowserClient["readEmail"]>(async () => ({ status: "ready", value: { viewerId, data: { settings: state.email!, platformRequirement: state.platformRequirement } } })),
     changeEmail: vi.fn<AdmissionNotificationSettingsBrowserClient["changeEmail"]>(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "changed", settings: { enabled: input.enabled, version: input.expectedVersion + 1, timeZone: input.timeZone } } } } })),
     operation: vi.fn<AdmissionNotificationSettingsBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
   };
@@ -233,7 +234,7 @@ describe("admission notification settings guided workflow", () => {
     const data = fixture(); data.state.canConfigureEmail = false; data.state.email = null;
     render(data.node(), { wrapper: Providers }); await ready();
     data.client.readPreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { preference: { mode: "omitted", version: 1, source: "stored" }, canConfigureEmail: true } } });
-    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { enabled: true, version: 2, timeZone: "UTC" } } });
+    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { settings: { enabled: true, version: 2, timeZone: "UTC" }, platformRequirement: null } } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })); await ready();
     expect(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })).toBeChecked(); expect(screen.getByLabelText("Zona horaria de la tribu")).toHaveValue("UTC");
     expect(data.client.changeEmail).not.toHaveBeenCalled();
@@ -270,33 +271,121 @@ describe("admission notification settings guided workflow", () => {
     expect(data.client.changeEmail).not.toHaveBeenCalled();
   });
 
-  it.each(["permission_denied", "resource_unavailable", "authentication_required"] as const)("should hide private settings after a personal write loses current authority with %s", async (code) => {
-    const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "failed", code, message: "El acceso actual no permite cambiar los avisos.", uncertain: false });
+  it("should hide private settings after a personal write finds the session gone", async () => {
+    const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "failed", code: "authentication_required", message: "Tu sesión terminó. Volvé a iniciar sesión.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready(); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
+    expect(screen.getByRole("alert")).toHaveTextContent("Tu sesión terminó. Volvé a iniciar sesión."); expect(data.client.readPreference).not.toHaveBeenCalled(); expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it.each(["permission_denied", "resource_unavailable"] as const)("should keep the settings visible after a personal write is rejected with %s while the current read still works", async (code) => {
+    const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "failed", code, message: "El acceso actual no permite cambiar los avisos.", uncertain: false });
+    render(data.node(), { wrapper: Providers }); await ready(); await next(); await next(); await confirm(); save();
+    await waitFor(() => expect(data.client.readPreference).toHaveBeenCalledOnce()); await ready();
+    expect(screen.getByRole("form", { name: "Configurar avisos de admisión" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("El acceso actual no permite cambiar los avisos."); expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it.each(["permission_denied", "resource_unavailable", "authentication_required"] as const)("should hide private settings and preserve the exact sent email original after %s", async (code) => {
-    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code, message: "El liderazgo actual no permite cambiar el correo.", uncertain: false });
+  it("should hide the settings after a rejected personal write only when the current read also loses access", async () => {
+    const data = fixture(); data.client.changePreference.mockResolvedValueOnce({ status: "failed", code: "resource_unavailable", message: "El recurso solicitado no está disponible.", uncertain: false });
+    data.client.readPreference.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para ver estos avisos.", uncertain: false });
+    render(data.node(), { wrapper: Providers }); await ready(); await next(); await next(); await confirm(); save();
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
+    expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso para ver estos avisos."); expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+  });
+
+  it("should hide private settings and preserve the exact sent email original only after the session is gone", async () => {
+    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "authentication_required", message: "Tu sesión terminó. Volvé a iniciar sesión.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready();
     fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
     expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(data.client.changeEmail.mock.calls[0][1]);
-    expect(screen.getByRole("alert")).toHaveTextContent("El liderazgo actual no permite cambiar el correo.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Tu sesión terminó. Volvé a iniciar sesión.");
     expect(data.client.changePreference).not.toHaveBeenCalled(); expect(data.client.operation).not.toHaveBeenCalled();
   });
 
-  it("should recover only the current member's preference after a denied leader write without reading or erasing its original", async () => {
-    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "El liderazgo actual no permite cambiar el correo.", uncertain: false });
+  it.each(["permission_denied", "resource_unavailable"] as const)("should release a definitely rejected email original (%s), still save the independent preference and keep the page visible", async (code) => {
+    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code, message: "No pudimos cambiar el correo de la tribu.", uncertain: false });
     render(data.node(), { wrapper: Providers }); await ready();
     fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
-    await waitFor(() => expect(screen.queryByRole("form", { name: "Configurar avisos de admisión" })).not.toBeInTheDocument());
-    const sent = data.client.changeEmail.mock.calls[0][1];
-    data.client.readPreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { preference: { mode: "omitted", version: 1, source: "stored" }, canConfigureEmail: false } } });
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" })); await ready();
-    expect(screen.getByRole("heading", { name: "Cómo querés recibir los avisos" })).toBeInTheDocument(); expect(screen.queryByRole("checkbox", { name: "Habilitar correo de admisión" })).not.toBeInTheDocument();
-    expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(sent); expect(data.client.operation).not.toHaveBeenCalled(); expect(data.client.readEmail).not.toHaveBeenCalled();
+    await waitFor(() => expect(data.client.readPreference).toHaveBeenCalledOnce()); await ready();
+    expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull();
+    expect(data.client.changePreference).toHaveBeenCalledWith(slug, { mode: "grouped", expectedVersion: 0 }, expect.any(AbortSignal));
+    expect(screen.getByRole("form", { name: "Configurar avisos de admisión" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos cambiar el correo de la tribu.");
+    expect(screen.getByText("Tu preferencia quedó guardada. El correo de la tribu no se guardó.")).toBeInTheDocument();
+    expect(screen.queryByText(/Conservamos el cambio original/)).not.toBeInTheDocument(); expect(data.client.operation).not.toHaveBeenCalled();
+  });
+
+  it("should show only the current member's preference after a denied leader write, saving that preference and releasing the email original", async () => {
+    const data = fixture(); data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "El liderazgo actual no permite cambiar el correo.", uncertain: false });
+    data.client.readPreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { preference: { mode: "grouped", version: 1, source: "stored" }, canConfigureEmail: false } } });
+    render(data.node(), { wrapper: Providers }); await ready();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Cómo querés recibir los avisos" })).toBeInTheDocument()); await ready();
+    expect(screen.queryByRole("checkbox", { name: "Habilitar correo de admisión" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("El liderazgo actual no permite cambiar el correo.");
+    expect(data.client.changePreference).toHaveBeenCalledOnce(); expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull();
+    expect(data.client.operation).not.toHaveBeenCalled(); expect(data.client.readEmail).not.toHaveBeenCalled();
+  });
+
+  it("should open with the platform notice beside the tribe email, keep its fields locked and still save the personal frequency", async () => {
+    const data = fixture(); data.state.platformRequirement = "security_unconfigured";
+    render(data.node(), { wrapper: Providers }); await ready();
+    const notice = screen.getByRole("region", { name: "Depende del equipo de TuTribu" });
+    expect(within(notice).getByText("La plataforma todavía no tiene configurada la seguridad que protege estas operaciones.")).toBeInTheDocument();
+    expect(within(notice).getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.platformConsequence)).toBeInTheDocument();
+    expect(within(notice).getByText("admission_security_unconfigured")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })).toBeDisabled();
+    await next(); expect(screen.getByText(/Vas a poder habilitarlo cuando el equipo de TuTribu lo resuelva./)).toBeInTheDocument();
+    await choose("Resumen diario"); await next();
+    expect(reviewRow("Correo de la tribu")).toHaveTextContent("Sin cambios"); expect(reviewRow("Tus avisos")).toHaveTextContent("Se guarda");
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText("Tus avisos quedaron guardados.")).toBeInTheDocument());
+    expect(data.client.changeEmail).not.toHaveBeenCalled();
+    expect(data.client.changePreference).toHaveBeenCalledWith(slug, { mode: "daily", expectedVersion: 0 }, expect.any(AbortSignal));
+    expect(screen.getByRole("region", { name: "Depende del equipo de TuTribu" })).toBeInTheDocument();
+  });
+
+  it("should lift the platform notice and unlock the tribe email once an explicit read reports no requirement", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    render(data.node(), { wrapper: Providers }); await ready();
+    expect(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })).toBeDisabled();
+    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { settings: data.state.email!, platformRequirement: null } } });
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })); await ready();
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument());
+    expect(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })).toBeEnabled(); expect(data.client.changeEmail).not.toHaveBeenCalled();
+  });
+
+  it("should treat a platform-blocked email write as definite: release the original, save the preference and show the platform notice from the next read", async () => {
+    const data = fixture();
+    data.client.changeEmail.mockResolvedValueOnce({ status: "failed", code: "platform_security_unavailable", message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable, uncertain: false });
+    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { settings: data.state.email!, platformRequirement: "recovery_locked" } } });
+    data.client.readPreference.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { preference: { mode: "grouped", version: 1, source: "stored" }, canConfigureEmail: true } } });
+    render(data.node(), { wrapper: Providers }); await ready();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
+    await waitFor(() => expect(screen.getByRole("region", { name: "Depende del equipo de TuTribu" })).toBeInTheDocument()); await ready();
+    expect(screen.getByText("La plataforma pausó estas operaciones mientras recupera un servicio.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_ERROR_MESSAGE.platform_security_unavailable);
+    expect(screen.getByText("Tu preferencia quedó guardada. El correo de la tribu no se guardó.")).toBeInTheDocument();
+    expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull(); expect(data.client.changePreference).toHaveBeenCalledOnce();
+    // Nothing is offered again: the fields follow what is saved and the review has nothing to write.
+    expect(reviewRow("Correo de la tribu")).toHaveTextContent("Deshabilitado"); expect(reviewRow("Correo de la tribu")).toHaveTextContent("Sin cambios");
+    expect(screen.getByText("No hay cambios para guardar.")).toBeInTheDocument(); expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled();
+    expect(data.client.changeEmail).toHaveBeenCalledOnce(); expect(data.client.operation).not.toHaveBeenCalled();
+  });
+
+  it("should keep a registered original the platform cannot verify yet without hiding the personal preference or retrying it", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked"; writeAdmissionNotificationSettingsIntent(viewerId, slug, original("Asia/Kolkata"));
+    data.client.operation.mockResolvedValueOnce({ status: "failed", code: "operation_unresolved", message: ADMISSION_ERROR_MESSAGE.operation_unresolved, uncertain: false });
+    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { settings: data.state.email!, platformRequirement: "recovery_locked" } } });
+    render(data.node(), { wrapper: Providers }); await ready();
+    expect(screen.getByRole("alert")).toHaveTextContent("El cambio sigue pendiente.");
+    expect(screen.getByRole("region", { name: "Depende del equipo de TuTribu" })).toBeInTheDocument();
+    expect(reviewRow("Correo de la tribu")).toHaveTextContent("Habilitado, zona Asia/Kolkata"); expect(reviewRow("Tus avisos")).toHaveTextContent("Se guarda");
+    await confirm(); save();
+    await waitFor(() => expect(data.client.changePreference).toHaveBeenCalledOnce());
+    expect(data.client.changeEmail).not.toHaveBeenCalled(); expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toEqual(original("Asia/Kolkata"));
   });
 
   it.each(["read", "write"] as const)("should discard a %s continuation cancelled during viewer acceptance on page restoration", async (operation) => {
@@ -312,7 +401,7 @@ describe("admission notification settings guided workflow", () => {
     };
     render(data.node(), { wrapper: Providers }); await ready();
     if (operation === "read") {
-      data.client.readEmail.mockImplementationOnce(async () => { interruptAcceptance(); return { status: "ready", value: { viewerId, data: { enabled: true, version: 2, timeZone: "UTC" } } }; });
+      data.client.readEmail.mockImplementationOnce(async () => { interruptAcceptance(); return { status: "ready", value: { viewerId, data: { settings: { enabled: true, version: 2, timeZone: "UTC" }, platformRequirement: null } } }; });
       fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" }));
     } else {
       data.client.changeEmail.mockImplementationOnce(async (_slug, input) => { interruptAcceptance(); return { status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "changed", settings: { enabled: input.enabled, version: 1, timeZone: input.timeZone } } } } }; });
@@ -342,7 +431,7 @@ describe("admission notification settings guided workflow", () => {
     data.client.readEmail.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     render(data.node(), { wrapper: Providers }); await waitFor(() => expect(data.client.readEmail).toHaveBeenCalledOnce());
     expect(screen.queryByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.")).not.toBeInTheDocument();
-    await act(async () => { finish({ status: "ready", value: { viewerId, data: { enabled: true, version: 2, timeZone: "UTC" } } }); });
+    await act(async () => { finish({ status: "ready", value: { viewerId, data: { settings: { enabled: true, version: 2, timeZone: "UTC" }, platformRequirement: null } } }); });
     expect(screen.getByLabelText("Zona horaria de la tribu")).toHaveValue("UTC");
     expect(screen.getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.")).toBeInTheDocument();
     expect(data.client.changeEmail).not.toHaveBeenCalled();
@@ -365,7 +454,7 @@ describe("admission notification settings guided workflow", () => {
   it("should reconcile a replayed POST with current state before continuing with the preference", async () => {
     const data = fixture();
     data.client.changeEmail.mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: true, result: { status: "changed", settings: { enabled: true, version: 1, timeZone: input.timeZone } } } } }));
-    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { enabled: false, version: 2, timeZone: "UTC" } } });
+    data.client.readEmail.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { settings: { enabled: false, version: 2, timeZone: "UTC" }, platformRequirement: null } } });
     render(data.node(), { wrapper: Providers }); await ready();
     fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByText("Tus avisos quedaron guardados.")).toBeInTheDocument());
@@ -400,21 +489,22 @@ describe("admission notification settings guided workflow", () => {
     expect(data.client.changeEmail.mock.calls[1][1]).toEqual(sent); expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("should report a terminal capability rejection without announcing a save or retrying it automatically", async () => {
+  it("should report a terminal capability rejection without announcing a save, and still save the independent preference", async () => {
     const data = fixture(); data.client.changeEmail.mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { viewerId, data: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "rejected", reason: "email_capability_unavailable" } } } }));
     render(data.node(), { wrapper: Providers }); await ready();
     fireEvent.click(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })); await next(); await next(); await confirm(); save();
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Falta un correo preparado para habilitar los avisos."));
-    expect(screen.getByText("Tu preferencia todavía no se guardó.")).toBeInTheDocument(); expect(screen.queryByText("Tus avisos quedaron guardados.")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Tu preferencia quedó guardada. El correo de la tribu no se guardó.")).toBeInTheDocument());
+    expect(screen.queryByText("Tus avisos quedaron guardados.")).not.toBeInTheDocument();
     expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull(); expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled();
-    expect(data.client.changeEmail).toHaveBeenCalledOnce(); expect(data.client.changePreference).not.toHaveBeenCalled();
+    expect(data.client.changeEmail).toHaveBeenCalledOnce(); expect(data.client.changePreference).toHaveBeenCalledOnce(); expect(data.client.readPreference).not.toHaveBeenCalled();
   });
 });
 
 describe("admission notification settings presenter", () => {
   /** @returns A member's saved state with every callback observable. */
   function memberProps(overrides: Partial<AdmissionNotificationSettingsProps> = {}): AdmissionNotificationSettingsProps {
-    return { preference: { mode: "grouped", version: 1, source: "stored" }, mode: "grouped", email: null, draft: { enabled: false, timeZone: "" }, tribeEmailEnabled: null, plan: { email: "unchanged", preference: false }, editing: true, step: 0, busy: false, disabled: false, confirmed: false, pending: false, saving: null, error: null, status: null, progress: null, canCancel: true, messagingHref: "/synthetic-academy/mensajeria", onMode: vi.fn(), onDraft: vi.fn(), onConfirm: vi.fn(), onStep: vi.fn(), onEdit: vi.fn(), onCancel: vi.fn(), onSave: vi.fn(), onRead: vi.fn(), ...overrides };
+    return { preference: { mode: "grouped", version: 1, source: "stored" }, mode: "grouped", email: null, draft: { enabled: false, timeZone: "" }, tribeEmailEnabled: null, platformRequirement: null, plan: { email: "unchanged", preference: false }, editing: true, step: 0, busy: false, disabled: false, confirmed: false, pending: false, saving: null, error: null, status: null, progress: null, canCancel: true, messagingHref: "/synthetic-academy/mensajeria", onMode: vi.fn(), onDraft: vi.fn(), onConfirm: vi.fn(), onStep: vi.fn(), onEdit: vi.fn(), onCancel: vi.fn(), onSave: vi.fn(), onRead: vi.fn(), ...overrides };
   }
 
   it("should tell a member that the tribe has not enabled admission email yet", () => {

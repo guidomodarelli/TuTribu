@@ -17,7 +17,7 @@ import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/consta
 import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
 import { withPolicyReviewReturn } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
 import { ROUTES } from "@/src/constants/routes";
-import { blockReasons, createInitialDraft, draftBlock, markPolicyFresh, pausePolicyWrites, policyValidationMessage, readPolicyCurrent, resumePolicyWrites, retryPolicyOriginal, runFinalPolicyWrites, runPolicyWrite, startPolicyRecheck, type PolicyControls, type PolicyPhase, type PolicyReady, type PolicySession } from "./policy-workflow";
+import { blockReasons, createInitialDraft, draftBlock, markPolicyFresh, pausePolicyWrites, platformSecurityBlock, policyPlatformSecurity, policyValidationMessage, readPolicyCurrent, resumePolicyWrites, retryPolicyOriginal, runFinalPolicyWrites, runPolicyWrite, startPolicyRecheck, type PolicyControls, type PolicyPhase, type PolicyReady, type PolicySession } from "./policy-workflow";
 import { startPrivateReadLifecycle } from "../private-read-lifecycle";
 
 /** Only application props and own ports enter the workflow; no SDK identity is serialized. */
@@ -106,21 +106,23 @@ export function AdmissionPolicyContainer({ client = admissionApiClient, ...props
   /** New writes stay closed while an original is unresolved or the configuration needs authorized review. */
   const writesOpen = !isBusy && !uncertain && state.state !== ADMISSION_POLICY_PUBLIC_STATE.unavailable;
   const view = policyFormView({ ready, state, draft, editing, activationBlock: flow.activationBlock });
+  /** A rules read that names the platform security closes every new policy write; «Volver a comprobar» stays available. */
+  const newWritesOpen = writesOpen && !view.writesBlocked;
 
   /** Guardar y activar / Guardar cambios: creates the policy if missing, saves the rules, checks requirements and activates, stopping where something fails. */
   const runFinal = (action: AdmissionPolicyAction = ADMISSION_POLICY_ACTION.final) => {
-    if (!writesOpen || controls.pending.current || !confirmed || validationMessage) return;
+    if (!newWritesOpen || controls.pending.current || !confirmed || validationMessage) return;
     const plan = { proposed: draft, activating: !editing, previousFailure: failure };
     void runPolicyWrite(session, action, (signal) => runFinalPolicyWrites(session, plan, signal));
   };
   /** Closes new requests with the reason the contract requires; the saved draft closes too. */
   const pause = (action: AdmissionPolicyAction = ADMISSION_POLICY_ACTION.pause) => {
-    if (!writesOpen || controls.pending.current || !flow.pauseReason.trim()) return;
+    if (!newWritesOpen || controls.pending.current || !flow.pauseReason.trim()) return;
     void runPolicyWrite(session, action, (signal) => pausePolicyWrites(session, flow.pauseReason, signal));
   };
   /** Reopens new requests by saving the current rules with intake enabled; the server rechecks readiness. */
   const resume = (action: AdmissionPolicyAction = ADMISSION_POLICY_ACTION.resume) => {
-    if (!writesOpen || controls.pending.current) return;
+    if (!newWritesOpen || controls.pending.current) return;
     void runPolicyWrite(session, action, (signal) => resumePolicyWrites(session, signal));
   };
   /** Retries the failed sub-step with a new operation; completed sub-steps are skipped because the state already reflects them. */
@@ -141,11 +143,11 @@ export function AdmissionPolicyContainer({ client = admissionApiClient, ...props
   const restart = (next: AdmissionPolicyDraft) => { controls.setStep(0); controls.setDraft(next); controls.setConfirmed(false); clearFeedback(); };
 
   return <AdmissionPolicyForm state={state} draft={draft} savedRules={view.savedRules} editing={editing} step={flow.step} confirmed={confirmed} busy={isBusy} stage={flow.stage} pendingAction={flow.pendingAction}
-    validationMessage={validationMessage} statusMessage={flow.statusMessage} errorMessage={errorMessage} failure={failure} activationBlock={flow.activationBlock} permissionDenied={flow.permissionDenied} links={view.links}
+    validationMessage={validationMessage} statusMessage={flow.statusMessage} errorMessage={errorMessage} failure={failure} activationBlock={view.activationBlock} permissionDenied={flow.permissionDenied} links={view.links}
     pauseOpen={flow.pauseOpen} pauseReason={flow.pauseReason} uncertain={uncertain} canRetryOriginal={canRetry && fresh} retryConfirmed={flow.retryConfirmed}
-    finalLabel={publishing && state.policy && !editing ? ADMISSION_POLICY_DRAFT_COPY.activateNow : undefined} platformBlocked={view.platformBlocked} rechecking={flow.rechecking}
+    finalLabel={publishing && state.policy && !editing ? ADMISSION_POLICY_DRAFT_COPY.activateNow : undefined} platformBlocked={view.platformBlocked} writesBlocked={view.writesBlocked} rechecking={flow.rechecking}
     onReviewDraft={() => { controls.setDraft(createAdmissionPolicyDraft(state)); controls.setConfirmed(false); setPublishing(true); controls.setStep(view.stepIds.length - 1); controls.setErrorMessage(null); controls.setStatusMessage(null); controls.setFailure(null); }}
-    onRecheck={() => { if (!controls.busy.current && writesOpen) startPolicyRecheck(session); }}
+    onRecheck={() => { if (!controls.busy.current && writesOpen) startPolicyRecheck(session, editing); }}
     onChange={(next) => { controls.setDraft(next); controls.setConfirmed(false); setPublishing(false); clearFeedback(); }}
     onStepChange={controls.setStep} onConfirm={controls.setConfirmed} onRunFinal={() => runFinal()}
     onEdit={() => { controls.setEditing(true); controls.setPauseOpen(false); restart(createAdmissionPolicyDraft(state)); }}
@@ -157,12 +159,18 @@ export function AdmissionPolicyContainer({ client = admissionApiClient, ...props
 /** Render facts of the rules form derived from the current state. */
 type PolicyFormViewInput = { ready: PolicyReady; state: AdmissionPolicyStateDto; draft: AdmissionPolicyDraft; editing: boolean; activationBlock: AdmissionPolicyActivationBlock | null };
 
-/** @param input - Current state, draft and requirements block. @returns Saved rules, settings links, the step ids of the flow and whether only the platform can unblock it. */
+/**
+ * @param input - Current state, draft and requirements block.
+ * @returns Saved rules, settings links, the step ids of the flow, the block to show (the one a write or recheck found, else the platform
+ * security the current read names, kept while the draft changes) and whether only the platform can unblock publishing or any write.
+ */
 function policyFormView({ ready, state, draft, editing, activationBlock }: PolicyFormViewInput) {
   const routeBase = `/${encodeURIComponent(ready.slug)}`;
   /** Before activation, channel and quota pages offer the way back to the final step. */
   const returning = (path: string) => state.controlActivated ? path : withPolicyReviewReturn(path);
   const links = { usage: returning(`${routeBase}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`), connection: returning(`${routeBase}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`), allowlist: `${routeBase}/${ALLOWLIST_SETTINGS_SEGMENT}`, academy: ROUTES.tribes.academyManage(ready.slug) };
-  const currentReasons = blockReasons(activationBlock);
-  return { savedRules: state.policy ? createAdmissionPolicyDraft(state) : draft, links, stepIds: admissionPolicyStepIds(editing), platformBlocked: currentReasons.some(isAdmissionPolicyPlatformReason) };
+  const shownBlock = activationBlock ?? platformSecurityBlock(state, editing);
+  const currentReasons = blockReasons(shownBlock);
+  return { savedRules: state.policy ? createAdmissionPolicyDraft(state) : draft, links, stepIds: admissionPolicyStepIds(editing), activationBlock: shownBlock,
+    platformBlocked: currentReasons.some(isAdmissionPolicyPlatformReason), writesBlocked: policyPlatformSecurity(state) !== null };
 }

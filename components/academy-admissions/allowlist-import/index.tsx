@@ -5,6 +5,8 @@ import { useId, useMemo, useState, type ReactNode } from "react";
 import { Button, Checkbox, EmptyState, Input, Label } from "@golfo/ui";
 import { ButtonLink } from "@/components/navigation/link";
 import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { ALLOWLIST_IMPORT_FILE_ACCEPT, ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT, ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { formatBuenosAiresDateTime } from "@/lib/date-time/buenos-aires-format";
 import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-selection";
@@ -12,7 +14,7 @@ import { ALLOWLIST_IMPORT_REPORT_ERROR_LABEL, ALLOWLIST_IMPORT_REPORT_OUTCOME_LA
 import { ADMISSION_IMPORT_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-management-contract";
 import styles from "./styles.module.scss";
 /** `busy` covers every read and write; `writeAction` names only the pressed write, which keeps its label and focus while it shows progress. */
-export type AllowlistImportProps = { /** Rules page where the leader saves the configuration the import depends on. */ policyHref: string; ready: boolean; busy: boolean; writeAction: AllowlistImportWriteAction | null; privateVisible: boolean; initializationFailed: boolean; hasSavedImport: boolean; onRetryInitialization: () => void; fileName: string | null; contactType: "email" | "phone" | null; snapshot: AllowlistImportDto | null; selection: readonly number[]; confirmed: boolean; pending: boolean; canResume: boolean; conflict: boolean; policyConflict: boolean; unresolvedCount: number; canReconcile: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; step: number; onStepChange: (step: number) => void; onFile: (file: File) => void; onConfirmChange: (value: boolean) => void; onSelectRow: (row: number, selected: boolean) => void; /** Chooses every valid row without a result, or clears the selection. */ onSelectAllValid: (selected: boolean) => void; onPreview: () => void; onConfirm: () => void; onReadOriginal: () => void; onReadCurrent: () => void; onReadPolicy: () => void; onTemplate: () => void; onReport: () => void; onReconcile: () => void };
+export type AllowlistImportProps = { /** Rules page where the leader saves the configuration the import depends on. */ policyHref: string; /** Why the platform cannot protect previews and confirmations now; while present, only reads stay available. */ platformRequirement: PlatformSecurityRequirement | null; /** The last consult proved the pending original absent, so it can be discarded. */ originalAbsent: boolean; onDiscardOriginal: () => void; ready: boolean; busy: boolean; writeAction: AllowlistImportWriteAction | null; privateVisible: boolean; initializationFailed: boolean; hasSavedImport: boolean; onRetryInitialization: () => void; fileName: string | null; contactType: "email" | "phone" | null; snapshot: AllowlistImportDto | null; selection: readonly number[]; confirmed: boolean; pending: boolean; canResume: boolean; conflict: boolean; policyConflict: boolean; unresolvedCount: number; canReconcile: boolean; errorMessage: string | null; fieldError: string | null; statusMessage: string | null; step: number; onStepChange: (step: number) => void; onFile: (file: File) => void; onConfirmChange: (value: boolean) => void; onSelectRow: (row: number, selected: boolean) => void; /** Chooses every valid row without a result, or clears the selection. */ onSelectAllValid: (selected: boolean) => void; onPreview: () => void; onConfirm: () => void; onReadOriginal: () => void; onReadCurrent: () => void; /** Rereads only the platform block, with or without a saved import. */ onRecheckPlatform: () => void; onReadPolicy: () => void; onTemplate: () => void; onReport: () => void; onReconcile: () => void };
 
 /** Derived import facts the step blockers and actions read beside the props. */
 type ImportFlowFacts = { terminal: boolean; pendingBlocks: boolean; unresolvedBlocks: boolean; previewing: boolean; reconciling: boolean; confirmingRows: boolean; resumeLabel: boolean; writing: boolean };
@@ -37,6 +39,7 @@ type ImportRow = AllowlistImportDto["rows"][number];
 
 /** @param props - Current import view state. @param facts - Derived flow facts. @returns What blocks creating the preview, or undefined once it can be created or already exists. */
 function uploadBlockedReason(props: AllowlistImportProps, facts: ImportFlowFacts): string | undefined {
+  if (props.platformRequirement && !props.snapshot) return COPY.platformBlocked;
   if (!props.contactType) return COPY.noPolicy;
   if (props.snapshot) return undefined;
   if (facts.unresolvedBlocks) return COPY.pendingStepBlocked;
@@ -55,6 +58,7 @@ function reviewBlockedReason(props: AllowlistImportProps, facts: ImportFlowFacts
 function confirmBlockedReason(props: AllowlistImportProps, facts: ImportFlowFacts): string | undefined {
   if (facts.confirmingRows) return undefined;
   if (facts.terminal) return COPY.finished;
+  if (props.platformRequirement) return COPY.platformBlocked;
   if (facts.pendingBlocks) return COPY.pendingStepBlocked;
   if (props.conflict) return COPY.conflictBlocked;
   if (props.selection.length === 0) return COPY.selectionRequired;
@@ -84,7 +88,7 @@ function RowPager({ offset, total, busy, onOffset }: { offset: number; total: nu
 function PendingOriginalCallout({ props, unresolvedBlocks, reconciling, disabled }: { props: AllowlistImportProps; unresolvedBlocks: boolean; reconciling: boolean; disabled: boolean }) {
   return <div className={styles.AllowlistImport__callout}>
     {unresolvedBlocks && <p role="status">{COPY.pendingBlocked}</p>}
-    <div className={styles.AllowlistImport__actions}><Button type="button" variant="secondary" disabled={disabled} onClick={props.onReadOriginal}>Consultar operación original</Button>{(props.canReconcile || reconciling) && <Button type="button" variant="secondary" loading={reconciling} disabled={!reconciling && disabled} onClick={props.onReconcile}>Conciliar resultados anteriores</Button>}</div>
+    <div className={styles.AllowlistImport__actions}><Button type="button" variant="secondary" disabled={disabled} onClick={props.onReadOriginal}>Consultar operación original</Button>{props.originalAbsent && <Button type="button" variant="ghost" disabled={disabled} onClick={props.onDiscardOriginal}>Descartar la operación sin registrar</Button>}{(props.canReconcile || reconciling) && <Button type="button" variant="secondary" loading={reconciling} disabled={!reconciling && (disabled || Boolean(props.platformRequirement))} onClick={props.onReconcile}>Conciliar resultados anteriores</Button>}</div>
     {props.unresolvedCount > 0 && <span className={styles.AllowlistImport__help}>Confirmaciones anteriores por conciliar: {props.unresolvedCount}</span>}
   </div>;
 }
@@ -93,11 +97,11 @@ function PendingOriginalCallout({ props, unresolvedBlocks, reconciling, disabled
 function UploadStepContent({ props, fieldId, disabled, fieldError, onFileChosen }: { props: AllowlistImportProps; fieldId: string; disabled: boolean; fieldError: ReactNode; onFileChosen: (file: File) => void }) {
   return <>
     <p className={styles.AllowlistImport__help}>CSV en UTF-8, separado por comas, con encabezados <code>identity,display_name</code>. Hasta 10.000 filas y 5 MiB. El nombre es opcional; para teléfonos usá el prefijo internacional completo.</p>
-    <div className={styles.AllowlistImport__field}><Label htmlFor={`${fieldId}-file`}>Archivo CSV de habilitados</Label><Input id={`${fieldId}-file`} type="file" accept={ALLOWLIST_IMPORT_FILE_ACCEPT} disabled={disabled || props.pending || props.unresolvedCount > 0 || !props.contactType} aria-describedby={`${fieldId}-file-help`} aria-invalid={Boolean(props.fieldError)} onChange={(event) => { const file = event.target.files?.[0]; if (file) onFileChosen(file); event.target.value = ""; }} /><p id={`${fieldId}-file-help`} className={styles.AllowlistImport__help}>{props.fileName ? `Archivo conservado: ${props.fileName}` : "Elegí el archivo para revisar su formato antes de crear la vista previa."}</p></div>
+    <div className={styles.AllowlistImport__field}><Label htmlFor={`${fieldId}-file`}>Archivo CSV de habilitados</Label><Input id={`${fieldId}-file`} type="file" accept={ALLOWLIST_IMPORT_FILE_ACCEPT} disabled={disabled || props.pending || props.unresolvedCount > 0 || !props.contactType || Boolean(props.platformRequirement)} aria-describedby={`${fieldId}-file-help`} aria-invalid={Boolean(props.fieldError)} onChange={(event) => { const file = event.target.files?.[0]; if (file) onFileChosen(file); event.target.value = ""; }} /><p id={`${fieldId}-file-help`} className={styles.AllowlistImport__help}>{props.fileName ? `Archivo conservado: ${props.fileName}` : "Elegí el archivo para revisar su formato antes de crear la vista previa."}</p></div>
     {fieldError}
     {props.policyConflict && <Button type="button" variant="secondary" disabled={disabled} onClick={props.onReadPolicy}>Consultar configuración actual</Button>}
     {props.snapshot ? <p className={styles.AllowlistImport__help}>La vista previa de este archivo ya está creada. Elegí otro archivo si querés empezar de nuevo.</p>
-      : <Checkbox id={`${fieldId}-preview-confirmed`} checked={props.confirmed} disabled={disabled || props.pending || !props.fileName || !props.contactType} label="Confirmo guardar esta vista previa temporal" description="La vista previa no agrega entradas." onCheckedChange={(value) => props.onConfirmChange(value === true)} />}
+      : <Checkbox id={`${fieldId}-preview-confirmed`} checked={props.confirmed} disabled={disabled || props.pending || !props.fileName || !props.contactType || Boolean(props.platformRequirement)} label="Confirmo guardar esta vista previa temporal" description="La vista previa no agrega entradas." onCheckedChange={(value) => props.onConfirmChange(value === true)} />}
   </>;
 }
 
@@ -132,6 +136,22 @@ function ReviewStepContent({ snapshot, props, fieldId, selection, page }: { snap
   </>;
 }
 
+/**
+ * @param props - Import view state.
+ * @returns The platform block while the platform cannot protect imports (the rules cannot be saved either, so it replaces their link),
+ * the link to the rules while none are saved, or nothing when the import needs no prerequisite.
+ */
+function ImportPrerequisite({ props }: { props: AllowlistImportProps }) {
+  if (props.platformRequirement) return <PlatformSecurityNotice requirement={props.platformRequirement} consequence={COPY.platformConsequence} onRecheck={props.onRecheckPlatform} busy={!props.ready || props.busy} />;
+  if (hasImportFlow(props)) return null;
+  return <EmptyState label={COPY.noPolicyTitle} title={COPY.noPolicyTitle} description={COPY.noPolicy} action={<ButtonLink href={props.policyHref} variant="primary" size="sm">{COPY.noPolicyAction}</ButtonLink>} />;
+}
+
+/** @param props - Import view state. @returns Whether the guided import applies: the rules are saved, or a saved import still needs its progress. */
+function hasImportFlow(props: AllowlistImportProps): boolean {
+  return Boolean(props.contactType || props.snapshot || props.hasSavedImport);
+}
+
 /** @param props - Safe controlled view state and explicit callbacks. @returns A three-step import with paged rows and one next action, without session, file reading or network access. */
 export function AllowlistImport(props: AllowlistImportProps) {
   const fieldId = useId(), [offset, setOffset] = useState(0), rows = props.snapshot?.rows ?? [];
@@ -160,7 +180,7 @@ export function AllowlistImport(props: AllowlistImportProps) {
     },
     {
       id: "confirm", title: "Confirmar e importar", description: "Revisá cuántas filas se incorporan antes de importarlas.", blockedReason: confirmReason,
-      content: <ConfirmStepContent props={props} fieldId={fieldId} disabled={disabled} blocked={disabled || pendingBlocks || terminal} fieldError={fieldError} />,
+      content: <ConfirmStepContent props={props} fieldId={fieldId} disabled={disabled} blocked={disabled || pendingBlocks || terminal || Boolean(props.platformRequirement)} fieldError={fieldError} />,
       secondary: progress, secondaryLabel: "Progreso y reporte",
     },
   ];
@@ -174,10 +194,9 @@ export function AllowlistImport(props: AllowlistImportProps) {
       {props.errorMessage && <p role="alert" className={styles.AllowlistImport__error}>{props.errorMessage}</p>}
       {(!writing && (props.pending || props.unresolvedCount > 0) || reconciling) && <PendingOriginalCallout props={props} unresolvedBlocks={unresolvedBlocks} reconciling={reconciling} disabled={disabled} />}
       {props.hasSavedImport && !props.snapshot && <Button type="button" variant="secondary" disabled={disabled} onClick={props.onReadCurrent}>Consultar progreso actual</Button>}
-      {!props.contactType && !props.snapshot && !props.hasSavedImport
-        ? <EmptyState label={COPY.noPolicyTitle} title={COPY.noPolicyTitle} description={COPY.noPolicy} action={<ButtonLink href={props.policyHref} variant="primary" size="sm">{COPY.noPolicyAction}</ButtonLink>} />
-        : <GuidedSteps label="Importar habilitados desde CSV" steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
-          finalAction={{ label: resumeLabel ? "Retomar filas pendientes" : "Importar filas elegidas", loading: confirmingRows, disabled: Boolean(confirmReason) || disabled && !confirmingRows, onRun: props.onConfirm }} />}
+      <ImportPrerequisite props={props} />
+      {hasImportFlow(props) && <GuidedSteps label="Importar habilitados desde CSV" steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
+        finalAction={{ label: resumeLabel ? "Retomar filas pendientes" : "Importar filas elegidas", loading: confirmingRows, disabled: Boolean(confirmReason) || disabled && !confirmingRows, onRun: props.onConfirm }} />}
     </>}
   </section>;
 }

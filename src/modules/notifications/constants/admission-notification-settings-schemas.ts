@@ -4,9 +4,10 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE, ADMISSION_NOTIFICATION_PREFERENCE_SOURCE, ADMISSION_NOTIFICATION_PREFERENCE_STATUS, ADMISSION_NOTIFICATION_PREFERENCE_REJECTION } from "./admission-notification-preference";
 import { ADMISSION_EMAIL_SETTINGS_REJECTION, ADMISSION_EMAIL_SETTINGS_STATUS } from "./admission-notification-email-settings";
 import { ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH } from "./admission-notification-settings-http";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 import type { AdmissionNotificationEmailSettingsCommand } from "../domain/repositories/admission-notification-email-settings-repository";
 import type { AdmissionNotificationPreferenceChange } from "../domain/entities/admission-notification-preference";
-import type { AdmissionNotificationPreferenceReadResult, AdmissionNotificationPreferenceChangeResult, AdmissionNotificationEmailSettingsView, AdmissionNotificationEmailSettingsChangeResult, AdmissionNotificationEmailSettingsOperationResult } from "../application/results/admission-notification-settings-result";
+import type { AdmissionNotificationPreferenceReadResult, AdmissionNotificationPreferenceChangeResult, AdmissionNotificationEmailSettingsView, AdmissionNotificationEmailSettingsReadResult, AdmissionNotificationEmailSettingsChangeResult, AdmissionNotificationEmailSettingsOperationResult } from "../application/results/admission-notification-settings-result";
 
 /** Reuses the existing closed frequency vocabulary for own input and output. */
 const mode = z.enum(ADMISSION_NOTIFICATION_PREFERENCE_MODE);
@@ -27,6 +28,10 @@ export const admissionNotificationPreferenceChangeResultSchema = z.union([
 ]) satisfies z.ZodType<AdmissionNotificationPreferenceChangeResult>;
 /** Current and historical settings omit the native cut and selected credential state. */
 export const admissionNotificationEmailSettingsViewSchema = z.strictObject({ enabled: z.boolean(), version: z.int().nonnegative(), timeZone }).refine((value) => !value.enabled || value.version > 0) satisfies z.ZodType<AdmissionNotificationEmailSettingsView>;
+/** Closed platform requirement shared with every admission read; never a key, epoch or environment detail. */
+export const admissionNotificationPlatformRequirementSchema = z.enum(PLATFORM_SECURITY_REQUIREMENT).nullable();
+/** A current read also says whether the platform can protect a change, so the leader learns it before writing. */
+export const admissionNotificationEmailSettingsReadResultSchema = z.strictObject({ settings: admissionNotificationEmailSettingsViewSchema, platformRequirement: admissionNotificationPlatformRequirementSchema }) satisfies z.ZodType<AdmissionNotificationEmailSettingsReadResult>;
 /** Publishes only the original operation's safe confirmed result or registered progress. */
 export const admissionNotificationEmailSettingsChangeResultSchema = z.union([
   z.strictObject({ status: z.enum([ADMISSION_EMAIL_SETTINGS_STATUS.changed, ADMISSION_EMAIL_SETTINGS_STATUS.unchanged]), settings: admissionNotificationEmailSettingsViewSchema }),

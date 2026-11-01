@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { Button, EmptyState, Input, Label } from "@golfo/ui";
 import { GuidedSteps, GuidedStepsDisclosure } from "@/components/forms/guided-steps";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
 import type { PersonalInvitationManagementDraft } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
 import type { PersonalInvitationManagementResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_MODE as MODE, PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
@@ -24,7 +25,7 @@ function InvitationHistoryItem({ item, disabled, onSelect }: { item: PersonalInv
 /** @param props - Listed invitations, paging state and callbacks. @param id - Prefix of the field ids. @param disabled - Whether controls wait. @returns The private invitation history with its reads collapsed. */
 function InvitationHistory({ props, id, disabled }: { props: InvitationManagementProps; id: string; disabled: boolean }) {
   return <section className={styles.InvitationManagement__history} aria-labelledby={`${id}-history`}><h2 id={`${id}-history`}>Historial de invitaciones</h2>
-    {props.items.length === 0 ? <EmptyState label="Historial de invitaciones vacío" title="Todavía no hay invitaciones en esta vista." description="Emití una invitación personal para que una persona pueda pedir ingreso con su enlace." /> : <ul className={styles.InvitationManagement__list}>{props.items.map((item) => <InvitationHistoryItem key={item.id} item={item} disabled={disabled || props.conflict} onSelect={props.onSelect} />)}</ul>}
+    {props.items.length === 0 ? <EmptyState label="Historial de invitaciones vacío" title="Todavía no hay invitaciones en esta vista." description="Emití una invitación personal para que una persona pueda pedir ingreso con su enlace." /> : <ul className={styles.InvitationManagement__list}>{props.items.map((item) => <InvitationHistoryItem key={item.id} item={item} disabled={disabled || props.conflict || Boolean(props.platformRequirement)} onSelect={props.onSelect} />)}</ul>}
     <GuidedStepsDisclosure summary="Consultar y ver más">
       {!(props.selectionBlocked || props.needsCurrent) && <Button type="button" variant="secondary" size="sm" disabled={props.busy || props.pending} onClick={props.onReadCurrent}>Consultar estado actual</Button>}
       {props.hasNext && <Button type="button" variant="secondary" size="sm" loading={props.loadingMore} disabled={disabled && !props.loadingMore} onClick={props.onNext}>Ver más invitaciones</Button>}
@@ -54,10 +55,12 @@ export function InvitationManagement(props: InvitationManagementProps) {
       <section className={styles.InvitationManagement__editor} aria-labelledby={`${id}-editor`}>
         <h2 id={`${id}-editor`}>{title}</h2>
         {props.statusMessage && <p role="status" className={styles.InvitationManagement__help}>{props.statusMessage}</p>}
-        {unresolved && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.pendingBlocked}</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button></div>}
+        {unresolved && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.pendingBlocked}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>{props.originalAbsent && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onDiscardOriginal}>Descartar la operación sin registrar</Button>}</div></div>}
         {!unresolved && (props.selectionBlocked || props.needsCurrent) && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.currentRequired}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadCurrent}>Consultar estado actual</Button>{props.selectionBlocked && <Button type="button" variant="secondary" disabled={props.busy || props.pending} onClick={props.onDiscardSelection}>Descartar selección</Button>}</div></div>}
-        <GuidedSteps label={title} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
-          finalAction={{ label: finalLabel, loading: props.writing, disabled: Boolean(reviewReason), onRun: props.onSave }} />
+        {props.platformRequirement
+          ? <>{props.errorMessage && <p role="alert" className={styles.InvitationManagement__error}>{props.errorMessage}</p>}<PlatformSecurityNotice requirement={props.platformRequirement} consequence={COPY.platformConsequence} /></>
+          : <GuidedSteps label={title} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
+            finalAction={{ label: finalLabel, loading: props.writing, disabled: Boolean(reviewReason), onRun: props.onSave }} />}
       </section>
       <InvitationHistory props={props} id={id} disabled={disabled} />
     </>}

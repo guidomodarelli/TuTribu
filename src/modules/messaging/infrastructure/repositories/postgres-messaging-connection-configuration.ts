@@ -22,6 +22,8 @@ import {PostgresMessagingAuthorizationReader} from "./postgres-messaging-authori
 import {executeMessagingLedger} from "./execute-messaging-ledger";
 import {retireDiagnosticChallenges} from "./postgres-retired-diagnostic-challenges";
 import {knownConnectionFailureCode,type MessagingContextDatabaseExecutor} from "./messaging-operation-failure-code";
+import {assertMessagingAuthenticatedMacKeyMaterials} from "./assert-messaging-key-material";
+import {ADMISSION_OPERATION_MAC_KEY_PURPOSES} from "@/src/modules/academy-admissions/constants/admission-operation";
 import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
@@ -99,7 +101,12 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
         }));
         if(currentLease)return original;
       }
-      return await executeMessagingLedger(()=>this.execute(context,async(database)=>{const current=await this.current(database,context,input);await this.authorize(database,context);return{state:"prepared"as const,configurationVersion:context.connectionVersion,changed:current.changed};}));
+      return await executeMessagingLedger(()=>this.execute(context,async(database)=>{
+        const current=await this.current(database,context,input);await this.authorize(database,context);
+        // The commit signs this original with the ledger keys: prove now that the platform can, so a missing, unenrolled or locked security never waits for a provider inspection.
+        await assertMessagingAuthenticatedMacKeyMaterials(database,await this.readSecurityConfig(),ADMISSION_OPERATION_MAC_KEY_PURPOSES);
+        return{state:"prepared"as const,configurationVersion:context.connectionVersion,changed:current.changed};
+      }));
     }catch(error){throw this.failure(error);}
   }
   /** @param context - Original exact scope, not a browser authority token. @param input - Original confirmed CAS intent. @param inspection - Private exact SDK detail evidence; null only for a no-op. @returns Atomic new version/envelope, or unchanged original metadata, without policy, diagnostic or send effects. */

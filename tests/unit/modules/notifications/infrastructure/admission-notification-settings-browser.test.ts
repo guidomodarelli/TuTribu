@@ -20,8 +20,16 @@ describe("notification settings browser transport", () => {
     expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/test/admissions/notification-preferences", { credentials: "same-origin", cache: "no-store", signal: expect.any(AbortSignal) });
   });
 
-  it.each(["missing_viewer", "malformed_viewer", "invalid_body"])("should close an own read with %s", async (scenario) => {
-    const value = { enabled: false, version: 0, timeZone: "UTC" };
+  it.each(["security_unconfigured", "recovery_locked", null] as const)("should read the current tribe email with its closed platform requirement %s", async (platformRequirement) => {
+    const viewerId = randomUUID(), value = { settings: { enabled: false, version: 0, timeZone: "UTC" }, platformRequirement };
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => response(value, viewerId));
+
+    expect(await createAdmissionNotificationSettingsApiClient({ fetch }).readEmail("test", new AbortController().signal)).toEqual({ status: "ready", value: { viewerId, data: value } });
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/test/admissions/email-settings", { credentials: "same-origin", cache: "no-store", signal: expect.any(AbortSignal) });
+  });
+
+  it.each(["missing_viewer", "malformed_viewer", "invalid_body", "unknown_requirement"])("should close an own read with %s", async (scenario) => {
+    const value = { settings: { enabled: false, version: 0, timeZone: "UTC" }, platformRequirement: scenario === "unknown_requirement" ? "keys_rotated" : null };
     const result = response(scenario === "invalid_body" ? { ...value, secretRef: randomUUID() } : value, scenario === "missing_viewer" ? null : randomUUID());
     if (scenario === "malformed_viewer") result.headers.set("x-tutribu-admission-viewer", "invalid-json");
     const client = createAdmissionNotificationSettingsApiClient({ fetch: async () => result });
@@ -60,6 +68,13 @@ describe("notification settings browser transport", () => {
     const input = { operationId: randomUUID(), confirmed: true as const, expectedVersion: 0, enabled: true, timeZone: "UTC" };
     const fetch = vi.fn<typeof globalThis.fetch>(async () => response({ code: "operation_unresolved", message: ADMISSION_ERROR_MESSAGE.operation_unresolved, requestId: randomUUID(), operation: { state: "started", operationId: input.operationId } }, null, 202));
     expect(await createAdmissionNotificationSettingsApiClient({ fetch }).changeEmail("test", input, new AbortController().signal)).toMatchObject({ status: "failed", code: "operation_unresolved", uncertain: true });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("should treat a platform-blocked email change as a definite rejection, never as an uncertain write", async () => {
+    const input = { operationId: randomUUID(), confirmed: true as const, expectedVersion: 0, enabled: true, timeZone: "UTC" };
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => response({ code: "platform_security_unavailable", message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable, requestId: randomUUID() }, null, 409));
+    expect(await createAdmissionNotificationSettingsApiClient({ fetch }).changeEmail("test", input, new AbortController().signal)).toEqual({ status: "failed", code: "platform_security_unavailable", message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable, uncertain: false });
     expect(fetch).toHaveBeenCalledOnce();
   });
 

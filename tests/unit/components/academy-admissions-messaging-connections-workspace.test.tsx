@@ -7,7 +7,7 @@ import {resolveMessagingConnectionsNextAction} from "@/src/modules/messaging/app
 import {resolveMessagingConnectionsFlow} from "@/src/modules/messaging/application/commands/messaging-connections-flow";
 
 const now=new Date().toISOString();
-const candidate={id:"00000000-0000-4000-8000-000000000001",name:"Candidata de prueba",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now},{channel:"sms" as const,state:"unprepared" as const,checkedAt:now,testedAt:null}]};
+const candidate={id:"00000000-0000-4000-8000-000000000001",name:"Candidata de prueba",version:3,configurationVersion:2,state:"ready" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[{channel:"email" as const,state:"prepared" as const,checkedAt:now,testedAt:now},{channel:"sms" as const,state:"unprepared" as const,checkedAt:now,testedAt:null}]};
 const usage={state:"configured" as const,policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
 
 /** @returns Fresh workspace connections with no selected connection and the ready candidate. */

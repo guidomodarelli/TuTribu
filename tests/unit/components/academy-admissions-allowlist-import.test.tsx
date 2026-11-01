@@ -1,13 +1,14 @@
 /** Exercises real shared controls and inert imported data on the reachable import presenter. @module allowlist-import-presenter-tests */
 import { randomUUID } from "node:crypto";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AllowlistImport, type AllowlistImportProps } from "@/components/academy-admissions/allowlist-import";
 import { ALLOWLIST_IMPORT_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
+import { PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 
 /** @returns Controlled preview without an inferred selection or permission. */
 function fixture(): AllowlistImportProps {
-  return { policyHref: "/synthetic/academia/admissions/settings", ready: true, busy: false, writeAction: null, privateVisible: true, initializationFailed: false, hasSavedImport: true, onRetryInitialization: vi.fn(), fileName: "synthetic.csv", contactType: "email", snapshot: { importId: randomUUID(), state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, conflict: 0, skipped: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "<script>inert()</script>", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", selected: false, errors: ["admission_contact_invalid"] }] }, selection: [], confirmed: false, pending: false, canResume: false, conflict: false, policyConflict: false, unresolvedCount: 0, canReconcile: false, errorMessage: null, fieldError: null, statusMessage: null, step: 1, onStepChange: vi.fn(), onFile: vi.fn(), onConfirmChange: vi.fn(), onSelectRow: vi.fn(), onSelectAllValid: vi.fn(), onPreview: vi.fn(), onConfirm: vi.fn(), onReadOriginal: vi.fn(), onReadCurrent: vi.fn(), onReadPolicy: vi.fn(), onTemplate: vi.fn(), onReport: vi.fn(), onReconcile: vi.fn() };
+  return { policyHref: "/synthetic/academia/admissions/settings", platformRequirement: null, originalAbsent: false, onDiscardOriginal: vi.fn(), ready: true, busy: false, writeAction: null, privateVisible: true, initializationFailed: false, hasSavedImport: true, onRetryInitialization: vi.fn(), fileName: "synthetic.csv", contactType: "email", snapshot: { importId: randomUUID(), state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, conflict: 0, skipped: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "<script>inert()</script>", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", selected: false, errors: ["admission_contact_invalid"] }] }, selection: [], confirmed: false, pending: false, canResume: false, conflict: false, policyConflict: false, unresolvedCount: 0, canReconcile: false, errorMessage: null, fieldError: null, statusMessage: null, step: 1, onStepChange: vi.fn(), onFile: vi.fn(), onConfirmChange: vi.fn(), onSelectRow: vi.fn(), onSelectAllValid: vi.fn(), onPreview: vi.fn(), onConfirm: vi.fn(), onReadOriginal: vi.fn(), onReadCurrent: vi.fn(), onRecheckPlatform: vi.fn(), onReadPolicy: vi.fn(), onTemplate: vi.fn(), onReport: vi.fn(), onReconcile: vi.fn() };
 }
 describe("import presenter", () => {
   it("should send the leader to the rules page instead of a blocked upload while no rules are saved", () => {
@@ -62,5 +63,43 @@ describe("import presenter", () => {
     const props = fixture(); props.privateVisible = false; props.errorMessage = "El acceso cambió.";
     render(<AllowlistImport {...props} />);
     expect(screen.queryByText("synthetic@example.test")).not.toBeInTheDocument(); expect(screen.queryByRole("button", { name: "Descargar reporte" })).not.toBeInTheDocument(); expect(screen.getByRole("alert")).toBeVisible();
+  });
+  it("should explain the platform block before an upload and keep the import file and its preview out of reach", () => {
+    const props = fixture(); props.snapshot = null; props.hasSavedImport = false; props.step = 0; props.platformRequirement = "security_unconfigured";
+    render(<AllowlistImport {...props} />);
+    const notice = screen.getByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    expect(within(notice).getByText(PLATFORM_SECURITY_REQUIREMENT_COPY.security_unconfigured)).toBeVisible();
+    expect(within(notice).getByText(ALLOWLIST_IMPORT_BROWSER_COPY.platformConsequence)).toBeVisible();
+    expect(screen.getByLabelText("Archivo CSV de habilitados")).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Confirmo guardar esta vista previa temporal/ })).toBeDisabled();
+    expect(screen.getByText(ALLOWLIST_IMPORT_BROWSER_COPY.platformBlocked)).toBeVisible();
+    fireEvent.click(within(notice).getByRole("button", { name: PLATFORM_SECURITY_NOTICE_COPY.recheck }));
+    expect(props.onRecheckPlatform).toHaveBeenCalledOnce();
+  });
+  it("should keep the platform recheck waiting while another import read or write runs", () => {
+    render(<AllowlistImport {...fixture()} snapshot={null} hasSavedImport={false} platformRequirement="recovery_locked" busy />);
+    expect(screen.getByRole("button", { name: PLATFORM_SECURITY_NOTICE_COPY.recheck })).toBeDisabled();
+  });
+  it("should replace the rules link with the platform block when no rules can be saved either", () => {
+    render(<AllowlistImport {...fixture()} contactType={null} hasSavedImport={false} snapshot={null} platformRequirement="recovery_locked" />);
+    expect(screen.getByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).toBeVisible();
+    expect(screen.queryByRole("link", { name: ALLOWLIST_IMPORT_BROWSER_COPY.noPolicyAction })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Archivo CSV de habilitados")).not.toBeInTheDocument();
+  });
+  it("should keep progress and reports readable but block importing and reconciling rows while the platform cannot protect them", () => {
+    const props = fixture(); props.selection = [1]; props.confirmed = true; props.step = 2; props.unresolvedCount = 1; props.canReconcile = true; props.platformRequirement = "recovery_locked";
+    render(<AllowlistImport {...props} />);
+    expect(screen.getByRole("button", { name: "Importar filas elegidas" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Conciliar resultados anteriores" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeEnabled();
+    expect(screen.getByText(ALLOWLIST_IMPORT_BROWSER_COPY.platformBlocked)).toBeVisible();
+  });
+  it("should offer to discard an original only after a consult proves it absent", () => {
+    const props = fixture(); props.pending = true; props.step = 2;
+    const { rerender } = render(<AllowlistImport {...props} />);
+    expect(screen.queryByRole("button", { name: "Descartar la operación sin registrar" })).not.toBeInTheDocument();
+    rerender(<AllowlistImport {...props} originalAbsent />);
+    fireEvent.click(screen.getByRole("button", { name: "Descartar la operación sin registrar" }));
+    expect(props.onDiscardOriginal).toHaveBeenCalledOnce(); expect(props.onConfirm).not.toHaveBeenCalled();
   });
 });

@@ -15,6 +15,7 @@ import { createAdmissionOperationFingerprint } from "@/src/modules/academy-admis
 import {readAdmissionOperationVerificationPurpose} from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-purpose";
 import { assertMessagingAuthenticatedMacKeyMaterials } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { classifyMessagingPlatformSecurityFailure } from "@/src/modules/messaging/infrastructure/config/messaging-platform-security-failure";
 import { ADMISSION_OPERATION_TYPE } from "../../constants/admission-request";
 import { ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN } from "@/src/modules/tribes/constants/academy-membership";
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
@@ -54,6 +55,24 @@ function normalizeBatch(command:AdmissionBatchOperationCommand):{items:Admission
   const items=command.intent.items.map((item)=>({...item,resourceId:item.resourceId.toLowerCase()})).sort(compareBatchResourceIds);
   if(new Set(items.map((item)=>item.resourceId)).size!==items.length)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   return{items,command:{...command,intent:{context:command.intent.context,items:items.map((item)=>({resourceId:item.resourceId,expectedVersion:item.expectedVersion,intent:item.intent}))}}};
+}
+
+/**
+ * Every ledger operation signs its original intent with the hosting messaging security. When the platform cannot protect it
+ * (missing, unusable, not enrolled or locked security), a new original is rejected definitively: nothing was registered, so
+ * the browser must not keep it as uncertain. An original that already has a row stays unresolved instead, so the browser keeps
+ * it and recovers it once the platform can verify it again.
+ * @param error - Failure reading the hosting security or attesting its keys.
+ * @param command - Original command, named by the unresolved outcome.
+ * @param registered - Whether this original already has a ledger row.
+ * @returns The closed ledger outcome, or null when the failure is not a platform requirement.
+ */
+function platformSecurityFailure(error: unknown, command: AdmissionOperationCommand, registered: boolean): AdmissionOperationError | null {
+  const cause = error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable ? error.cause : error;
+  if (!classifyMessagingPlatformSecurityFailure(cause)) return null;
+  return registered
+    ? new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: error })
+    : new AdmissionOperationError(ADMISSION_ERROR_CODE.platformSecurityUnavailable, { cause: error });
 }
 
 /** @param error - Any failure. @returns Whether it is a current permission or authentication denial, which must surface unchanged. */
@@ -102,7 +121,7 @@ export class PostgresAdmissionOperationRepository {
     const now = await clock(database);
     if (row.lease_owner !== claim.owner || row.version !== claim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
     const chunk = await mutate(database, row.id);
-    const currentFingerprint = await this.readFingerprint(database);
+    const currentFingerprint = await this.readFingerprint(database, command, true);
     if (!await currentFingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     await this.assertAuthorized(database, command);
     const completedAt = await clock(database);
@@ -152,7 +171,8 @@ export class PostgresAdmissionOperationRepository {
    * @param command - Fixed actor/tenant/original intent.
    * @param authorize - Current owner guard; defaults to the business authority.
    * @returns After confirming the database actor and current resource permission.
-   * @throws AdmissionOperationError when either current authority check denies access.
+   * @throws AdmissionOperationError when either current authority check denies access, or when the owner guard cannot use the
+   * platform security (see {@link PostgresAdmissionOperationRepository.authorizeOwner}).
    */
   private async assertAuthorized(database: RequestDatabase, command: AdmissionOperationCommand, authorize: OperationAuthorizer = this.authorize): Promise<void> {
     const scope = this.nativeSubmissionScope;
@@ -169,22 +189,54 @@ export class PostgresAdmissionOperationRepository {
       if (!current.submission) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       const nativeActor = current.submission.actor;
       const context: AdmissionSubmissionActorContext = { scopeLocked: current.submission.scopeLocked, actor: nativeActor?.userId === scope.userId ? { userId: nativeActor.userId, tribeId: scope.tribeId, role: nativeActor.role, status: nativeActor.status } : null };
-      if (!await authorize(database, command, context)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if (!await this.authorizeOwner(database, command, () => authorize(database, command, context))) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       return;
     }
     const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if (actor !== command.actorUserId || !await authorize(database, command)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    if (actor !== command.actorUserId || !await this.authorizeOwner(database, command, () => authorize(database, command))) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }
 
-  /** @param database - Native account/resource-authorized original transaction. @returns The original-intent signer only after both HMAC identity domains retain their material. @throws AdmissionOperationError for unprovable key-id continuity. */
-  private async readFingerprint(database: RequestDatabase) {
+  /**
+   * Runs the owner guard after the database actor is confirmed. An owner that proves its authority with the hosting security
+   * (messaging connections do) fails before the ledger looks up the original, so the ledger applies its own rule here too.
+   * @param database - Current transaction, already bound to the confirmed actor.
+   * @param command - Original command, named when a registered original stays unresolved.
+   * @param authorize - The owner guard to run.
+   * @returns The owner verdict.
+   * @throws AdmissionOperationError platform_security_unavailable for a new original or operation_unresolved for a registered one
+   * when the platform cannot protect it; any other failure unchanged.
+   */
+  private async authorizeOwner(database: RequestDatabase, command: AdmissionOperationCommand, authorize: () => Promise<boolean>): Promise<boolean> {
+    try { return await authorize(); }
+    catch (error) {
+      if (!platformSecurityFailure(error, command, false)) throw error;
+      throw platformSecurityFailure(error, command, await this.isRegistered(database, command)) ?? error;
+    }
+  }
+
+  /** @param database - Transaction bound to the confirmed actor. @param command - Exact original namespace. @returns Whether this original already has a ledger row, without locking it or reading its intent. */
+  private async isRegistered(database: RequestDatabase, command: AdmissionOperationCommand): Promise<boolean> {
+    return Boolean((await database.execute(sql`select id from public.academy_admission_operations where actor_user_id=${command.actorUserId} and tribe_id=${command.tribeId} and operation_type=${command.operationType} and idempotency_key=${command.idempotencyKey}`)).rows[0]);
+  }
+
+  /**
+   * @param database - Native account/resource-authorized original transaction.
+   * @param command - Original command, named when a registered original stays unresolved.
+   * @param registered - Whether this original already has a ledger row.
+   * @returns The original-intent signer only after both HMAC identity domains retain their material.
+   * @throws AdmissionOperationError: platform_security_unavailable for a new original or operation_unresolved for a registered one when the
+   * platform cannot protect it, resource_unavailable for another closed attestation failure, unexpected_failure for anything else.
+   */
+  private async readFingerprint(database: RequestDatabase, command: AdmissionOperationCommand, registered: boolean) {
     let config: MessagingSecurityConfig;
-    // Missing or invalid hosting keys are a server misconfiguration, not an absent resource: keep the typed cause for the 500 diagnostic.
     try { config = await this.readSecurityConfig(); }
-    catch (error) { throw new AdmissionOperationError(ADMISSION_ERROR_CODE.unexpectedFailure, { cause: error }); }
+    catch (error) { throw platformSecurityFailure(error, command, registered) ?? new AdmissionOperationError(ADMISSION_ERROR_CODE.unexpectedFailure, { cause: error }); }
     try {
       await assertMessagingAuthenticatedMacKeyMaterials(database, config, ADMISSION_OPERATION_MAC_KEY_PURPOSES);
     } catch (error) {
+      const platform = platformSecurityFailure(error, command, registered);
+      if (platform) throw platform;
+      // A native identity that is not current (context mismatch) is not a platform requirement.
       if (error instanceof MessagingCryptographyError) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable, { cause: error });
       throw error;
     }
@@ -206,7 +258,7 @@ export class PostgresAdmissionOperationRepository {
     await this.assertAuthorized(database, command);
     const row = await this.readLocked(database, command);
     if (!row) return null;
-    const fingerprint = await this.readFingerprint(database);
+    const fingerprint = await this.readFingerprint(database, command, true);
     return { row, matches: await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint) };
   }
 
@@ -237,7 +289,7 @@ export class PostgresAdmissionOperationRepository {
     return this.executeWithDatabase(async (database) => {
       await this.assertAuthorized(database, command, this.authorizeRegistration);
       let row = await this.readLocked(database, command);
-      const fingerprint = await this.readFingerprint(database);
+      const fingerprint = await this.readFingerprint(database, command, Boolean(row));
       const owner = randomUUID();
       if (!row) {
         const signed = await fingerprint.sign(command);
@@ -340,7 +392,7 @@ export class PostgresAdmissionOperationRepository {
         const value = await mutate(database, row.id);
         const parsed = schema.safeParse(value);
         if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { operationId: command.idempotencyKey });
-        const currentFingerprint = await this.readFingerprint(database);
+        const currentFingerprint = await this.readFingerprint(database, command, true);
         if (!await currentFingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete, { operationId: command.idempotencyKey });
         await this.assertAuthorized(database, command);
         const completedAt = await clock(database);
@@ -350,7 +402,8 @@ export class PostgresAdmissionOperationRepository {
         return { state: OPERATION_STATE.completed, operationId: command.idempotencyKey, replayed: false, result: parsed.data };
       });
     } catch (error) {
-      if (error instanceof AdmissionOperationError) throw error;
+      // The claim is registered: an owner check that finds the platform security unusable mid-effect cannot discard the original.
+      if (error instanceof AdmissionOperationError && error.code !== ADMISSION_ERROR_CODE.platformSecurityUnavailable) throw error;
       throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: error, operationId: command.idempotencyKey });
     }
   }

@@ -7,6 +7,7 @@ import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from 
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createUnenrolledSecurityConfig } from "@/tests/support/admission-unenrolled-security-config";
 import { PostgresAdmissionPolicyRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository";
 import { PostgresAdmissionPolicyReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader";
 import { AdmissionMessagingUsagePolicyReader } from "@/src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader";
@@ -356,8 +357,24 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const context = data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
       await expect(unconfigured.initialize({ context, operationId, confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "operation_unresolved", operationId });
       await expect(unconfigured.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_security_unconfigured" } });
+      // Keys whose proofs were never enrolled (a rotation without enrollment) and a recovery lock are platform requirements too, not an absent resource.
+      const unenrolled = await createUnenrolledSecurityConfig(data.fixture.config);
+      const unenrolledRepository = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), async () => unenrolled, () => { throw new Error("Preparation must not be composed"); });
+      await expect(unenrolledRepository.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_security_unconfigured", cause: { code: "messaging_crypto_key_continuity_unproven" } } });
+      const lockedRepository = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), async () => ({ ...data.fixture.config, recoveryLocked: true }), () => { throw new Error("Preparation must not be composed"); });
+      await expect(lockedRepository.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_recovery_locked" } });
       const ledger = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${data.tribeId}`)).rows[0].count);
       expect(ledger).toBe(1);
+      // The rules read runs the same checks inside its own transaction and names each requirement before any write.
+      const readRequirements = async (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => {
+        const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, run) => database.withContext(data.fixture.own, run));
+        const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null, readSecurityConfig }).useCases;
+        const result = await policy.execute({ tribeId: data.tribeId, requestId: randomUUID() });
+        return result.ok ? result.value.preparation.requirements : [];
+      };
+      expect(await readRequirements(async () => unenrolled)).toContain("admission_security_unconfigured");
+      expect(await readRequirements(async () => ({ ...data.fixture.config, recoveryLocked: true }))).toContain("admission_recovery_locked");
+      expect(await readRequirements(async () => data.fixture.config)).not.toContain("admission_security_unconfigured");
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
@@ -370,7 +387,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${memberId},'guardian','removed','payment_blocked','muted'),(${data.tribeId},${abandonedId},'tribemate','blocked','payment_blocked',null)`);
       });
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
-      const facts = await new PostgresAdmissionPolicyViewFactsReader((_context, work) => database.withContext(data.fixture.own, work), null, async () => true).read(data.readContext, (await data.reader.read(data.readContext)).policy);
+      const facts = await new PostgresAdmissionPolicyViewFactsReader((_context, work) => database.withContext(data.fixture.own, work), null, async () => null).read(data.readContext, (await data.reader.read(data.readContext)).policy);
       expect(facts).toMatchObject({ freeConversionMemberCount: 1 });
       await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).readPreparation(randomUUID()))).rejects.toMatchObject({ code: "permission_denied" });
     });
@@ -380,7 +397,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
-      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: async () => true }).useCases;
+      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null, readSecurityConfig: async () => data.fixture.config }).useCases;
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
       expect(await policy.execute(query)).toMatchObject({ ok: true, value: { state: "not_configured", policy: null, controlActivated: false, preparation: { state: "not_evaluated" }, impact: { pendingRequestCount: 0 } } });
       await data.initialize();
@@ -403,8 +420,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       /** Mirrors the production composition: the query reuses the commands' preparation evaluator instead of reporting it as not evaluated. */
       const commands = admissions.createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, { isPrepared: async () => true }, async () => false) });
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
-      expect(await admissions.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: async () => true }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
-      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation, isSecurityConfigured: async () => true }).useCases.execute(query);
+      expect(await admissions.createPolicyQueryModule({ composePreparation: null, readSecurityConfig: async () => data.fixture.config }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
+      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation, readSecurityConfig: async () => data.fixture.config }).useCases.execute(query);
       expect(evaluated).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "evaluated" } } });
       expect(evaluated.ok && evaluated.value.preparation.requirements).toContain("verification_unavailable");
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select admissions_control_activated_at is null as not_activated from public.tribes where id=${data.tribeId}`)).rows)).toEqual([{ not_activated: true }]);

@@ -6,14 +6,15 @@ import { ManageMessagingUsageUseCases } from "@/src/modules/messaging/applicatio
 import { loadMessagingUsagePageState } from "@/src/modules/messaging/infrastructure/composition/messaging-usage-page";
 import type { MessagingAuthenticatedAccount, MessagingLeadershipFacts } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { getMessagingUsageCountryChoices } from "@/src/modules/messaging/infrastructure/composition/messaging-usage-country-choices";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Current identity and usage absence remain feature-owned ports; their authority checks and public schemas are real. */
-function fixture() {
+function fixture(platformRequirement: PlatformSecurityRequirement | null = null) {
   const now = new Date("2026-10-07T12:00:00Z"), tribeId = randomUUID(), userId = randomUUID();
   const account: MessagingAuthenticatedAccount = { userId, session: { id: randomUUID(), expiresAt: new Date("2026-10-08T12:00:00Z") }, googleAccount: null};
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<MessagingAuthenticatedAccount | null> => account) }, facts: MessagingLeadershipFacts = { tribeId, leaderUserId: userId, membership: { userId, role: "leader", status: "active" } };
-  const read = vi.fn(async () => ({ state: "not_configured" as const, policy: null }));
-  const usage = new ManageMessagingUsageUseCases({ getAuthenticatedAccount: async () => account }, { getCurrentLeadership: async () => facts }, { read, initialize: async () => { throw new Error("SSR must not initialize usage"); }, update: async () => { throw new Error("SSR must not update usage"); } }, () => now);
+  const read = vi.fn(async () => ({ usage: { state: "not_configured" as const, policy: null }, platformRequirement }));
+  const usage = new ManageMessagingUsageUseCases({ getAuthenticatedAccount: async () => account }, { getCurrentLeadership: async () => facts }, { read: async () => { throw new Error("The page reads through readPage"); }, readPage: read, initialize: async () => { throw new Error("SSR must not initialize usage"); }, update: async () => { throw new Error("SSR must not update usage"); } }, () => now);
   const resolveTribe = { execute: async () => ({ ok: true as const, value: { tribeId } }) };
   const page = new GetMessagingUsagePageUseCase(accounts, { usage, resolveTribe }, () => now, getMessagingUsageCountryChoices());
   return { account, accounts, facts, read, page, tribeId, input: { params: { slug: "synthetic-academy" }, query: {} } };
@@ -22,9 +23,14 @@ function fixture() {
 describe("early usage SSR page", () => {
   it("should expose true absence and standard Spanish country choices without a session, key, capability claim or write", async () => {
     const data = fixture(), state = await loadMessagingUsagePageState(data.input, async () => data.page);
-    expect(state).toMatchObject({ kind: "ready", slug: "synthetic-academy", tribeId: data.tribeId, viewerId: data.account.userId, usage: { state: "not_configured", policy: null } });
+    expect(state).toMatchObject({ kind: "ready", slug: "synthetic-academy", tribeId: data.tribeId, viewerId: data.account.userId, usage: { state: "not_configured", policy: null }, platformRequirement: null });
     if (state.kind === "ready") expect(state.countryChoices).toContainEqual({ value: "AR", label: "Argentina" });
     expect(state).not.toHaveProperty("session"); expect(state).not.toHaveProperty("googleAccount"); expect(state).not.toHaveProperty("providerCapabilities");
+    expect(data.read).toHaveBeenCalledOnce();
+  });
+  it("should expose, from the same read, what only the TuTribu team can resolve before a save can be protected", async () => {
+    const data = fixture("recovery_locked"), state = await loadMessagingUsagePageState(data.input, async () => data.page);
+    expect(state).toMatchObject({ kind: "ready", usage: { state: "not_configured", policy: null }, platformRequirement: "recovery_locked" });
     expect(data.read).toHaveBeenCalledOnce();
   });
   it("should deny a guardian and contain a session change after read without private partial props", async () => {

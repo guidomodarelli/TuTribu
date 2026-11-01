@@ -1,9 +1,11 @@
 /** Adapts leader-owned list reads and explicit commands through the existing guarded HTTP boundary. @module allowlist-handlers */
 import "server-only";
 import type { ManageAllowlistUseCases } from "../../application/use-cases/manage-allowlist-use-cases";
+import type { GetAdmissionPolicyUseCase } from "../../application/use-cases/get-admission-policy-use-case";
 import { admissionFailure } from "../../application/results/admission-errors";
 import type { AdmissionTribeRouting } from "../../application/use-cases/admission-tribe-scope";
-import { allowlistPageSchema } from "../../application/results/allowlist-query-schemas";
+import { allowlistListReadSchema } from "../../application/results/allowlist-query-schemas";
+import { readAdmissionPlatformRequirement } from "../../application/results/admission-platform-requirement";
 import { allowlistEntrySchema } from "../../application/results/admission-public-result-schemas";
 import { allowlistMutationResultSchema } from "../../application/results/allowlist-mutation-schemas";
 import { createAdmissionOperationStateSchema } from "../../application/results/admission-flow-result-schemas";
@@ -16,8 +18,8 @@ import { type AdmissionRouteBoundary, readAdmissionQueryInTribeScope, readAdmiss
 import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
 import { admissionTribeParamsSchema, admissionAllowlistParamsSchema, admissionAllowlistQuerySchema, admissionEmptyQuerySchema, allowlistEntryCreateSchema, allowlistEntryUpdateSchema } from "./admission-request-schemas";
 
-/** Native composition exposes use cases only, without caller identity or storage implementations. */
-export type AllowlistServices = { resolveTribe: AdmissionTribeRouting; allowlist: Pick<ManageAllowlistUseCases, "list" | "read" | "create" | "update"> };
+/** Native composition exposes use cases only, without caller identity or storage implementations; the rules read names the platform requirement of list writes. */
+export type AllowlistServices = { resolveTribe: AdmissionTribeRouting; allowlist: Pick<ManageAllowlistUseCases, "list" | "read" | "create" | "update">; policy: Pick<GetAdmissionPolicyUseCase, "execute"> };
 type RouteContext = { params: Promise<{ slug: string; entryId?: string }> };
 
 /** Fixed diagnostic operation of each list action. */
@@ -48,11 +50,14 @@ export function createAllowlistHandlers(open: () => Promise<AllowlistServices>) 
     } catch (error) { return boundary.unexpected(error); }
   }
 
-  /** @param target - Validated route target. @returns Current leader page without write. */
+  /** @param target - Validated route target. @returns Current leader page and the platform requirement of its writes, read like the server page, without write. */
   async function list({ boundary, slug, queryInput }: AllowlistTarget): Promise<Response> {
     const opened = await readAdmissionQueryInTribeScope(boundary, { schema: admissionAllowlistQuerySchema, input: queryInput }, open, slug);
     if ("response" in opened) return opened.response;
-    return respondWithAdmissionResult(boundary, allowlistPageSchema, await opened.services.allowlist.list({ ...opened.scope, ...opened.query }));
+    const policy = await opened.services.policy.execute(opened.scope);
+    if (!policy.ok) return boundary.failure(policy.failure);
+    const page = await opened.services.allowlist.list({ ...opened.scope, ...opened.query });
+    return respondWithAdmissionResult(boundary, allowlistListReadSchema, page.ok ? { ok: true, value: { ...page.value, platformRequirement: readAdmissionPlatformRequirement(policy.value) } } : page);
   }
 
   /** @param target - Validated route target. @returns Current metadata of the exact entry. */

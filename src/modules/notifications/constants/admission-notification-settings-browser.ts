@@ -1,6 +1,7 @@
 /** Owns settings workflow vocabulary and safe Spanish feedback without encoding provider messages. @module admission-notification-settings-browser-constants */
 import type { AdmissionNotificationEmailSettingsRejectionReason } from "../domain/entities/admission-notification-email-settings";
 import { ADMISSION_EMAIL_SETTINGS_REJECTION } from "./admission-notification-email-settings";
+import { ADMISSION_ERROR_CODE, type AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 /** Distinguishes cancellable reads, explicit writes and uncertainty requiring original recovery. */
 export const ADMISSION_NOTIFICATION_SETTINGS_PHASE = { checking: "checking", reading: "reading", writing: "writing", idle: "idle", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
@@ -14,6 +15,12 @@ export const ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP = { email: "email", prefe
 export type AdmissionNotificationSettingsEmailPlan = "unchanged" | "save" | "retry" | "blocked";
 /** Names each email outcome of the review step. */
 export const ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN = { unchanged: "unchanged", save: "save", retry: "retry", blocked: "blocked" } as const satisfies Record<string, AdmissionNotificationSettingsEmailPlan>;
+
+/**
+ * Definite write rejections whose meaning depends on current state: a lost access, or a platform requirement that only the TuTribu
+ * team resolves. Nothing was applied, so a fresh read decides what stays visible instead of hiding the whole section.
+ */
+export const ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ: readonly AdmissionErrorCode[] = [ADMISSION_ERROR_CODE.permissionDenied, ADMISSION_ERROR_CODE.resourceUnavailable, ADMISSION_ERROR_CODE.platformSecurityUnavailable];
 
 /** Stable keys of the leader's guided steps. */
 export type AdmissionNotificationSettingsGuidedStep = "tribe-email" | "frequency" | "review";
@@ -39,6 +46,9 @@ export const ADMISSION_NOTIFICATION_SETTINGS_COPY = {
   saved: "Tus avisos quedaron guardados.",
   preferencePending: "Tu preferencia todavía no se guardó.",
   emailSavedPreferencePending: "El correo de la tribu quedó guardado. Falta guardar tu preferencia.",
+  preferenceSavedEmailFailed: "Tu preferencia quedó guardada. El correo de la tribu no se guardó.",
+  emailNotSaved: "El correo de la tribu no se guardó.",
+  platformConsequence: "Mientras tanto no se puede cambiar el correo de la tribu. Tu frecuencia de avisos se puede seguir guardando.",
   staleRead: "Consultá el estado actual antes de guardar otro cambio.",
   noChanges: "No hay cambios para guardar.",
   confirmRequired: "Marcá la confirmación para guardar.",

@@ -30,6 +30,7 @@ import { useReplacedActionFocus } from "@/hooks/use-replaced-action-focus";
 import { useAdmissionReviewBatchSelection } from "@/hooks/use-admission-review-batch-selection";
 import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
 import type { AdmissionNotificationRefreshOutcome } from "@/src/modules/notifications/application/results/notification-refresh-state";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { applyReviewTransitions, batchAvailabilityFor, closeReviewSelection, hideReviewPrivate, isBatchDecisionValid, publishReviewItems, readReviewCurrent, refreshVisibleReviewWindow, sendReviewIntent, startReviewLifecycle, startReviewRead, type ReviewControls, type ReviewPhase, type ReviewReader, type ReviewReady, type ReviewSession } from "./admission-review-workflow";
 
 /** Public props contain the server snapshot and an optional own transport port for behavioral tests. */
@@ -48,14 +49,17 @@ function useReviewState(ready: ReviewReady | null) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [batchManifest, setBatchManifest] = useState<AdmissionBatchReviewSelection[]>([]), [batchPending, setBatchPending] = useState(false);
   const [batchResult, setBatchResult] = useState<AdmissionBatchResultDto | null>(null);
+  const [platformRequirement, setPlatformRequirementState] = useState<PlatformSecurityRequirement | null>(ready?.page.platformRequirement ?? null);
+  const currentPlatformRequirement = useRef<PlatformSecurityRequirement | null>(ready?.page.platformRequirement ?? null);
   const pending = useRef<AdmissionStoredReviewIntent | null>(null), currentSelected = useRef(selected), loaded = useRef(false), busy = useRef(false);
   const currentItems = useRef<AdmissionReviewDto[]>(ready?.page.items ?? []);
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
   const consumedSnapshotAt = useRef<string | null>(null);
   const visibleReadRevision = useRef(0), loadedPageCount = useRef(1);
   /** Setters and refs never change identity, so one stable bundle serves every read and write. */
-  const controls = useMemo<ReviewControls>(() => ({ setItems, setCursor, setSelected, setPhase, setWritingAction, setFresh, setConfirmed, setCanRetry, setPrivateVisible, setInternalReason, setExternalMessage, setStatusMessage, setBatchManifest, setBatchPending, setBatchResult, pending, currentSelected, loaded, busy, currentItems, readController, writeController, consumedSnapshotAt, visibleReadRevision, loadedPageCount }), []);
-  return { items, cursor, selected, phase, writingAction, fresh, confirmed, canRetry, privateVisible, internalReason, externalMessage, statusMessage, batchManifest, batchPending, batchResult, controls };
+  const controls = useMemo<ReviewControls>(() => ({ setItems, setCursor, setSelected, setPhase, setWritingAction, setFresh, setConfirmed, setCanRetry, setPrivateVisible, setInternalReason, setExternalMessage, setStatusMessage, setBatchManifest, setBatchPending, setBatchResult,
+    setPlatformRequirement: (value: PlatformSecurityRequirement | null) => { currentPlatformRequirement.current = value; setPlatformRequirementState(value); }, platformRequirement: currentPlatformRequirement, pending, currentSelected, loaded, busy, currentItems, readController, writeController, consumedSnapshotAt, visibleReadRevision, loadedPageCount }), []);
+  return { items, cursor, selected, phase, writingAction, fresh, confirmed, canRetry, privateVisible, internalReason, externalMessage, statusMessage, batchManifest, batchPending, batchResult, platformRequirement, controls };
 }
 
 /** Inputs of the shared read and write callbacks. */
@@ -111,8 +115,8 @@ function reviewRouteError(initialState: AdmissionReviewPageState, view: ReviewVi
 
 /** @param view - Inbox state. @param slug - Route scope. @param filters - Current inbox filters. @returns The private presenter facts, hidden while the private view is withheld. */
 function visibleReviewProps(view: ReviewView, slug: string, filters: AdmissionReviewSelection) {
-  if (!view.privateVisible) return { items: [], selected: null, hasMore: false, statusMessage: ADMISSION_REVIEW_UI_COPY.reading, historyHref: undefined };
-  return { items: view.items, selected: view.selected, hasMore: view.cursor !== null, statusMessage: view.statusMessage, historyHref: view.selected ? buildAdmissionReviewHistoryRoute(slug, view.selected.id, filters) : undefined };
+  if (!view.privateVisible) return { items: [], selected: null, hasMore: false, statusMessage: ADMISSION_REVIEW_UI_COPY.reading, historyHref: undefined, platformRequirement: null };
+  return { items: view.items, selected: view.selected, hasMore: view.cursor !== null, statusMessage: view.statusMessage, historyHref: view.selected ? buildAdmissionReviewHistoryRoute(slug, view.selected.id, filters) : undefined, platformRequirement: view.platformRequirement };
 }
 
 /** Everything the reviewer interactions read; it grants no authority. */

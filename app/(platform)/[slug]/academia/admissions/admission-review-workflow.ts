@@ -21,6 +21,7 @@ import { invalidateAdmissionNotificationRefresh } from "@/lib/notifications/admi
 import { readVisibleAdmissionReviewSnapshot } from "@/lib/academy-admissions/admission-review-refresh-client";
 import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
 import type { useAdmissionReviewBatchSelection } from "@/hooks/use-admission-review-batch-selection";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Browser phase of the reviewer inbox. */
 export type ReviewPhase = "idle" | "reading" | "writing" | "uncertain" | "changed_viewer";
@@ -39,6 +40,8 @@ export type ReviewControls = {
   setFresh: (value: boolean) => void; setConfirmed: (value: boolean) => void; setCanRetry: (value: boolean) => void; setPrivateVisible: (value: boolean) => void;
   setInternalReason: (value: string) => void; setExternalMessage: (value: string) => void; setStatusMessage: (value: string | null) => void;
   setBatchManifest: (value: AdmissionBatchReviewSelection[]) => void; setBatchPending: (value: boolean) => void; setBatchResult: (value: AdmissionBatchResultDto | null) => void;
+  /** Publishes the platform requirement of the latest inbox read; its ref is what recovery reads. */
+  setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void; platformRequirement: RefObject<PlatformSecurityRequirement | null>;
   pending: RefObject<AdmissionStoredReviewIntent | null>; currentSelected: RefObject<AdmissionReviewDto | null>; loaded: RefObject<boolean>; busy: RefObject<boolean>;
   currentItems: RefObject<AdmissionReviewDto[]>; readController: RefObject<AbortController | null>; writeController: RefObject<AbortController | null>;
   consumedSnapshotAt: RefObject<string | null>; visibleReadRevision: RefObject<number>; loadedPageCount: RefObject<number>;
@@ -112,6 +115,19 @@ function recoverDecisionOriginal(session: ReviewSession, original: DecisionInten
   return true;
 }
 
+/**
+ * An absent original never registered. While the platform cannot protect a decision every resend would be rejected the same way, so
+ * the original is released instead of offered again, and the reviewer reads why; nothing was recorded.
+ * @param session - Current route session.
+ * @param original - Stored original the registry does not have.
+ * @returns Nothing after forgetting it.
+ */
+function releaseUnprotectedOriginal(session: ReviewSession, original: AdmissionStoredReviewIntent): void {
+  forgetReviewIntent(session);
+  if (isAdmissionBatchReviewIntent(original)) { session.controls.setBatchPending(false); session.controls.setBatchManifest([]); }
+  session.setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.platformSecurityUnavailable]);
+}
+
 /** @param session - Current route session. @param original - Stored original. @param signal - Current read. @returns Whether the read may continue to the inbox window. */
 async function recoverReviewOriginal(session: ReviewSession, original: AdmissionStoredReviewIntent, signal: AbortSignal): Promise<boolean> {
   const { ready, client, controls } = session;
@@ -120,7 +136,11 @@ async function recoverReviewOriginal(session: ReviewSession, original: Admission
   if (signal.aborted || recovery.status === "aborted") return false;
   if (!await session.checkViewer(signal)) return false;
   if (recovery.status === "ready") return isAdmissionBatchReviewIntent(original) ? recoverBatchOriginal(session, original, recovery.value) : recoverDecisionOriginal(session, original, recovery.value);
-  if (recovery.code === ADMISSION_ERROR_CODE.resourceUnavailable) { controls.setCanRetry(true); return true; }
+  if (recovery.code === ADMISSION_ERROR_CODE.resourceUnavailable) {
+    if (controls.platformRequirement.current) releaseUnprotectedOriginal(session, original);
+    else controls.setCanRetry(true);
+    return true;
+  }
   session.handleResourceFailure(recovery);
   return false;
 }
@@ -145,7 +165,7 @@ async function readReviewWindow(session: ReviewSession, signal: AbortSignal, { s
   const existing = new Set(controls.currentItems.current.map((item) => item.id));
   session.publishItems(append ? [...controls.currentItems.current, ...page.value.items.filter((item) => !existing.has(item.id))] : page.value.items);
   controls.loadedPageCount.current = append ? controls.loadedPageCount.current + 1 : 1;
-  controls.setCursor(page.value.nextCursor);
+  controls.setCursor(page.value.nextCursor); controls.setPlatformRequirement(page.value.platformRequirement);
   const selectedValue = detail?.status === "ready" ? detail.value : null;
   controls.setSelected(selectedValue); controls.currentSelected.current = selectedValue; controls.setPrivateVisible(true); controls.setFresh(true); session.clearReadError();
   return true;
@@ -197,7 +217,7 @@ export async function refreshVisibleReviewWindow(session: ReviewSession, signal:
     if (!await session.checkViewer(signal, true)) return quietViewerFailure(controls, signal);
     if (!current()) return NOTIFICATION_REFRESH_OUTCOME.skipped;
     session.publishItems(snapshot.value.items);
-    controls.setCursor(snapshot.value.nextCursor);
+    controls.setCursor(snapshot.value.nextCursor); controls.setPlatformRequirement(snapshot.value.platformRequirement);
     if (JSON.stringify(controls.currentSelected.current) !== JSON.stringify(snapshot.value.selected)) { controls.setSelected(snapshot.value.selected); controls.currentSelected.current = snapshot.value.selected; controls.setConfirmed(false); }
     controls.setFresh(true); session.clearReadError();
     return NOTIFICATION_REFRESH_OUTCOME.refreshed;

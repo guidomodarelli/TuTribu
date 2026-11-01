@@ -24,6 +24,7 @@ import { ADMISSION_ERROR_CODE } from "./constants/admission-errors";
 import type { AdmissionOperationCommand } from "./domain/entities/admission-operation";
 import type { VerificationChallengeScope } from "./domain/entities/contact-verification-challenge";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createAdmissionPlatformSecurityReader } from "./infrastructure/composition/admission-platform-security";
 import { PostgresContactVerificationRepository } from "./infrastructure/repositories/postgres-contact-verification-repository";
 import { PostgresContactVerificationIssuer } from "./infrastructure/repositories/postgres-contact-verification-issuer";
 import { PostgresAdmissionVerificationProofWriter } from "./infrastructure/repositories/postgres-admission-verification-proof-writer";
@@ -242,17 +243,18 @@ function buildInvitationAndVerificationModules({ dependencies, resolveContext, e
 function buildPolicyModules({ dependencies, resolveContext, executeForAccount }: AdmissionModuleContext) {
   return {
   /**
-   * @param options - Explicit informational preparation evaluator, or null when no evaluation is available, and the check of whether the deployment can read the hosting messaging security the policy writes sign with.
+   * @param options - Explicit informational preparation evaluator, or null when no evaluation is available, and the live hosting security the
+   * policy writes sign with; the read attests it inside its own transaction, as the ledger does, to name a platform requirement.
    * @returns Current leader query without a keyring, command writer or implicit initialization dependency.
    */
-  createPolicyQueryModule(options: { composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null; isSecurityConfigured: () => Promise<boolean> }) {
+  createPolicyQueryModule(options: { composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null; readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
     const executePolicy = executeForAccount;
     const usage = (database: RequestDatabase, context: AuthorizedAdmissionContext) => new AdmissionMessagingUsagePolicyReader(new PostgresMessagingUsageRepository(database, async (current, tribeId) => {
       if (tribeId !== context.tribeId) return false;
       await authorizeAdmissionPolicy(current, context);
       return true;
     }));
-    const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation, options.isSecurityConfigured));
+    const policy = new GetAdmissionPolicyUseCase(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), new PostgresAdmissionPolicyViewFactsReader(executePolicy, options.composePreparation, createAdmissionPlatformSecurityReader(options.readSecurityConfig)));
     return { useCases: policy, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionPolicyPageUseCase(dependencies.accounts, { policy, resolveTribe }, dependencies.clock); } };
   },
   /**
@@ -294,9 +296,13 @@ function buildReadModules({ dependencies, resolveContext, executeForAccount }: A
       createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewHistoryPageUseCase(dependencies.accounts, { history, resolveTribe }, dependencies.clock); },
     };
   },
-  /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
-  createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {
-    const review = new GetAdmissionReviewUseCases(resolveContext, new PostgresAdmissionReviewReader(executeForAccount, options.readRecoveryLock));
+  /**
+   * @param options - Live hosting security the decision writers sign with; the read attests it inside the reviewer transaction, as the
+   * ledger does, so the inbox offers no decision the platform cannot protect. No provider credential is loaded.
+   * @returns Current authorized read-only inbox/detail use cases.
+   */
+  createReviewQueryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    const review = new GetAdmissionReviewUseCases(resolveContext, new PostgresAdmissionReviewReader(executeForAccount, createAdmissionPlatformSecurityReader(options.readSecurityConfig)));
     return { useCases: { review,
       /** @param resolveTribe - Public slug resolver composed by the request root. @returns The single server page loader over current reviewer reads. */
       createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewPageUseCase(dependencies.accounts, { review, resolveTribe }, dependencies.clock); },

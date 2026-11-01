@@ -6,14 +6,15 @@ import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** @returns A safe own read failure without exposing a malformed cursor or unexpected resource. */
 function unavailable(): AdmissionBrowserResult<never> { return { status: "failed", code: ADMISSION_ERROR_CODE.resourceUnavailable, message: ADMISSION_REVIEW_UI_COPY.readFailed, uncertain: false }; }
 
 /** Own reconciliation input: existing client, page window and the container-owned cancellation/selection fence. */
 type VisibleSnapshotInput = { readonly client: AdmissionReviewBrowserClient; readonly slug: string; readonly filters: AdmissionReviewSelection; readonly pages: number; readonly selectedId?: string; readonly signal: AbortSignal; readonly isCurrent: () => boolean };
-/** Rows of the loaded pages, keeping the newest version of each request, and the cursor after the last one. */
-type VisiblePages = { rows: Map<string, AdmissionReviewDto>; cursor: string | null };
+/** Rows of the loaded pages, keeping the newest version of each request, the cursor after the last one and the platform requirement the last page read. */
+type VisiblePages = { rows: Map<string, AdmissionReviewDto>; cursor: string | null; platformRequirement: PlatformSecurityRequirement | null };
 
 /** @param rows - Rows read so far. @param items - One page of own rows. @returns Nothing after keeping the newest version of each request. */
 function mergeNewestRows(rows: Map<string, AdmissionReviewDto>, items: readonly AdmissionReviewDto[]): void {
@@ -23,19 +24,19 @@ function mergeNewestRows(rows: Map<string, AdmissionReviewDto>, items: readonly 
 /** @param input - Reconciliation input. @param current - Whether the read is still current. @returns The loaded pages, or the failure/cancellation that stops the read. */
 async function readVisiblePages(input: VisibleSnapshotInput, current: () => boolean): Promise<VisiblePages | AdmissionBrowserResult<never>> {
   const rows = new Map<string, AdmissionReviewDto>(), cursors = new Set<string>();
-  let cursor: string | null = null;
+  let cursor: string | null = null, platformRequirement: PlatformSecurityRequirement | null = null;
   for (let pageIndex = 0; pageIndex < input.pages; pageIndex += 1) {
     if (!current()) return { status: "aborted" };
     const page = await input.client.reviewList(input.slug, cursor, input.signal, input.filters);
     if (!current()) return { status: "aborted" };
     if (page.status !== "ready") return page;
     mergeNewestRows(rows, page.value.items);
-    cursor = page.value.nextCursor;
+    cursor = page.value.nextCursor; platformRequirement = page.value.platformRequirement;
     if (cursor === null) break;
     if (cursors.has(cursor)) return unavailable();
     cursors.add(cursor);
   }
-  return { rows, cursor };
+  return { rows, cursor, platformRequirement };
 }
 
 /** @param input - Reconciliation input with a selected request. @param selectedId - Selected request id. @param current - Whether the read is still current. @returns The selected detail, or the failure/cancellation that stops the read. */
@@ -63,5 +64,5 @@ export async function readVisibleAdmissionReviewSnapshot(input: VisibleSnapshotI
     if ("status" in detail) return detail;
     selected = detail.selected;
   }
-  return { status: "ready", value: { items: Array.from(pages.rows.values()), nextCursor: pages.cursor, selected } };
+  return { status: "ready", value: { items: Array.from(pages.rows.values()), nextCursor: pages.cursor, selected, platformRequirement: pages.platformRequirement } };
 }

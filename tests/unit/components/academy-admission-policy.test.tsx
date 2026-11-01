@@ -133,7 +133,7 @@ describe("guided policy presentation", () => {
 
   it("should explain each missing requirement with the page that resolves it", () => {
     const props = fixture(); props.step = 3;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: [], requirements: ["verification_unavailable", "recipient_countries_not_configured", "phone_channel_required"] };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", platformNote: "Lo que ya elegiste quedó guardado como borrador.", preflightReasons: [], requirements: ["verification_unavailable", "recipient_countries_not_configured", "phone_channel_required"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const block = screen.getByRole("region", { name: "Lo que falta resolver" });
     expect(within(block).getByRole("alert")).toHaveTextContent("Todavía falta un requisito para activar las admisiones.");
@@ -201,7 +201,7 @@ describe("guided policy presentation", () => {
 
   it("should explain platform blocks with a copyable diagnostic code, a recheck and a report fallback, without offering to publish", async () => {
     const props = fixture(); props.step = 3; props.platformBlocked = true;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_marker_inconsistent", "preflight_runtime_unavailable"], requirements: ["admission_recovery_locked"] };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", platformNote: "Lo que ya elegiste quedó guardado como borrador.", preflightReasons: ["preflight_marker_inconsistent", "preflight_runtime_unavailable"], requirements: ["admission_recovery_locked"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const platform = screen.getByRole("group", { name: "Depende del equipo de TuTribu" });
     expect(platform).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Lo que ya elegiste quedó guardado como borrador.");
@@ -221,7 +221,7 @@ describe("guided policy presentation", () => {
 
   it("should send closed academy admissions to «Gestionar academia» as a leader action, not as a TuTribu team block", () => {
     const props = fixture(); props.step = 3;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_evaluator_disabled"], requirements: ["admission_evaluator_unavailable"] };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", platformNote: "Lo que ya elegiste quedó guardado como borrador.", preflightReasons: ["preflight_evaluator_disabled"], requirements: ["admission_evaluator_unavailable"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const block = screen.getByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.");
@@ -232,7 +232,7 @@ describe("guided policy presentation", () => {
 
   it("should send academy and scope blocks to the place that resolves them", () => {
     const props = fixture(); props.step = 3;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_academy_unavailable", "preflight_scope_mismatch"], requirements: ["admission_clock_invalid"] };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", platformNote: "Lo que ya elegiste quedó guardado como borrador.", preflightReasons: ["preflight_academy_unavailable", "preflight_scope_mismatch"], requirements: ["admission_clock_invalid"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const block = screen.getByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Primero hay que activar el modo academia en esta tribu.");
@@ -241,6 +241,30 @@ describe("guided policy presentation", () => {
     fireEvent.click(within(block).getByRole("button", { name: "Volver a comprobar" }));
     expect(props.onRecheck).toHaveBeenCalledOnce();
     expect(within(block).queryByRole("group", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
+  });
+
+  it("should warn above the steps and close the final action while the platform cannot protect a first save", () => {
+    const props = fixture(); props.step = 3; props.confirmed = true; props.writesBlocked = true;
+    props.state = { ...props.state, state: "not_configured", policy: null, preparation: { state: "not_evaluated", requirements: ["admission_security_unconfigured", "policy_unavailable"] } };
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    const summary = screen.getByRole("region", { name: "Estado actual" });
+    expect(summary).toHaveTextContent("Todavía no hay reglas de admisión y por ahora no se pueden guardar: depende del equipo de TuTribu. Podés recorrer los pasos, pero lo que elijas no se guarda.");
+    expect(summary).not.toHaveTextContent("al final guardamos las reglas y activamos las admisiones en una sola acción");
+    expect(screen.getByRole("button", { name: "Guardar y activar admisiones" })).toBeDisabled();
+    expect(screen.getByText("Por ahora no se pueden guardar las reglas: depende del equipo de TuTribu.")).toBeInTheDocument();
+  });
+
+  it("should keep open admissions as they are and offer no pause or edit while the platform cannot protect them", () => {
+    const props = { ...activated(fixture(), true), writesBlocked: true };
+    props.activationBlock = { message: "Todavía falta un requisito para pausar las admisiones.", note: "Las admisiones siguen abiertas.", platformNote: "Las admisiones siguen abiertas: se siguen recibiendo solicitudes.", preflightReasons: [], requirements: ["admission_security_unconfigured"] };
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Las admisiones siguen abiertas, pero por ahora no se pueden pausar ni cambiar sus reglas: depende del equipo de TuTribu.");
+    expect(screen.getByRole("button", { name: "Pausar admisiones" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Editar reglas" })).toBeDisabled();
+    const platform = screen.getByRole("group", { name: "Depende del equipo de TuTribu" });
+    expect(platform).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Las admisiones siguen abiertas: se siguen recibiendo solicitudes.");
+    expect(platform).not.toHaveTextContent("borrador");
+    expect(within(platform).getByRole("button", { name: "Volver a comprobar" })).toBeEnabled();
   });
 
   it("should announce in the final step how many memberships blocked by payment the activation converts", () => {

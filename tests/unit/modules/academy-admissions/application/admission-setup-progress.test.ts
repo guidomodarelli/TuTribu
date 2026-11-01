@@ -100,6 +100,17 @@ describe("deriveAdmissionSetupProgress", () => {
     expect(steps.notifications).toEqual({ id: "notifications", status: "optional", emailOmitted: true });
   });
 
+  it("replaces every step action with one platform notice while the platform security is missing or locked", () => {
+    const facts: AdmissionSetupFacts = { ...empty, activation: { platformBlocked: true, admissionsClosed: true }, platformSecurity: "security_unconfigured" };
+    const progress = deriveAdmissionSetupProgress(facts);
+
+    expect(progress.platformSecurity).toEqual({ requirement: "security_unconfigured", rulesSaved: false });
+    expect(progress.steps.find((step) => step.id === "open")).toEqual({ id: "open", status: "pending" });
+    expect(progress).toMatchObject({ next: "rules", completed: 0, required: 2 });
+    expect(deriveAdmissionSetupProgress({ ...facts, policy: { ...empty.policy, exists: true }, platformSecurity: "recovery_locked" }).platformSecurity).toEqual({ requirement: "recovery_locked", rulesSaved: true });
+    expect(deriveAdmissionSetupProgress(empty).platformSecurity).toBeNull();
+  });
+
   it("keeps a clean usage step at twenty notices or when no admission email is sent", () => {
     const facts: AdmissionSetupFacts = {
       policy: { exists: true, open: true, paused: false, sendsCodes: false, verifiesPhone: false },

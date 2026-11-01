@@ -8,6 +8,7 @@ import type { AllowlistPageState, AllowlistBrowserQuery } from "@/src/modules/ac
 import type { AllowlistBrowserClient, AllowlistBrowserResult  } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistDraft, AllowlistBrowserIntent } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { allowlistApiClient } from "@/lib/academy-admissions/allowlist-api-client";
 import { readAllowlistWorkflow, writeAllowlistWorkflow } from "@/lib/academy-admissions/allowlist-intent";
 import { ALLOWLIST_BROWSER_PHASE as PHASE, ALLOWLIST_BROWSER_COPY as COPY, ALLOWLIST_BROWSER_TIMEOUT_MS, ALLOWLIST_ENTRY_STEP } from "@/src/modules/academy-admissions/constants/allowlist-browser";
@@ -19,7 +20,7 @@ import { allowlistMutationDenialSchema  } from "@/src/modules/academy-admissions
 import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
-import { buildAllowlistIntent, closeAllowlistScope, mergeAllowlistEntryIntoPage, readOriginalFailureMessage, readUsableMutationResult, requireReadyAllowlist, settleAllowlistRun, type AllowlistPhase } from "@/hooks/use-allowlist-workflow-support";
+import { buildAllowlistIntent, closeAllowlistScope, isAbsentOriginal, mergeAllowlistEntryIntoPage, readOriginalFailureMessage, readUsableMutationResult, requireReadyAllowlist, settleAllowlistRun, type AllowlistPhase } from "@/hooks/use-allowlist-workflow-support";
 
 type AllowlistWorkflowOptions = { initialState: AllowlistPageState; client?: AllowlistBrowserClient };
 type FailedAllowlistResult = Extract<AllowlistBrowserResult<unknown>, { status: "failed" }>;
@@ -42,9 +43,13 @@ function useAllowlistState(options: AllowlistWorkflowOptions) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [conflict, setConflict] = useState(false), [step, setStep] = useState<number>(ALLOWLIST_ENTRY_STEP.contact);
   /** «Ver más» keeps the entries already shown, so its progress and its failure belong next to its button. */
   const [loadingMore, setLoadingMore] = useState(false), [moreError, setMoreError] = useState<string | null>(null);
+  /** The last consult of the pending original proved it absent: only then may the leader discard it. */
+  const [originalAbsent, setOriginalAbsent] = useState(false);
+  /** Starts from the server snapshot and follows every list read, so a resolved platform problem re-enables writes in the same session. */
+  const [platformRequirement, setPlatformRequirement] = useState<PlatformSecurityRequirement | null>(initial?.platformRequirement ?? null);
   const currentDraftRef = useRef(draft), currentPendingRef = useRef<AllowlistBrowserIntent | null>(null), controllerRef = useRef<AbortController | null>(null), activeRef = useRef(false), generationRef = useRef(0), busyRef = useRef(false), writeToastRef = useRef<WriteToast | null>(null);
   const live = useCallback((signal: AbortSignal, scope: number) => activeRef.current && generationRef.current === scope && !signal.aborted, []);
-  return { initial, client, page, setPage, query, setQuery, search, setSearch, status, setStatus, draft, setDraft, confirmed, setConfirmed, ready, setReady, privateVisible, setPrivateVisible, phase, setPhase, pending, setPending, errorMessage, setErrorMessage, fieldError, setFieldError, conflict, setConflict, step, setStep, loadingMore, setLoadingMore, moreError, setMoreError, currentDraftRef, currentPendingRef, controllerRef, activeRef, generationRef, busyRef, writeToastRef, live };
+  return { initial, client, page, setPage, query, setQuery, search, setSearch, status, setStatus, draft, setDraft, confirmed, setConfirmed, ready, setReady, privateVisible, setPrivateVisible, phase, setPhase, pending, setPending, errorMessage, setErrorMessage, fieldError, setFieldError, conflict, setConflict, step, setStep, loadingMore, setLoadingMore, moreError, setMoreError, originalAbsent, setOriginalAbsent, platformRequirement, setPlatformRequirement, currentDraftRef, currentPendingRef, controllerRef, activeRef, generationRef, busyRef, writeToastRef, live };
 }
 type AllowlistState = ReturnType<typeof useAllowlistState>;
 
@@ -76,7 +81,7 @@ type AllowlistCore = ReturnType<typeof useAllowlistCore>;
 
 /** @param state - Workflow state. @param core - Shared steps. @returns The reconciliation of a terminal original through current own metadata, without another POST or route refresh. */
 function useAllowlistConsume(state: AllowlistState, core: AllowlistCore) {
-  const { initial, client, query, page, live, currentDraftRef, writeToastRef, setErrorMessage, setPhase, setConfirmed, setConflict, setStep, setPage } = state;
+  const { initial, client, query, page, live, currentDraftRef, writeToastRef, setErrorMessage, setPhase, setConfirmed, setConflict, setStep, setPage, setPlatformRequirement } = state;
   const { reportFailure, persist, authorize, mergeEntry } = core;
   /** @param intent - Denied original. @param code - Recorded denial. Clears the original and shows the denial where it belongs. */
   const consumeDenial = useCallback((intent: AllowlistBrowserIntent, code: keyof typeof ADMISSION_ERROR_MESSAGE) => {
@@ -91,9 +96,10 @@ function useAllowlistConsume(state: AllowlistState, core: AllowlistCore) {
     const refreshed = await client.list(requireReadyAllowlist(initial).slug, query, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return false;
     if (refreshed.status !== "ready") { if (refreshed.status === "failed" && reportFailure(refreshed)) return false; setPhase(PHASE.uncertain); return false; }
-    setPage(refreshed.value);
+    const { platformRequirement, ...firstPage } = refreshed.value;
+    setPage(firstPage); setPlatformRequirement(platformRequirement);
     return true;
-  }, [authorize, client, initial, live, query, reportFailure, setPage, setPhase]);
+  }, [authorize, client, initial, live, query, reportFailure, setPage, setPhase, setPlatformRequirement]);
   /** @param entryId - Written entry. @param signal - Action scope. @param scope - Render generation. @returns Whether the list now shows the written entry's current metadata. */
   const showWrittenEntry = useCallback(async (entryId: string, signal: AbortSignal, scope: number) => {
     const current = await client.read(requireReadyAllowlist(initial).slug, entryId, signal);
@@ -121,7 +127,7 @@ function useAllowlistConsume(state: AllowlistState, core: AllowlistCore) {
 
 /** @param state - Workflow state. @param core - Shared steps. @param consume - Original reconciliation. @returns The cancellable action slot and the read of the original. */
 function useAllowlistRunner(state: AllowlistState, core: AllowlistCore, consume: (input: ConsumeInput) => Promise<void>) {
-  const { initial, client, live, busyRef, controllerRef, generationRef, activeRef, writeToastRef, currentPendingRef, setErrorMessage, setFieldError, setPhase } = state;
+  const { initial, client, live, busyRef, controllerRef, generationRef, activeRef, writeToastRef, currentPendingRef, setErrorMessage, setFieldError, setPhase, setOriginalAbsent } = state;
   const { authorize, reportFailure } = core;
   /**
    * Each interactive read owns one cancellable slot and cannot replace an unfinished mutation.
@@ -146,11 +152,12 @@ function useAllowlistRunner(state: AllowlistState, core: AllowlistCore, consume:
   const readOriginal = useCallback(() => run(async (signal, scope) => {
     const intent = currentPendingRef.current;
     if (!intent) return;
+    setOriginalAbsent(false);
     const original = await client.operation(requireReadyAllowlist(initial).slug, intent.input.operationId, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
     if (original.status === "ready" && original.value.type === intent.type) await consume({ intent, value: original.value, signal, scope, confirmation: COPY.recovered });
-    else { if (original.status === "failed" && reportFailure(original)) return; setErrorMessage(readOriginalFailureMessage(original)); setPhase(PHASE.uncertain); }
-  }), [authorize, client, consume, currentPendingRef, initial, live, reportFailure, run, setErrorMessage, setPhase]);
+    else { if (original.status === "failed" && reportFailure(original)) return; setErrorMessage(readOriginalFailureMessage(original)); setOriginalAbsent(isAbsentOriginal(original)); setPhase(PHASE.uncertain); }
+  }), [authorize, client, consume, currentPendingRef, initial, live, reportFailure, run, setErrorMessage, setOriginalAbsent, setPhase]);
   return { run, readOriginal };
 }
 
@@ -176,15 +183,15 @@ function useAllowlistHydration(state: AllowlistState, core: AllowlistCore) {
 
 /** @param state - Workflow state. @param core - Shared steps. @param run - Cancellable action slot. @returns Filtered reads and the next page. */
 function useAllowlistListActions(state: AllowlistState, core: AllowlistCore, run: AllowlistRun) {
-  const { initial, client, page, query, live, busyRef, currentPendingRef, setPage, setQuery, setPrivateVisible, setMoreError, setLoadingMore } = state;
+  const { initial, client, page, query, live, busyRef, currentPendingRef, setPage, setQuery, setPrivateVisible, setMoreError, setLoadingMore, setPlatformRequirement } = state;
   const { authorize, reportFailure } = core;
   const readList = useCallback((nextQuery: AllowlistBrowserQuery) => run(async (signal, scope) => {
     if (currentPendingRef.current) return;
     const result = await client.list(requireReadyAllowlist(initial).slug, nextQuery, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
-    if (result.status === "ready") { setPage(result.value); setQuery(nextQuery); setPrivateVisible(true); setMoreError(null); }
+    if (result.status === "ready") { const { platformRequirement, ...nextPage } = result.value; setPage(nextPage); setPlatformRequirement(platformRequirement); setQuery(nextQuery); setPrivateVisible(true); setMoreError(null); }
     else if (result.status === "failed") reportFailure(result);
-  }), [authorize, client, currentPendingRef, initial, live, reportFailure, run, setMoreError, setPage, setPrivateVisible, setQuery]);
+  }), [authorize, client, currentPendingRef, initial, live, reportFailure, run, setMoreError, setPage, setPlatformRequirement, setPrivateVisible, setQuery]);
   /** Adds the next page below the shown entries without repeating any of them; only a lost authority hides the list. */
   const loadMore = useCallback(async () => {
     const cursor = page.nextCursor;
@@ -195,27 +202,29 @@ function useAllowlistListActions(state: AllowlistState, core: AllowlistCore, run
       await run(async (signal, scope) => {
         const result = await client.list(initial.slug, nextQuery, signal);
         if (!live(signal, scope) || !await authorize(signal, scope)) return;
-        if (result.status === "ready") { setPage((shown) => ({ items: appendAdmissionListPage(shown.items, result.value.items), nextCursor: result.value.nextCursor })); setQuery(nextQuery); }
+        if (result.status === "ready") { setPage((shown) => ({ items: appendAdmissionListPage(shown.items, result.value.items), nextCursor: result.value.nextCursor })); setPlatformRequirement(result.value.platformRequirement); setQuery(nextQuery); }
         else if (result.status === "failed") { if (isAdmissionAccessLoss(result.code)) reportFailure(result); else setMoreError(result.message); }
       }, false, setMoreError);
     } finally { setLoadingMore(false); }
-  }, [authorize, busyRef, client, currentPendingRef, initial, live, page.nextCursor, query, reportFailure, run, setLoadingMore, setMoreError, setPage, setQuery]);
+  }, [authorize, busyRef, client, currentPendingRef, initial, live, page.nextCursor, query, reportFailure, run, setLoadingMore, setMoreError, setPage, setPlatformRequirement, setQuery]);
   return { readList, loadMore };
 }
 
 /** @param state - Workflow state. @param core - Shared steps. @param writes - Action slot and original reconciliation. @returns The confirmed save and the read of the current entry. */
 function useAllowlistSaveActions(state: AllowlistState, core: AllowlistCore, writes: { run: AllowlistRun; consume: (input: ConsumeInput) => Promise<void> }) {
-  const { initial, client, ready, confirmed, conflict, live, busyRef, currentDraftRef, currentPendingRef, writeToastRef, setFieldError, setErrorMessage, setPhase, setConfirmed, setConflict } = state;
+  const { initial, client, ready, confirmed, conflict, platformRequirement, live, busyRef, currentDraftRef, currentPendingRef, writeToastRef, setFieldError, setErrorMessage, setPhase, setConfirmed, setConflict } = state;
   const { authorize, persist, reportFailure, mergeEntry } = core;
   const { run, consume } = writes;
-  /** A conflict or duplicate keeps the form blocked, so it stays next to the form; any other failure is the write's toast. */
+  /** A conflict, a duplicate or a platform block keeps the form blocked, so it stays next to the form; any other failure is the write's toast. */
   const rejectSave = useCallback((proposal: AllowlistDraft, intent: AllowlistBrowserIntent, result: FailedAllowlistResult) => {
     if (!persist(proposal, null)) return; setConfirmed(false); if (reportFailure(result)) return;
     if (result.code === ADMISSION_ERROR_CODE.allowlistConflict) { const staleEdit = intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(staleEdit ? COPY.conflict : COPY.duplicate); setConflict(staleEdit); }
+    // Nothing was registered and only the TuTribu team can lift the block, so its copy stays next to the form instead of a passing toast.
+    else if (result.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable) setErrorMessage(result.message);
     else { setErrorMessage(null); writeToastRef.current?.announce({ kind: "error", message: result.message }); }
   }, [persist, reportFailure, setConfirmed, setConflict, setErrorMessage, writeToastRef]);
   const save = useCallback(async () => {
-    if (!initial?.contactType || !ready || !confirmed || conflict || currentPendingRef.current || busyRef.current) { if (!confirmed) setFieldError(COPY.confirm); return; }
+    if (!initial?.contactType || platformRequirement || !ready || !confirmed || conflict || currentPendingRef.current || busyRef.current) { if (!confirmed) setFieldError(COPY.confirm); return; }
     const proposal = currentDraftRef.current;
     const intent = buildAllowlistIntent(initial.contactType, proposal);
     if (!intent) { setFieldError(COPY.invalid); return; }
@@ -227,7 +236,7 @@ function useAllowlistSaveActions(state: AllowlistState, core: AllowlistCore, wri
       else if (result.status === "failed" && !result.uncertain) rejectSave(proposal, intent, result);
       else { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); }
     }, true);
-  }, [authorize, busyRef, client, confirmed, conflict, consume, currentDraftRef, currentPendingRef, initial, live, persist, ready, rejectSave, run, setErrorMessage, setFieldError, setPhase]);
+  }, [authorize, busyRef, client, confirmed, conflict, consume, currentDraftRef, currentPendingRef, initial, live, persist, platformRequirement, ready, rejectSave, run, setErrorMessage, setFieldError, setPhase]);
   const readCurrentEntry = useCallback(() => run(async (signal, scope) => {
     const proposal = currentDraftRef.current;
     if (!proposal.entryId || currentPendingRef.current) return;
@@ -248,12 +257,19 @@ export function useAllowlistWorkflow(options: AllowlistWorkflowOptions) {
   useAllowlistHydration(state, core);
   const { readList, loadMore } = useAllowlistListActions(state, core, run);
   const { save, readCurrentEntry } = useAllowlistSaveActions(state, core, { run, consume });
-  const { page, draft, search, setSearch, status, setStatus, confirmed, setConfirmed, ready, privateVisible, phase, pending, conflict, setConflict, errorMessage, setErrorMessage, fieldError, setFieldError, step, setStep, loadingMore, moreError, query, busyRef, currentPendingRef } = state;
+  const { page, draft, search, setSearch, status, setStatus, confirmed, setConfirmed, ready, privateVisible, phase, setPhase, pending, conflict, setConflict, errorMessage, setErrorMessage, fieldError, setFieldError, step, setStep, loadingMore, moreError, originalAbsent, setOriginalAbsent, platformRequirement, query, busyRef, currentPendingRef, currentDraftRef } = state;
   const { persist } = core;
   const changeDraft = (value: AllowlistDraft) => { if (!busyRef.current && !currentPendingRef.current) { persist(value, null); setConfirmed(false); setFieldError(null); setErrorMessage(null); } };
   /** Selection cannot discard conflict/progress while the original write is unresolved. */
   const select = (entry: AllowlistEntryResult) => { if (busyRef.current || currentPendingRef.current || !ready) return; setConflict(false); changeDraft({ identity: entry.identity, country: "", displayName: entry.displayName ?? "", status: entry.status, entryId: entry.id, expectedVersion: entry.version }); setStep(ALLOWLIST_ENTRY_STEP.details); };
   /** Starting a proposal is explicit and never replaces an unresolved original. */
   const newEntry = () => { if (busyRef.current || currentPendingRef.current || !ready) return; setConflict(false); changeDraft(emptyDraft()); setStep(ALLOWLIST_ENTRY_STEP.contact); };
-  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, fieldError, step, loadingMore, moreError, setStep: (value: number) => { if (!busyRef.current) setStep(value); }, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busyRef.current || currentPendingRef.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: loadMore, select, newEntry, save, readOriginal, readCurrentEntry };
+  /** Forgets an original the server proved absent and keeps the draft; saving again creates a new original. */
+  const discardOriginal = () => {
+    if (busyRef.current || !currentPendingRef.current || !originalAbsent || !persist(currentDraftRef.current, null)) return;
+    setOriginalAbsent(false); setConfirmed(false); setErrorMessage(null); setPhase(PHASE.idle); toast.info(COPY.discarded);
+  };
+  return { page, draft, search, status, confirmed, ready, privateVisible, phase, pending, conflict, errorMessage, fieldError, step, loadingMore, moreError, originalAbsent, platformRequirement, discardOriginal, setStep: (value: number) => { if (!busyRef.current) setStep(value); }, changeDraft, setConfirmed: (value: boolean) => { if (!ready || busyRef.current || currentPendingRef.current) return; setConfirmed(value); setFieldError(null); }, setSearch: (value: string) => { setSearch(value); setErrorMessage(null); }, setStatus: (value: "enabled" | "disabled" | null) => { setStatus(value); setErrorMessage(null); }, searchEntries: () => readList({ limit: query.limit, ...(search.trim() ? { search: search.trim() } : {}), ...(status ? { status } : {}) }), next: loadMore, select, newEntry, save, readOriginal, readCurrentEntry,
+    /** Rereads the first page of the applied filters, which carries the platform requirement, so a resolved block re-enables entries without a reload. */
+    recheckPlatform: () => readList({ limit: query.limit, ...(query.search ? { search: query.search } : {}), ...(query.status ? { status: query.status } : {}) }) };
 }
