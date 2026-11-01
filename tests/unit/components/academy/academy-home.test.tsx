@@ -716,6 +716,31 @@ describe("AcademyHome", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("No pudimos leer tu estado actualizado.");
   });
 
+  it("keeps the status refresh after a failed reread of a canceled pending subscription, so the member can buy again without reloading", async () => {
+    const user = userEvent.setup();
+    const pendingAccess = pendingCheckoutAccess();
+    respondWithJson({ message: "ok", status: "canceled" }, 200);
+    respondWithJson({ message: "Servicio no disponible." }, 503);
+
+    render(<AcademyHome access={pendingAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No pudimos leer tu estado actualizado.");
+    expect(screen.queryByRole("button", { name: "Cancelar renovación" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Contratar academia" })).not.toBeInTheDocument();
+
+    respondWithJson({ message: null, status: "not_found" }, 404);
+    respondWithJson({ ...pendingAccess, canStartCheckout: true, nextAction: "view_offer", renewalStatus: "canceled" }, 200);
+    await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(await screen.findByRole("button", { name: "Contratar academia" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Actualizar estado" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar renovación" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("explains a cancellation recorded but not yet confirmed by the provider", async () => {
     const user = userEvent.setup();
     const paidAccess = access({

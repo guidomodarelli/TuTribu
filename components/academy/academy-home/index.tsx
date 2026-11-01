@@ -829,10 +829,12 @@ function useAcademyHome({ access: initialAccess, isCheckoutReturn, offer, tribeS
     showConfirming,
     // A checkout that reached the provider and still waits for its payment can be resumed.
     showContinuePayment: access?.renewalStatus === "pending" && offer !== null,
+    // A failed reread keeps the refresh: it is the way to read the status again without reloading the page.
     showRefresh:
       showConfirming ||
       access?.renewalStatus === "canceling" ||
-      access?.lastPaymentRejected === true,
+      access?.lastPaymentRejected === true ||
+      Boolean(state.actionErrors.refresh),
     status,
     steps: access && isAcademyMode && status?.showSteps ? buildAccessSteps(access) : [],
   };
