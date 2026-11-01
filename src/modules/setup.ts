@@ -1,7 +1,7 @@
 import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
-import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts } from "./messaging/infrastructure/config/messaging-hosting-security";
+import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts, isMessagingHostingSecurityConfigured } from "./messaging/infrastructure/config/messaging-hosting-security";
 import { buildTribesModule, buildTribeMembershipLifecycleModule, buildTribeLifecycleModule } from "./tribes/setup";
 import { TribeLifecycleError } from "./tribes/domain/errors/tribe-lifecycle-error";
 import { TRIBE_LIFECYCLE_ERROR } from "./tribes/constants/tribe-lifecycle";
@@ -606,7 +606,7 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
   const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime, async () => readMessagingHostingSecurityFacts().recoveryLocked) });
   const queryModule = createAcademyRequestRouting(admissionModule, databaseClient);
   // The rules page evaluates the same preparation as the activation, so a denied activation can name what is missing.
-  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: policyModule.composePreparation });
+  const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: policyModule.composePreparation, isSecurityConfigured: isMessagingHostingSecurityConfigured });
   return {
     queries: queryModule,
     policyQuery: policyQueryModule.useCases,
@@ -626,7 +626,7 @@ export async function createAllowlistRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const resolveTribe = createAcademyRequestRouting(admissionModule, databaseClient).resolveTribe;
   const allowlist = admissionModule.createAllowlistModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  const policyQuery = admissionModule.createPolicyQueryModule({ composePreparation: null });
+  const policyQuery = admissionModule.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: isMessagingHostingSecurityConfigured });
   return { resolveTribe, allowlist: allowlist.useCases, imports: allowlist.imports, page: allowlist.createPage(resolveTribe, policyQuery.useCases), policyPage: policyQuery.createPage(resolveTribe) };
 }
 /** @returns Only personal preview over the guarded backend connection, without provider calls or caller-selected identity. */
@@ -644,7 +644,7 @@ export async function createPersonalInvitationManagementRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const resolveTribe = createAcademyRequestRouting(admissionModule, databaseClient).resolveTribe;
   const personal = admissionModule.createPersonalInvitationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  const policy = admissionModule.createPolicyQueryModule({ composePreparation: null });
+  const policy = admissionModule.createPolicyQueryModule({ composePreparation: null, isSecurityConfigured: isMessagingHostingSecurityConfigured });
   return { resolveTribe, invitations: personal.useCases, publicOrigin: resolvePublicAppBaseUrl, page: personal.createPage(resolveTribe, policy.useCases) };
 }
 /** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */

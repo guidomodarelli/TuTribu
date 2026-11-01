@@ -72,3 +72,13 @@ export async function readMessagingHostingSecurityConfig(environment: HostingEnv
     return await createMessagingSecurityConfig({ environment: deployment, securityEpoch, recoveryLocked: recovery === MESSAGING_RECOVERY_LOCK_VALUE.locked, keyrings });
   } finally { for (const bytes of material) bytes.fill(0); }
 }
+
+/**
+ * Tells whether the hosting messaging security can be read and imported, without returning or retaining any key.
+ * @param environment - Current hosting secrets.
+ * @returns False when it is missing or unusable (a closed {@link MessagingCryptographyError}); every other failure propagates.
+ */
+export async function isMessagingHostingSecurityConfigured(environment: HostingEnvironment = process.env): Promise<boolean> {
+  try { await readMessagingHostingSecurityConfig(environment); return true; }
+  catch (error) { if (error instanceof MessagingCryptographyError) return false; throw error; }
+}

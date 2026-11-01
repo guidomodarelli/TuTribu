@@ -75,6 +75,7 @@ export const ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON = {
   preflight_recovery_locked: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   admission_preflight_incomplete: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
   admission_recovery_locked: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
+  admission_security_unconfigured: ADMISSION_POLICY_BLOCK_RESOLUTION.platform,
 } as const satisfies Record<AdmissionPolicyBlockReason, AdmissionPolicyBlockResolution>;
 
 /** @param reason - Blocking reason. @returns Whether the TuTribu team, not the leader, has to resolve it. */
@@ -84,7 +85,7 @@ export function isAdmissionPolicyPlatformReason(reason: AdmissionPolicyBlockReas
 
 /**
  * Activation requirements that restate facts the informational preflight already explains with a more precise reason
- * (for example, pending memberships blocked by payment keep the preflight incomplete). When a preflight was read, the
+ * (for example, a disabled evaluator keeps the preflight incomplete). When a preflight was read, the
  * rules page shows the preflight reason instead, so the same fact is never presented twice or as a platform block.
  */
 export const ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS: readonly AdmissionPolicyActivationReason[] = [

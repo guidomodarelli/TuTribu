@@ -13,11 +13,16 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 
 /** Basic configuration reads do not require secrets or an unimplemented preparation owner. */
 export class PostgresAdmissionPolicyViewFactsReader implements AdmissionPolicyViewFactsReader {
-  /** @param execute - Actual native actor transaction. @param composePreparation - Explicit evaluator or null; null is publicly represented as not evaluated. */
-  constructor(private readonly execute: <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>, private readonly composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null) {}
+  /**
+   * @param execute - Actual native actor transaction.
+   * @param composePreparation - Explicit evaluator or null; null is publicly represented as not evaluated.
+   * @param isSecurityConfigured - Whether the deployment can read the hosting messaging security the admission ledger signs with; checked outside the transaction, without exposing keys.
+   */
+  constructor(private readonly execute: <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>, private readonly composePreparation: ((database: RequestDatabase, context: AuthorizedAdmissionContext) => AdmissionPolicyPreparationReader) | null, private readonly isSecurityConfigured: () => Promise<boolean>) {}
 
   /** @param context - Current leader query scope. @param policy - Policy snapshot whose version must remain current. @returns Minimal current impact and actual preparation, with no initialization or provider call. */
   async read(context: AuthorizedAdmissionContext, policy: AdmissionPolicy | null): Promise<AdmissionPolicyViewFacts> {
+    const securityConfigured = await this.isSecurityConfigured();
     return this.execute(context, async (database) => {
       await authorizeAdmissionPolicy(database, context);
       const current = await readAdmissionPolicy(database, context.tribeId, false);
@@ -25,9 +30,10 @@ export class PostgresAdmissionPolicyViewFactsReader implements AdmissionPolicyVi
       const pendingRequestCount = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_requests where tribe_id=${context.tribeId} and status=${ADMISSION_REQUEST_STATUS.pending}`)).rows[0].count;
       // The same SQL predicate the activation writer uses; it is only counted while the first activation is pending.
       const conversion = (await database.execute<{ count: number | null }>(sql`select case when tribe.admissions_control_activated_at is null then (select count(*)::int from public.tribe_members member where member.tribe_id=tribe.id and public.commercial_membership_converts_on_activation(member)) end as count from public.tribes tribe where tribe.id=${context.tribeId}`)).rows[0];
-      const preparation = current && this.composePreparation ? await this.composePreparation(database, context).read(current) : null;
+      // The preparation reads that same security; without it nothing can be evaluated, and the read reports the platform requirement instead.
+      const preparation = current && this.composePreparation && securityConfigured ? await this.composePreparation(database, context).read(current) : null;
       await authorizeAdmissionPolicy(database, context);
-      return { pendingRequestCount, preparation, ...(typeof conversion?.count === "number" ? { freeConversionMemberCount: conversion.count } : {}) };
+      return { pendingRequestCount, preparation, securityConfigured, ...(typeof conversion?.count === "number" ? { freeConversionMemberCount: conversion.count } : {}) };
     });
   }
 }

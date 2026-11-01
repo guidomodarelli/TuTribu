@@ -26,12 +26,14 @@ type WriteOutcome = "completed" | "failed" | "uncertain" | "stopped";
 type WriteResult = { outcome: WriteOutcome; code?: AdmissionErrorCode };
 const WRITE_OUTCOME = { completed: "completed", failed: "failed", uncertain: "uncertain", stopped: "stopped" } as const satisfies Record<string, WriteOutcome>;
 /** Which requirement explanation follows a denied activation, resume or save of active rules. */
-type BlockedAction = "activation" | "resume" | "save";
+type BlockedAction = "activation" | "resume" | "save" | "draft";
 /** Message and next step shown with the requirements of each denied action. */
 const BLOCKED_ACTION_COPY = {
   activation: { message: COPY.activationIneligible, note: COPY.activationBlockedNote },
   resume: { message: COPY.resumeIneligible, note: COPY.resumeBlockedNote },
   save: { message: COPY.saveIneligible, note: COPY.saveBlockedNote },
+  /** Creating or saving the rules on the way to activating them: nothing new was stored. */
+  draft: { message: COPY.draftIneligible, note: COPY.draftBlockedNote },
 } as const satisfies Record<BlockedAction, { message: string; note: string }>;
 /** Whether a recovery consultation stops the read, recovered the original or lets the read continue. */
 type PolicyRecoveryOutcome = "stop" | "recovered" | "continue";
@@ -323,25 +325,36 @@ function proposedVerificationRequirements(proposed: AdmissionPolicyDraft, state:
   return proposed.requiresAdditionalVerification && !state?.policy?.requiresAdditionalVerification ? [ADMISSION_POLICY_CONFIGURATION_ERROR.verificationUnavailable] : [];
 }
 
-/** Creates the policy if missing and saves the rules when they changed. @param session - Current route session. @param plan - Final save plan. @param signal - Current write. @returns Whether the chain may continue. */
-async function savePolicyRules(session: PolicyReadSession, { proposed, activating }: FinalPolicyPlan, signal: AbortSignal): Promise<boolean> {
+/**
+ * Settles one save write of the final chain.
+ * A requirement the academy or the platform still has to meet (a channel for codes, or the security every policy write needs) is
+ * definitive: it shows who resolves it, keeping what was chosen; any other failure offers the retry of the saving sub-step.
+ * @param session - Current route session. @param signal - Current write. @param result - Write result. @param plan - Final save plan.
+ * @returns Whether the chain may continue.
+ */
+async function settlePolicySave(session: PolicyReadSession, signal: AbortSignal, result: WriteResult, { proposed, activating }: FinalPolicyPlan): Promise<boolean> {
   const { controls } = session;
-  let created = false;
-  if (!controls.stateRef.current?.policy) {
+  if (result.outcome === WRITE_OUTCOME.completed) return true;
+  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) {
+    if (!activating) controls.setConfirmed(false);
+    await showPolicyRequirements(session, signal, activating ? "draft" : "save", proposedVerificationRequirements(proposed, controls.stateRef.current));
+    return false;
+  }
+  reportPolicyFailure(controls, STAGE.saving, false, result);
+  return false;
+}
+
+/** Creates the policy if missing and saves the rules when they changed. @param session - Current route session. @param plan - Final save plan. @param signal - Current write. @returns Whether the chain may continue. */
+async function savePolicyRules(session: PolicyReadSession, plan: FinalPolicyPlan, signal: AbortSignal): Promise<boolean> {
+  const { controls } = session;
+  const created = !controls.stateRef.current?.policy;
+  if (created) {
     const intent = buildPolicyIntent(controls, ADMISSION_POLICY_OPERATION.initialize); if (!intent) return false;
-    const result = await sendPolicyIntent(session, intent, signal);
-    if (result.outcome !== WRITE_OUTCOME.completed) { reportPolicyFailure(controls, STAGE.saving, false, result); return false; }
-    created = true;
+    if (!await settlePolicySave(session, signal, await sendPolicyIntent(session, intent, signal), plan)) return false;
   }
-  if (!created && !(controls.stateRef.current && differsFromSaved(proposed, controls.stateRef.current))) return true;
-  const intent = buildPolicyIntent(controls, ADMISSION_POLICY_OPERATION.update, proposed); if (!intent) return false;
-  const result = await sendPolicyIntent(session, intent, signal);
-  /** Editing active rules can ask for something the academy has not prepared yet, such as the channel for codes; the saved rules stay as they were. */
-  if (!activating && result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) {
-    controls.setConfirmed(false); await showPolicyRequirements(session, signal, "save", proposedVerificationRequirements(proposed, controls.stateRef.current)); return false;
-  }
-  if (result.outcome !== WRITE_OUTCOME.completed) { reportPolicyFailure(controls, STAGE.saving, false, result); return false; }
-  return true;
+  if (!created && !(controls.stateRef.current && differsFromSaved(plan.proposed, controls.stateRef.current))) return true;
+  const intent = buildPolicyIntent(controls, ADMISSION_POLICY_OPERATION.update, plan.proposed); if (!intent) return false;
+  return settlePolicySave(session, signal, await sendPolicyIntent(session, intent, signal), plan);
 }
 
 /** Checks requirements of saved rules and activates them, stopping where something fails. @param session - Current route session. @param signal - Current write. @returns Nothing. */
@@ -409,7 +422,8 @@ export async function retryPolicyOriginal(session: PolicyReadSession, intent: Ad
   session.controls.setStage(STAGE.retrying);
   const result = await sendPolicyIntent(session, intent, signal);
   session.controls.setRetryConfirmed(false);
-  if (result.outcome === WRITE_OUTCOME.completed) succeedPolicy(session.controls, COPY.recovered);
+  if (result.outcome === WRITE_OUTCOME.completed) { succeedPolicy(session.controls, COPY.recovered); return; }
+  if (result.outcome === WRITE_OUTCOME.failed && result.code === ADMISSION_ERROR_CODE.admissionIneligible) await showPolicyRequirements(session, signal, intent.type === ADMISSION_POLICY_OPERATION.activate ? "activation" : "draft");
 }
 
 /** @param controlActivated - Whether admission control is active. @param preflight - Fresh preflight, if read. @param requirements - Pending requirements of the saved policy. @returns The block describing what still needs work. */

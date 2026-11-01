@@ -16,7 +16,7 @@ function fixture() {
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) }, actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const reader = { read: vi.fn(async () => ({ policy: null, controlActivated: false, usage: null })) };
-  const policy = new GetAdmissionPolicyUseCase(resolver, reader, { read: async () => ({ pendingRequestCount: 2, preparation: null }) });
+  const policy = new GetAdmissionPolicyUseCase(resolver, reader, { read: async () => ({ pendingRequestCount: 2, preparation: null, securityConfigured: true }) });
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "synthetic-academy" }) });
   const useCase = new GetAdmissionPolicyPageUseCase(accounts, { policy, resolveTribe }, () => now);
   return { now, tribeId, account, accounts, actor, reader, useCase, input: { params: { slug: "synthetic-academy" }, query: {} } };

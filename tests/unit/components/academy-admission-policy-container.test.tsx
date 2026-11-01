@@ -153,6 +153,23 @@ describe("guided policy route workflow", () => {
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
 
+  it("should stop on the platform block, not on an uncertain write, when the first save lacks the hosting security", async () => {
+    const data = fixture("not_configured");
+    data.client.initializePolicy.mockResolvedValueOnce({ status: "failed", code: "admission_ineligible", message: "Falta un requisito actual para resolver el ingreso.", uncertain: false });
+    data.client.readPolicy.mockResolvedValueOnce({ status: "ready", value: { ...data.policy, preparation: { state: "not_evaluated", requirements: ["admission_security_unconfigured", "policy_unavailable"] } } });
+    render(data.node, { wrapper: Providers });
+    await goToReview(); await confirm();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+    const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+    expect(block).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
+    expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+    expect(block).toHaveTextContent("Lo que elegiste sigue en esta pantalla.");
+    expect(screen.queryByText(/consultá el resultado de la operación anterior/)).not.toBeInTheDocument();
+    expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+    expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    expect(data.client.activatePolicy).not.toHaveBeenCalled();
+  });
+
   it("should say what was done when activation fails and retry only the missing sub-steps", async () => {
     const data = fixture();
     data.client.activatePolicy.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "La mensajería no está disponible temporalmente.", uncertain: false });

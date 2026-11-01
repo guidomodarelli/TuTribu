@@ -10,6 +10,7 @@ import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, requiresAdm
 import { proposeAdmissionPolicyActivation, type AdmissionPolicyActivationReason } from "../../domain/policies/admission-policy-activation";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { AdmissionPolicyRequirementError } from "../../domain/errors/admission-policy-requirement-error";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_POLICY_ACTIVATION_ERROR, ADMISSION_POLICY_AUDIT, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS, ADMISSION_POLICY_CHANGE_OUTCOME } from "../../constants/admission-policy";
 import { ADMISSION_PROOF_STATUS, ADMISSION_VERIFICATION_PURPOSE } from "../../constants/admission-eligibility";
@@ -29,8 +30,8 @@ import { convertCommercialMembershipsOnActivation } from "./postgres-commercial-
 import { readSelectedMessagingResource } from "@/src/modules/messaging/infrastructure/repositories/postgres-selected-messaging-resource-reader";
 
 /** @param code - Unmet requirement. @returns The `admission_ineligible` outcome carrying the requirement as its private, loggable cause. */
-function requirementUnmet(code: AdmissionPolicyActivationReason): AdmissionOperationError {
-  return new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionPolicyRequirementError(code) });
+function requirementUnmet(code: AdmissionPolicyActivationReason, cause?: unknown): AdmissionOperationError {
+  return new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionPolicyRequirementError(code, { cause }) });
 }
 
 /**
@@ -89,9 +90,23 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return changedAt;
   }
 
+  /**
+   * Every policy write signs its original intent with the hosting messaging security. Without it the claim fails before anything is
+   * stored, so the write is rejected as a definitive platform requirement instead of an unexpected failure the browser would keep as uncertain.
+   * @throws AdmissionOperationError (admission_ineligible) caused by the admission_security_unconfigured requirement and the original failure.
+   */
+  private async assertSecurityConfigured(): Promise<void> {
+    try { await this.readSecurityConfig(); }
+    catch (error) {
+      if (error instanceof MessagingCryptographyError) throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured, error);
+      throw error;
+    }
+  }
+
   /** Original replay precedes new CAS; every phase independently checks current leadership. */
   private async run(intent: PolicyIntent, operation: ReauthenticationOperation, commandIntent: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<AdmissionPolicyMutationResult>): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     const command: AdmissionOperationCommand = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: intent.type, idempotencyKey: intent.operationId, intent: commandIntent };
+    await this.assertSecurityConfigured();
     // Each ledger transaction (claim, effect, recovery) lets its repeated leader checks reuse the locks of its first one; none uses a savepoint.
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, (database) => withReusedAdmissionLeaderAuthority(database, () => work(database))), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);
     try { return await ledger.run(command, admissionPolicyMutationResultSchema, async (database, ledgerId) => { await this.academy(database, intent.context.tribeId); return mutate(database, ledgerId); }); }

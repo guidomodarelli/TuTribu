@@ -7,7 +7,7 @@ export type AdmissionPolicyActivationFacts = {
   tribeId: string; isAcademy: boolean; controlActivated: boolean; preflightComplete: boolean;
   evaluatorEnabled: boolean; recoveryLocked: boolean; now: Date; configuration: AdmissionPolicyConfigurationFacts;
 };
-export type AdmissionPolicyActivationReason = "policy_unavailable" | "academy_unavailable" | "admission_preflight_incomplete" | "admission_evaluator_unavailable" | "admission_recovery_locked" | "admission_clock_invalid" | Extract<AdmissionPolicyConfigurationResult, { valid: false }>["reason"];
+export type AdmissionPolicyActivationReason = "policy_unavailable" | "academy_unavailable" | "admission_preflight_incomplete" | "admission_evaluator_unavailable" | "admission_recovery_locked" | "admission_security_unconfigured" | "admission_clock_invalid" | Extract<AdmissionPolicyConfigurationResult, { valid: false }>["reason"];
 /** The marker and policy must be committed together by the actual writer. */
 export type AdmissionPolicyActivationResult =
   | { outcome: "conflict" }

@@ -18,7 +18,7 @@ function fixture() {
   const accounts = { getAuthenticatedAccount: vi.fn(async () => account) }, actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const reader = { read: vi.fn(async () => ({ policy: createDefaultAdmissionPolicy({ id: tribeId, tribeId }), controlActivated: false, usage: null })) };
-  const policy = new GetAdmissionPolicyUseCase(resolver, reader, { read: async () => ({ pendingRequestCount: 0, preparation: null }) });
+  const policy = new GetAdmissionPolicyUseCase(resolver, reader, { read: async () => ({ pendingRequestCount: 0, preparation: null, securityConfigured: true }) });
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "synthetic" }) });
   const loader = new GetAdmissionPolicyPageUseCase(accounts, { policy, resolveTribe }, () => now);
   const read = async () => presentAllowlistImportPage(await loadAdmissionPolicyPageState({ params: { slug: "synthetic" }, query: {} }, async () => loader));

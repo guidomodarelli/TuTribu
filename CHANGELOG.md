@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En Reglas de admisión, si la plataforma todavía no tiene configurada la seguridad que protege las admisiones, guardar o activar las reglas ya no deja la pantalla trabada esperando «el resultado de la operación anterior»: avisa que depende del equipo de TuTribu, con su código de diagnóstico, y conserva lo que elegiste.
+
 ## [1.11.0] - 2026-10-31
 
 ### Changed

@@ -20,7 +20,7 @@ function fixture() {
   const reader: AllowlistReader = { list: vi.fn(async () => ({ entries: [], nextCursor: null })), read: vi.fn(async () => null) };
   const writer: AllowlistCommandWriter = { create: vi.fn(), update: vi.fn() };
   const policyReader = { read: vi.fn(async () => ({ policy: null, controlActivated: false, usage: null })) };
-  const policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null }) });
+  const policy = new GetAdmissionPolicyUseCase(resolver, policyReader, { read: async () => ({ pendingRequestCount: 0, preparation: null, securityConfigured: true }) });
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "synthetic-academy" }) });
   const useCase = new GetAllowlistPageUseCase(accounts, { allowlist: new ManageAllowlistUseCases(resolver, reader, writer), policy, resolveTribe }, () => now);
   return { now, tribeId, account, accounts, actor, reader, writer, policyReader, useCase, input: { params: { slug: "synthetic-academy" }, query: {} } };
