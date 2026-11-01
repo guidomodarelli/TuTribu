@@ -21,6 +21,9 @@ export const PLATFORM_SECURITY_NOTICE_COPY = {
   copy: "Copiar código",
   copied: "Código copiado.",
   copyFailed: "No pudimos copiar el código. Seleccionalo y copialo a mano.",
+  recheck: "Volver a comprobar",
+  /** Shown when the recheck still finds the requirement. */
+  rechecked: "Volvimos a comprobar: todavía depende del equipo de TuTribu.",
   report: "Reportar el problema",
   reportUnavailable: "No pudimos abrir el reporte. Escribile al equipo de TuTribu e incluí el código de diagnóstico.",
 } as const;

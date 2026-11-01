@@ -14,6 +14,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { ALLOWLIST_IMPORT_WRITE_ACTION, ALLOWLIST_IMPORT_BROWSER_COPY, ALLOWLIST_IMPORT_STEP } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { readAllowlistImport, writeAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
+import { PLATFORM_SECURITY_NOTICE_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 
 afterEach(() => window.sessionStorage.clear());
 /** @returns Own current scope and a saved preview with one valid and one invalid record. */
@@ -124,6 +125,35 @@ describe("explicit import workflow", () => {
     await act(async () => result.current.readCurrent());
     expect(result.current.policy.platformRequirement).toBe("security_unconfigured");
     expect(data.client.policy).toHaveBeenCalledTimes(2);
+  });
+  it("should let a first import recheck the platform block without any saved preview and start once it is lifted", async () => {
+    const data = fixture(); data.initialState.platformRequirement = "security_unconfigured";
+    const blocked: AdmissionPolicyStateDto = { ...data.policy, preparation: { state: "not_evaluated", requirements: ["policy_unavailable", "admission_security_unconfigured"] } };
+    vi.mocked(data.client.policy).mockResolvedValueOnce({ status: "ready", value: blocked });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.hasSavedImport).toBe(false);
+    await act(async () => result.current.recheckPlatform());
+    expect(result.current.policy.platformRequirement).toBe("security_unconfigured");
+    expect(await screen.findByText(PLATFORM_SECURITY_NOTICE_COPY.rechecked)).toBeInTheDocument();
+    await act(async () => result.current.recheckPlatform());
+    expect(result.current.policy).toEqual({ contactType: "email", version: 1, platformRequirement: null });
+    expect(data.client.read).not.toHaveBeenCalled();
+    await act(async () => result.current.changeDraft(data.draft)); act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.preview());
+    expect(vi.mocked(data.client.write).mock.calls.at(-1)?.[1]).toMatchObject({ type: "preview_allowlist_import" });
+  });
+  it("should still reread the platform requirement when the progress recheck finds the saved import expired", async () => {
+    const data = fixture(); data.initialState.platformRequirement = "recovery_locked";
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: null, unresolved: [] });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data));
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    vi.mocked(data.client.read).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: ADMISSION_ERROR_MESSAGE.resource_unavailable, uncertain: false });
+    await act(async () => result.current.readCurrent());
+    expect(result.current.hasSavedImport).toBe(false);
+    expect(result.current.policy.platformRequirement).toBeNull();
+    expect(data.client.policy).toHaveBeenCalledOnce();
   });
   it("should keep a committed row through unknown progress and resume only pending rows with a fresh explicit operation", async () => {
     const data = fixture(), operationId = randomUUID(), oldIntent = { type: "confirm_allowlist_import" as const, operationId, importId: data.importId, expectedVersion: 1, selectedRows: [1, 2] };

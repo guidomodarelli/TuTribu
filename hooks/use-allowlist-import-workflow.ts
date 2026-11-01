@@ -26,6 +26,7 @@ import { allowlistImportDraftStore } from "@/lib/academy-admissions/allowlist-im
 import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } from "@/lib/academy-admissions/allowlist-import-selection";
 import { closeAllowlistImportScope, interruptedActionMessage, isBlockingImportFailure, isUnusableImportConfirmation, readUsableWriteResult, releaseAllowlistImportRun, requireReadyScope } from "@/hooks/use-allowlist-import-workflow-support";
 import { readAdmissionPlatformRequirement } from "@/src/modules/academy-admissions/application/results/admission-platform-requirement";
+import { PLATFORM_SECURITY_NOTICE_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 
 type AllowlistImportWorkflowOptions = { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient; drafts?: AllowlistImportDraftStore };
 type OriginalValue = { operationId: string; state: "started" | "completed"; result?: unknown };
@@ -211,17 +212,31 @@ function useAllowlistImportRecovery(state: AllowlistImportState, reads: Allowlis
     if (!persist(next)) return;
     setAbsentOriginalId(null); setOriginalChecked(false); setConfirmed(false); setErrorMessage(null); toast.info(COPY.discarded);
   }, [absentOriginalId, authorityLostRef, currentRef, occupiedRef, persist, setAbsentOriginalId, setConfirmed, setErrorMessage, setOriginalChecked]);
-  const readCurrent = useCallback(() => run(async (signal, scope) => {
-    if (!currentRef.current.importId || !await fetchCurrent(currentRef.current.importId, signal, scope)) return;
-    setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review));
-    // The progress recheck also rereads the platform requirement, so a resolved problem re-enables the import without reloading the page.
-    // Only the requirement is replaced: a changed rules version still surfaces as a policy conflict on the next write.
+  /**
+   * Rereads the platform requirement, so a resolved problem re-enables the import without reloading the page.
+   * Only the requirement is replaced: a changed rules version still surfaces as a policy conflict on the next write.
+   * @param signal - Action scope. @param scope - Render generation. @returns The current requirement, or undefined when the read did not settle it.
+   */
+  const refreshPlatformRequirement = useCallback(async (signal: AbortSignal, scope: number) => {
     const rules = await client.policy(requireReadyScope(initial).slug, signal);
-    if (!live(signal, scope) || !await authorize(signal, scope)) return;
-    if (rules.status === "ready") setPolicy((current) => ({ ...current, platformRequirement: readAdmissionPlatformRequirement(rules.value) }));
-    else if (rules.status === "failed") reportFailure(rules);
-  }), [authorize, client, currentRef, fetchCurrent, initial, live, reportFailure, run, setPolicy, setStep]);
-  return { readOriginal, readCurrent, discardOriginal };
+    if (!live(signal, scope) || !await authorize(signal, scope)) return undefined;
+    if (rules.status === "failed") { reportFailure(rules); return undefined; }
+    if (rules.status !== "ready") return undefined;
+    const platformRequirement = readAdmissionPlatformRequirement(rules.value);
+    setPolicy((current) => ({ ...current, platformRequirement }));
+    return platformRequirement;
+  }, [authorize, client, initial, live, reportFailure, setPolicy]);
+  const readCurrent = useCallback(() => run(async (signal, scope) => {
+    const importId = currentRef.current.importId;
+    if (importId && await fetchCurrent(importId, signal, scope)) setStep((open) => Math.max(open, ALLOWLIST_IMPORT_STEP.review));
+    // An expired or unreadable saved import still rereads the requirement: the progress is not what the platform block depends on.
+    if (live(signal, scope) && !authorityLostRef.current) await refreshPlatformRequirement(signal, scope);
+  }), [authorityLostRef, currentRef, fetchCurrent, live, refreshPlatformRequirement, run, setStep]);
+  /** Rechecks the platform block on its own, so a first import without any saved preview can start once the TuTribu team resolves it. */
+  const recheckPlatform = useCallback(() => run(async (signal, scope) => {
+    if (await refreshPlatformRequirement(signal, scope)) toast.info(PLATFORM_SECURITY_NOTICE_COPY.rechecked);
+  }), [refreshPlatformRequirement, run]);
+  return { readOriginal, readCurrent, recheckPlatform, discardOriginal };
 }
 
 /** @param state - Workflow state. @param reads - Identity and current reads. Restores the stored draft once per scope without dispatching any write. */
@@ -358,11 +373,11 @@ export function useAllowlistImportWorkflow(options: AllowlistImportWorkflowOptio
   const state = useAllowlistImportState(options);
   const reads = useAllowlistImportReads(state);
   const writes = useAllowlistImportWrites(state, reads);
-  const { readOriginal, readCurrent, discardOriginal } = useAllowlistImportRecovery(state, reads, writes);
+  const { readOriginal, readCurrent, recheckPlatform, discardOriginal } = useAllowlistImportRecovery(state, reads, writes);
   useAllowlistImportHydration(state, reads);
   const { changeDraft, upload, preview } = useAllowlistImportDraftActions(state, reads, writes);
   const { confirm, selectRow, selectAllValidRows } = useAllowlistImportSelection(state, reads, writes);
   const { readPolicy, download, reconcilePrevious, retryInitialization } = useAllowlistImportServerActions(state, reads, writes);
   const { accessLost, ready, busy, writeAction, confirmed, setConfirmed, snapshot, step, setStep, occupiedRef, initializationFailed, stored, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, absentOriginalId } = state;
-  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupiedRef.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, originalAbsent: absentOriginalId !== null, discardOriginal, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, readPolicy, download, reconcilePrevious };
+  return { accessLost, ready, busy, writeAction, confirmed, setConfirmed, step: snapshot ? step : ALLOWLIST_IMPORT_STEP.upload, setStep: (value: number) => { if (!occupiedRef.current) setStep(value); }, initializationFailed, retryInitialization, hasSavedImport: stored.importId !== null, draft: stored.draft, snapshot, selection: stored.selection, pending: stored.pending, unresolved: stored.unresolved, privateVisible, errorMessage, fieldError, statusMessage, conflict, policyConflict, policy, originalChecked, originalAbsent: absentOriginalId !== null, discardOriginal, changeDraft, upload, preview, confirm, selectRow, selectAllValidRows, readOriginal, readCurrent, recheckPlatform, readPolicy, download, reconcilePrevious };
 }

@@ -239,7 +239,7 @@ export function MessagingUsage(props: MessagingUsageProps) {
   };
 
   return <div className={styles.MessagingUsage}>
-    {props.platformRequirement && <PlatformSecurityNotice requirement={props.platformRequirement} consequence={MESSAGING_USAGE_UI_COPY.platformConsequence} />}
+    {props.platformRequirement && <PlatformSecurityNotice requirement={props.platformRequirement} consequence={MESSAGING_USAGE_UI_COPY.platformConsequence} onRecheck={props.onReloadCurrent} busy={props.busy} />}
     <section className={styles.MessagingUsage__summary} aria-labelledby={titleId}>
       <h2 id={titleId} className={styles.MessagingUsage__title}>Uso actual</h2>
       {policy ? <SavedUsageSummary policy={policy} countryChoices={props.countryChoices} savedNoticeWarning={savedNoticeWarning} /> : <p className={styles.MessagingUsage__lead}>Todavía no hay países ni cupos guardados. Seguí los pasos para elegirlos; nada se guarda hasta el último paso.</p>}

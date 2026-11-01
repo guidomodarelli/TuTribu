@@ -12,13 +12,19 @@ type PlatformSecurityNoticeProps = {
   requirement: PlatformSecurityRequirement;
   /** What stays unavailable on this screen; defaults to the generic consequence. */
   consequence?: string;
+  /** Rereads the requirement; without it the notice offers no recheck. */
+  onRecheck?: () => void;
+  /** True while that recheck runs. */
+  rechecking?: boolean;
+  /** True while another read or write of the screen runs, so the recheck waits. */
+  busy?: boolean;
 };
 
 /**
- * @param props - Current platform requirement and the screen's own consequence.
- * @returns A callout with the reason, a copyable diagnostic code and a report action; it never offers a write.
+ * @param props - Current platform requirement, the screen's own consequence and its optional recheck.
+ * @returns A callout with the reason, a copyable diagnostic code, a recheck when the screen can reread the requirement and a report action; it never offers a write.
  */
-export function PlatformSecurityNotice({ requirement, consequence = PLATFORM_SECURITY_NOTICE_COPY.consequence }: PlatformSecurityNoticeProps) {
+export function PlatformSecurityNotice({ requirement, consequence = PLATFORM_SECURITY_NOTICE_COPY.consequence, onRecheck, rechecking = false, busy = false }: PlatformSecurityNoticeProps) {
   const [reportUnavailable, setReportUnavailable] = useState(false);
   const code = PLATFORM_SECURITY_DIAGNOSTIC_CODE[requirement];
   const copy = async () => {
@@ -31,6 +37,7 @@ export function PlatformSecurityNotice({ requirement, consequence = PLATFORM_SEC
     <p className={styles.PlatformSecurityNotice__note}>{consequence}</p>
     <p className={styles.PlatformSecurityNotice__diagnostic}>{PLATFORM_SECURITY_NOTICE_COPY.diagnosticLabel}: <code className={styles.PlatformSecurityNotice__code}>{code}</code></p>
     <div className={styles.PlatformSecurityNotice__actions}>
+      {onRecheck && <Button variant="secondary" size="sm" loading={rechecking} disabled={busy && !rechecking} onClick={onRecheck}>{PLATFORM_SECURITY_NOTICE_COPY.recheck}</Button>}
       <Button variant="ghost" size="sm" aria-label={`${PLATFORM_SECURITY_NOTICE_COPY.copy} ${code}`} onClick={() => void copy()}>{PLATFORM_SECURITY_NOTICE_COPY.copy}</Button>
       <Button variant="ghost" size="sm" onClick={() => setReportUnavailable(!openSitepingReport())}>{PLATFORM_SECURITY_NOTICE_COPY.report}</Button>
     </div>

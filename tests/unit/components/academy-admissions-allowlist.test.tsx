@@ -72,6 +72,18 @@ describe("allowlist route controls", () => {
     expect(data.client.list).toHaveBeenCalledOnce(); expect(data.client.write).not.toHaveBeenCalled();
   });
 
+  it("should lift the platform block from its own recheck, keeping the applied filters, without a reload", async () => {
+    const data = fixture();
+    vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: null } });
+    render(<AllowlistContainer initialState={{ ...data.state, platformRequirement: "recovery_locked" }} client={data.client} />, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    const recheck = within(notice).getByRole("button", { name: PLATFORM_SECURITY_NOTICE_COPY.recheck }); await waitFor(() => expect(recheck).toBeEnabled());
+    fireEvent.click(recheck);
+    await waitFor(() => expect(screen.queryByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeEnabled();
+    expect(vi.mocked(data.client.list).mock.calls[0]?.[1]).toEqual(data.state.query); expect(data.client.write).not.toHaveBeenCalled();
+  });
+
   it("should block adding and editing in the same session when a list read reports a new platform requirement", async () => {
     const data = fixture();
     vi.mocked(data.client.list).mockResolvedValueOnce({ status: "ready", value: { items: [data.entry], nextCursor: null, platformRequirement: "security_unconfigured" } });

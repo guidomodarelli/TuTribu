@@ -1,5 +1,5 @@
 /** Exercises the actual guided usage container and shared controls through owned browser ports. @module messaging-usage-container-tests */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SidebarInset, SidebarProvider, ThemedToaster } from "@golfo/ui";
 import { Activity, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -274,6 +274,18 @@ describe("guided usage route workflow", () => {
     await saveVerificationChange("120");
     await screen.findByText(savedText);
     expect(data.client.update).toHaveBeenCalledOnce();
+  });
+
+  it("should let a first configuration recheck the platform block from the notice and lift it without a reload", async () => {
+    const data = fixture(false); data.state.platformRequirement = "security_unconfigured";
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "not_configured", policy: null }, platformRequirement: null } });
+    render(data.node, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: "Depende del equipo de TuTribu" });
+    const recheck = within(notice).getByRole("button", { name: "Volver a comprobar" }); await waitFor(() => expect(recheck).toBeEnabled());
+    fireEvent.click(recheck);
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument());
+    expect(data.client.update).not.toHaveBeenCalled(); expect(data.client.initialize).not.toHaveBeenCalled();
   });
 
   it("should block saving in the same session when the current read of a restored page reports a new platform requirement", async () => {
