@@ -12,6 +12,7 @@ import type { AllowlistImportDto } from "@/src/modules/academy-admissions/applic
 import { ALLOWLIST_IMPORT_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { writeAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
 
 const router = { back: vi.fn(), bfcacheId: "allowlist-import-container-tests", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
@@ -98,5 +99,24 @@ describe("allowlist import selection", () => {
     await waitFor(() => expect(data.client.write).toHaveBeenCalledOnce());
     expect(vi.mocked(data.client.write).mock.calls[0][1]).toMatchObject({ type: "confirm_allowlist_import", selectedRows: data.valid });
     await waitFor(() => expect(screen.getByRole("button", { name: "Importar filas elegidas" })).not.toHaveAttribute("aria-busy"));
+  });
+
+  it("should offer the initial check again when the session read after restoring the saved import fails, and restore it on retry", async () => {
+    const data = savedImport();
+    // The first check passes; the one after restoring the saved import cannot read the session; every later check passes.
+    vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "ready", value: { id: data.state.viewerId } }).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: BROWSER_SESSION_CHECK_MESSAGE, uncertain: false });
+    render(<AllowlistImportContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+
+    const retry = await screen.findByRole("button", { name: "Reintentar consulta inicial" });
+    expect(screen.getByText(BROWSER_SESSION_CHECK_MESSAGE)).toBeVisible();
+    expect(screen.queryByText(ALLOWLIST_IMPORT_BROWSER_COPY.checking)).not.toBeInTheDocument();
+    expect(data.client.read).not.toHaveBeenCalled();
+
+    fireEvent.click(retry);
+    const selectAll = await screen.findByRole("button", { name: "Seleccionar todas las válidas" });
+    await waitFor(() => expect(selectAll).toBeEnabled());
+    expect(screen.queryByRole("button", { name: "Reintentar consulta inicial" })).not.toBeInTheDocument();
+    expect(count("Válidas sin resultado")).toBe(String(data.valid.length));
+    expect(data.client.write).not.toHaveBeenCalled();
   });
 });

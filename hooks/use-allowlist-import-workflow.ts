@@ -296,10 +296,10 @@ function useAllowlistImportHydration(state: AllowlistImportState, reads: Allowli
     const timeout = window.setTimeout(() => { hydration.abort(); if (activeRef.current && generationRef.current === scope) { setInitializationFailed(true); setReady(false); setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE); } }, ALLOWLIST_BROWSER_TIMEOUT_MS);
     queueMicrotask(() => { void (async () => {
       setInitializationFailed(false); setReady(false); setErrorMessage(null);
-      // A session that could not be read keeps the view closed but retryable; a changed account already locked it.
+      // A session that could not be read, before or after restoring the draft, keeps the view closed but retryable; a changed account already locked it.
       if (!initial || !await authorize(hydration.signal, scope)) { markRetryableInitialization({ live, authorityLostRef, setInitializationFailed }, hydration.signal, scope); return; }
       const restored = await readAllowlistImport(initial.viewerId, initial.slug, { storage: window.sessionStorage, files: drafts, signal: hydration.signal });
-      if (!live(hydration.signal, scope) || !await authorize(hydration.signal, scope)) return;
+      if (!live(hydration.signal, scope) || !await authorize(hydration.signal, scope)) { markRetryableInitialization({ live, authorityLostRef, setInitializationFailed }, hydration.signal, scope); return; }
       if (restored) { currentRef.current = restored; setStored(restored); if (restored.importId && await fetchCurrent(restored.importId, hydration.signal, scope)) setStep(currentRef.current.selection.length ? ALLOWLIST_IMPORT_STEP.confirm : ALLOWLIST_IMPORT_STEP.review); }
       if (live(hydration.signal, scope) && !authorityLostRef.current) { setReady(true); setConfirmed(false); if (restored?.pending) setErrorMessage(COPY.uncertain); else if (restored && !restored.draft) setStatusMessage(COPY.missingDraft); }
     })().catch(() => { if (live(hydration.signal, scope)) { setInitializationFailed(true); setErrorMessage(COPY.storage); } }).finally(() => window.clearTimeout(timeout)); });
