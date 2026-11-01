@@ -347,6 +347,20 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
+  it("should reject a new policy write without hosting security and keep the resend of a registered original unresolved", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database), operationId = randomUUID();
+      await data.initialize(operationId);
+      // The same leader after the deployment lost its hosting messaging security.
+      const unconfigured = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), () => readMessagingHostingSecurityConfig({}), () => { throw new Error("Preparation must not be composed"); });
+      const context = data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
+      await expect(unconfigured.initialize({ context, operationId, confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "operation_unresolved", operationId });
+      await expect(unconfigured.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_security_unconfigured" } });
+      const ledger = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${data.tribeId}`)).rows[0].count);
+      expect(ledger).toBe(1);
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
   it("should count the commercial members the first activation converts and reject a foreign inventory scope", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();

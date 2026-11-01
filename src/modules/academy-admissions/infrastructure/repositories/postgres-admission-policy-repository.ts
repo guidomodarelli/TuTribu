@@ -92,21 +92,29 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
 
   /**
    * Every policy write signs its original intent with the hosting messaging security. Without it the claim fails before anything is
-   * stored, so the write is rejected as a definitive platform requirement instead of an unexpected failure the browser would keep as uncertain.
-   * @throws AdmissionOperationError (admission_ineligible) caused by the admission_security_unconfigured requirement and the original failure.
+   * stored, so a new write is rejected as a definitive platform requirement instead of an unexpected failure the browser would keep as
+   * uncertain. A resend of an original that is already registered (for example, committed before the security went missing) stays
+   * unresolved instead, so the browser keeps the original intent to recover it once the security is back.
+   * @param command - Original scoped command. @param context - Current leader scope. @param operation - Exact sensitive operation.
+   * @throws AdmissionOperationError: admission_ineligible caused by admission_security_unconfigured, or operation_unresolved for a registered original.
    */
-  private async assertSecurityConfigured(): Promise<void> {
+  private async assertSecurityConfigured(command: AdmissionOperationCommand, context: AuthorizedAdmissionContext, operation: ReauthenticationOperation): Promise<void> {
     try { await this.readSecurityConfig(); }
     catch (error) {
-      if (error instanceof MessagingCryptographyError) throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured, error);
-      throw error;
+      if (!(error instanceof MessagingCryptographyError)) throw error;
+      const registered = await this.execute(context, async (database) => {
+        await authorizeAdmissionPolicy(database, context, operation);
+        return (await database.execute<{ found: boolean }>(sql`select exists(select 1 from public.academy_admission_operations where actor_user_id=${command.actorUserId} and tribe_id=${command.tribeId} and operation_type=${command.operationType} and idempotency_key=${command.idempotencyKey}) as found`)).rows[0].found;
+      });
+      if (registered) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: error });
+      throw requirementUnmet(ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured, error);
     }
   }
 
   /** Original replay precedes new CAS; every phase independently checks current leadership. */
   private async run(intent: PolicyIntent, operation: ReauthenticationOperation, commandIntent: AdmissionOperationCommand["intent"], mutate: (database: RequestDatabase, ledgerId: string) => Promise<AdmissionPolicyMutationResult>): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     const command: AdmissionOperationCommand = { actorUserId: intent.context.userId, tribeId: intent.context.tribeId, operationType: intent.type, idempotencyKey: intent.operationId, intent: commandIntent };
-    await this.assertSecurityConfigured();
+    await this.assertSecurityConfigured(command, intent.context, operation);
     // Each ledger transaction (claim, effect, recovery) lets its repeated leader checks reuse the locks of its first one; none uses a savepoint.
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, (database) => withReusedAdmissionLeaderAuthority(database, () => work(database))), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);
     try { return await ledger.run(command, admissionPolicyMutationResultSchema, async (database, ledgerId) => { await this.academy(database, intent.context.tribeId); return mutate(database, ledgerId); }); }
