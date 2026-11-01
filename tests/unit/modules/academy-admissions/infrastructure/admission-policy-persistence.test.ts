@@ -291,12 +291,12 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     });
   }, 300_000);
 
-  it("should convert commercial members into free tribemates at the first activation, skip abandoned checkouts and keep them out of stale subscription reconciliation", async () => {
+  it("should convert commercial members into free tribemates at the first activation, keep a paid way in for pending checkouts and keep converted members out of stale subscription reconciliation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
       data.setPrepared(true);
       const ids = { paidBlocked: randomUUID(), inactiveRemoved: randomUUID(), guardian: randomUUID(), mutedBlocked: randomUUID(), abandoned: randomUUID(), conduct: randomUUID(), muted: randomUUID() };
-      const integrationId = randomUUID(), priceId = randomUUID(), providerId = randomUUID(), slug = `policy-${data.tribeId}`;
+      const integrationId = randomUUID(), priceId = randomUUID(), providerId = randomUUID(), checkoutProviderId = randomUUID(), slug = `policy-${data.tribeId}`;
       await database.withContext(data.fixture.own, async (transaction) => {
         for (const userId of Object.values(ids)) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic commercial member',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status,last_seen_at) values
@@ -311,8 +311,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
         await transaction.execute(sql`insert into public.tribe_payment_integrations(id,tribe_id,provider,account_label,status,access_token,token_expires_at,connected_by) values (${integrationId},${data.tribeId},'mercado_pago','Synthetic seller','connected',${randomUUID()},clock_timestamp()+interval '1 day',${data.fixture.userId})`);
         await transaction.execute(sql`insert into public.tribe_subscription_prices(id,tribe_id,name,amount_cents,currency,frequency,status,is_current,mercado_pago_preapproval_plan_id,payment_integration_id,product_key,created_by) values (${priceId},${data.tribeId},'Synthetic membership',1500,'ARS','monthly','active',true,${randomUUID()},${integrationId},'membership',${data.fixture.userId})`);
         await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,mercado_pago_preapproval_id,status,status_reason,product_key) values (${data.tribeId},${ids.inactiveRemoved},${priceId},${integrationId},${providerId},'canceled','subscription_inactive','membership')`);
-        // An abandoned paid checkout: the reservation never got a preapproval nor a confirmed payment.
-        await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,status,status_reason,product_key) values (${data.tribeId},${ids.abandoned},${priceId},${integrationId},'pending','payment_blocked','membership')`);
+        // A paid checkout still pending at activation: its preapproval exists but no payment was confirmed yet.
+        await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,mercado_pago_preapproval_id,status,status_reason,product_key) values (${data.tribeId},${ids.abandoned},${priceId},${integrationId},${checkoutProviderId},'pending','payment_blocked','membership')`);
       });
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
       const operationId = randomUUID();
@@ -321,20 +321,29 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const converted = { role: "tribemate", status: "active", reason: "none" };
       const expected = {
         paidBlocked: { ...converted, recovery: "active" }, inactiveRemoved: { ...converted, recovery: null }, guardian: { ...converted, recovery: null }, mutedBlocked: { ...converted, recovery: "muted" },
-        abandoned: { role: "tribemate", status: "blocked", reason: "payment_blocked", recovery: null }, conduct: { role: "tribemate", status: "blocked", reason: "conduct_blocked", recovery: null }, muted: { role: "tribemate", status: "muted", reason: "none", recovery: null },
+        abandoned: { role: "tribemate", status: "blocked", reason: "payment_blocked", recovery: "active" }, conduct: { role: "tribemate", status: "blocked", reason: "conduct_blocked", recovery: null }, muted: { role: "tribemate", status: "muted", reason: "none", recovery: null },
       };
       expect(await members()).toEqual(expected);
       const ledgerId = (await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ id: string }>(sql`select id from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${operationId}`))).rows[0].id;
       const audit = (await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ member_user_id: string; actor_user_id: string; decision: string; basis: string; previous_role: string; previous_status: string; resulting_status: string; operation_id: string }>(sql`select member_user_id,actor_user_id,decision,basis,previous_role,previous_status,resulting_status,operation_id from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId} order by member_user_id`))).rows;
-      expect(audit.map((row) => row.member_user_id).sort()).toEqual([ids.paidBlocked, ids.inactiveRemoved, ids.guardian, ids.mutedBlocked].sort());
-      expect(audit.every((row) => row.decision === "convert_free" && row.basis === "academy_activation_conversion" && row.resulting_status === "active" && row.actor_user_id === data.fixture.userId && row.operation_id === ledgerId)).toBe(true);
+      const conversions = audit.filter((row) => row.decision === "convert_free");
+      expect(conversions.map((row) => row.member_user_id).sort()).toEqual([ids.paidBlocked, ids.inactiveRemoved, ids.guardian, ids.mutedBlocked].sort());
+      expect(conversions.every((row) => row.basis === "academy_activation_conversion" && row.resulting_status === "active" && row.actor_user_id === data.fixture.userId && row.operation_id === ledgerId)).toBe(true);
+      // The pending checkout is not converted: only the snapshot a paid invitation promises is recorded, audited.
+      expect(audit.filter((row) => row.decision !== "convert_free")).toEqual([{ member_user_id: ids.abandoned, actor_user_id: data.fixture.userId, decision: "recover_active", basis: "academy_activation_pending_checkout", previous_role: "tribemate", previous_status: "blocked", resulting_status: "blocked", operation_id: ledgerId }]);
       expect(audit.find((row) => row.member_user_id === ids.guardian)).toMatchObject({ previous_role: "guardian", previous_status: "blocked" });
-      // A late cancellation of the old preapproval must not block or remove the converted member again.
-      await createSubscriptionMembershipReconciliationRepository(database, { userId: data.fixture.userId, email: null }, "cancelled").reconcileProviderSubscribers({ priceId, tribeSlug: slug, source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton });
-      expect(await members()).toEqual(expected);
+      const reconcile = (status: "authorized" | "cancelled") => createSubscriptionMembershipReconciliationRepository(database, { userId: data.fixture.userId, email: null }, status).reconcileProviderSubscribers({ priceId, tribeSlug: slug, source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton });
+      // The payment of the pending checkout confirms after the activation: it joins as an active paid member.
+      await reconcile("authorized");
+      const afterPayment = await members();
+      expect(afterPayment.abandoned).toEqual({ role: "tribemate", status: "active", reason: "none", recovery: "active" });
+      // A late cancellation of an old preapproval must not block or remove a converted member again.
+      await reconcile("cancelled");
+      const afterCancellation = await members();
+      for (const key of ["paidBlocked", "inactiveRemoved", "guardian", "mutedBlocked", "conduct", "muted"] as const) expect(afterCancellation[key]).toEqual(expected[key]);
       // A replayed activation neither converts again nor duplicates the audit.
       expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 1 })).toMatchObject({ state: "completed", replayed: true });
-      expect((await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`))).rows[0].count).toBe(4);
+      expect((await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`))).rows[0].count).toBe(5);
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 

@@ -6,7 +6,10 @@
 --   commercial_recovery_status (the readable state snapshotted when the row became commercial), a
 --   last_seen_at (presence is only touched while active or muted) or an applied paid membership source.
 --   A paid invitation reserves blocked/payment_blocked when checkout opens and only a confirmed payment
---   makes the row readable, so a row with none of that evidence is an abandoned checkout: it stays as is.
+--   makes the row readable, so a row with none of that evidence is a checkout that never joined: it is not
+--   converted, but it keeps a paid way in. The activation records for it the snapshot a paid invitation promises
+--   (active), audited as recover_active / academy_activation_pending_checkout, so a payment confirmed after the
+--   activation still admits it through the protected paid recovery instead of failing on an unknown history.
 -- * What they become: tribemate, active, none. The guardian role is dropped. Academy content still
 --   depends on a subscription or grant; the conversion grants none.
 -- * Trace: one append-only tribe_member_commercial_resolutions row per member, decision convert_free,
@@ -29,6 +32,7 @@ ALTER TABLE public.tribe_member_commercial_resolutions ADD CONSTRAINT tribe_memb
 ALTER TABLE public.tribe_member_commercial_resolutions DROP CONSTRAINT tribe_member_commercial_resolution_basis_check;
 ALTER TABLE public.tribe_member_commercial_resolutions ADD CONSTRAINT tribe_member_commercial_resolution_basis_check CHECK (
   (decision='convert_free' AND basis='academy_activation_conversion')
+  OR (decision='recover_active' AND basis='academy_activation_pending_checkout')
   OR (decision<>'convert_free' AND basis='prospective_leader_decision')
 );
 
@@ -97,6 +101,26 @@ BEGIN
       RAISE EXCEPTION 'commercial membership conversion was not persisted' USING ERRCODE='23514';
     END IF;
     converted := converted + 1;
+  END LOOP;
+  -- The rows left commercial are paid checkouts that never joined. Once protected, a confirmed payment only recovers
+  -- a known snapshot, so record the one a paid invitation promises (active) under the same audited resolution the
+  -- membership-source guard accepts in this transaction. They stay blocked until a payment confirms.
+  FOR member IN SELECT candidate.* FROM public.tribe_members candidate
+    WHERE candidate.tribe_id=p_tribe_id AND candidate.user_id<>actor_id AND candidate.role='tribemate'
+      AND public.is_commercial_membership_state(candidate.status,candidate.status_reason) AND candidate.commercial_recovery_status IS NULL
+    ORDER BY candidate.id FOR UPDATE
+  LOOP
+    INSERT INTO public.tribe_member_commercial_resolutions(tribe_id,member_id,member_user_id,actor_user_id,operation_id,decision,basis,
+      previous_role,previous_status,previous_status_reason,previous_recovery_status,
+      resulting_role,resulting_status,resulting_status_reason,resulting_recovery_status,reason)
+    VALUES (p_tribe_id,member.id,member.user_id,actor_id,p_operation_id,'recover_active','academy_activation_pending_checkout',
+      member.role,member.status,member.status_reason,NULL,
+      'tribemate',member.status,member.status_reason,'active',NULL);
+    UPDATE public.tribe_members SET commercial_recovery_status='active' WHERE id=member.id AND tribe_id=p_tribe_id;
+    IF NOT EXISTS(SELECT 1 FROM public.tribe_members saved WHERE saved.id=member.id AND saved.status=member.status
+      AND saved.status_reason=member.status_reason AND saved.commercial_recovery_status='active') THEN
+      RAISE EXCEPTION 'pending checkout recovery snapshot was not persisted' USING ERRCODE='23514';
+    END IF;
   END LOOP;
   RETURN converted;
 END;

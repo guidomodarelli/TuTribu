@@ -6,7 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
-- Al activar las admisiones de la academia, las personas que eran integrantes y estaban bloqueadas por pago o dadas de baja por la suscripción pasan solas a ser integrantes gratuitas: vuelven a la tribu sin acceso al contenido pago, y las guardianas quedan sin ese rol. Quienes abrieron un pago y nunca lo completaron no se agregan.
+- Al activar las admisiones de la academia, las personas que eran integrantes y estaban bloqueadas por pago o dadas de baja por la suscripción pasan solas a ser integrantes gratuitas: vuelven a la tribu sin acceso al contenido pago, y las guardianas quedan sin ese rol. Quienes abrieron un pago y nunca lo completaron no se agregan, pero si lo completan después de la activación entran como integrantes.
 - El último paso de Reglas de admisión avisa cuántas membresías bloqueadas por pago van a pasar a integrantes gratuitas antes de activar.
 
 ### Removed
