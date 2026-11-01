@@ -5,14 +5,16 @@ import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissi
 import { useAllowlistImportWorkflow } from "@/hooks/use-allowlist-import-workflow";
 import { AllowlistImport } from "@/components/academy-admissions/allowlist-import";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import { ALLOWLIST_IMPORT_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 
 /** @param props - Guarded minimum current SSR props and own optional collaborators. @returns One controlled import view, without full route refresh after mutations. */
 export function AllowlistImportContainer({ initialState, client }: { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient }) {
-  const workflow = useAllowlistImportWorkflow({ initialState, client });
-  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+  const workflow = useAllowlistImportWorkflow({ initialState, client }), location = useAdmissionRouteLocation();
+  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} {...resolveAdmissionRouteRecovery(initialState.code, location)} />;
   // Losing the account or the tribe authority closes the private import; a fresh document is the way back.
   if (workflow.accessLost) return <AdmissionRouteError embedded message={workflow.errorMessage ?? ALLOWLIST_IMPORT_BROWSER_COPY.account} retry={() => window.location.reload()} />;
   const canResume = workflow.pending?.type === REAUTHENTICATION_OPERATION.confirmAllowlistImport && workflow.originalChecked;

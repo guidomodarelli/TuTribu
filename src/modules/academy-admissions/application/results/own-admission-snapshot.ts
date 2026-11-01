@@ -7,10 +7,10 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
  * @param schema - Own snapshot contract of the read.
  * @param candidate - Assembled facts.
  * @returns The parsed snapshot as a successful application result.
- * @throws AdmissionOperationError when the facts do not satisfy the own contract.
+ * @throws AdmissionOperationError when the facts do not satisfy the own contract, with the schema rejection as cause.
  */
 export function ownAdmissionSnapshot<Value>(schema: z.ZodType<Value>, candidate: unknown): { ok: true; value: Value } {
   const parsed = schema.safeParse(candidate);
-  if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: parsed.error });
   return { ok: true as const, value: parsed.data };
 }

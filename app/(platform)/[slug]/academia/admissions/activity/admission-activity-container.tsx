@@ -14,6 +14,8 @@ import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/consta
 import { admissionActivityApiClient } from "@/lib/academy-admissions/admission-activity-api-client";
 import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
+import { resolveAdmissionRouteRecovery, type AdmissionRouteLocation } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import styles from "./styles.module.scss";
 
 /** Only safe own SSR state and optional project-owned read ports enter this workflow. */
@@ -61,6 +63,12 @@ function useActivityReadLifecycle({ ready, controllerRef, activated, selectionRe
   }, [ready, checkViewer, readSnapshot, launchRead, showPrivate, controllerRef, activated, selectionRef, readingRef, visibleRef, setErrorMessage, setPhase]);
 }
 
+/** @param props - Safe copy and code of the read that closed the private view, the current address and the reread. @returns Its recovery: the reread only for a failure that can pass. */
+function ActivityReadFailure({ message, code, location, retry }: { message: string; code: string | null; location: AdmissionRouteLocation; retry: () => void }) {
+  const recovery = resolveAdmissionRouteRecovery(code, location);
+  return <AdmissionRouteError embedded message={message} signInHref={recovery.signInHref} initialViewHref={recovery.initialViewHref} retry={recovery.retry ? retry : undefined} />;
+}
+
 /** @param props - Current server snapshot with no provider or native session material. @returns The sole browser read owner; it never writes settings or refreshes a route after ordinary reads. */
 export function AdmissionActivityContainer({ initialState, client = admissionActivityApiClient }: ActivityContainerProps) {
   const ready = initialState.kind === KIND.ready ? initialState : null;
@@ -72,6 +80,9 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [olderError, setOlderError] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  /** Code of the read that closed the private view, which decides its recovery (sign in, retry, initial view or none). */
+  const [failureCode, setFailureCode] = useState<string | null>(null);
+  const location = useAdmissionRouteLocation();
   const controllerRef = useRef<AbortController | null>(null), activated = useRef(false);
   /** Applied filters without the cursor of an older page, the snapshot a read combines with, and the older pages already shown. */
   const selectionRef = useRef(ready?.selection), snapshotRef = useRef(ready);
@@ -86,8 +97,10 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
     if (!ready || controller.signal.aborted || controllerRef.current !== controller) return false;
     const result = await client.viewer(controller.signal);
     if (controller.signal.aborted || controllerRef.current !== controller || result.status === STATUS.aborted) return false;
-    if (result.status === STATUS.failed) { showPrivate(false); setErrorMessage(result.message); setPhase(PHASE.unavailable); return false; }
-    if (result.value?.id !== ready.viewerId) { showPrivate(false); setPhase(PHASE.changedViewer); return false; }
+    // A session that could not be read proves no account change: facts on screen stay with the explanation, a withheld view offers its retry.
+    if (result.status === STATUS.failed) { setErrorMessage(result.message); setFailureCode(null); setPhase(visibleRef.current ? PHASE.ready : PHASE.unavailable); return false; }
+    if (result.value === null) { showPrivate(false); setPhase(PHASE.signedOut); return false; }
+    if (result.value.id !== ready.viewerId) { showPrivate(false); setPhase(PHASE.changedViewer); return false; }
     return true;
   }, [ready, client, showPrivate]);
 
@@ -103,7 +116,7 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
     const current = () => !controller.signal.aborted && controllerRef.current === controller;
     /** A failure the leader can retry keeps the shown facts; a lost authority, or a view that was already withheld, shows the recovery instead. */
     const fail = (message: string, code?: string) => {
-      if (withheld || code !== undefined && isAdmissionAccessLoss(code)) { showPrivate(false); setErrorMessage(message); setPhase(PHASE.unavailable); return; }
+      if (withheld || code !== undefined && isAdmissionAccessLoss(code)) { showPrivate(false); setErrorMessage(message); setFailureCode(code ?? null); setPhase(PHASE.unavailable); return; }
       if (mode === READ_MODE.older) setOlderError(message); else setErrorMessage(message);
       setPhase(PHASE.ready);
     };
@@ -131,9 +144,10 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
   useActivityReadLifecycle({ ready, controllerRef, activated, selectionRef, readingRef, visibleRef, checkViewer, readSnapshot, launchRead, showPrivate, setErrorMessage, setPhase });
 
   const reload = () => { if (selectionRef.current) launchRead(selectionRef.current, privateVisible ? READ_MODE.refresh : READ_MODE.restore); };
-  if (!ready || !snapshot || !draft) return <AdmissionRouteError embedded message={initialState.kind === KIND.unavailable ? initialState.message : COPY.readFailed} retry={() => window.location.reload()} />;
+  if (!ready || !snapshot || !draft) return <AdmissionRouteError embedded message={initialState.kind === KIND.unavailable ? initialState.message : COPY.readFailed} {...resolveAdmissionRouteRecovery(initialState.kind === KIND.unavailable ? initialState.code : null, location)} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
-  if (!privateVisible) return phase === PHASE.unavailable ? <AdmissionRouteError embedded message={errorMessage ?? COPY.readFailed} retry={reload} /> : <p role="status">{COPY.loading}</p>;
+  if (phase === PHASE.signedOut) return <AdmissionRouteError embedded message={COPY.signedOut} {...resolveAdmissionRouteRecovery(ADMISSION_ERROR_CODE.authenticationRequired, location)} />;
+  if (!privateVisible) return phase === PHASE.unavailable ? <ActivityReadFailure message={errorMessage ?? COPY.readFailed} code={failureCode} location={location} retry={reload} /> : <p role="status">{COPY.loading}</p>;
   const busy = phase === PHASE.checking || phase === PHASE.reading;
   const readingOlder = phase === PHASE.reading && readMode === READ_MODE.older, updating = phase === PHASE.reading && !readingOlder;
   /** New filters are checked before transport and always start from their first page. */

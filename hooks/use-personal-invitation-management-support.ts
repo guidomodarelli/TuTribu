@@ -1,10 +1,11 @@
 /** Pure decisions of the personal invitation management workflow, kept apart so each hook step stays readable. @module use-personal-invitation-management-support */
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { WriteToast } from "@/lib/toasts/write-toast";
 import type { PersonalInvitationManagementDraft, PersonalInvitationManagementIntent, PersonalInvitationManagementReference } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
 import { personalInvitationMutationResultSchema, personalInvitationMutationDenialSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-management-schemas";
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_PHASE as PHASE, PERSONAL_INVITATION_MANAGEMENT_MODE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** Visible management phase. */
@@ -54,7 +55,7 @@ export type ManagementRunRefs = {
 
 /** @param pendingRef - Unresolved original, if any. @returns The failure copy of an interrupted action: uncertain while an original is pending. */
 export function interruptedManagementMessage(pendingRef: RefObject<PersonalInvitationManagementReference | null>): string {
-  return pendingRef.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable;
+  return pendingRef.current ? COPY.uncertain : BROWSER_REQUEST_TRANSPORT_MESSAGE;
 }
 
 /** Where one run's retryable failures go. */

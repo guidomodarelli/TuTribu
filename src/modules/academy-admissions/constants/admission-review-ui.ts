@@ -43,7 +43,7 @@ export const ADMISSION_REVIEW_UI_COPY = {
   invalid: "Escribí un motivo interno y confirmá la decisión. Respetá los límites indicados.",
   uncertain: "La decisión no está confirmada. Consultá la operación original antes de volver a intentar.", retry: "Reintentar la misma decisión", recovered: "Se confirmó la decisión original.",
   started: "La decisión original todavía no terminó. Si no avanza, confirmala de nuevo y reintentá la misma decisión: no se aplica dos veces.",
-  complete: "La decisión quedó guardada.", readFailed: "No pudimos consultar la revisión actual. Volvé a consultar antes de decidir.",
+  complete: "La decisión quedó guardada.", readFailed: "No pudimos consultar la revisión actual. Volvé a consultar antes de decidir.", selectionUnavailable: "No encontramos la solicitud del enlace en esta academia. Elegí una de la bandeja.",
   changedViewer: "La cuenta cambió. Recargá la página para consultar la bandeja de esta cuenta.", storageFailed: "No pudimos conservar la decisión en este navegador. Habilitá el almacenamiento de sesión y volvé a consultar.",
   reload: "Recargar con la cuenta actual", declared: "Contacto declarado: no acredita verificación", none: "Solicitud sin contacto verificado",
   base: "Correo acreditado por Google para la cuenta", local: "Contacto verificado para esta solicitud de la academia",

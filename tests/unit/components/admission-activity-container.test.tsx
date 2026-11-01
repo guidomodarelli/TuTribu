@@ -10,6 +10,7 @@ import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-rou
 import { AdmissionActivityContainer } from "@/app/(platform)/[slug]/academia/admissions/activity/admission-activity-container";
 import type { AdmissionActivityBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-activity-browser-client";
 import { createAdmissionActivityPageFixture } from "@/tests/support/admission-activity-page";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 
 const router = { back: vi.fn(), bfcacheId: "private-activity-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** @param props - Test children. @returns Actual framework/shared UI without platform or component mocks. */
@@ -104,11 +105,44 @@ describe("private activity browser workflow", () => {
     expect(screen.getAllByRole("main")).toHaveLength(1);
   });
 
-  it("should clear a failed read's alert during retry and restore data only after current authorization succeeds", async () => {
+  it("should offer no retry when the tribe authority was denied, since reading again cannot grant it", async () => {
     const data = fixture(); render(data.node, { wrapper: Providers });
     data.client.read.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para consultar este historial.", uncertain: false });
     fireEvent.click(await currentReadButton());
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso"));
+    expect(screen.queryByText("Códigos consumidos")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir al inicio" })).toBeInTheDocument();
+  });
+
+  it("should keep the facts on screen with a session explanation when the session cannot be read, without calling it an account change", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    data.client.viewer.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: BROWSER_SESSION_CHECK_MESSAGE, uncertain: false });
+    fireEvent.click(await currentReadButton());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(BROWSER_SESSION_CHECK_MESSAGE));
+    expect(screen.getByText("Códigos consumidos")).toBeInTheDocument();
+    expect(screen.queryByText(/La cuenta cambió/)).not.toBeInTheDocument();
+    expect(data.client.read).not.toHaveBeenCalled();
+  });
+
+  it("should offer signing in back to the activity when the session ended", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    data.client.viewer.mockResolvedValue({ status: "ready", value: null });
+    fireEvent.click(await currentReadButton());
+    const signIn = await screen.findByRole("link", { name: "Iniciar sesión" });
+    expect(screen.getByRole("alert")).toHaveTextContent("Tu sesión terminó");
+    expect(decodeURIComponent(signIn.getAttribute("href") ?? "")).toContain("/academia/admissions/activity");
+    expect(screen.queryByText("Códigos consumidos")).not.toBeInTheDocument();
+  });
+
+  it("should clear a transient failure of a restored view during retry and restore data only after current authorization succeeds", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers });
+    await currentReadButton();
+    data.client.read.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el consumo y el historial.", uncertain: false });
+    act(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos consultar"));
     expect(screen.queryByText("Códigos consumidos")).not.toBeInTheDocument();
     let complete!: (result: Awaited<ReturnType<AdmissionActivityBrowserClient["read"]>>) => void;
     data.client.read.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));

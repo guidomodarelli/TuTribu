@@ -1,4 +1,5 @@
 /** Loads current private management props inside this leaf's own runtime boundary. @module personal-invitation-management-page-route */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { createPersonalInvitationManagementRequestModule } from "@/src/modules/setup";
 import { loadPersonalInvitationManagementPageState } from "@/src/modules/academy-admissions/infrastructure/composition/personal-invitation-management-page";
@@ -8,8 +9,8 @@ import Loading from "./loading";
 
 /** @param props - Runtime values resolved within this leaf. @returns Only guarded current leader props, with no session or token material. */
 async function InvitationContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [route, query] = await Promise.all([params, searchParams]);
-  const state = await loadPersonalInvitationManagementPageState({ params: route, query }, async () => { const services = await createPersonalInvitationManagementRequestModule(); return { execute: services.page.execute.bind(services.page), publicOrigin: services.publicOrigin }; });
+  const [route, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadPersonalInvitationManagementPageState({ params: route, query }, async () => { const services = await createPersonalInvitationManagementRequestModule(); return { execute: services.page.execute.bind(services.page), publicOrigin: services.publicOrigin }; }, requestHeaders);
   return <AdmissionSettingsPage page="invitations"><InvitationsContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved native runtime input. @returns Deterministic loading and the single SSR data entrypoint. */

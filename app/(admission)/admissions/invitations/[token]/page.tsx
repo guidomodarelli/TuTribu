@@ -1,4 +1,5 @@
 /** Resolves personal SSR runtime data within this leaf's own Suspense and safe application composition. @module personal-invitation-page */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { createPersonalInvitationRequestModule } from "@/src/modules/setup";
@@ -11,8 +12,8 @@ export const metadata: Metadata = { title: "Invitación personal", referrer: "no
 
 /** @param props - Unresolved native params/query. @returns One read-only snapshot without serializing the token as a container prop. */
 async function PersonalInvitationContent({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [resolvedParams, query] = await Promise.all([params, searchParams]);
-  const state = await loadPersonalInvitationPageState({ params: resolvedParams, query }, createPersonalInvitationRequestModule);
+  const [resolvedParams, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadPersonalInvitationPageState({ params: resolvedParams, query }, createPersonalInvitationRequestModule, requestHeaders);
   return <PersonalInvitationContainer initialState={state} />;
 }
 

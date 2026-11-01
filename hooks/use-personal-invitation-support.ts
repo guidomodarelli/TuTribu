@@ -1,5 +1,6 @@
 /** Pure decisions of the personal invitation workflow, kept apart so each hook step stays readable. @module use-personal-invitation-support */
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import type { AdmissionBrowserSubmission } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { PersonalInvitationSubmissionIntent } from "@/lib/academy-admissions/personal-invitation-submission-intent";
@@ -57,7 +58,7 @@ export function settlePersonalRequest(refs: PersonalRequestRefs, settled: Person
 
 /** @param unresolved - Whether an original is still unresolved. @returns The failure copy of an interrupted observation. */
 export function interruptedObservationMessage(unresolved: boolean): string {
-  return unresolved ? PERSONAL_INVITATION_UI_COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable;
+  return unresolved ? PERSONAL_INVITATION_UI_COPY.uncertain : BROWSER_REQUEST_TRANSPORT_MESSAGE;
 }
 
 /** @param refs - Workflow refs. @param initialization - The mount's own initialization. @param setters - Phase and alert setters. Frees the workflow when initialization still owns it and reports its timeout. */

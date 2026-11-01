@@ -20,6 +20,14 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Cuando una página de admisiones o mensajería no se puede mostrar, el mensaje explica que no pudo cargarse (o que el enlace no es válido, o que falta iniciar sesión) en lugar de pedir que conserves datos o confirmes una operación que no existe.
+- Esas páginas ofrecen la salida que sirve: «Iniciar sesión» si venció la sesión, «Volver a la vista inicial» si el enlace tenía filtros o una selección inválida, y «Reintentar» solo cuando volver a intentar puede funcionar; un permiso denegado ya no ofrece un reintento que vuelve a fallar.
+- Si no se puede comprobar tu sesión por un momento (corte de red, servidor lento), Habilitados, Importación, Invitaciones, Revisión y Actividad ya no dicen que la cuenta cambió ni cierran lo que estabas viendo: avisan y te dejan reintentar, y una invitación recién emitida conserva su enlace.
+- Una falla de conexión, una respuesta inesperada del servidor o un cierre de sesión fallido ya no muestran «La mensajería no está disponible temporalmente», sino un mensaje sobre la conexión o la sesión.
+- Guardar las reglas o decidir una solicitud mientras otra persona abre la solicitud o la bandeja ya no le muestra «La configuración cambió» o «No tenés permiso»: la página vuelve a leer o permite reintentar.
+- Abrir la bandeja de Revisión con un enlace a una solicitud que ya no existe muestra la bandeja con un aviso, en lugar de ocultarla.
+- En Actividad, el detalle de cada hecho muestra en español las reglas, causas, estados, canales y demás valores registrados, en lugar de identificadores técnicos.
+- En Actividad, las acciones de una cuenta eliminada se muestran como «Sin atribución disponible» en lugar de atribuirse a «Sistema».
 - Después de «Ingresar gratis», la academia muestra al instante tu acceso y el aviso de ingreso, en lugar de seguir mostrando la vista de visitante hasta recargar.
 - Un pago de la academia que no llegó a abrirse en Mercado Pago ya no deja la página trabada en «Estamos confirmando tu suscripción»: vuelve a ofrecer «Contratar academia» y, si quedó sin confirmar, un nuevo intento abre otro pago a los pocos minutos.
 - Dos contrataciones casi simultáneas de la academia ya no responden «La venta de la academia está pausada».

@@ -18,6 +18,7 @@ import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/a
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
 const viewerId = "synthetic-reviewer", slug = "synthetic-academy";
@@ -674,9 +675,10 @@ describe("native reviewer container", () => {
     const data = fixture();
     writeAdmissionReviewIntent(viewerId, slug, { requestId, input: { operationId, confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "Motivo original" } });
     data.client.viewer.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "Fallo de lectura", uncertain: false });
-    render(data.node, { wrapper: Providers }); await screen.findByText(ADMISSION_REVIEW_UI_COPY.readFailed);
-    expect(screen.queryByText("applicant@example.test")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    // A session that could not be read proves no account change: the inbox stays and the explicit read checks it again.
+    render(data.node, { wrapper: Providers }); await screen.findByText(BROWSER_SESSION_CHECK_MESSAGE);
+    expect(screen.queryByText(ADMISSION_REVIEW_UI_COPY.changedViewer)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read }));
     await screen.findByText(ADMISSION_REVIEW_UI_COPY.uncertain);
     expect(data.client.operation).toHaveBeenCalledWith(slug, operationId, expect.any(AbortSignal));
     expect(data.client.decide).not.toHaveBeenCalled();

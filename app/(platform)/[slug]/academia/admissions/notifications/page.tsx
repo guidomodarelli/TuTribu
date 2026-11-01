@@ -1,4 +1,5 @@
 /** Loads own preferences and authorized leader email configuration behind this leaf's runtime boundary. @module admission-notification-settings-route */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { createAdmissionNotificationSettingsRequestModule } from "@/src/modules/setup";
 import { loadAdmissionNotificationSettingsPageState } from "@/src/modules/notifications/infrastructure/composition/admission-notification-settings-page";
@@ -9,8 +10,8 @@ import Loading from "./loading";
 
 /** @param props - Unresolved runtime input consumed only inside the leaf's Suspense scope. @returns One guarded SSR snapshot and current role-specific navigation. */
 async function NotificationSettingsContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [route, query] = await Promise.all([params, searchParams]);
-  const state = await loadAdmissionNotificationSettingsPageState({ params: route, query }, async () => (await createAdmissionNotificationSettingsRequestModule()).page);
+  const [route, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadAdmissionNotificationSettingsPageState({ params: route, query }, async () => (await createAdmissionNotificationSettingsRequestModule()).page, requestHeaders);
   const key = state.kind === PAGE_KIND.ready ? `${state.slug}:${state.viewerId}` : state.code;
   return <AdmissionSettingsPage page="notifications"><AdmissionNotificationSettingsContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }

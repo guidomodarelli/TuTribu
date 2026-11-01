@@ -1,10 +1,11 @@
 /** Pure decisions of the allowlist import workflow, kept apart so each hook step stays readable. @module use-allowlist-import-workflow-support */
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { WriteToast } from "@/lib/toasts/write-toast";
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportBrowserIntent } from "@/src/modules/academy-admissions/application/commands/allowlist-import-browser-intent";
 import { allowlistImportReferenceSchema, allowlistImportConfirmationResultSchema } from "@/src/modules/academy-admissions/application/results/allowlist-import-operation-schemas";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION as OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { ALLOWLIST_IMPORT_BROWSER_COPY as COPY, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import type { StoredAllowlistImport } from "@/lib/academy-admissions/allowlist-import-intent";
@@ -75,7 +76,7 @@ export function readUsableWriteResult(intent: AllowlistImportBrowserIntent, resu
 
 /** @param stored - Current own records. @returns The failure copy of an interrupted action: uncertain while an original is pending. */
 export function interruptedActionMessage(stored: StoredAllowlistImport): string {
-  return stored.pending ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable;
+  return stored.pending ? COPY.uncertain : BROWSER_REQUEST_TRANSPORT_MESSAGE;
 }
 
 /** Refs and setters an action run releases when it settles. */

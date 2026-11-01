@@ -1,4 +1,5 @@
 /** Resolves private history runtime data inside this leaf's own Suspense boundary. @module admission-review-history-page */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { createAdmissionReviewHistoryRequestModule } from "@/src/modules/setup";
 import { loadAdmissionReviewHistoryPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-review-history-page";
@@ -11,8 +12,8 @@ type HistoryPageProps = { params: Promise<{ slug: string; requestId: string }>; 
 
 /** @param props - Untrusted framework runtime params and query. @returns Guarded current history props after the single lazy input boundary. */
 async function HistoryContent({ params, searchParams }: HistoryPageProps) {
-  const [route, query] = await Promise.all([params, searchParams]);
-  const state = await loadAdmissionReviewHistoryPageState({ params: route, query }, async () => (await createAdmissionReviewHistoryRequestModule()).page);
+  const [route, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadAdmissionReviewHistoryPageState({ params: route, query }, async () => (await createAdmissionReviewHistoryRequestModule()).page, requestHeaders);
   return <AdmissionSettingsPage page="history"><AdmissionReviewHistoryContainer initialState={state} /></AdmissionSettingsPage>;
 }
 

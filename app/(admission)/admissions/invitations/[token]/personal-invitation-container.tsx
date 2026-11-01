@@ -15,12 +15,13 @@ import { PERSONAL_INVITATION_BROWSER_ROUTE } from "@/src/modules/academy-admissi
 import { PERSONAL_INVITATION_UI_COPY, PERSONAL_INVITATION_UI_PHASE } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
 import { PERSONAL_INVITATION_OVERVIEW_STATE } from "@/src/modules/academy-admissions/constants/personal-invitation-overview";
 import { ADMISSION_OVERVIEW_STATE } from "@/src/modules/academy-admissions/constants/admission-public-contract";
-import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_CONTACT_PHASE } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import { buildAdmissionEntryRoute, buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
 import { replaceCurrentPageWithUrl } from "@/lib/browser-navigation";
 import { ROUTES } from "@/src/constants/routes";
@@ -31,12 +32,9 @@ type PersonalContainerProps = { initialState: PersonalInvitationPageState; clien
 
 /** @param props - Safe SSR state and own transport ports. @returns A fresh workflow for the current route/account without adding token material to SSR props. */
 export function PersonalInvitationContainer(props: PersonalContainerProps) {
-  const { token } = useParams<{ token: string }>();
-  if (props.initialState.kind === "unavailable") {
-    // Only the TuTribu team can make the platform protect admissions again: reloading would fail the same way.
-    const retry = props.initialState.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable ? undefined : () => { window.location.reload(); /* A failed read-only SSR snapshot is retried as a fresh document. */ };
-    return <AdmissionRouteError message={props.initialState.message} retry={retry} />;
-  }
+  const { token } = useParams<{ token: string }>(), location = useAdmissionRouteLocation();
+  // Only a failure that can pass retries; a missing session signs in back here, and an invalid or truncated link (or a platform block) cannot be fixed by reloading.
+  if (props.initialState.kind === "unavailable") return <AdmissionRouteError message={props.initialState.message} {...resolveAdmissionRouteRecovery(props.initialState.code, location)} />;
   const viewer = props.initialState.viewerId;
   return <PersonalInvitationWorkflow key={`${token}:${viewer ?? ""}`} {...props} token={token} />;
 }

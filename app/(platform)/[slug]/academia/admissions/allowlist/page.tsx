@@ -1,4 +1,5 @@
 /** Loads the list through one server entrypoint inside this leaf's own runtime boundary. @module allowlist-page-route */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { createAllowlistRequestModule } from "@/src/modules/setup";
 import { loadAllowlistPageState } from "@/src/modules/academy-admissions/infrastructure/composition/allowlist-page";
@@ -9,8 +10,8 @@ import { ALLOWLIST_IMPORT_SETTINGS_SEGMENT } from "@/src/modules/academy-admissi
 
 /** @param props - Runtime values resolved within the leaf Suspense scope. @returns Guarded current leader props without native session or provider payloads. */
 async function ListContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [route, query] = await Promise.all([params, searchParams]);
-  const state = await loadAllowlistPageState({ params: route, query }, async () => (await createAllowlistRequestModule()).page);
+  const [route, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadAllowlistPageState({ params: route, query }, async () => (await createAllowlistRequestModule()).page, requestHeaders);
   const links = state.kind === "ready" ? [{ href: `/${encodeURIComponent(state.slug)}/${ALLOWLIST_IMPORT_SETTINGS_SEGMENT}`, label: "Importar habilitados desde CSV" }] : [];
   return <AdmissionSettingsPage page="allowlist" links={links}><AllowlistContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
 }

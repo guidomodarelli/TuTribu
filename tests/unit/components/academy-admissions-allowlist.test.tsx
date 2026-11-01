@@ -12,6 +12,7 @@ import type { AllowlistPageState } from "@/src/modules/academy-admissions/applic
 import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { PLATFORM_SECURITY_DIAGNOSTIC_CODE, PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 
 const router = { back: vi.fn(), bfcacheId: "allowlist-tests", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** @param props - Actual UI/router children. @returns Native framework context and unmocked shared components. */
@@ -103,6 +104,21 @@ describe("allowlist route controls", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeEnabled());
     expect(screen.queryByRole("button", { name: `Editar ${former.identity}` })).not.toBeInTheDocument();
     expect(screen.getByText(ALLOWLIST_BROWSER_COPY.otherContactType)).toBeVisible();
+  });
+
+  it("should keep the list readable when the session cannot be read on mount and check it again from Reintentar", async () => {
+    const data = fixture();
+    vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: BROWSER_SESSION_CHECK_MESSAGE, uncertain: false });
+    render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    expect(await screen.findByText(BROWSER_SESSION_CHECK_MESSAGE)).toBeVisible();
+    expect(screen.getByText(data.entry.identity)).toBeVisible();
+    expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.account)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).not.toBeDisabled());
+    expect(screen.queryByText(BROWSER_SESSION_CHECK_MESSAGE)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    expect(data.client.viewer).toHaveBeenCalledTimes(2);
   });
 
   it("should show contact validation before dispatch and clear it when the proposal changes", async () => {

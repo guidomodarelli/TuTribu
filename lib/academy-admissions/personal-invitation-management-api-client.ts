@@ -1,5 +1,6 @@
 "use client";
 /** Consumes native scoped management DTOs without storing or reconstructing a one-view URL. @module personal-invitation-management-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE, BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { personalInvitationManagementPageStateSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-management-page";
 import { createPersonalInvitationHttpCreationSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-http-schemas";
@@ -65,7 +66,7 @@ async function readAcceptedWrite(response: Response, intent: PersonalInvitationW
 export function createPersonalInvitationManagementApiClient(options: { fetch?: typeof fetch; viewer?: PersonalInvitationManagementBrowserClient["viewer"]; origin?: () => string } = {}): PersonalInvitationManagementBrowserClient {
   const transport = options.fetch ?? fetch, { json: request, rejected } = createAdmissionManagementBrowserTransport(transport);
   return {
-    viewer: options.viewer ?? (async (signal) => { const result = await admissionApiClient.viewer(signal); return result.status === "failed" ? failure(result.code) : result; }),
+    viewer: options.viewer ?? (async (signal) => { const result = await admissionApiClient.viewer(signal); return result.status === "failed" ? failure(result.code, false, BROWSER_SESSION_CHECK_MESSAGE) : result; }),
     page: async (slug, query, signal) => {
       const search = new URLSearchParams({ limit: String(query.limit), ...(query.status ? { status: query.status } : {}), ...(query.cursor ? { cursor: query.cursor } : {}) });
       const result = await request(`${managementBase(slug)}/${PERSONAL_INVITATION_MANAGEMENT_PATH.context}?${search}`, personalInvitationManagementPageStateSchema, signal);
@@ -83,7 +84,7 @@ export function createPersonalInvitationManagementApiClient(options: { fetch?: t
         const viewer = personalInvitationViewerMetadataSchema.safeParse(value);
         if (!parsed.success || parsed.data.operationId !== operationId || !viewer.success || !viewer.data.viewerId) return failure(ADMISSION_ERROR_CODE.publicContractUnusable);
         return signal.aborted ? { status: "aborted" } : { status: "ready", value: { original: parsed.data, viewerId: viewer.data.viewerId } };
-      } catch { return signal.aborted ? { status: "aborted" } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+      } catch { return signal.aborted ? { status: "aborted" } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, false, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
     },
     write: async (slug, intent, signal) => {
       if (signal.aborted) return { status: "aborted" };
@@ -98,7 +99,11 @@ export function createPersonalInvitationManagementApiClient(options: { fetch?: t
         if (signal.aborted) return { status: "aborted" };
         if (!response.ok) return await rejected(response, true, intent.input.operationId);
         return await readAcceptedWrite(response, intent, { signal, creationSchema });
-      } catch { return signal.aborted ? { status: "aborted" } : failure(dispatched ? ADMISSION_ERROR_CODE.dependencyUnavailable : ADMISSION_ERROR_CODE.publicContractUnusable, dispatched); }
+      } catch {
+        if (signal.aborted) return { status: "aborted" };
+        // Once dispatched the write may have landed behind a cut network; before that, the failure is only local.
+        return dispatched ? failure(ADMISSION_ERROR_CODE.dependencyUnavailable, true, BROWSER_REQUEST_TRANSPORT_MESSAGE) : failure(ADMISSION_ERROR_CODE.publicContractUnusable);
+      }
     },
   };
 }

@@ -26,6 +26,9 @@ import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/
 import { buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admission-review-history-routes";
 import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
 import { useAdmissionViewFeedback } from "@/hooks/use-admission-view-feedback";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
+import { resolveAdmissionRouteRecovery, type AdmissionRouteLocation } from "@/lib/academy-admissions/admission-route-recovery";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import { useReplacedActionFocus } from "@/hooks/use-replaced-action-focus";
 import { useAdmissionReviewBatchSelection } from "@/hooks/use-admission-review-batch-selection";
 import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
@@ -46,7 +49,8 @@ function useReviewState(ready: ReviewReady | null) {
   const [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
   const [internalReason, setInternalReason] = useState(""), [externalMessage, setExternalMessage] = useState("");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // A link to a request this tribe does not have keeps the inbox and explains why nothing is open.
+  const [statusMessage, setStatusMessage] = useState<string | null>(ready?.selectionUnavailable ? ADMISSION_REVIEW_UI_COPY.selectionUnavailable : null);
   const [batchManifest, setBatchManifest] = useState<AdmissionBatchReviewSelection[]>([]), [batchPending, setBatchPending] = useState(false);
   const [batchResult, setBatchResult] = useState<AdmissionBatchResultDto | null>(null);
   const [platformRequirement, setPlatformRequirementState] = useState<PlatformSecurityRequirement | null>(ready?.page.platformRequirement ?? null);
@@ -75,7 +79,8 @@ function useReviewSession({ ready, client, controls, appliedFilters, batchAction
     if (!ready || signal.aborted) return false;
     const viewer = await client.viewer(signal);
     if (signal.aborted || viewer.status === "aborted") return false;
-    if (viewer.status === "failed") { if (!quiet) { controls.setPrivateVisible(false); controls.setFresh(false); setReadErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); } return false; }
+    // A session that could not be read proves no account change: the inbox stays, without fresh decisions, until it is checked again.
+    if (viewer.status === "failed") { if (!quiet) { controls.setFresh(false); setReadErrorMessage(BROWSER_SESSION_CHECK_MESSAGE); } return false; }
     if (viewer.value?.id !== ready.viewerId) { hideReviewPrivate({ controls, batchActions, setErrorMessage }, ADMISSION_REVIEW_UI_COPY.changedViewer, true); return false; }
     return true;
   }, [client, ready, controls, batchActions, setErrorMessage, setReadErrorMessage]);
@@ -105,9 +110,9 @@ function reviewFlags(view: ReviewView, { navigating, batchCount, errorMessage, r
   };
 }
 
-/** @param initialState - Server state. @param view - Inbox state. @param errorMessage - Page feedback. @param retry - Explicit reread of the open request. @returns The route error that replaces the inbox, or null when the inbox may render. */
-function reviewRouteError(initialState: AdmissionReviewPageState, view: ReviewView, errorMessage: string | null, retry: () => void) {
-  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+/** @param initialState - Server state. @param view - Inbox state. @param recovery - Page feedback, the explicit reread of the open request and the current address (for the recovery of a server failure). @returns The route error that replaces the inbox, or null when the inbox may render. */
+function reviewRouteError(initialState: AdmissionReviewPageState, view: ReviewView, { errorMessage, retry, location }: { errorMessage: string | null; retry: () => void; location: AdmissionRouteLocation }) {
+  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} {...resolveAdmissionRouteRecovery(initialState.code, location)} />;
   if (view.phase === ADMISSION_REVIEW_PHASE.changedViewer) return <AdmissionRouteError embedded message={ADMISSION_REVIEW_UI_COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!view.privateVisible && view.phase !== ADMISSION_REVIEW_PHASE.reading) return <AdmissionRouteError message={errorMessage ?? ADMISSION_REVIEW_UI_COPY.readFailed} retry={retry} />;
   return null;
@@ -171,7 +176,7 @@ function reviewInteractions({ view, batchActions, setErrorMessage, flags, send, 
 /** @param props - Guarded deterministic server state and own client adapter. @returns A single route owner; presenters receive callbacks only. */
 export function AdmissionReviewContainer({ initialState, client = admissionApiClient }: ReviewContainerProps) {
   const ready = initialState.kind === "ready" ? initialState : null;
-  const router = useRouter(), [navigating, startNavigation] = useTransition();
+  const router = useRouter(), [navigating, startNavigation] = useTransition(), location = useAdmissionRouteLocation();
   const appliedFilters = ready?.filters ?? DEFAULT_ADMISSION_REVIEW_SELECTION;
   const [filterDraft, setFilterDraft] = useState(() => createAdmissionReviewFilterDraft(appliedFilters));
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -191,7 +196,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const launchRead = useCallback((selectionId?: string, append = false, after?: string | null) => startReviewRead(controls, batchActions, readCurrent, { selectionId, append, after }), [controls, batchActions, readCurrent]);
   useEffect(() => startReviewLifecycle(controls, ready?.renderedAt ?? null, readCurrent, launchRead), [readCurrent, launchRead, ready, controls]);
   const batchAvailability = useMemo(() => batchAvailabilityFor(view.items, batchSelection), [view.items, batchSelection]);
-  const routeError = reviewRouteError(initialState, view, errorMessage, () => launchRead(controls.currentSelected.current?.id));
+  const routeError = reviewRouteError(initialState, view, { errorMessage, retry: () => launchRead(controls.currentSelected.current?.id), location });
   if (routeError || !ready || !session) return routeError;
   const flags = reviewFlags(view, { navigating, batchCount: batchSelection.length, errorMessage, refreshUnavailable }), { uncertain, pendingAction, reading, formDisabled } = flags;
   /** @param intent - Exact individual or batch original. @param action - Control the reviewer pressed. @returns Nothing after the write settles. */

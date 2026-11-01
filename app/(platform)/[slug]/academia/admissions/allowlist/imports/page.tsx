@@ -1,4 +1,5 @@
 /** Loads the existing current leader policy once for a new explicit CSV import surface. @module allowlist-import-page-route */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { createAllowlistRequestModule } from "@/src/modules/setup";
 import { loadAdmissionPolicyPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-policy-page";
@@ -10,8 +11,8 @@ import Loading from "./loading";
 
 /** @param props - Runtime data resolved inside the leaf's own boundary. @returns Guarded minimum scope without initial client policy refetch or mutation. */
 async function ImportContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [route, query] = await Promise.all([params, searchParams]);
-  const state = presentAllowlistImportPage(await loadAdmissionPolicyPageState({ params: route, query }, async () => (await createAllowlistRequestModule()).policyPage));
+  const [route, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = presentAllowlistImportPage(await loadAdmissionPolicyPageState({ params: route, query }, async () => (await createAllowlistRequestModule()).policyPage, requestHeaders));
   const links = state.kind === "ready" ? [{ href: `/${encodeURIComponent(state.slug)}/${ALLOWLIST_SETTINGS_SEGMENT}`, label: "Volver a la lista de habilitados" }] : [];
   return <AdmissionSettingsPage page="allowlistImport" links={links}><AllowlistImportContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
 }

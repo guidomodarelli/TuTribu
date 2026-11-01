@@ -1,5 +1,6 @@
 "use client";
 /** Consumes only same-origin own settings DTOs bound to their actual native viewer. @module admission-notification-settings-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { z } from "zod";
 import type { AdmissionNotificationSettingsBrowserClient, AdmissionNotificationSettingsBrowserResult, AdmissionNotificationSettingsBoundResult } from "@/src/modules/notifications/application/ports/admission-notification-settings-browser-client";
 import { ADMISSION_NOTIFICATION_SETTINGS_API as API, ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
@@ -50,7 +51,7 @@ export function createAdmissionNotificationSettingsApiClient(options: { fetch?: 
       const ownError = admissionPublicErrorSchema.safeParse(value);
       if (ownError.success) return failure(ownError.data.operation && command?.operationId && ownError.data.operation.operationId !== command.operationId ? ADMISSION_ERROR_CODE.publicContractUnusable : ownError.data.code, Boolean(command));
       return readViewerBoundValue(response, schema.safeParse(value), Boolean(command));
-    } catch { return signal.aborted ? { status: STATUS.aborted } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, Boolean(command)); }
+    } catch { return signal.aborted ? { status: STATUS.aborted } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, Boolean(command), BROWSER_REQUEST_TRANSPORT_MESSAGE); }
   }
   return {
     viewer: options.viewer ?? admissionApiClient.viewer,

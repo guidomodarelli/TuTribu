@@ -9,6 +9,7 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { ownAdmissionSnapshot } from "../results/own-admission-snapshot";
 import { readLiveAdmissionAccount, confirmSameAdmissionAccount } from "./admission-account-continuity";
+import { retryAdmissionReadRaceResult } from "./admission-read-race";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import type { LegacyAdmissionInvitationReader } from "../../domain/repositories/legacy-admission-invitation-reader";
 import { ADMISSION_OVERVIEW_STATE } from "../../constants/admission-public-contract";
@@ -24,7 +25,7 @@ export class GetAdmissionPageUseCase {
     try {
       const first = await readLiveAdmissionAccount(this.accounts, this.clock);
       const overview = await this.readers.overview.execute({ slug: query.slug, requestId: query.requestId });
-      if (!overview.ok) throw new AdmissionOperationError(overview.failure.code);
+      if (!overview.ok) throw new AdmissionOperationError(overview.failure.code, { cause: overview.failure.cause });
       if (query.legacyInvitationToken && first && overview.value.request?.status !== ADMISSION_REQUEST_STATUS.pending && (overview.value.state === ADMISSION_OVERVIEW_STATE.available || overview.value.state === ADMISSION_OVERVIEW_STATE.verificationRequired)) {
         await this.assertLegacyArrival(query, first, query.legacyInvitationToken);
       }
@@ -39,7 +40,7 @@ export class GetAdmissionPageUseCase {
   /** @param query - Validated slug and correlation. @param first - Account that opened the page. @param token - Proposed legacy invitation token. @throws AdmissionOperationError when the link is not an active invitation of this tribe. */
   private async assertLegacyArrival(query: { slug: string; requestId: string }, first: AuthenticatedAccount, token: string): Promise<void> {
     const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
-    if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code);
+    if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code, { cause: tribe.failure.cause });
     const arrival = await this.readers.legacyInvitations?.findActiveByToken({ userId: first.userId, sessionId: first.session.id, tribeId: tribe.value.tribeId, token });
     if (!arrival) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
   }
@@ -48,9 +49,9 @@ export class GetAdmissionPageUseCase {
   private async readExactRequest(query: { slug: string; requestId: string }, first: AuthenticatedAccount | null, admissionRequestId: string) {
     if (!first) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     const tribe = await this.readers.resolveTribe.execute({ slug: query.slug, requestId: query.requestId });
-    if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code);
-    const exact = await this.readers.own.getOwn({ tribeId: tribe.value.tribeId, requestId: query.requestId, admissionRequestId });
-    if (!exact.ok) throw new AdmissionOperationError(exact.failure.code);
+    if (!tribe.ok) throw new AdmissionOperationError(tribe.failure.code, { cause: tribe.failure.cause });
+    const exact = await retryAdmissionReadRaceResult(() => this.readers.own.getOwn({ tribeId: tribe.value.tribeId, requestId: query.requestId, admissionRequestId }));
+    if (!exact.ok) throw new AdmissionOperationError(exact.failure.code, { cause: exact.failure.cause });
     if (!exact.value) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     return exact.value;
   }

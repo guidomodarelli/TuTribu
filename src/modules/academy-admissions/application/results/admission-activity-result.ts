@@ -9,6 +9,7 @@ export type AdmissionActivityPage = z.infer<typeof admissionActivityPageSchema>;
 /** @param value - Own projected history about to cross a boundary. @param tribeId - Native authorized scope. @returns A safe same-tribe page. @throws AdmissionOperationError for an unusable own public contract. */
 export function parseAdmissionActivityPage(value: unknown, tribeId: string): AdmissionActivityPage {
   const parsed = admissionActivityPageSchema.safeParse(value);
-  if (!parsed.success || parsed.data.tribeId !== tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: parsed.error });
+  if (parsed.data.tribeId !== tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   return parsed.data;
 }
