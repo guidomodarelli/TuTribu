@@ -57,6 +57,8 @@ export type AdmissionSubmissionFacts = {
   contactBinding: { ownerUserId: string; contact: AdmissionContact } | null;
 };
 type DenialReason = (typeof ADMISSION_DENIAL_REASON)[keyof typeof ADMISSION_DENIAL_REASON];
+/** Closed reason of a denied evaluation, shared with the copy that explains it. */
+export type AdmissionDenialReason = DenialReason;
 type EvidenceKind = (typeof ADMISSION_EVIDENCE_KIND)[keyof typeof ADMISSION_EVIDENCE_KIND];
 export type AdmissionEligibilityResult =
   | { outcome: "denied"; reason: DenialReason }

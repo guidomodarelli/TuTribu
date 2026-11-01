@@ -14,7 +14,7 @@ import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/ap
 import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
+import { ADMISSION_APPLICANT_REFUSAL_COPY, ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { ADMISSION_REQUEST_FLOW_COPY } from "@/src/modules/academy-admissions/constants/admission-request-flow";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import { LEGACY_ADMISSION_COPY } from "@/src/modules/academy-admissions/constants/legacy-admission-arrival";
@@ -85,21 +85,27 @@ describe("applicant page that could not be read", () => {
 });
 
 describe("applicant errors next to what produced them", () => {
-  it("should show a refused submission once, in the submission step, and clear it when the applicant changes the confirmation", async () => {
-    const data = fixture();
+  it("should show a refused submission once, in the submission step, read the changed rules and send their version on the next confirmation", async () => {
+    const data = fixture(), changedOverview = { ...data.state.overview, policy: { ...data.state.overview.policy!, version: 2 } };
     render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
+    vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: changedOverview });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
 
-    const message = ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.policyConflict];
+    const message = ADMISSION_APPLICANT_REFUSAL_COPY[ADMISSION_ERROR_CODE.policyConflict]!;
     const flow = screen.getByRole("form", { name: ADMISSION_REQUEST_FLOW_COPY.submitLabel });
     await waitFor(() => expect(within(flow).getByRole("alert")).toHaveTextContent(message));
     expect(screen.getAllByText(message)).toHaveLength(1);
+    // The refusal asks for a new confirmation over the rules read again.
+    expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).not.toBeChecked();
 
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
     await waitFor(() => expect(screen.queryByText(message)).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    await waitFor(() => expect(data.client.submit).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(data.client.submit).mock.calls.map(([, input]) => input.expectedPolicyVersion)).toEqual([1, 2]);
   });
 
   it("should show a refused cancellation once, next to the cancel action, and clear it when the applicant changes the confirmation", async () => {

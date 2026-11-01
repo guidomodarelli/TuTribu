@@ -1,5 +1,6 @@
 /** Owns concise Spanish reviewer feedback and viewer-scoped local storage. @module admission-review-ui */
 import type { AdmissionRequest } from "../domain/entities/admission-request";
+import type { AdmissionDenialReason } from "../domain/policies/admission-eligibility";
 
 export const ADMISSION_REVIEW_STORAGE_PREFIX = "tutribu-admission-review-intent";
 
@@ -8,8 +9,10 @@ export const ADMISSION_REVIEW_STATUS_LABEL = { pending: "Pendiente", approved: "
 /** Source is historical provenance, never a verification claim or admission permission. */
 export const ADMISSION_REVIEW_SOURCE_LABEL = { common: "Solicitud común", personal: "Invitación personal", legacy: "Ingreso anterior" } as const satisfies Record<AdmissionRequest["source"], string>;
 
-/** Explains current review restrictions without changing permission, membership or request state. */
-export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Record<string, string | undefined>> = {
+/** Every reason a reviewer can meet: a signed-out applicant never reaches the review. */
+type AdmissionReviewEligibilityReason = Exclude<AdmissionDenialReason, "unauthenticated">;
+/** Explains current review restrictions without changing permission, membership or request state; every reviewer reason has its copy. */
+const REVIEW_ELIGIBILITY_COPY = {
   admission_closed: "Las admisiones no están disponibles para aprobar esta solicitud. Su plazo no cambia.",
   admission_scope_mismatch: "No se puede confirmar el alcance actual de la solicitud. Consultá su estado nuevamente.",
   contact_account_mismatch: "El contacto de la solicitud no coincide con la cuenta actual del solicitante.",
@@ -26,7 +29,10 @@ export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Record<string, string |
   request_expired: "La solicitud venció. No puede aprobarse y conserva su plazo original.",
   reviewer_unauthorized: "Tu permiso actual no permite decidir sobre esta solicitud.",
   exception_reason_required: "La aprobación por excepción exige un motivo interno explícito.",
-};
+  whatsapp_number_required: "Las reglas actuales exigen el teléfono y esta solicitud no lo tiene. La persona puede completarlo desde su solicitud.",
+} as const satisfies Readonly<Record<AdmissionReviewEligibilityReason, string>>;
+/** Lookup by any received reason; one without copy (none today) is left out by the presenter. */
+export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Partial<Record<string, string>>> = REVIEW_ELIGIBILITY_COPY;
 /** Local phases never imply that unconfirmed work was accepted by the server. */
 export const ADMISSION_REVIEW_PHASE = { idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
 /** The review write a reviewer pressed: only that control shows progress while the others stay disabled. */

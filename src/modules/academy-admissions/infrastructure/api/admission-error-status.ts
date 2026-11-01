@@ -23,6 +23,8 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.contactBindingConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.challengeExpired]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.challengeInvalidated]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.challengeAlreadySent]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.requestExpired]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.proofUnavailable]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.verificationAttemptsExceeded]: HTTP_STATUS.tooManyRequests,
   [ADMISSION_ERROR_CODE.usageLimitReached]: HTTP_STATUS.tooManyRequests,

@@ -7,6 +7,7 @@ import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/a
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemedToaster, toast } from "@golfo/ui";
 import { AdmissionContainer } from "@/app/(admission)/admissions/[slug]/admission-container";
+import { AdmissionScreen } from "@/components/academy-admissions/admission-screen";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import type { AdmissionAccountBrowserClient, AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
@@ -289,6 +290,27 @@ describe("manual admission screen", () => {
     expect(await screen.findByText(ADMISSION_ERROR_MESSAGE.dependency_unavailable)).toBeVisible();
     expect(changeAccount).toHaveBeenCalledOnce();
     expect(data.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should keep every action disabled while the page leaves after a confirmed sign-out", async () => {
+    const data = fixture(), changeAccount = vi.fn<AdmissionAccountBrowserClient["changeAccount"]>(async () => ({ status: "ready", value: null }));
+    data.state.overview = { ...data.state.overview, policy: { ...data.state.overview.policy!, mode: "allowlist" }, state: "closed", nextAction: "change_account", safeMessage: ADMISSION_OVERVIEW_MESSAGE.allowlistOnly };
+    render(<AdmissionContainer initialState={data.state} client={data.client} accountClient={{ changeAccount }} />, { wrapper: Providers });
+    const change = screen.getByRole("button", { name: ADMISSION_UI_COPY.changeAccount });
+    await waitFor(() => expect(change).toBeEnabled());
+    fireEvent.click(change);
+    await waitFor(() => expect(changeAccount).toHaveBeenCalledOnce());
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByRole("button", { name: ADMISSION_UI_COPY.changingAccount })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_UI_COPY.read })).toBeDisabled();
+    expect(screen.queryByText(ADMISSION_UI_COPY.accountChanged)).not.toBeInTheDocument();
+  });
+
+  it("should not offer an account change that cannot run while an original stays unresolved", () => {
+    const data = fixture();
+    data.state.overview = { ...data.state.overview, policy: { ...data.state.overview.policy!, mode: "allowlist" }, state: "closed", nextAction: "change_account", safeMessage: ADMISSION_OVERVIEW_MESSAGE.allowlistOnly };
+    render(<AdmissionScreen state={data.state} phase="uncertain" formReady onChangeAccount={vi.fn()} />, { wrapper: Providers });
+    expect(screen.getByRole("button", { name: ADMISSION_UI_COPY.changeAccount })).toBeDisabled();
   });
 
   it("should show the list notice instead of the generic refusal when a submission meets a list that no longer admits this account", async () => {

@@ -42,8 +42,10 @@ type CapabilityRow = { sender_id: string; template_id: string | null; template_l
 /** Closed admission error code. */
 type AdmissionErrorCodeValue = (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE];
 type PreparedResource = { environment: string; credentialKeyId: string; usagePolicyVersion: number; senderId: string; templateId: string | null; templateLanguage: string | null };
-/** The old challenge is observed before locking its delivery, preserving the dispatch lock order. */
-type CurrentChallengeRow = { id: string; version: number; delivery_id: string; code_envelope_id: string | null; channel: "email" | "sms" | "whatsapp"; state: string; expires_at: string | Date };
+/** The old challenge is observed before locking its delivery, preserving the dispatch lock order; its scope and origin decide whether an original issuance reuses or replaces it. */
+type CurrentChallengeRow = { id: string; version: number; delivery_id: string; code_envelope_id: string | null; channel: "email" | "sms" | "whatsapp"; state: string; expires_at: string | Date; created_at: string | Date; failed_attempts: number; has_mac: boolean; mac_key_id: string; verification_epoch: number | null; connection_id: string; connection_version: number; security_epoch: string; personal_invitation_id: string | null; personal_request_id: string | null };
+/** Columns of {@link CurrentChallengeRow}; the optional personal origin is read through jsonb, like the other readers of that reference. */
+const CURRENT_CHALLENGE_COLUMNS = sql.raw("challenge.id,challenge.version,challenge.delivery_id,challenge.code_envelope_id,challenge.channel,challenge.state,challenge.expires_at,challenge.created_at,challenge.failed_attempts,challenge.code_mac is not null as has_mac,challenge.mac_key_id,challenge.verification_epoch,challenge.connection_id,challenge.connection_version,challenge.security_epoch,to_jsonb(challenge)->>'personal_invitation_id' as personal_invitation_id,to_jsonb(challenge)->>'personal_request_id' as personal_request_id");
 
 /** @param scope - Requested challenge scope. @returns A fresh diagnostic id for a connection test, else `null`. */
 function newDiagnosticId(scope: VerificationChallengeScope): string | null {
@@ -148,20 +150,19 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
 
   /**
    * Locks the current challenge for this destination in the shared delivery, challenge, proof and envelope order.
+   * An original issuance (no expected challenge) locks whatever is current, so the caller reuses a live code or replaces a finished or foreign one; only an explicit resend must name it.
    * @param command - Original issuance or explicit resend intent.
    * @returns The locked current challenge, if any, or a stale-resend denial.
    */
   private async lockCurrentChallenge(command: IssueContactVerificationCommand): Promise<{ current: CurrentChallengeRow | undefined } | { denial: typeof ADMISSION_ERROR_CODE.challengeInvalidated }> {
-    const scope = command.scope;
-    let current: CurrentChallengeRow | undefined = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel,state,expires_at from public.contact_verification_challenges where user_id=${scope.userId} and tribe_id=${scope.tribeId} and contact_type=${scope.contact.type} and normalized_contact=${scope.contact.value} and purpose=${scope.purpose} and is_current`)).rows[0];
-    /** A connection test is retaken from scratch once its previous code was confirmed or expired; that finished challenge is superseded below instead of blocking every later test to the same destination. */
-    const finishedConnectionTest = scope.purpose === ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic && current !== undefined && command.expectedCurrentChallengeId === null
-      && (current.state === VERIFICATION_CHALLENGE_STATE.verified || new Date(current.expires_at) <= await readVerificationDatabaseNow(this.database));
-    if (!finishedConnectionTest && (current?.id ?? null) !== command.expectedCurrentChallengeId) return { denial: ADMISSION_ERROR_CODE.challengeInvalidated };
+    const scope = command.scope, resend = command.expectedCurrentChallengeId !== null;
+    let current: CurrentChallengeRow | undefined = (await this.database.execute<CurrentChallengeRow>(sql`select ${CURRENT_CHALLENGE_COLUMNS} from public.contact_verification_challenges challenge where challenge.user_id=${scope.userId} and challenge.tribe_id=${scope.tribeId} and challenge.contact_type=${scope.contact.type} and challenge.normalized_contact=${scope.contact.value} and challenge.purpose=${scope.purpose} and challenge.is_current`)).rows[0];
+    if (resend && current?.id !== command.expectedCurrentChallengeId) return { denial: ADMISSION_ERROR_CODE.challengeInvalidated };
     if (current) {
       await this.database.execute(sql`select id from public.message_deliveries where id=${current.delivery_id} and tribe_id=${scope.tribeId} for update`);
-      current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel,state,expires_at from public.contact_verification_challenges where id=${current.id} and is_current for update`)).rows[0];
-      if (!current) return { denial: ADMISSION_ERROR_CODE.challengeInvalidated };
+      current = (await this.database.execute<CurrentChallengeRow>(sql`select ${CURRENT_CHALLENGE_COLUMNS} from public.contact_verification_challenges challenge where challenge.id=${current.id} and challenge.is_current for update`)).rows[0];
+      // Another writer retired it meanwhile: a resend lost its target, an original issuance simply has nothing to replace.
+      if (!current) return resend ? { denial: ADMISSION_ERROR_CODE.challengeInvalidated } : { current };
       await this.database.execute(sql`select id from public.academy_admission_verification_proofs where challenge_id=${current.id} for update`);
       if (current.code_envelope_id) await this.database.execute(sql`select id from public.verification_code_envelopes where id=${current.code_envelope_id} for update`);
     }
@@ -184,6 +185,51 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     const cancelled = (await this.database.execute<MessageDeliveryAuditRow>(sql`update public.message_deliveries set state=${VERIFICATION_DELIVERY_STATE.cancelled},last_outcome=${VERIFICATION_RESEND_REASON},lease_token=null,lease_until=null,version=version+1 where id=${current.delivery_id} and state=${VERIFICATION_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${current.delivery_id}) returning id,state,version,connection_id,connection_version,channel`)).rows;
     await appendCancelledMessageDeliveryAudit(this.database, { tribeId: scope.tribeId, actorUserId: scope.userId, operationId: command.ledgerId, cause: VERIFICATION_RESEND_REASON, createdAt: invalidatedAt }, cancelled);
     await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.invalidated} where challenge_id=${current.id} and outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.pending}`);
+  }
+
+  /**
+   * @param command - Original issuance; a resend always replaces its named challenge.
+   * @param current - Locked current challenge of the same actor, tribe, destination and purpose.
+   * @param config - Live protection used by this issuance.
+   * @returns Whether that code can still be entered in this exact connection, epochs and origin, so an original issuance must not replace it.
+   */
+  private async isLiveForScope(command: IssueContactVerificationCommand, current: CurrentChallengeRow, config: MessagingSecurityConfig): Promise<boolean> {
+    const scope = command.scope;
+    if (current.state !== VERIFICATION_CHALLENGE_STATE.issued || !current.has_mac || !config.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(current.mac_key_id) || current.failed_attempts >= ADMISSION_LIMIT.verificationChallengeFailureCount) return false;
+    if (current.connection_id !== scope.connectionId || current.connection_version !== scope.connectionVersion || current.verification_epoch !== scope.verificationEpoch || current.security_epoch !== scope.securityEpoch) return false;
+    if ((current.personal_invitation_id ?? null) !== (command.personalInvitationId ?? null) || (current.personal_request_id ?? null) !== (command.personalRequestId ?? null)) return false;
+    return new Date(current.expires_at) > await readVerificationDatabaseNow(this.database);
+  }
+
+  /**
+   * Another tab or device of the same person may already hold a live code for this destination: an admission keeps it on the same channel,
+   * a connection test asks for its explicit resend. A finished or foreign code, or an admission code on a channel no longer requested, is replaced.
+   * @param command - Original issuance or explicit resend. @param current - Locked current challenge, if any. @param config - Live protection.
+   * @returns The kept code or the denial that keeps it, or `null` when this issuance replaces it.
+   */
+  private async keepLiveCurrent(command: IssueContactVerificationCommand, current: CurrentChallengeRow | undefined, config: MessagingSecurityConfig): Promise<ContactVerificationIssuanceResult | null> {
+    if (!current || command.expectedCurrentChallengeId !== null || !await this.isLiveForScope(command, current, config)) return null;
+    if (command.scope.purpose !== ADMISSION_VERIFICATION_PURPOSE.admission) return { outcome: VERIFICATION_ISSUANCE_OUTCOME.denied, code: ADMISSION_ERROR_CODE.challengeAlreadySent };
+    return current.channel === command.scope.channel ? this.currentResult(current) : null;
+  }
+
+  /**
+   * Rechecks protection and actor once the current challenge is locked, then keeps a live one when it applies.
+   * @param command - Original issuance or explicit resend. @param resource - Prepared send facts. @param current - Locked current challenge, if any.
+   * @returns The final result (a denial or the kept code), or the live protection that the new issuance uses.
+   */
+  private async settleLockedCurrent(command: IssueContactVerificationCommand, resource: PreparedResource, current: CurrentChallengeRow | undefined): Promise<{ result: ContactVerificationIssuanceResult } | { config: MessagingSecurityConfig }> {
+    const config = await this.readSecurityConfig();
+    if (isIssuanceSecurityChanged(config, resource, command.scope.securityEpoch) || !await isCurrentVerificationActor(this.database, this.authorize, command.scope)) return { result: { outcome: VERIFICATION_ISSUANCE_OUTCOME.denied, code: ADMISSION_ERROR_CODE.connectionIncomplete } };
+    const kept = await this.keepLiveCurrent(command, current, config);
+    return kept ? { result: kept } : { config };
+  }
+
+  /** @param current - Live locked admission code of the same origin. @returns Its own minimal facts, without another delivery, quota use or code material. */
+  private async currentResult(current: CurrentChallengeRow): Promise<ContactVerificationIssuanceResult> {
+    const delivery = (await this.database.execute<{ state: Extract<ContactVerificationIssuanceResult, { outcome: "current" }>["deliveryState"] }>(sql`select state from public.message_deliveries where id=${current.delivery_id}`)).rows[0];
+    if (!delivery) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+    return { outcome: VERIFICATION_ISSUANCE_OUTCOME.current, challengeId: current.id, deliveryId: current.delivery_id, channel: current.channel, deliveryState: delivery.state, expiresAt: new Date(current.expires_at), resendAllowedAt: new Date(new Date(current.created_at).getTime() + ADMISSION_LIMIT.verificationResendWaitMs) };
   }
 
   /** @param command - Original issuance or explicit resend intent. @returns Whether its own ledger operation is still started. */
@@ -214,8 +260,9 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     const locked = await this.lockCurrentChallenge(command);
     if ("denial" in locked) return denied(locked.denial);
     const current = locked.current;
-    const config = await this.readSecurityConfig();
-    if (isIssuanceSecurityChanged(config, resource, scope.securityEpoch) || !await isCurrentVerificationActor(this.database, this.authorize, scope)) return denied(ADMISSION_ERROR_CODE.connectionIncomplete);
+    const settled = await this.settleLockedCurrent(command, resource, current);
+    if ("result" in settled) return settled.result;
+    const config = settled.config;
     const challengeId = randomUUID(), deliveryId = randomUUID(), envelopeId = randomUUID();
     const diagnosticId = newDiagnosticId(scope);
     // The private global ledger id isolates client keys reused in another actor/tenant/type namespace.

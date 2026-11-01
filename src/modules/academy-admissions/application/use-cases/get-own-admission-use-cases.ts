@@ -32,4 +32,19 @@ export class GetOwnAdmissionUseCases {
       return { ok: true as const, value: parsed.data };
     } catch (error) { return admissionOperationFailure(error); }
   }
+
+  /**
+   * Resolves the tribe of an own request whose link carries no tribe, as the request emails sent before the tribe joined that address.
+   * @param query - Exact own request id and safe correlation only.
+   * @returns That request tribe slug; signed out or a request of another account is a safe failure.
+   */
+  async findOwnTribeSlug(query: { requestId: string; admissionRequestId: string }) {
+    try {
+      const account = await this.accounts.getAuthenticatedAccount();
+      if (!account || !isAuthenticatedSessionLive(account.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+      const slug = await this.reader.readOwnTribeSlug({ userId: account.userId, sessionId: account.session.id, admissionRequestId: query.admissionRequestId });
+      if (!slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      return { ok: true as const, value: slug };
+    } catch (error) { return admissionOperationFailure(error); }
+  }
 }

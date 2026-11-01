@@ -35,6 +35,11 @@ export function isPlatformRefusal(result: AdmissionContactBrowserResult<unknown>
   return result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && result.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable;
 }
 
+/** @param result - Read of a stored code selection. @returns Whether the server confirmed a rejection that no later read can change: not uncertain, not a missing original and not a platform block. */
+export function isDefinitiveSelectionRefusal(result: AdmissionContactBrowserResult<unknown>): boolean {
+  return result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain && !confirmsAbsence(result) && !isPlatformRefusal(result);
+}
+
 /** @param code - Confirmed rejection of a code check. @param message - Its safe copy. @returns The alert to show, or null for an expired code, which the code step presents as a status beside its resend. */
 export const challengeAlert = (code: AdmissionErrorCode, message: string) => code === ADMISSION_ERROR_CODE.challengeExpired ? null : message;
 

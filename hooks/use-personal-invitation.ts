@@ -17,6 +17,7 @@ import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/a
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
+import { applicantRefusalMessage, isAdmissionStateChangedRefusal } from "@/src/modules/academy-admissions/application/results/admission-applicant-refusal";
 import { interruptedObservationMessage, readRecoveryFailureMessage, readSubmissionBlock, readSubmissionTarget, retirePersonalInvitation, settlePersonalInitialization, settlePersonalRequest, type PersonalPhase, type PersonalSubmissionInput } from "@/hooks/use-personal-invitation-support";
 
 type PersonalInvitationOptions = { initialState: PersonalInvitationPageState; token: string; client?: PersonalInvitationBrowserClient };
@@ -174,6 +175,16 @@ function usePersonalInvitationLifecycle(workflow: PersonalInvitationState, core:
 function usePersonalInvitationActions(workflow: PersonalInvitationState, core: PersonalInvitationCore) {
   const { client, token, ready, confirmed, live, currentRef, scopeRef, pendingRef, activeRef, busyRef, controllerRef, setPhase, setErrorMessage, setFeedback, setConfirmed, setHasPending, setReady } = workflow;
   const { authorize, restoreReference, clear, applyOutcome, refresh } = core;
+  /**
+   * @param result - Confirmed refusal of the original. @param signal - Request lifetime. Clears the original and shows the refusal; when the rules,
+   * the invitation or the proof changed after the page loaded, the page reads them again and asks for a new confirmation, so another try never resends the refused version.
+   */
+  const settleRefusal = useCallback(async (result: Extract<SubmissionResult, { status: "failed" }>, signal: AbortSignal) => {
+    if (!clear()) return;
+    if (isAdmissionStateChangedRefusal(result.code)) { setConfirmed(false); await refresh(signal); }
+    if (!live(signal)) return;
+    setErrorMessage(applicantRefusalMessage(result.code, result.message)); setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
+  }, [clear, live, refresh, setConfirmed, setErrorMessage, setPhase]);
   /** @param result - Reply to the dispatched original. @param operationId - Its identity. @param signal - Request lifetime. Publishes an owned outcome, clears a definite failure and keeps anything else uncertain. */
   const applySubmissionResult = useCallback(async (result: SubmissionResult, operationId: string, signal: AbortSignal) => {
     if (result.status === "ready" && result.value.operationId.toLowerCase() !== operationId.toLowerCase()) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
@@ -182,9 +193,9 @@ function usePersonalInvitationActions(workflow: PersonalInvitationState, core: P
       applyOutcome(result.value.outcome, result.value.outcome === ADMISSION_OUTCOME.pending ? result.value.request : undefined);
       setConfirmed(false); setFeedback(result.value.safeMessage);
       await refresh(signal); if (live(signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
-    } else if (result.status === "failed" && !result.uncertain) { if (!clear()) return; setErrorMessage(result.message); setPhase(PERSONAL_INVITATION_UI_PHASE.idle); }
+    } else if (result.status === "failed" && !result.uncertain) await settleRefusal(result, signal);
     else { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); }
-  }, [applyOutcome, clear, live, refresh, setConfirmed, setErrorMessage, setFeedback, setPhase]);
+  }, [applyOutcome, clear, live, refresh, setConfirmed, setErrorMessage, setFeedback, setPhase, settleRefusal]);
   /** @param scope - Viewer, tribe and route scope of the submission. @param input - Requested submission. @param signal - Request lifetime. Saves original metadata before dispatch. */
   const dispatchSubmission = useCallback(async (scope: Omit<PersonalInvitationSubmissionIntent, "operationId">, input: PersonalSubmissionInput, signal: AbortSignal) => {
     if (!await authorize(signal) || !live(signal)) return;

@@ -3,6 +3,7 @@
 import { createAuthClient } from "better-auth/client";
 
 import { ROUTES } from "@/src/constants/routes";
+import { navigateToUrl } from "@/lib/browser-navigation";
 import {
   DEV_SIGN_IN_REJECTED_HTTP_STATUS,
   DEV_SIGN_IN_RESULT,
@@ -18,6 +19,11 @@ const AUTH_CLIENT_ERROR = {
   signOutRejected: "Better Auth rejected sign-out.",
 } as const;
 const GOOGLE_SOCIAL_PROVIDER = "google";
+/** Google authorization parameter that selects its screens. */
+const GOOGLE_PROMPT_PARAM = "prompt";
+/** Shows the Google account chooser and still asks for the offline consent the provider configuration requests. */
+const GOOGLE_ACCOUNT_CHOOSER_PROMPT = "select_account consent";
+const GOOGLE_AUTHORIZATION_URL_MISSING = "Better Auth returned no Google authorization URL.";
 
 const authClient = createAuthClient();
 
@@ -42,14 +48,46 @@ function throwIfAuthClientFailed(
   throw new Error(authClientError.message ?? fallbackMessage);
 }
 
-export async function startGoogleSignIn(callbackUrl: string) {
+/**
+ * @param authorizationUrl - Google authorization URL Better Auth prepared, with its own state.
+ * @returns The same URL asking Google for its account chooser; every other parameter is kept.
+ */
+export function withGoogleAccountChooser(authorizationUrl: string): string {
+  const url = new URL(authorizationUrl);
+  url.searchParams.set(GOOGLE_PROMPT_PARAM, GOOGLE_ACCOUNT_CHOOSER_PROMPT);
+  return url.toString();
+}
+
+/**
+ * Starts the Google OAuth redirect.
+ *
+ * @param callbackUrl - Internal path to return to after sign-in.
+ * @param options - `selectAccount` asks Google for its account chooser, for an explicit account change; the provider configuration stays the same.
+ */
+export async function startGoogleSignIn(callbackUrl: string, options: { selectAccount?: boolean } = {}) {
+  if (!options.selectAccount) {
+    const result = await authClient.signIn.social({
+      callbackURL: callbackUrl,
+      errorCallbackURL: ROUTES.auth.error,
+      provider: GOOGLE_SOCIAL_PROVIDER,
+    });
+
+    throwIfAuthClientFailed(result, AUTH_CLIENT_ERROR.googleSignInRejected);
+    return;
+  }
+
+  // Better Auth prepares the authorization URL and its state; only the prompt changes before the browser leaves for Google.
   const result = await authClient.signIn.social({
     callbackURL: callbackUrl,
+    disableRedirect: true,
     errorCallbackURL: ROUTES.auth.error,
     provider: GOOGLE_SOCIAL_PROVIDER,
   });
 
   throwIfAuthClientFailed(result, AUTH_CLIENT_ERROR.googleSignInRejected);
+  const authorizationUrl = result.data?.url;
+  if (!authorizationUrl) throw new Error(GOOGLE_AUTHORIZATION_URL_MISSING);
+  navigateToUrl(withGoogleAccountChooser(authorizationUrl));
 }
 
 /**

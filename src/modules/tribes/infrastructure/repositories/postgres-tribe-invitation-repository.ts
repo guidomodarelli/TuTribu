@@ -366,6 +366,7 @@ function mapRevocationResult(row: InvitationStatusRow | null): TribeInvitationRe
 function mapAcceptanceResult(row: InvitationStatusRow | null): TribeInvitationAcceptanceResult {
   if (
     row?.status === TRIBE_INVITATION_STATUS.admissionRequired ||
+    row?.status === TRIBE_INVITATION_STATUS.academyJoinAvailable ||
     row?.status === TRIBE_INVITATION_STATUS.accepted ||
     row?.status === TRIBE_INVITATION_STATUS.blocked ||
     row?.status === TRIBE_INVITATION_STATUS.invalid ||
@@ -869,8 +870,10 @@ function buildAcceptInvitationResult(): SQL {
             when exists (
               select 1 from existing_membership where status in ('active', 'muted')
             ) then ${TRIBE_INVITATION_STATUS.accepted}
-            when exists (select 1 from target_tribe where uses_academy_access=true)
+            when exists (select 1 from target_tribe where uses_academy_access=true and admissions_control_activated_at is not null)
               and exists (select 1 from target_invitation where status=${TRIBE_INVITATION_STATUS.active}) then ${TRIBE_INVITATION_STATUS.admissionRequired}
+            when exists (select 1 from target_tribe where uses_academy_access=true and admissions_control_activated_at is null)
+              and exists (select 1 from target_invitation where status=${TRIBE_INVITATION_STATUS.active}) then ${TRIBE_INVITATION_STATUS.academyJoinAvailable}
             when exists (select 1 from inserted_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (select 1 from reactivated_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (
@@ -1206,7 +1209,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   }
 
   /**
-   * Preserves readable membership and delegates every new academy arrival to common admission.
+   * Preserves readable membership and delegates every new arrival to an academy with admission control to common admission;
+   * an academy that never activated that control sends the arrival to its academy home, which offers the basic entry.
    * @param command - Server-normalized slug and opaque invitation token; token is never logged.
    * @returns A stable acceptance/revocation/rejection or payment-required outcome.
    */

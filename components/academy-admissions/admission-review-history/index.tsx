@@ -31,8 +31,9 @@ export function AdmissionReviewHistory({ items, checking, refreshDisabled, error
             <div className={styles.AdmissionReviewHistory__eventHeader}><h2 className={styles.AdmissionReviewHistory__eventTitle}>{ADMISSION_REVIEW_HISTORY_EVENT_LABEL[event.eventType]}</h2><time className={styles.AdmissionReviewHistory__help} dateTime={event.createdAt}>{formatBuenosAiresShortDate(event.createdAt)} · {formatBuenosAiresTime(event.createdAt)}</time></div>
             <dl className={styles.AdmissionReviewHistory__facts}>
               <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.actor}</dt><dd>{ADMISSION_REVIEW_HISTORY_ACTOR_LABEL[event.actorKind]}</dd></div>
-              {event.fromStatus && <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.from}</dt><dd>{ADMISSION_REVIEW_STATUS_LABEL[event.fromStatus]}</dd></div>}
-              {event.toStatus && <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.to}</dt><dd>{ADMISSION_REVIEW_STATUS_LABEL[event.toStatus]}</dd></div>}
+              {/* An edit that kept the status (a corrected phone) shows no transition. */}
+              {event.fromStatus && event.fromStatus !== event.toStatus && <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.from}</dt><dd>{ADMISSION_REVIEW_STATUS_LABEL[event.fromStatus]}</dd></div>}
+              {event.toStatus && event.fromStatus !== event.toStatus && <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.to}</dt><dd>{ADMISSION_REVIEW_STATUS_LABEL[event.toStatus]}</dd></div>}
               {event.resourceVersion !== null && <div className={styles.AdmissionReviewHistory__fact}><dt>{ADMISSION_REVIEW_HISTORY_COPY.version}</dt><dd>{event.resourceVersion}</dd></div>}
             </dl>
           </MorphBlock>)}</ol>

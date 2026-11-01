@@ -12,6 +12,8 @@ import styles from "./styles.module.scss";
 
 type AutoSignInWithGoogleProps = {
   callbackUrl: string;
+  /** An explicit account change asks Google for its account chooser. */
+  selectAccount?: boolean;
 };
 
 const AUTO_SIGN_IN_COPY = {
@@ -28,7 +30,7 @@ const AUTO_SIGN_IN_COPY = {
  * Forward: the member is coming back from Google on purpose, and redirecting
  * again would trap them in a loop. Only the manual button is offered then.
  */
-export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps) {
+export function AutoSignInWithGoogle({ callbackUrl, selectAccount = false }: AutoSignInWithGoogleProps) {
   const hasTriggeredSignInRef = useRef(false);
   const { push } = useRouter();
   // The navigation type only exists in the browser: the server and the first
@@ -47,10 +49,10 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
       return;
     }
 
-    void startGoogleSignIn(callbackUrl).catch(() => {
+    void startGoogleSignIn(callbackUrl, { selectAccount }).catch(() => {
       push(ROUTES.auth.error);
     });
-  }, [callbackUrl, push]);
+  }, [callbackUrl, push, selectAccount]);
 
   return (
     <div className={styles.AutoSignInWithGoogle}>
@@ -59,7 +61,7 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
           ? AUTO_SIGN_IN_COPY.manual
           : AUTO_SIGN_IN_COPY.redirecting}
       </p>
-      <SignInWithGoogleButton callbackUrl={callbackUrl} />
+      <SignInWithGoogleButton callbackUrl={callbackUrl} selectAccount={selectAccount} />
     </div>
   );
 }

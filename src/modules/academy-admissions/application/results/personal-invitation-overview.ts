@@ -22,7 +22,7 @@ function unavailablePersonalInvitationOverview() {
 type PersonalInvitationFacts = Extract<AdmissionSubmissionFacts["source"], { kind: typeof ADMISSION_SOURCE_KIND.personal }>["invitation"];
 type PersonalInvitationOverviewView = PersonalInvitationOverviewFacts["overview"];
 /** Viewer-relative facts already derived from the own overview. */
-type PersonalInvitationViewerState = { activeMember: boolean; pending: boolean; ownedRedemption: boolean };
+type PersonalInvitationViewerState = { activeMember: boolean; pending: boolean; ownedRedemption: boolean; waiting: boolean };
 
 /** @param facts - Current private inward facts or absence. @param viewer - Revalidated native user/email only. @param now - Fresh caller clock after reads. @returns A guarded generic or authorized preview, never a recipient/contact lookup result. */
 export function projectPersonalInvitationOverview(facts: PersonalInvitationOverviewFacts | null, viewer: { userId: string; normalizedEmail: string }, now: Date) {
@@ -35,7 +35,9 @@ export function projectPersonalInvitationOverview(facts: PersonalInvitationOverv
   const activeMember = membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted;
   const pending = request?.status === ADMISSION_REQUEST_STATUS.pending && now < new Date(request.expiresAt);
   const ownedRedemption = invitation.status === ADMISSION_INVITATION_STATUS.redeemed && facts.redeemedByUserId === viewer.userId && facts.redeemedRequestId === request?.id && request.source === ADMISSION_SOURCE_KIND.personal;
-  const viewerState = { activeMember, pending, ownedRedemption };
+  // A cancelled, expired or rejected request keeps its retry wait for every source: the writer refuses a new one until then.
+  const waiting = !activeMember && !pending && Boolean(request?.retryAllowedAt && now < new Date(request.retryAllowedAt));
+  const viewerState = { activeMember, pending, ownedRedemption, waiting };
   if (hidesInvitationFromViewer({ facts, eligibility, invitation, viewer, viewerState })) return unavailablePersonalInvitationOverview();
   const evaluated = evaluateAdmissionPreview(eligibility);
   if (hidesEvaluatedInvitation({ eligibility, invitation, evaluated, viewerState })) return unavailablePersonalInvitationOverview();
@@ -43,7 +45,7 @@ export function projectPersonalInvitationOverview(facts: PersonalInvitationOverv
   const state = overviewState(viewerState, evaluated);
   const safeMessage = overviewSafeMessage(viewerState, state, expectedOutcome);
   const nextAction = overviewNextAction(viewerState, state);
-  return personalInvitationOverviewSchema.parse({ state: PERSONAL_INVITATION_OVERVIEW_STATE.available, requiresAllowlist: invitation.requiresAllowlist, expectedOutcome, overview: { tribe: { slug: overview.tribe.slug, name: overview.tribe.name, accessModel: overview.tribe.accessModel }, policy: overview.policy, state, nextAction, safeMessage, ...(pending ? { request } : {}), ...(state === ADMISSION_OVERVIEW_STATE.verificationRequired && overview.verification ? { verification: overview.verification } : {}) } });
+  return personalInvitationOverviewSchema.parse({ state: PERSONAL_INVITATION_OVERVIEW_STATE.available, requiresAllowlist: invitation.requiresAllowlist, expectedOutcome, overview: { tribe: { slug: overview.tribe.slug, name: overview.tribe.name, accessModel: overview.tribe.accessModel }, policy: overview.policy, state, nextAction, safeMessage, ...(pending || waiting ? { request } : {}), ...(state === ADMISSION_OVERVIEW_STATE.verificationRequired && overview.verification ? { verification: overview.verification } : {}) } });
 }
 
 /** @returns Whether the private policy and the public policy summary describe different rules. */
@@ -74,10 +76,11 @@ function hidesEvaluatedInvitation({ eligibility, invitation, evaluated, viewerSt
   return evaluated.outcome === ADMISSION_OUTCOME.denied && evaluated.reason === ADMISSION_DENIAL_REASON.contactConflict;
 }
 
-/** @returns Member first, then pending request, then verification, else available. */
+/** @returns Member first, then pending request, then the retry wait, then verification, else available. */
 function overviewState(viewerState: PersonalInvitationViewerState, evaluated: AdmissionEligibilityResult) {
   if (viewerState.activeMember) return ADMISSION_OVERVIEW_STATE.alreadyMember;
   if (viewerState.pending) return ADMISSION_OVERVIEW_STATE.pending;
+  if (viewerState.waiting) return ADMISSION_OVERVIEW_STATE.closed;
   return evaluated.outcome === ADMISSION_OUTCOME.verificationRequired ? ADMISSION_OVERVIEW_STATE.verificationRequired : ADMISSION_OVERVIEW_STATE.available;
 }
 
@@ -85,6 +88,7 @@ function overviewState(viewerState: PersonalInvitationViewerState, evaluated: Ad
 function overviewSafeMessage(viewerState: PersonalInvitationViewerState, state: ReturnType<typeof overviewState>, expectedOutcome: string) {
   if (viewerState.activeMember) return ADMISSION_OVERVIEW_MESSAGE.alreadyMember;
   if (viewerState.pending) return ADMISSION_OVERVIEW_MESSAGE.pending;
+  if (viewerState.waiting) return ADMISSION_OVERVIEW_MESSAGE.waiting;
   if (state === ADMISSION_OVERVIEW_STATE.verificationRequired) return PERSONAL_INVITATION_OVERVIEW_MESSAGE.verification;
   return expectedOutcome === ADMISSION_OUTCOME.admitted ? PERSONAL_INVITATION_OVERVIEW_MESSAGE.admitted : PERSONAL_INVITATION_OVERVIEW_MESSAGE.pending;
 }
@@ -93,5 +97,6 @@ function overviewSafeMessage(viewerState: PersonalInvitationViewerState, state: 
 function overviewNextAction(viewerState: PersonalInvitationViewerState, state: ReturnType<typeof overviewState>) {
   if (viewerState.activeMember) return ADMISSION_NEXT_ACTION.openAcademy;
   if (viewerState.pending) return ADMISSION_NEXT_ACTION.viewRequest;
+  if (viewerState.waiting) return ADMISSION_NEXT_ACTION.wait;
   return state === ADMISSION_OVERVIEW_STATE.verificationRequired ? ADMISSION_NEXT_ACTION.verifyContact : ADMISSION_NEXT_ACTION.requestAdmission;
 }

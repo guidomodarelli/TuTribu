@@ -1450,6 +1450,13 @@
       "when": 1793448000000,
       "tag": "20261031120000_convert_commercial_memberships_on_admission_activation",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1793538000000,
+      "tag": "20261101130000_read_own_admission_request_tribe_slug",
+      "breakpoints": true
     }
   ]
 }

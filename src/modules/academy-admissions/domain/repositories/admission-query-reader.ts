@@ -5,6 +5,8 @@ import type { AdmissionSubmissionFacts } from "../policies/admission-eligibility
 export interface AdmissionOwnRequestReader<Result> {
   /** @param scope - Server-derived user/session/tribe and safe correlation. @returns Own current request or genuine absence, without effects. */
   readOwn(scope: AdmissionCommandScope & { admissionRequestId?: string }): Promise<Result | null>;
+  /** @param scope - Server-derived user/session and the exact own request id of a link without its tribe. @returns That request tribe slug, or `null` when it is not this account request. */
+  readOwnTribeSlug(scope: { userId: string; sessionId: string; admissionRequestId: string }): Promise<string | null>;
 }
 /** Public tribe/policy facts are separate from current account state; only the own account's list facts are read, and no match leaves the server. */
 export type AdmissionOverviewFacts<Request = unknown> = {

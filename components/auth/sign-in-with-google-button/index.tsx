@@ -10,6 +10,8 @@ import styles from "./styles.module.scss";
 
 type SignInWithGoogleButtonProps = {
   callbackUrl: string;
+  /** An explicit account change asks Google for its account chooser. */
+  selectAccount?: boolean;
 };
 const SIGN_IN_WITH_GOOGLE_BUTTON = {
   size: "lg",
@@ -38,6 +40,7 @@ const PAGE_SHOW_EVENT = "pageshow";
  */
 export function SignInWithGoogleButton({
   callbackUrl,
+  selectAccount = false,
 }: SignInWithGoogleButtonProps) {
   const { push } = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -61,7 +64,7 @@ export function SignInWithGoogleButton({
     }
 
     setIsRedirecting(true);
-    void startGoogleSignIn(callbackUrl).catch(() => {
+    void startGoogleSignIn(callbackUrl, { selectAccount }).catch(() => {
       setIsRedirecting(false);
       push(ROUTES.auth.error);
     });

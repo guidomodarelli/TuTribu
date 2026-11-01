@@ -21,7 +21,7 @@ export const ADMISSION_WHATSAPP_COPY = {
   label: "Teléfono",
   optionalLabel: "Teléfono (opcional)",
   help: "Usá el número que tenés en el grupo. El equipo lo revisará junto al nombre de tu cuenta de Google.",
-  formatHelp: "Incluí el prefijo del país, por ejemplo +1 202 555 0117.",
+  formatHelp: "Incluí el prefijo del país, por ejemplo +54 9 11 1234 5678.",
   invalid: "Ingresá un teléfono válido con el prefijo del país.",
   required: ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.whatsappNumberRequired],
   notProvided: "No informó teléfono",

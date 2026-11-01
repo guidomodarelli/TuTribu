@@ -3,9 +3,10 @@
  *
  * @module admission-contact
  */
-import { isSupportedCountry, parsePhoneNumberWithError, ParseError, type CountryCode } from "libphonenumber-js/max";
+import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberWithError, ParseError, type CountryCode, type PhoneNumber } from "libphonenumber-js/max";
 
 import {
+  ADMISSION_ARGENTINA_PHONE,
   ADMISSION_CONTACT_ERROR,
   ADMISSION_CONTACT_NORMALIZATION_STATUS,
   ADMISSION_CONTACT_TYPE,
@@ -26,6 +27,7 @@ export type AdmissionContactNormalizationResult =
  *
  * Phone parsing is strict: it consumes the whole value, rejects extensions,
  * derives the destination country, and refuses an incoherent supplied country.
+ * An Argentine mobile written without its 9 becomes its mobile form, the one SMS and WhatsApp reach.
  * Canonicalization never marks the contact as verified.
  *
  * @param input - Contact type, address/number, and optional explicit phone country.
@@ -56,12 +58,30 @@ export function normalizeAdmissionContact(input: {
     }
     return {
       status: ADMISSION_CONTACT_NORMALIZATION_STATUS.valid,
-      contact: { type: ADMISSION_CONTACT_TYPE.phone, value: phone.number, country: phone.country },
+      contact: { type: ADMISSION_CONTACT_TYPE.phone, value: argentineMobileForm(phone) ?? phone.number, country: phone.country },
     };
   } catch (error) {
     if (error instanceof ParseError) return phoneParseFailure(error, country);
     throw error;
   }
+}
+
+/** @param phone - Valid parsed number. @returns The E.164 mobile form of an Argentine number written without its 9, or `null` for any other number. */
+function argentineMobileForm(phone: PhoneNumber): string | null {
+  if (phone.country !== ADMISSION_ARGENTINA_PHONE.country || phone.getType() !== ADMISSION_ARGENTINA_PHONE.geographicType) return null;
+  const mobile = parsePhoneNumberWithError(`+${phone.countryCallingCode}${ADMISSION_ARGENTINA_PHONE.mobileToken}${phone.nationalNumber}`, { extract: false });
+  return mobile.isValid() && mobile.getType() === ADMISSION_ARGENTINA_PHONE.mobileType ? mobile.number : null;
+}
+
+/**
+ * @param contact - Canonical contact.
+ * @returns The values stored rows may hold for it: an Argentine mobile also matches the form without its 9 that earlier versions
+ * stored, so list entries, invitations and bindings saved before the mobile form still match. The canonical value comes first.
+ */
+export function admissionContactStoredValues(contact: AdmissionContact): string[] {
+  if (contact.type !== ADMISSION_CONTACT_TYPE.phone || contact.country !== ADMISSION_ARGENTINA_PHONE.country) return [contact.value];
+  const callingPrefix = `+${getCountryCallingCode(ADMISSION_ARGENTINA_PHONE.country)}`, mobilePrefix = `${callingPrefix}${ADMISSION_ARGENTINA_PHONE.mobileToken}`;
+  return contact.value.startsWith(mobilePrefix) ? [contact.value, `${callingPrefix}${contact.value.slice(mobilePrefix.length)}`] : [contact.value];
 }
 
 /** @param value - Trimmed proposed address. @returns The lowercased address or a stable failure. */

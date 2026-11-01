@@ -17,7 +17,7 @@ import { mapAdmissionReviewStorage, type AdmissionReviewStorageRecord } from "./
 import { readMessagingRecoveryLock } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
 /** The trusted root binds this executor to the actual current account/session. */
-type OwnQueryExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
+type OwnQueryExecutor = <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Only consumed own storage fields are selected; no schema is applied to a PostgreSQL response. */
 type OwnRequestRow = {
   id: string; status: AdmissionRequestDto["status"]; version: number; submitted_at: string; expires_at: string;
@@ -71,6 +71,11 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
    * @param scope - Server-derived actual account/session/tribe and correlation.
    * @returns An own DTO or null, without claiming an operation, initializing a policy or materializing expiration.
    */
+  /** @param scope - Native applicant and the exact own request of a link that lacks its tribe. @returns The slug of that request tribe, or `null` when it is not this account request. */
+  async readOwnTribeSlug(scope: { userId: string; sessionId: string; admissionRequestId: string }): Promise<string | null> {
+    return this.execute(scope, async (database) => (await database.execute<{ slug: string | null }>(sql`select public.read_own_admission_request_tribe_slug(${scope.sessionId},${scope.admissionRequestId}) as slug`)).rows[0]?.slug ?? null);
+  }
+
   async readOwn(scope: AdmissionCommandScope & { admissionRequestId?: string }): Promise<AdmissionOwnRequestDto | null> {
     return this.execute(scope, async (database) => {
       await this.authorize(database, scope);

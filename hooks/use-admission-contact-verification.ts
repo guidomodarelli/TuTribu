@@ -16,6 +16,7 @@ import { ADMISSION_CONTACT_SELECTED_REFERENCE, ADMISSION_CONTACT_ACTION, ADMISSI
 import { admissionProofApplicationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-proof-application-schemas";
 import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { applicantRefusalMessage, isAdmissionStateChangedRefusal } from "@/src/modules/academy-admissions/application/results/admission-applicant-refusal";
 import { ADMISSION_PROOF_OPERATION, ADMISSION_PROOF_APPLICATION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-proof";
 import { ADMISSION_CONTACT_VERIFICATION_OPERATION, ADMISSION_CONTACT_TERMINAL_CHALLENGE_FAILURE_CODES } from "@/src/modules/academy-admissions/constants/admission-contact-verification";
 import { VERIFICATION_ISSUANCE_OPERATION } from "@/src/modules/academy-admissions/constants/verification-issuance";
@@ -25,10 +26,12 @@ import { startWriteToast, type WriteToast } from "@/lib/toasts/write-toast";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 import { requireReadyValue } from "@/hooks/require-ready-value";
-import { abortDeliveryReads, absenceSince, buildIssueInput, challengeAlert, confirmsAbsence, contactProposalChanged, currentChallengeQuery, expectedOperationType, hasInvalidPersonalScope, hasRecoverableReferences, isDiscardableAbsence, isIssuanceKind, isPlatformRefusal, isUnexpectedOriginal, listRecoveryReferences, readContactFieldErrors, readExpiresInSeconds, retireContactScope, settleContactOriginalRead, settleContactRestore, settleContactSelection, settleContactWrite, writeNoticeCopy, type ConfirmedAbsence, type ContactFieldErrors, type ContactPhase, type ContactRecoveryReference } from "@/hooks/use-admission-contact-verification-support";
+import { abortDeliveryReads, absenceSince, buildIssueInput, challengeAlert, confirmsAbsence, contactProposalChanged, currentChallengeQuery, expectedOperationType, hasInvalidPersonalScope, hasRecoverableReferences, isDefinitiveSelectionRefusal, isDiscardableAbsence, isIssuanceKind, isPlatformRefusal, isUnexpectedOriginal, listRecoveryReferences, readContactFieldErrors, readExpiresInSeconds, retireContactScope, settleContactOriginalRead, settleContactRestore, settleContactSelection, settleContactWrite, writeNoticeCopy, type ConfirmedAbsence, type ContactFieldErrors, type ContactPhase, type ContactRecoveryReference } from "@/hooks/use-admission-contact-verification-support";
 
 /** The parent owns the one current viewer/draft entrypoint; this hook never fetches another session independently. */
-export type AdmissionContactHookOptions = { viewerId: string | null; slug: string; requestId: string | null; requestVersion: number | null; policyVersion: number; channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowSmsAlternative: boolean; phone: string; country: string; enabled: boolean; renderedAt: string; invitationToken?: string; legacyInvitationToken?: string; arrivalScope?: string; personalScope?: string; previousRequestId?: string; authorize: (signal: AbortSignal) => Promise<boolean>; client?: AdmissionContactBrowserClient; onApplied: (result: Extract<AdmissionProofApplicationResult, { outcome: "applied" }>) => void; onProof: (proof: AdmissionContactVerified | null) => void };
+export type AdmissionContactHookOptions = { viewerId: string | null; slug: string; requestId: string | null; requestVersion: number | null; policyVersion: number; channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowSmsAlternative: boolean; phone: string; country: string; enabled: boolean; renderedAt: string; invitationToken?: string; legacyInvitationToken?: string; arrivalScope?: string; personalScope?: string; previousRequestId?: string; authorize: (signal: AbortSignal) => Promise<boolean>; client?: AdmissionContactBrowserClient; onApplied: (result: Extract<AdmissionProofApplicationResult, { outcome: "applied" }>) => void; onProof: (proof: AdmissionContactVerified | null) => void;
+  /** Reads the parent page again after a definitive refusal that means its rules, request or invitation changed, so the next confirmation uses the current version. */
+  onStateChanged?: () => void };
 type ContactWrite = (intent: AdmissionContactPending, action: (signal: AbortSignal) => Promise<AdmissionContactBrowserResult<unknown>>, type: AdmissionOperationRecoveryDto["type"], actionPhase: ContactPhase) => Promise<void>;
 type ContactConsume = (original: AdmissionOperationRecoveryDto, intent: ContactRecoveryReference) => Promise<void>;
 type ContactRestore = (stored: AdmissionContactIntent, scopeGeneration: number, signal: AbortSignal) => Promise<void>;
@@ -125,7 +128,8 @@ function useContactConsume(workflow: ContactState, records: ContactRecords) {
     if (!save({ pending: null, issuedOperationId: selected ? null : original.operationId, verifiedOperationId: null, selectedOperationId: selected ? original.operationId : undefined })) return;
     abortDeliveryReads(deliveryControllersRef);
     setChallenge(parsed.data); setChallengeFailureCode(null); setProof(null); setCodeValue(""); setDelivery(null); setRequiresReplacement(selected); if (selected) setConfirmed(false); latestRef.current.onProof(null);
-    if (selected) setFeedback(ADMISSION_CONTACT_COPY.selected); else confirmWrite(intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms ? ADMISSION_CONTACT_COPY.resent : ADMISSION_CONTACT_COPY.requested);
+    // A code already sent from another tab or device comes back as is: it is entered here, and only an explicit resend replaces it.
+    if (selected) setFeedback(ADMISSION_CONTACT_COPY.selected); else if (parsed.data.reusedCurrent) confirmWrite(ADMISSION_CONTACT_COPY.currentCode); else confirmWrite(intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms ? ADMISSION_CONTACT_COPY.resent : ADMISSION_CONTACT_COPY.requested);
     setPhase(ADMISSION_CONTACT_PHASE.idle);
     void readDelivery(parsed.data);
   }, [confirmWrite, deliveryControllersRef, latestRef, readDelivery, save, setChallenge, setChallengeFailureCode, setCodeValue, setConfirmed, setDelivery, setErrorMessage, setFeedback, setPhase, setProof, setRequiresReplacement]);
@@ -161,8 +165,16 @@ function useContactConsume(workflow: ContactState, records: ContactRecords) {
 
 /** @param workflow - Workflow state. @param records - Shared steps. @param consume - Original consumer. @returns The dispatch of one exact mutation only after validation, native viewer checks and persisted original references. */
 function useContactWrite(workflow: ContactState, records: ContactRecords, consume: ContactConsume) {
-  const { ready, recoveryRequired, latestRef, refs, busyRef, previousUnresolvedRef, recordRef, deliveryControllersRef, generationRef, controllerRef, writeToastRef, activeRef, readOriginalCurrentRef, live, setErrorMessage, setFeedback, setFieldErrors, setAbsence, setPhase, setDelivery } = workflow;
+  const { ready, recoveryRequired, latestRef, refs, busyRef, previousUnresolvedRef, recordRef, deliveryControllersRef, generationRef, controllerRef, writeToastRef, activeRef, readOriginalCurrentRef, live, setConfirmed, setErrorMessage, setFeedback, setFieldErrors, setAbsence, setPhase, setDelivery } = workflow;
   const { save, recordChallengeFailure } = records;
+  /** @param result - Confirmed refusal of the write. @param intent - Its original. Releases the reference and shows the refusal; when the rules or the request changed, the confirmation is asked again and the parent reads the current version before another send. */
+  const settleRefusal = useCallback((result: Extract<AdmissionContactBrowserResult<unknown>, { status: "failed" }>, intent: AdmissionContactPending) => {
+    save({ pending: null }); if (intent.kind === ADMISSION_CONTACT_ACTION.verify) recordChallengeFailure(result.code);
+    const stateChanged = isAdmissionStateChangedRefusal(result.code);
+    if (stateChanged) setConfirmed(false);
+    setErrorMessage(intent.kind === ADMISSION_CONTACT_ACTION.verify ? challengeAlert(result.code, result.message) : applicantRefusalMessage(result.code, result.message)); setPhase(ADMISSION_CONTACT_PHASE.idle);
+    if (stateChanged) latestRef.current.onStateChanged?.();
+  }, [latestRef, recordChallengeFailure, save, setConfirmed, setErrorMessage, setPhase]);
   /** @returns Whether the reply left the original unconfirmed, so a lost send may be read once. */
   const applyWriteResult = useCallback(async (result: AdmissionContactBrowserResult<unknown>, intent: AdmissionContactPending, type: AdmissionOperationRecoveryDto["type"]) => {
     if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.ready) {
@@ -170,9 +182,9 @@ function useContactWrite(workflow: ContactState, records: ContactRecords, consum
       if (!parsed.success) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return true; }
       await consume(parsed.data, intent); return false;
     }
-    if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { save({ pending: null }); if (intent.kind === ADMISSION_CONTACT_ACTION.verify) recordChallengeFailure(result.code); setErrorMessage(intent.kind === ADMISSION_CONTACT_ACTION.verify ? challengeAlert(result.code, result.message) : result.message); setPhase(ADMISSION_CONTACT_PHASE.idle); return false; }
+    if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { settleRefusal(result, intent); return false; }
     setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); return true;
-  }, [consume, recordChallengeFailure, save, setErrorMessage, setPhase]);
+  }, [consume, setErrorMessage, setPhase, settleRefusal]);
   /** @returns Whether the reply left the original unconfirmed, so a lost send may be read once. */
   const performWrite = useCallback(async ({ current, scopeGeneration, signal }: ContactReadScope, intent: AdmissionContactPending, action: (signal: AbortSignal) => Promise<AdmissionContactBrowserResult<unknown>>, type: AdmissionOperationRecoveryDto["type"]) => {
     if (!await current.authorize(signal)) { if (live(scopeGeneration, signal)) { setPhase(ADMISSION_CONTACT_PHASE.idle); setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.authenticationRequired]); } return false; }
@@ -218,6 +230,8 @@ function useContactRestore(workflow: ContactState, records: ContactRecords, cons
     if (!current.previousRequestId) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
     const response = await client.current(current.slug, currentChallengeQuery(current, current.previousRequestId), signal);
     if (!live(scopeGeneration, signal) || !await latestRef.current.authorize(signal) || !live(scopeGeneration, signal)) return STOP;
+    // A confirmed rejection (the rules, the request or the contact changed) ends that selection: nothing was sent, so its reference is dropped and a new code can be requested.
+    if (response.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && isDefinitiveSelectionRefusal(response)) { if (!save({ selectedOperationId: undefined })) return STOP; setChallenge(null); setRequiresReplacement(false); setErrorMessage(response.message); return NEXT; }
     // A platform refusal is not an absent code: it says why the selection cannot be read now, and the reference stays to read it again.
     if (response.status !== ADMISSION_CONTACT_BROWSER_STATUS.ready) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(isPlatformRefusal(response) ? response.message : ADMISSION_CONTACT_COPY.absent); return STOP; }
     const selection = admissionCurrentChallengeSelectionSchema.safeParse(response.value);

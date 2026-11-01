@@ -193,6 +193,18 @@ describe("TribeInvitationPage", () => {
     expect(redirect).toHaveBeenCalledWith("/matematica-pro/bienvenida");
   });
 
+  it("sends a classic invitation to an academy without admission control to its academy home", async () => {
+    acceptTribeInvitation.mockResolvedValue({ status: "academy_join_available" as const });
+    (redirect as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(acceptInvitationAction({ slug: "matematica-pro", token: "invitation-token" })).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/academia");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
   it("renders a safe Spanish message for blocked members", async () => {
     render(await TribeInvitationPage(buildPagePropsWithStatus("blocked")));
 

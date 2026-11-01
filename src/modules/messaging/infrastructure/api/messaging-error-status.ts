@@ -17,6 +17,7 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.verificationCodeIncorrect]: HTTP_STATUS.unprocessableEntity,
   [MESSAGING_ERROR_CODE.challengeExpired]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.challengeInvalidated]: HTTP_STATUS.conflict,
+  [MESSAGING_ERROR_CODE.challengeAlreadySent]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: HTTP_STATUS.tooManyRequests,
   [MESSAGING_ERROR_CODE.reauthenticationRequired]: HTTP_STATUS.unauthorized,
   [MESSAGING_ERROR_CODE.connectionIncomplete]: HTTP_STATUS.conflict,
