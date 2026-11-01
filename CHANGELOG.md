@@ -43,6 +43,19 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En Habilitados, Importación e Invitaciones se puede descartar una operación anterior que nunca se registró sin perder el borrador ni el archivo, y una vista previa de importación que ya no se puede confirmar pide crear otra con el mismo archivo.
 - En Reglas de admisión, pausar sin la seguridad de la plataforma muestra que las admisiones siguen abiertas y que depende del equipo de TuTribu, en lugar de un texto pensado para postulantes y un reintento que fallaba; el bloqueo ya no dice que se guardó un borrador cuando no se guardó nada; reintentar una operación muestra el bloqueo de esa misma acción; si no se puede volver a leer la configuración se muestra ese error en lugar de un aviso vacío, y «Volver a comprobar» detecta claves sin inscribir y la pausa de recuperación sin informar una pausa cuando lo que falta es la configuración.
 - La guía «Configurá las admisiones» muestra un único aviso del equipo de TuTribu y deja de invitar a definir reglas, conectar mensajería o elegir países y cupos mientras la plataforma no puede proteger esos cambios, sin mencionar un borrador que no existe.
+- En Conexión, reanudar una operación cuya respuesta se pierde o sigue en curso ya no muestra «La operación original se reanudó.»: avisa que no se pudo confirmar el reintento y la operación sigue pendiente.
+- Una comprobación de credencial que terminó con Zavu caído o con una respuesta inválida muestra su resultado, en lugar de quedar pendiente de «Consultar guardado».
+- Si Zavu no responde al guardar la configuración de un canal, la pantalla dice que no se cambió nada y permite reintentar, en lugar de bloquear los pasos hasta consultar el guardado.
+- El aviso de una operación pendiente en Conexión nombra lo que quedó sin confirmar (comprobación, canal, prueba, activación, suspensión o retiro), también al recargar, en lugar de hablar siempre del guardado de la clave.
+- Desconectar la conexión seleccionada mientras la usan las Reglas o los avisos por correo explica qué resolver antes, en lugar de decir que la conexión no está preparada.
+- Después de activar una conexión, volver a Conexión ya no muestra cada vez «La prueba original corresponde a otra configuración».
+- Al volver con Atrás a Conexión, una prueba que espera su código se vuelve a abrir aunque la página recuerde una configuración anterior, y la pantalla avisa si no pudo actualizar los datos.
+- Mientras Conexión comprueba tu sesión muestra «Comprobando tu sesión…», y si la comprobación no termina avisa que no se pudo comprobar, en lugar de quedar esperando una operación que nadie inició o decir que la cuenta cambió.
+- Los errores del paso Canales están escritos para quien lidera: dicen si Zavu no respondió, si rechazó la clave o qué revisar del remitente o la plantilla.
+- El paso Canales ya no dice que Zavu no devolvió remitentes cuando todavía hay más páginas: invita a usar «Ver más remitentes».
+- Si la activación se rechaza porque faltan países para un canal telefónico o un canal que usan las Reglas o los avisos, la pantalla dice qué completar, en lugar de hablar del país de un teléfono.
+- Recuperar un aviso vencido, ya entregado o que dejó de corresponder muestra un mensaje de avisos, en lugar del texto del código de una prueba o de una conexión sin preparar; si su envío anterior puede haber salido, lo dice como respuesta definitiva.
+- Si la creación inicial de Países y cupos se confirmó pero su respuesta se perdió, al consultarla los pasos siguen abiertos con los países y cupos que elegiste para guardarlos, en lugar de cerrarse con los valores iniciales.
 
 ## [1.12.0] - 2026-10-31
 

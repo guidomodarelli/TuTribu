@@ -122,7 +122,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         await transaction.execute(sql`insert into public.message_delivery_attempts(id,delivery_id,tribe_id,connection_id,connection_version,sequence,reservation_id,lease_token,send_authorized_at,authorized_usage_policy_version,state) values (${attemptId},${fixture.context.deliveryId},${fixture.context.tribeId},${fixture.originalConnectionId},1,1,${reservationId},${randomUUID()},clock_timestamp(),1,'unknown')`);
         await transaction.execute(sql`insert into public.messaging_usage_reservations(id,tribe_id,attempt_id,delivery_id,category,reserved_at) values (${reservationId},${fixture.context.tribeId},${attemptId},${fixture.context.deliveryId},'notification',clock_timestamp())`);
       });
-      await expect(fixture.repository.recover(fixture.context, fixture.input)).rejects.toMatchObject({ code: "delivery_unknown" });
+      // A definitive rejection that rolled back, naming the unresolved previous send as its typed cause.
+      await expect(fixture.repository.recover(fixture.context, fixture.input)).rejects.toMatchObject({ code: "original_dispatch_unresolved", cause: { name: "MessagingRequirementError", code: "notification_recovery_original_dispatch_unresolved" } });
       const state = await database.withContext(fixture.own, async (transaction) => ({
         original: (await transaction.execute(sql`select state,version from public.message_deliveries where id=${fixture.context.deliveryId}`)).rows[0],
         attempt: (await transaction.execute(sql`select state,version from public.message_delivery_attempts where id=${attemptId}`)).rows[0],
@@ -165,7 +166,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         wait.setEpoch("changed-after-staging");
         wait.release();
         const outcome = await wait.outcome;
-        expect(outcome.error).toMatchObject({ code: "connection_incomplete" });
+        // A notice prepared under another security epoch can never be recovered.
+        expect(outcome.error).toMatchObject({ code: "resource_unavailable", cause: { name: "MessagingRequirementError", code: "notification_recovery_security_scope_changed" } });
         expect(outcome.result).toBeNull();
         const observed = await database.withContext(fixture.own, async (transaction) => ({
           original: (await transaction.execute(sql`select state,version from public.message_deliveries where id=${fixture.context.deliveryId}`)).rows[0],

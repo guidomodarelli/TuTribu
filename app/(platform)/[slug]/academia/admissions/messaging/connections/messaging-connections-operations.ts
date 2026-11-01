@@ -10,6 +10,7 @@ import type { MessagingLifecycleBrowserClient } from "@/src/modules/messaging/ap
 import type { MessagingDiagnosticBrowserClient } from "@/src/modules/messaging/application/ports/messaging-diagnostic-browser-client";
 import type { MessagingResourcesBrowserClient } from "@/src/modules/messaging/application/ports/messaging-resources-browser-client";
 import type { MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
+import type { MessagingErrorCode } from "@/src/modules/messaging/application/results/messaging-errors";
 import type { MessagingConnectionsBrowserClient } from "@/src/modules/messaging/application/ports/messaging-connections-browser-client";
 import type { MessagingConnectionsIntentStore, MessagingConnectionsPendingIntent, MessagingDiagnosticObservationReference } from "@/src/modules/messaging/application/ports/messaging-connections-intent-store";
 import type { MessagingConnectionsPageState } from "@/src/modules/messaging/application/results/messaging-connections-page-state";
@@ -25,11 +26,11 @@ import type { MessagingLifecycleConnectionView } from "@/components/academy-admi
 import { validateMessagingChannelDraft, type MessagingChannelDraft } from "@/src/modules/messaging/application/commands/messaging-channel-draft";
 import { MESSAGING_KEY_REPLACEMENT_COPY as REPLACEMENT_COPY, MESSAGING_LIFECYCLE_UI_COPY as LIFECYCLE_COPY } from "@/src/modules/messaging/constants/messaging-lifecycle-browser";
 import { MESSAGING_CONNECTION_SECURITY_REASON } from "@/src/modules/messaging/constants/messaging-connection-security";
-import { MESSAGING_ACTIVATION_UI_COPY as ACTIVATION_COPY } from "@/src/modules/messaging/constants/messaging-activation-browser";
+import { MESSAGING_ACTIVATION_UI_COPY as ACTIVATION_COPY, MESSAGING_ACTIVATION_FAILURE_UI_COPY as ACTIVATION_FAILURE_COPY } from "@/src/modules/messaging/constants/messaging-activation-browser";
 import { MESSAGING_DIAGNOSTIC_UI_COPY as DIAGNOSTIC_COPY, MESSAGING_DIAGNOSTIC_ABSENT_ARCHIVE_AFTER_MS, MESSAGING_DIAGNOSTIC_RECOVERY_UI_COPY as DIAGNOSTIC_RECOVERY_COPY } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import { VERIFICATION_ISSUANCE_OUTCOME } from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME } from "@/src/modules/messaging/constants/connection-diagnostic";
-import { MESSAGING_RESOURCE_UI_COPY as RESOURCE_COPY } from "@/src/modules/messaging/constants/messaging-resources-browser";
+import { MESSAGING_RESOURCE_UI_COPY as RESOURCE_COPY, MESSAGING_RESOURCE_FAILURE_UI_COPY as RESOURCE_FAILURE_COPY } from "@/src/modules/messaging/constants/messaging-resources-browser";
 import { isMessagingDiagnosticSettled } from "@/src/modules/messaging/application/commands/messaging-connections-next-action";
 import { messagingConnectionsStepId } from "@/src/modules/messaging/application/commands/messaging-connections-flow";
 import { MESSAGING_CONNECTIONS_STEP_KIND as STEP_KIND } from "@/src/modules/messaging/constants/messaging-connections-workspace";
@@ -82,7 +83,24 @@ export type ConnectionsContext = {
   setFocusKey: (value: boolean) => void; setCurrentStepId: (value: string) => void;
   resourceController: ReturnType<typeof useMessagingResourceController>; diagnosticController: ReturnType<typeof useMessagingDiagnosticController>;
   activationController: ReturnType<typeof useMessagingActivationController>; lifecycleController: ReturnType<typeof useMessagingLifecycleController>;
+  /** Accepts a recovered issuance once the configuration just read is rendered, so the diagnostic controller compares it with that configuration instead of the one of this render. */
+  deferIssuance: (result: IssuedDiagnostic) => void;
 };
+
+/** Persistent explanation of each unconfirmed original type, so a pending activation or test never reads as a pending key save. */
+const PENDING_COPY_BY_TYPE: Record<MessagingConnectionsPendingIntent["type"], string> = {
+  [REAUTHENTICATION_OPERATION.saveMessagingCredentials]: COPY.pending,
+  [REAUTHENTICATION_OPERATION.validateMessagingConnection]: CHECK_COPY.pending,
+  [REAUTHENTICATION_OPERATION.configureMessagingConnection]: RESOURCE_COPY.pending,
+  [REAUTHENTICATION_OPERATION.activateMessagingConnection]: ACTIVATION_COPY.pending,
+  [REAUTHENTICATION_OPERATION.suspendMessagingConnection]: LIFECYCLE_COPY.pending,
+  [REAUTHENTICATION_OPERATION.disconnectMessagingConnection]: LIFECYCLE_COPY.pending,
+  [REAUTHENTICATION_OPERATION.diagnoseMessagingConnection]: DIAGNOSTIC_COPY.pending,
+  [REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic]: DIAGNOSTIC_COPY.pending,
+};
+
+/** @param intent - Unconfirmed original. @returns The explanation of that original type kept above the steps. */
+export function pendingCopyFor(intent: MessagingConnectionsPendingIntent): string { return PENDING_COPY_BY_TYPE[intent.type]; }
 
 /** @param intent - Current pending reference. @returns Whether it is a test or its code verification. */
 export const isDiagnosticIntent = (intent: MessagingConnectionsPendingIntent): intent is DiagnosticPendingIntent => intent.type === REAUTHENTICATION_OPERATION.diagnoseMessagingConnection || intent.type === REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic;
@@ -149,8 +167,13 @@ export async function checkConnectionsViewer(context: ConnectionsContext, signal
   if (!ready) return false;
   const current = await context.client.viewer(signal);
   if (signal.aborted || !context.mounted.current) return false;
-  if (current.status !== "ready" || current.value?.id !== ready.viewerId) { context.setApiKey(""); context.setConfirmed(false); context.setPhase(PHASE.unavailable); context.setNotice(COPY.viewerChanged); return false; }
+  if (current.status !== "ready" || current.value?.id !== ready.viewerId) { context.setApiKey(""); context.setConfirmed(false); context.setPhase(PHASE.unavailable); context.setNotice(viewerNotice(current)); return false; }
   return true;
+}
+
+/** @param current - Session check that did not confirm the SSR viewer. @returns A failed or timed-out check, which proves no account change, or the changed account. */
+function viewerNotice(current: Awaited<ReturnType<MessagingConnectionsBrowserClient["viewer"]>>): string {
+  return current.status === "failed" ? COPY.viewerUnverified : COPY.viewerChanged;
 }
 
 /** @param context - Current render facts. @param intent - Metadata reference, never the input key. @returns Whether it was safely saved/cleared for this exact viewer/route. */
@@ -197,11 +220,11 @@ async function readFreshConfiguration(context: ConnectionsContext, { ready, cont
   return await stillCurrent(context, controller) ? current : null;
 }
 
-/** @param context - Current render facts. @param outcome - Write that did not complete. @param pendingText - Explanation kept while the original is unconfirmed. @returns Nothing after releasing a definitive failure or keeping an uncertain original. */
-function settleWriteFailure(context: ConnectionsContext, outcome: MessagingUsageBrowserResult<unknown>, pendingText: string): void {
+/** @param context - Current render facts. @param outcome - Write that did not complete. @param pendingText - Explanation kept while the original is unconfirmed. @param failureCopy - Leader copy of this write's definitive rejections, over the shared catalogue. @returns Nothing after releasing a definitive failure or keeping an uncertain original. */
+function settleWriteFailure(context: ConnectionsContext, outcome: MessagingUsageBrowserResult<unknown>, pendingText: string, failureCopy: Partial<Record<MessagingErrorCode, string>> = {}): void {
   if (outcome.status === "failed" && !outcome.uncertain) {
     if (outcome.code === MESSAGING_ERROR_CODE.connectionConflict) context.setNeedsCurrent(true);
-    if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message });
+    if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: failureCopy[outcome.code] ?? outcome.message });
     return;
   }
   holdPending(context, pendingText);
@@ -305,7 +328,7 @@ async function runIssuedDiagnosticRead(context: ConnectionsContext, { ready, con
   if (current.status !== "ready") { emitFeedback(context, { kind: "alert", text: DIAGNOSTIC_COPY.pending }); return; }
   applyConfiguration(context, current.value);
   const applies = candidateMatches(current.value, reference.connectionId, reference.configurationVersion);
-  if (applies) { if (!rememberDiagnostic(context, reference.operationId, issued)) return; context.diagnosticController.acceptIssuance(issued); }
+  if (applies) { if (!rememberDiagnostic(context, reference.operationId, issued)) return; context.deferIssuance(issued); }
   emitFeedback(context, { kind: "status", text: applies ? DIAGNOSTIC_COPY.issued : DIAGNOSTIC_COPY.originalHistorical });
 }
 
@@ -331,7 +354,7 @@ function applyCreated(context: ConnectionsContext, result: MessagingConnectionMu
 function recoveredIssuanceFeedback(context: ConnectionsContext, result: Extract<CompletedOperation, { type: "diagnose_messaging_connection" }>["result"], value: MessagingConfigurationResult): MessagingConnectionsFeedback {
   if (result.outcome !== VERIFICATION_ISSUANCE_OUTCOME.issued) return { kind: "alert", text: MESSAGING_ERROR_MESSAGE[result.code] };
   const applies = candidateMatches(value, result.connectionId, result.connectionVersion);
-  if (applies) context.diagnosticController.acceptIssuance(result);
+  if (applies) context.deferIssuance(result);
   return { kind: "status", text: applies ? DIAGNOSTIC_COPY.issued : DIAGNOSTIC_COPY.originalHistorical };
 }
 
@@ -358,7 +381,7 @@ function recoveredOriginalFeedback(context: ConnectionsContext, pending: Messagi
 async function reconcileRecoveredOriginal(context: ConnectionsContext, { ready, controller }: OperationRun, pending: MessagingConnectionsPendingIntent, operation: CompletedOperation): Promise<void> {
   const current = await readFreshConfiguration(context, { ready, controller });
   if (!current) return;
-  if (current.status !== "ready") { holdPending(context, COPY.pending); return; }
+  if (current.status !== "ready") { holdPending(context, pendingCopyFor(pending)); return; }
   if (operation.type === REAUTHENTICATION_OPERATION.diagnoseMessagingConnection && operation.result.outcome === VERIFICATION_ISSUANCE_OUTCOME.issued && !rememberDiagnostic(context, operation.operationId, operation.result)) return;
   applyConfiguration(context, current.value); resetConfirmations(context);
   if (retainIntent(context, null)) emitFeedback(context, recoveredOriginalFeedback(context, pending, operation, current.value));
@@ -385,7 +408,7 @@ async function followUnresolvedOriginal(context: ConnectionsContext, { ready, co
   const diagnosticArchivable = trackDiagnosticAbsence(context, pending, confirmedAbsent, Date.now());
   const current = await readFreshConfiguration(context, { ready, controller });
   if (!current) return;
-  if (current.status !== "ready") { context.setCanResume(false); holdPending(context, COPY.pending); return; }
+  if (current.status !== "ready") { context.setCanResume(false); holdPending(context, pendingCopyFor(pending)); return; }
   applyConfiguration(context, current.value); context.setResumeConfirmed(false); context.setArchiveConfirmed(false);
   const leader = current.value.audience === TRIBE_MEMBER_ROLE.leader;
   // While the platform cannot protect a write, an unregistered original can never be resumed: forget it instead of asking for the key again.
@@ -406,7 +429,7 @@ async function runRecovery(context: ConnectionsContext, { ready, controller }: O
   if (!await stillCurrent(context, controller)) return;
   if (result.status === "ready" && result.value.type === pending.type && result.value.state === OPERATION_STATE.completed) { await reconcileRecoveredOriginal(context, { ready, controller }, pending, result.value); return; }
   if (result.status === "ready" && result.value.type === pending.type && result.value.state === OPERATION_STATE.started || result.status === "failed" && result.code === MESSAGING_ERROR_CODE.resourceUnavailable) { await followUnresolvedOriginal(context, { ready, controller }, pending, result.status === "failed"); return; }
-  context.setCanResume(false); holdPending(context, COPY.pending);
+  context.setCanResume(false); holdPending(context, pendingCopyFor(pending));
 }
 
 /** @param context - Current render facts. @returns Nothing after readonly reconciliation of the original reference, never a retry of the key. */
@@ -421,8 +444,13 @@ export async function recoverOriginal(context: ConnectionsContext): Promise<void
 
 /** Values and effect-scoped callbacks the mount restoration reads. */
 export type ConnectionsRestoration = Pick<ConnectionsContext, "client" | "store" | "mounted" | "setApiKey" | "setPhase" | "setNotice" | "setHistory" | "setDiagnosticReferences" | "setPending" | "setConfiguration" | "setObservedAt" | "setCurrentReadFailed" | "setCurrentStepId"> & {
-  ready: ConnectionsReady; setSecurityOpen: (value: boolean) => void; checkViewer: (signal: AbortSignal) => Promise<boolean>; acceptIssuance: (result: IssuedDiagnostic) => void;
+  ready: ConnectionsReady; setSecurityOpen: (value: boolean) => void; checkViewer: (signal: AbortSignal) => Promise<boolean>;
+  /** Accepts the restored test once its current configuration is rendered (see ConnectionsContext.deferIssuance). */
+  acceptIssuance: (result: IssuedDiagnostic) => void;
 };
+
+/** How the restoration of an issued test ended: stopped, after reading the current configuration, or without reading it. */
+type IssuedDiagnosticRestoration = "stopped" | "read" | "unread";
 
 /** @param restoration - Mount restoration scope. @param signal - Mount lifetime. @returns Whether the restoration may continue after an awaited reply. */
 async function restorationCurrent(restoration: ConnectionsRestoration, signal: AbortSignal): Promise<boolean> {
@@ -430,21 +458,31 @@ async function restorationCurrent(restoration: ConnectionsRestoration, signal: A
   return restoration.checkViewer(signal);
 }
 
-/** @param restoration - Mount restoration scope. @param signal - Mount lifetime. @param reference - Issued test kept across a reload. @returns Whether the restoration may continue, after reopening a test that still waits for its code. */
-async function restoreIssuedDiagnostic(restoration: ConnectionsRestoration, signal: AbortSignal, reference: MessagingDiagnosticObservationReference): Promise<boolean> {
+/** @param configuration - Configuration known at mount. @param reference - Latest issued test. @returns Whether that test belongs to the selection and no longer to a candidate: it was activated, so nothing waits for its code. */
+function activatedDiagnostic(configuration: MessagingConfigurationResult, reference: MessagingDiagnosticObservationReference): boolean {
+  return selectedMatches(configuration, reference.connectionId, reference.configurationVersion) && !candidateMatches(configuration, reference.connectionId, reference.configurationVersion);
+}
+
+/**
+ * Reopens a test that still waits for its code. A test that became historical (activated, reconfigured or retired) is left
+ * to Pruebas emitidas without a toast: this mount restoration is not an action of the leader.
+ * @param restoration - Mount restoration scope. @param signal - Mount lifetime. @param reference - Issued test kept across a reload.
+ * @returns How the restoration ended.
+ */
+async function restoreIssuedDiagnostic(restoration: ConnectionsRestoration, signal: AbortSignal, reference: MessagingDiagnosticObservationReference): Promise<IssuedDiagnosticRestoration> {
   const { ready, client } = restoration;
   const original = await client.operation(ready.slug, reference.operationId, signal);
-  if (!await restorationCurrent(restoration, signal)) return false;
+  if (!await restorationCurrent(restoration, signal)) return "stopped";
   const issued = issuedOriginalResult(original, reference);
-  if (!issued) { toastMessagingRead({ kind: "alert", text: DIAGNOSTIC_COPY.pending }); return true; }
+  if (!issued) { toastMessagingRead({ kind: "alert", text: DIAGNOSTIC_COPY.pending }); return "unread"; }
   const current = await client.read(ready.slug, signal);
-  if (!await restorationCurrent(restoration, signal)) return false;
-  if (current.status !== "ready") { toastMessagingRead({ kind: "alert", text: DIAGNOSTIC_COPY.pending }); return true; }
+  if (!await restorationCurrent(restoration, signal)) return "stopped";
+  if (current.status !== "ready") { restoration.setCurrentReadFailed(true); toastMessagingRead({ kind: "alert", text: DIAGNOSTIC_COPY.pending }); return "read"; }
   applyConfiguration(restoration, current.value);
-  if (!candidateMatches(current.value, reference.connectionId, reference.configurationVersion)) { toastMessagingRead({ kind: "status", text: DIAGNOSTIC_COPY.originalHistorical }); return true; }
+  if (!candidateMatches(current.value, reference.connectionId, reference.configurationVersion)) return "read";
   restoration.acceptIssuance(issued);
   if (!isMessagingDiagnosticSettled(issued, current.value.audience === TRIBE_MEMBER_ROLE.leader ? current.value.candidate : null)) { restoration.setCurrentStepId(messagingConnectionsStepId(STEP_KIND.test, issued.channel)); restoration.setSecurityOpen(false); }
-  return true;
+  return "read";
 }
 
 /** @param restoration - Mount restoration scope. @param signal - Mount lifetime. @returns Whether the restoration may continue, after reading a snapshot restored by Atrás once. */
@@ -452,8 +490,18 @@ async function refreshRestoredSnapshot(restoration: ConnectionsRestoration, sign
   // A snapshot restored by Atrás may predate a change saved on another page (Países y cupos), so read the current state once.
   const current = await restoration.client.read(restoration.ready.slug, signal);
   if (!await restorationCurrent(restoration, signal)) return false;
-  if (current.status === "ready") applyConfiguration(restoration, current.value);
+  // A failed read keeps the restored snapshot, flagged as possibly outdated beside its retry.
+  if (current.status === "ready") applyConfiguration(restoration, current.value); else restoration.setCurrentReadFailed(true);
   return true;
+}
+
+/**
+ * @param renderedAt - Server render instant of the snapshot.
+ * @returns Whether the snapshot may be older than the page: restored by Atrás/Adelante, or impossible to date because the
+ * browser clock disagrees with the server (a negative age), in which case one extra read is the safe side.
+ */
+function isRestoredSnapshot(renderedAt: string): boolean {
+  return Math.abs(Date.now() - Date.parse(renderedAt)) > MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS;
 }
 
 /** @param restoration - Mount restoration scope. @param signal - Mount lifetime. @returns Nothing after restoring references and the current view once the viewer is checked. */
@@ -461,14 +509,16 @@ export async function restoreConnections(restoration: ConnectionsRestoration, si
   const { ready, client, store } = restoration;
   const viewer = await client.viewer(signal);
   if (signal.aborted || !restoration.mounted.current) return;
-  if (viewer.status !== "ready" || viewer.value?.id !== ready.viewerId) { restoration.setApiKey(""); restoration.setPhase(PHASE.unavailable); restoration.setNotice(COPY.viewerChanged); return; }
+  if (viewer.status !== "ready" || viewer.value?.id !== ready.viewerId) { restoration.setApiKey(""); restoration.setPhase(PHASE.unavailable); restoration.setNotice(viewerNotice(viewer)); return; }
   restoration.setHistory(store.history(ready.viewerId, ready.slug)); restoration.setDiagnosticReferences(store.diagnostics(ready.viewerId, ready.slug));
   const intent = store.read(ready.viewerId, ready.slug);
   if (intent) restoration.setPending(intent);
   else if (ready.configuration.audience === TRIBE_MEMBER_ROLE.leader) {
     const reference = store.diagnostic(ready.viewerId, ready.slug);
-    if (reference && !await restoreIssuedDiagnostic(restoration, signal, reference)) return;
-    if (!reference && Date.now() - Date.parse(ready.renderedAt) > MESSAGING_CONNECTIONS_RESTORED_SNAPSHOT_MAX_AGE_MS && !await refreshRestoredSnapshot(restoration, signal)) return;
+    // An activated test waits for nothing, so it is not looked up again on every visit.
+    const restored = reference && !activatedDiagnostic(ready.configuration, reference) ? await restoreIssuedDiagnostic(restoration, signal, reference) : "unread";
+    if (restored === "stopped") return;
+    if (restored === "unread" && isRestoredSnapshot(ready.renderedAt) && !await refreshRestoredSnapshot(restoration, signal)) return;
   }
   restoration.setPhase(PHASE.idle);
 }
@@ -562,7 +612,7 @@ async function runChannelConfiguration(context: ConnectionsContext, { ready, con
   if (!retainIntent(context, intent)) return;
   const outcome = await context.resourcesClient.configure({ slug: ready.slug, connectionId: candidate.id, configurationVersion: candidate.configurationVersion }, { ...references, operationId: intent.operationId, expectedVersion: candidate.version, confirmed: true }, controller.signal);
   if (!await stillCurrent(context, controller)) return;
-  if (outcome.status !== "ready" || outcome.value.state !== OPERATION_STATE.completed) { settleWriteFailure(context, outcome, RESOURCE_COPY.pending); return; }
+  if (outcome.status !== "ready" || outcome.value.state !== OPERATION_STATE.completed) { settleWriteFailure(context, outcome, RESOURCE_COPY.pending, RESOURCE_FAILURE_COPY); return; }
   // The minimal write cannot reconstruct all capability timestamps. Read the same owner instead of guessing them or refreshing the route.
   const current = await readFreshConfiguration(context, { ready, controller });
   if (!current) return;
@@ -588,7 +638,7 @@ async function runActivation(context: ConnectionsContext, { ready, controller }:
   if (!retainIntent(context, intent)) return;
   const outcome = await context.activationClient.activate({ slug: ready.slug, connectionId: candidate.id, configurationVersion: candidate.configurationVersion }, { operationId: intent.operationId, expectedVersion: candidate.version, confirmed: true }, controller.signal);
   if (!await stillCurrent(context, controller)) return;
-  if (outcome.status !== "ready" || outcome.value.state !== OPERATION_STATE.completed) { settleWriteFailure(context, outcome, ACTIVATION_COPY.pending); return; }
+  if (outcome.status !== "ready" || outcome.value.state !== OPERATION_STATE.completed) { settleWriteFailure(context, outcome, ACTIVATION_COPY.pending, ACTIVATION_FAILURE_COPY); return; }
   // Selection can update dependent policy references; reconcile this owner's snapshot instead of inventing cross-view facts.
   const current = await readFreshConfiguration(context, { ready, controller });
   if (!current) return;
@@ -717,10 +767,18 @@ async function runResume(context: ConnectionsContext, { ready, controller }: Ope
   context.setApiKey("");
   if (!outcome || !await stillCurrent(context, controller)) return;
   // Observe the original separately; a successful replay is never substituted for the current view.
-  if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed || outcome.status === "failed" && outcome.uncertain) { context.setNotice(RECOVERY_COPY.consultAgain); emitFeedback(context, { kind: "status", text: RECOVERY_COPY.resumed }); }
+  if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed) { context.setNotice(RECOVERY_COPY.consultAgain); emitFeedback(context, { kind: "status", text: RECOVERY_COPY.resumed }); }
   // The platform rejected the replay before registering it: nothing is left to resume, so the original is released.
-  else if (outcome.status === "failed" && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) { if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message }); }
-  else emitFeedback(context, { kind: "alert", text: outcome.status === "failed" ? outcome.message : COPY.pending });
+  else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) { if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message }); }
+  // A definitive rejection of the replay keeps the original to consult, since an earlier attempt may have completed it.
+  else if (outcome.status === "failed" && !outcome.uncertain) emitFeedback(context, { kind: "alert", text: outcome.message });
+  // A lost, timed-out or still started replay proves nothing: the original stays pending and is never announced as resumed.
+  else holdResumeUnconfirmed(context, pending);
+}
+
+/** @param context - Current render facts. @param pending - Original whose replay was not confirmed. @returns Nothing after keeping its explanation above the steps and announcing the unconfirmed replay once. */
+function holdResumeUnconfirmed(context: ConnectionsContext, pending: MessagingConnectionsPendingIntent): void {
+  context.setNotice(pendingCopyFor(pending)); emitFeedback(context, { kind: "alert", text: RECOVERY_COPY.resumeUnconfirmed });
 }
 
 /** @param context - Current render facts. @param pending - Current original. @returns Whether the original may be replayed now: confirmed again, resumable, never a test, and with the key a key save needs. */

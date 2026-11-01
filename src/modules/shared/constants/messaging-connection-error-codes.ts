@@ -23,4 +23,8 @@ export const MESSAGING_CONNECTION_ERROR_CODE = {
    * locked for recovery). A definitive rejection that registered nothing; only the TuTribu team can resolve it.
    */
   platformSecurityUnavailable: "platform_security_unavailable",
+  /** Ordinary disconnection of the selected connection would leave admissions with verification or email notices without messaging; the leader resolves that dependency first. */
+  connectionRetirementBlocked: "connection_retirement_blocked",
+  /** The previous send of a notice may already have left and still has no confirmed result, so it cannot be recovered yet. */
+  originalDispatchUnresolved: "original_dispatch_unresolved",
 } as const;

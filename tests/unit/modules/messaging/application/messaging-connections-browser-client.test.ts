@@ -36,4 +36,18 @@ describe("connection wizard own browser transport",()=>{
     const fetch=vi.fn<typeof globalThis.fetch>(async()=>Response.json(body,{status:409})),client=createMessagingConnectionsBrowserClient({fetch,viewer:async()=>({status:"ready",value:null})});
     expect(await client.create("synthetic",input,new AbortController().signal)).toEqual({status:"failed",code:"platform_security_unavailable",message:body.message,uncertain:false});expect(fetch).toHaveBeenCalledTimes(1);
   });
+  it("should treat a credential check that completed with a provider failure as final even under a 5xx, and keep a started one uncertain",async()=>{
+    const connectionId=randomUUID(),operationId=randomUUID(),input={operationId,expectedVersion:3,confirmed:true as const},message="La mensajería no está disponible temporalmente. Podés consultar tu solicitud.";
+    const fetch=vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json({code:"dependency_unavailable",message,requestId:"synthetic-request",operation:{operationId,state:"completed"}},{status:503})),client=createMessagingConnectionsBrowserClient({fetch,viewer:async()=>({status:"ready",value:null})});
+    expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toEqual({status:"failed",code:"dependency_unavailable",message,uncertain:false});
+    fetch.mockResolvedValueOnce(Response.json({code:"dependency_unavailable",message,requestId:"synthetic-request",operation:{operationId,state:"started"}},{status:503}));
+    expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toMatchObject({status:"failed",uncertain:true});
+    fetch.mockResolvedValueOnce(Response.json({code:"dependency_unavailable",message,requestId:"synthetic-request"},{status:503}));
+    expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toMatchObject({status:"failed",uncertain:true});
+  });
+  it("should release a write rejected with 424 before anything was registered",async()=>{
+    const input={operationId:randomUUID(),confirmed:true as const,providerId:"zavu" as const,name:"Conexión",apiKey:randomUUID()},body={code:"unexpected_failure",message:"No pudimos completar la operación de mensajería. Conservá los datos y consultá el estado.",requestId:"synthetic-request"};
+    const fetch=vi.fn<typeof globalThis.fetch>(async()=>Response.json(body,{status:424})),client=createMessagingConnectionsBrowserClient({fetch,viewer:async()=>({status:"ready",value:null})});
+    expect(await client.create("synthetic",input,new AbortController().signal)).toEqual({status:"failed",code:"unexpected_failure",message:body.message,uncertain:false});
+  });
 });
