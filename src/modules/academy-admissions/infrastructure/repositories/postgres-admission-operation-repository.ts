@@ -425,11 +425,11 @@ export class PostgresAdmissionOperationRepository {
         return { state: OPERATION_STATE.completed, operationId: command.idempotencyKey, replayed: false, result: parsed.data };
       });
     } catch (error) {
+      // The claim is registered: an owner check that finds the platform security unusable mid-effect cannot discard the original.
+      const keepsOwnCode = error instanceof AdmissionOperationError && error.code !== ADMISSION_ERROR_CODE.platformSecurityUnavailable;
       // The effect rolled back (or its COMMIT reply was lost): the same original may be resent at once.
       const failure = await this.releaseAfterFailure(ownClaim, error);
-      // The claim is registered: an owner check that finds the platform security unusable mid-effect cannot discard the original.
-      if (error instanceof AdmissionOperationError && error.code !== ADMISSION_ERROR_CODE.platformSecurityUnavailable) throw error;
-      throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: failure, operationId: command.idempotencyKey });
+      throw keepsOwnCode ? error : new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: failure, operationId: command.idempotencyKey });
     }
   }
 }
