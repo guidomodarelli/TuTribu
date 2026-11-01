@@ -16,6 +16,13 @@ export type OwnVerificationStatesReader = {
   }): Promise<MemberVerificationState[]>;
 };
 
+/** Renewal of the member's academy subscription, read by the subscriptions module. */
+export type OwnAcademyRenewalState = {
+  /** The last recorded invoice of that subscription was rejected by the provider. */
+  lastPaymentRejected: boolean;
+  status: AcademyRenewalStatus;
+};
+
 export type OwnAcademyRenewalReader = {
-  getOwnAcademyRenewalStatus(query: { tribeSlug: string }): Promise<AcademyRenewalStatus>;
+  getOwnAcademyRenewal(query: { tribeSlug: string }): Promise<OwnAcademyRenewalState>;
 };

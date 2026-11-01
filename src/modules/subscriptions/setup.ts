@@ -40,7 +40,7 @@ import {
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
 import {
   cancelOwnAcademyRenewal,
-  getOwnAcademyRenewalStatus,
+  getOwnAcademyRenewal,
   handleAcademyAuthorizedPaymentWebhook,
   handleAcademyPaymentWebhook,
   reconcileAcademySubscriptionCoverage,
@@ -78,7 +78,7 @@ function buildAcademySubscriptionUseCases({
 >) {
   return {
     cancelOwnAcademyRenewal: cancelOwnAcademyRenewal({ academySubscriptionRepository }),
-    getOwnAcademyRenewalStatus: getOwnAcademyRenewalStatus({ academySubscriptionRepository }),
+    getOwnAcademyRenewal: getOwnAcademyRenewal({ academySubscriptionRepository }),
     handleAcademyAuthorizedPaymentWebhook: handleAcademyAuthorizedPaymentWebhook({
       academySubscriptionRepository,
     }),

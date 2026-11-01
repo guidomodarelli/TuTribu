@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  AlertTriangleIcon,
   ArrowRightIcon,
   CheckIcon,
   ClockIcon,
@@ -32,6 +33,7 @@ import { navigateToUrl } from "@/lib/browser-navigation";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   AcademyAccessStatusDto,
+  AcademyCancelRenewalDto,
   AcademyOfferDto,
   AcademyReconcileDto,
 } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
@@ -41,14 +43,22 @@ const ACADEMY_HOME_COPY = {
   accessHeading: "Tu acceso",
   accessUnbounded: "Tenés acceso a la academia sin vencimiento.",
   admissionClosed: "Las admisiones de esta tribu no están abiertas en este momento.",
+  admissionRequestLink: "Solicitar ingreso",
+  awaitingPayment:
+    "Tu suscripción espera el pago en Mercado Pago. Si ya pagaste, no hace falta que vuelvas a pagar; si no terminaste, podés continuar el pago.",
   basicCourses: "Ver cursos básicos",
   basicLevel: "Podés ver los cursos básicos. Seguí estos pasos para sumar la academia.",
   configureOffer: "Configurar la oferta",
+  continuePayment: "Continuar el pago",
+  emptyOfferGuardian: "Quien lidera la tribu todavía no cargó la oferta.",
   emptyOfferLeader:
     "Todavía no cargaste la oferta. Agregá un título, una explicación y los beneficios para que tus integrantes sepan qué incluye la academia.",
   emptyOfferMember: "Pronto vas a ver acá qué incluye la academia.",
   eyebrow: "Academia de la tribu",
   leaderPreviewMessage: "Como líder ves todo el contenido de la academia.",
+  membershipRecoverable: "Tu membresía en la tribu está inactiva. Podés volver a ingresar a la academia.",
+  paymentRejected:
+    "Mercado Pago rechazó el último cobro. Revisá tu medio de pago en Mercado Pago y después tocá «Actualizar estado».",
   stepAccessCheckout: "Pagás mes a mes y podés cancelar la renovación cuando quieras.",
   stepAccessLocked: "Disponible cuando tu vinculación esté verificada.",
   stepAccessPaused: "La venta está pausada. Quien administra la tribu también puede bonificarte el acceso.",
@@ -67,14 +77,18 @@ const ACADEMY_HOME_COPY = {
   cancelConfirm: "Sí, cancelar renovación",
   cancelDialogDescription:
     "Se detienen los próximos cobros. Conservás el acceso ya pagado hasta su vencimiento, tu cuenta y tu progreso.",
+  cancelDialogNoPaidAccessDescription:
+    "Se detienen los próximos cobros. Tu cuenta y tu progreso siguen guardados.",
   cancelDialogTitle: "¿Cancelar la renovación de la academia?",
   cancelKeep: "Mantener renovación",
   cancelPending: "Cancelando…",
   cancelPendingSubscriptionDialogDescription:
     "Se cancela la suscripción que está esperando la confirmación del pago y no se generan cobros nuevos. Tu cuenta y tu progreso siguen guardados.",
   cancelPendingSubscriptionDialogTitle: "¿Cancelar la suscripción a la academia?",
+  cancelRetryButton: "Reintentar cancelación",
   canceledPendingSubscription:
     "Cancelaste la suscripción que estaba esperando la confirmación del pago. No se generan cobros nuevos.",
+  canceledRenewal: "Cancelaste la renovación. No se generan cobros nuevos.",
   canceledUntil: (date: string) => `Cancelaste la renovación. Conservás el acceso hasta el ${date}.`,
   checkoutButton: "Contratar academia",
   checkoutPending: "Abriendo el pago…",
@@ -107,6 +121,7 @@ const ACADEMY_HOME_COPY = {
   renewalActive: "Tu renovación mensual está activa.",
   renewalCanceled: "La renovación está cancelada.",
   renewalCanceling: "La cancelación de tu renovación está pendiente de confirmación.",
+  renewalPaused: "Tu renovación está pausada en Mercado Pago.",
   salesPaused: "La venta de la academia está pausada.",
   supportNeeded: "Tu membresía no permite usar la academia. Contactá a quien administra la tribu.",
   verificationLink: "Solicitar verificación",
@@ -116,15 +131,30 @@ const ACADEMY_HOME_COPY = {
 /** The member has no academy subscription yet: nothing to reconcile. */
 const HTTP_STATUS_NOT_FOUND = 404;
 
+/** The action's precondition changed on the server (offer, admission mode, subscription). */
+const HTTP_STATUS_CONFLICT = 409;
+
+/** Admissions closed, or the person cannot enter: the offer the page shows is stale. */
+const HTTP_STATUS_FORBIDDEN = 403;
+
+/** Statuses after which the page re-renders with the server's current offer and access. */
+const STALE_PAGE_HTTP_STATUSES: ReadonlySet<number> = new Set([HTTP_STATUS_CONFLICT, HTTP_STATUS_FORBIDDEN]);
+
 /** The provider was checked moments ago: the reconciliation did not ask it again. */
 const RECONCILE_THROTTLED_STATUS: AcademyReconcileDto["status"] = "throttled";
+
+/** The cancellation is recorded but the provider has not confirmed it yet. */
+const CANCEL_UNCONFIRMED_STATUS: AcademyCancelRenewalDto["status"] = "cancel_unconfirmed";
 
 /** Fired when the browser restores the page from its back-forward cache. */
 const PAGE_SHOW_EVENT = "pageshow";
 
 type AcademyHomeProps = {
   access: AcademyAccessStatusDto | null;
+  /** Active leader or guardian: sees the management link. */
   canManage: boolean;
+  /** Active leader: the only role that edits the offer. */
+  canConfigureOffer: boolean;
   isCheckoutReturn: boolean;
   offer: AcademyOfferDto | null;
   tribeSlug: string;
@@ -139,31 +169,50 @@ type ActionErrors = Record<AcademyHomeAction, string | null>;
 
 const NO_ACTION_ERRORS: ActionErrors = { cancel: null, checkout: null, join: null, refresh: null };
 
+/** A confirmed outcome, or an informative one the member still has to follow up. */
+type HomeNotice = { message: string; tone: "info" | "success" };
+
 /**
- * Renewals the member can cancel: a confirmed one, or one whose subscription
- * still waits for the provider to confirm its payment.
+ * Renewals the member can cancel: a confirmed or paused one, one whose
+ * subscription still waits for its payment, or one whose earlier cancellation
+ * was recorded but not confirmed (the server accepts the retry).
  */
-type CancelableRenewalStatus = "active" | "pending";
+type CancelableRenewalStatus = "active" | "canceling" | "paused" | "pending";
 
 /**
  * Whether the member can cancel this renewal from the academy home.
  *
  * @param renewalStatus - Renewal status confirmed by the server.
- * @returns True for an active renewal or a subscription waiting for its payment.
+ * @returns True for a live renewal or a cancellation still to confirm.
  */
 function isCancelableRenewal(
   renewalStatus: AcademyAccessStatusDto["renewalStatus"]
 ): renewalStatus is CancelableRenewalStatus {
-  return renewalStatus === "active" || renewalStatus === "pending";
+  return (
+    renewalStatus === "active" ||
+    renewalStatus === "canceling" ||
+    renewalStatus === "paused" ||
+    renewalStatus === "pending"
+  );
 }
 
-/** A pending subscription has no paid access to keep: its dialog never promises an end date. */
-const CANCEL_DIALOG_COPY: Record<CancelableRenewalStatus, { description: string; title: string }> = {
-  active: {
+/**
+ * What the cancellation stops: a subscription still waiting for its payment,
+ * a renewal with paid access to keep, or one without paid access.
+ */
+type CancelKind = "noPaidAccess" | "paidAccess" | "pendingPayment";
+
+/** Only paid access in force is promised to be kept; a pending payment has none. */
+const CANCEL_DIALOG_COPY: Record<CancelKind, { description: string; title: string }> = {
+  noPaidAccess: {
+    description: ACADEMY_HOME_COPY.cancelDialogNoPaidAccessDescription,
+    title: ACADEMY_HOME_COPY.cancelDialogTitle,
+  },
+  paidAccess: {
     description: ACADEMY_HOME_COPY.cancelDialogDescription,
     title: ACADEMY_HOME_COPY.cancelDialogTitle,
   },
-  pending: {
+  pendingPayment: {
     description: ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogDescription,
     title: ACADEMY_HOME_COPY.cancelPendingSubscriptionDialogTitle,
   },
@@ -172,13 +221,32 @@ const CANCEL_DIALOG_COPY: Record<CancelableRenewalStatus, { description: string;
 /**
  * Whether a subscription payment may still be confirmed: a renewal that is
  * pending, or one already active whose first period is not covered yet (the
- * provider authorized the subscription before approving its invoice).
+ * provider authorized the subscription before approving its invoice). A
+ * rejected last payment is not in progress: the member must act on it.
  *
  * @param access - Confirmed access status.
  * @returns True while the member should keep waiting instead of contracting again.
  */
 function isPaymentInProgress(access: AcademyAccessStatusDto): boolean {
+  if (access.lastPaymentRejected) {
+    return false;
+  }
+
   return access.renewalStatus === "pending" || (access.renewalStatus === "active" && access.level === "basic");
+}
+
+/**
+ * Picks what the cancellation of the current renewal stops.
+ *
+ * @param access - Confirmed access status.
+ * @returns The cancellation kind that selects the dialog copy and its outcome.
+ */
+function resolveCancelKind(access: AcademyAccessStatusDto): CancelKind {
+  if (isPaymentInProgress(access)) {
+    return "pendingPayment";
+  }
+
+  return access.hasPaidCoverage ? "paidAccess" : "noPaidAccess";
 }
 
 /**
@@ -199,6 +267,10 @@ function describeRefreshOutcome({
 }): string {
   if (reconcileStatus === RECONCILE_THROTTLED_STATUS) {
     return ACADEMY_HOME_COPY.refreshThrottled;
+  }
+
+  if (access.lastPaymentRejected) {
+    return ACADEMY_HOME_COPY.paymentRejected;
   }
 
   if (isPaymentInProgress(access)) {
@@ -242,12 +314,15 @@ const RENEWAL_MESSAGE: Partial<Record<AcademyAccessStatusDto["renewalStatus"], s
   active: ACADEMY_HOME_COPY.renewalActive,
   canceled: ACADEMY_HOME_COPY.renewalCanceled,
   canceling: ACADEMY_HOME_COPY.renewalCanceling,
+  paused: ACADEMY_HOME_COPY.renewalPaused,
   pending: ACADEMY_HOME_COPY.confirmingPayment,
 };
 
 type AccessStatusTone = "muted" | "neutral" | "success" | "warning";
 
 type AccessStatusView = {
+  /** The courses page is reachable: a blocked or removed membership has none. */
+  canOpenCourses: boolean;
   detail: string | null;
   isLearning: boolean;
   label: string;
@@ -278,10 +353,13 @@ function resolveAccessStatus(access: AcademyAccessStatusDto): AccessStatusView {
 
   if (access.nextAction === "contact_support") {
     return {
+      canOpenCourses: false,
       detail: renewal,
       isLearning: false,
       label: ACADEMY_HOME_COPY.statusNoAccess,
-      message: ACADEMY_HOME_COPY.supportNeeded,
+      message: access.membershipRecovery
+        ? ACADEMY_HOME_COPY.membershipRecoverable
+        : ACADEMY_HOME_COPY.supportNeeded,
       showSteps: false,
       tone: "warning",
     };
@@ -289,6 +367,7 @@ function resolveAccessStatus(access: AcademyAccessStatusDto): AccessStatusView {
 
   if (access.level === "academy") {
     return {
+      canOpenCourses: true,
       detail: renewal,
       isLearning: true,
       label: ACADEMY_HOME_COPY.statusActive,
@@ -300,6 +379,7 @@ function resolveAccessStatus(access: AcademyAccessStatusDto): AccessStatusView {
 
   if (access.isLeaderPreview) {
     return {
+      canOpenCourses: true,
       detail: ACADEMY_HOME_COPY.leaderPreview,
       isLearning: true,
       label: ACADEMY_HOME_COPY.statusLeader,
@@ -310,6 +390,7 @@ function resolveAccessStatus(access: AcademyAccessStatusDto): AccessStatusView {
   }
 
   return {
+    canOpenCourses: true,
     detail: renewal,
     isLearning: false,
     label: access.firstActivatedAt ? ACADEMY_HOME_COPY.statusEnded : ACADEMY_HOME_COPY.statusBasic,
@@ -370,32 +451,42 @@ function describeVerifyStep(access: AcademyAccessStatusDto): string {
     : ACADEMY_HOME_COPY.eligibilityRequired;
 }
 
-/** Description of the access step: locked until verified, then checkout or paused sales. */
+/** Renewals of a subscription that already exists: the step describes it, not paused sales. */
+const EXISTING_SUBSCRIPTION_RENEWAL_STATUSES: ReadonlySet<AcademyAccessStatusDto["renewalStatus"]> = new Set([
+  "active",
+  "canceling",
+  "paused",
+  "pending",
+]);
+
+/**
+ * Description of the access step: locked until verified, then the monthly
+ * subscription (to contract or already contracted), or paused sales.
+ */
 function describeAccessStep(access: AcademyAccessStatusDto): string {
   if (access.eligibility !== "verified") {
     return ACADEMY_HOME_COPY.stepAccessLocked;
   }
 
-  return access.canStartCheckout
-    ? ACADEMY_HOME_COPY.stepAccessCheckout
-    : ACADEMY_HOME_COPY.stepAccessPaused;
+  if (access.canStartCheckout || EXISTING_SUBSCRIPTION_RENEWAL_STATUSES.has(access.renewalStatus)) {
+    return ACADEMY_HOME_COPY.stepAccessCheckout;
+  }
+
+  return ACADEMY_HOME_COPY.stepAccessPaused;
 }
 
 /**
- * Outcome of a confirmed cancellation: a pending subscription has no paid
- * access to keep; an active renewal keeps it until its end date.
+ * Outcome of a confirmed cancellation: a pending subscription and a renewal
+ * without paid access have nothing to keep; paid access is kept until its end.
  */
-function describeCancelOutcome(
-  cancelingRenewalStatus: CancelableRenewalStatus,
-  endsAt: string | null
-): string {
-  if (cancelingRenewalStatus === "pending") {
+function describeCancelOutcome(cancelKind: CancelKind, endsAt: string | null): string {
+  if (cancelKind === "pendingPayment") {
     return ACADEMY_HOME_COPY.canceledPendingSubscription;
   }
 
-  return endsAt
+  return cancelKind === "paidAccess" && endsAt
     ? ACADEMY_HOME_COPY.canceledUntil(formatAcademyDate(endsAt))
-    : ACADEMY_HOME_COPY.renewalCanceled;
+    : ACADEMY_HOME_COPY.canceledRenewal;
 }
 
 /**
@@ -410,14 +501,22 @@ function describeCancelOutcome(
 function useAcademyHomeState(initialAccess: AcademyAccessStatusDto | null, isCheckoutReturn: boolean) {
   const router = useRouter();
   const [access, setAccess] = useState(initialAccess);
+  // `router.refresh()` keeps client state: a new server render of the status
+  // (after joining, for example) replaces the copy held here.
+  const [renderedAccess, setRenderedAccess] = useState(initialAccess);
+
+  if (initialAccess !== renderedAccess) {
+    setRenderedAccess(initialAccess);
+    setAccess(initialAccess);
+  }
+
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<HomeNotice | null>(null);
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [actionErrors, setActionErrors] = useState<ActionErrors>(NO_ACTION_ERRORS);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   // Frozen when the dialog opens: its copy and the outcome describe what the member chose to cancel.
-  const [cancelingRenewalStatus, setCancelingRenewalStatus] =
-    useState<CancelableRenewalStatus>("active");
+  const [cancelKind, setCancelKind] = useState<CancelKind>("paidAccess");
   // A checkout return waits for the payment only until a server read says otherwise.
   const [isAwaitingCheckoutReturn, setIsAwaitingCheckoutReturn] = useState(isCheckoutReturn);
   // Blocks a second submit before the disabled state renders (double click).
@@ -445,7 +544,7 @@ function useAcademyHomeState(initialAccess: AcademyAccessStatusDto | null, isChe
   return {
     access,
     actionErrors,
-    cancelingRenewalStatus,
+    cancelKind,
     isAwaitingCheckoutReturn,
     isBusyRef,
     isCancelDialogOpen,
@@ -456,7 +555,7 @@ function useAcademyHomeState(initialAccess: AcademyAccessStatusDto | null, isChe
     router,
     setAccess,
     setActionErrors,
-    setCancelingRenewalStatus,
+    setCancelKind,
     setIsAwaitingCheckoutReturn,
     setIsCancelDialogOpen,
     setNotice,
@@ -527,7 +626,7 @@ type AcademyHomeActionContext = {
 
 /** Free join and provider checkout actions. */
 function createEntryActions({ offer, runner, state, tribeSlug }: AcademyHomeActionContext) {
-  const { runAction, setActionError } = runner;
+  const { reloadAccess, runAction, setActionError } = runner;
 
   const handleJoin = () =>
     runAction("join", async () => {
@@ -536,11 +635,18 @@ function createEntryActions({ offer, runner, state, tribeSlug }: AcademyHomeActi
       if (!result.isSuccess) {
         setActionError("join", result.message);
 
+        // The tribe now asks for a request or closed admissions: show its current offer.
+        if (STALE_PAGE_HTTP_STATUSES.has(result.status)) {
+          state.router.refresh();
+        }
+
         return;
       }
 
-      // Joining changes the membership (an authorization state): a full
-      // refresh re-renders the page with the new server-side access.
+      state.setNotice({ message: result.data.message, tone: "success" });
+      // The new access shows at once; the refresh re-renders the membership-dependent
+      // parts of the page (management link, navigation) on the server.
+      await reloadAccess();
       state.router.refresh();
     });
 
@@ -550,10 +656,20 @@ function createEntryActions({ offer, runner, state, tribeSlug }: AcademyHomeActi
         return;
       }
 
-      const result = await startAcademyCheckout(tribeSlug, offer.offerVersion);
+      const result = await startAcademyCheckout(tribeSlug, {
+        acceptedOfferVersion: offer.offerVersion,
+        acceptedPrice: offer.price
+          ? { amountCents: offer.price.amountCents, currency: offer.price.currency }
+          : null,
+      });
 
       if (!result.isSuccess) {
         setActionError("checkout", result.message);
+
+        // The offer, its price or the subscription changed: show the current ones.
+        if (result.status === HTTP_STATUS_CONFLICT) {
+          state.router.refresh();
+        }
 
         return;
       }
@@ -614,6 +730,12 @@ function createCancelActions({ runner, state, tribeSlug }: AcademyHomeActionCont
       if (!result.isSuccess) {
         setActionError("cancel", result.message);
 
+        // Nothing left to cancel (another tab or the provider did it): show the current renewal.
+        if (result.status === HTTP_STATUS_NOT_FOUND) {
+          state.setIsCancelDialogOpen(false);
+          await reloadAccess();
+        }
+
         return;
       }
 
@@ -622,19 +744,62 @@ function createCancelActions({ runner, state, tribeSlug }: AcademyHomeActionCont
       state.setIsAwaitingCheckoutReturn(false);
       state.setRefreshNotice(null);
       const updated = await reloadAccess();
+
+      if (result.data.status === CANCEL_UNCONFIRMED_STATUS) {
+        // Recorded but not confirmed: the reread shows it as pending confirmation.
+        state.setNotice({ message: result.data.message, tone: "info" });
+
+        return;
+      }
+
+      if (!updated) {
+        // The server confirmed the cancellation: without a fresh read the old renewal must not stay cancelable.
+        state.setAccess((current) => (current ? { ...current, renewalStatus: "canceled" } : current));
+        setActionError("refresh", ACADEMY_HOME_COPY.refreshReadFailed);
+      }
+
       const endsAt = updated?.accessEndsAt ?? state.access?.accessEndsAt ?? null;
 
-      state.setNotice(describeCancelOutcome(state.cancelingRenewalStatus, endsAt));
+      state.setNotice({ message: describeCancelOutcome(state.cancelKind, endsAt), tone: "success" });
     });
 
-  const openCancelDialog = (renewalStatus: CancelableRenewalStatus) => {
+  const openCancelDialog = (access: AcademyAccessStatusDto) => {
     // The dialog never inherits an error from an earlier attempt or another action.
     setActionError("cancel", null);
-    state.setCancelingRenewalStatus(renewalStatus);
+    state.setCancelKind(resolveCancelKind(access));
     state.setIsCancelDialogOpen(true);
   };
 
-  return { handleCancel, openCancelDialog };
+  // The request in flight decides the outcome: the dialog stays open until it answers.
+  // Closing it afterwards dismisses the error the member already read inside it.
+  const setCancelDialogOpen = (isOpen: boolean) => {
+    if (!isOpen && state.pendingAction === "cancel") {
+      return;
+    }
+
+    if (!isOpen) {
+      setActionError("cancel", null);
+    }
+
+    state.setIsCancelDialogOpen(isOpen);
+  };
+
+  return { handleCancel, openCancelDialog, setCancelDialogOpen };
+}
+
+/** How the page offers entry: a free join, or the admission request form. */
+type EntryMode = "admission_request" | "free_join";
+
+/**
+ * Entry offered by the page: to a visitor (by the offer), or to a member whose
+ * inactive membership can be recovered (by the server's recovery decision).
+ */
+function resolveEntryMode(access: AcademyAccessStatusDto | null, offer: AcademyOfferDto): EntryMode | null {
+  if (access === null) {
+    return offer.admissionRequiresRequest ? "admission_request" : "free_join";
+  }
+
+  return access.membershipRecovery;
 }
 
 /**
@@ -648,6 +813,10 @@ function useAcademyHome({ access: initialAccess, isCheckoutReturn, offer, tribeS
   const { access } = state;
   const isAcademyMode = access?.accessModel === "academy";
   const status = access && isAcademyMode ? resolveAccessStatus(access) : null;
+  const showConfirming =
+    access !== null &&
+    (isPaymentInProgress(access) ||
+      (state.isAwaitingCheckoutReturn && access.level === "basic" && !access.lastPaymentRejected));
 
   return {
     ...state,
@@ -655,10 +824,17 @@ function useAcademyHome({ access: initialAccess, isCheckoutReturn, offer, tribeS
     ...createCancelActions(context),
     cancelableRenewalStatus:
       access && isCancelableRenewal(access.renewalStatus) ? access.renewalStatus : null,
+    entryMode: offer ? resolveEntryMode(access, offer) : null,
     handleRefresh: createRefreshAction(context),
-    showConfirming:
-      access !== null &&
-      (isPaymentInProgress(access) || (state.isAwaitingCheckoutReturn && access.level === "basic")),
+    showConfirming,
+    // A checkout that reached the provider and still waits for its payment can be resumed.
+    showContinuePayment: access?.renewalStatus === "pending" && offer !== null,
+    // A failed reread keeps the refresh: it is the way to read the status again without reloading the page.
+    showRefresh:
+      showConfirming ||
+      access?.renewalStatus === "canceling" ||
+      access?.lastPaymentRejected === true ||
+      Boolean(state.actionErrors.refresh),
     status,
     steps: access && isAcademyMode && status?.showSteps ? buildAccessSteps(access) : [],
   };
@@ -667,6 +843,7 @@ function useAcademyHome({ access: initialAccess, isCheckoutReturn, offer, tribeS
 type AcademyHomeController = ReturnType<typeof useAcademyHome>;
 
 type AcademyHomeSectionProps = {
+  canConfigureOffer: boolean;
   canManage: boolean;
   home: AcademyHomeController;
   offer: AcademyOfferDto | null;
@@ -674,7 +851,7 @@ type AcademyHomeSectionProps = {
 };
 
 /** Title, offer description and the manage link for leaders. */
-function AcademyHomeHeader({ canManage, offer, tribeSlug }: Omit<AcademyHomeSectionProps, "home">) {
+function AcademyHomeHeader({ canManage, offer, tribeSlug }: Pick<AcademyHomeSectionProps, "canManage" | "offer" | "tribeSlug">) {
   const title = offer?.title || ACADEMY_HOME_COPY.defaultTitle;
 
   return (
@@ -696,21 +873,32 @@ function AcademyHomeHeader({ canManage, offer, tribeSlug }: Omit<AcademyHomeSect
   );
 }
 
-/** Payment confirmation, last outcome and legacy mode notices. */
+/** Payment confirmation or rejection, last outcome and legacy mode notices. */
 function AcademyHomeNotices({ home, tribeSlug }: Pick<AcademyHomeSectionProps, "home" | "tribeSlug">) {
+  const NoticeIcon = home.notice?.tone === "info" ? InfoIcon : CheckIcon;
+
   return (
     <>
+      {home.access?.lastPaymentRejected ? (
+        <p className={cn(styles.AcademyHome__notice, styles["AcademyHome__notice--warning"])} role="status">
+          <AlertTriangleIcon aria-hidden className={styles.AcademyHome__icon} />
+          {ACADEMY_HOME_COPY.paymentRejected}
+        </p>
+      ) : null}
+
       {home.showConfirming ? (
         <p className={styles.AcademyHome__notice} role="status">
           <ClockIcon aria-hidden className={styles.AcademyHome__icon} />
-          {ACADEMY_HOME_COPY.confirmingPayment}
+          {home.access?.renewalStatus === "pending"
+            ? ACADEMY_HOME_COPY.awaitingPayment
+            : ACADEMY_HOME_COPY.confirmingPayment}
         </p>
       ) : null}
 
       {home.notice ? (
         <p className={styles.AcademyHome__notice} role="status">
-          <CheckIcon aria-hidden className={styles.AcademyHome__icon} />
-          {home.notice}
+          <NoticeIcon aria-hidden className={styles.AcademyHome__icon} />
+          {home.notice.message}
         </p>
       ) : null}
 
@@ -735,9 +923,27 @@ type AcademyAccessStepItemProps = Pick<AcademyHomeSectionProps, "home" | "tribeS
   stepIndex: number;
 };
 
+/** Contract button of the access step, or the resume button of a pending checkout. */
+function AcademyCheckoutButton({ home, label }: { home: AcademyHomeController; label: string }) {
+  const { pendingAction } = home;
+
+  return (
+    <Button
+      aria-busy={pendingAction === "checkout" || undefined}
+      className={styles.AcademyHome__actionButton}
+      disabled={pendingAction !== null}
+      onClick={home.handleCheckout}
+      type="button"
+    >
+      {pendingAction === "checkout" ? ACADEMY_HOME_COPY.checkoutPending : label}
+    </Button>
+  );
+}
+
 /** One step toward the academy, with its verification link or checkout button. */
 function AcademyAccessStepItem({ access, home, step, stepIndex, tribeSlug }: AcademyAccessStepItemProps) {
-  const { actionErrors, pendingAction } = home;
+  const { actionErrors } = home;
+  const isAccessStep = step.key === "access";
 
   return (
     <li
@@ -766,20 +972,13 @@ function AcademyAccessStepItem({ access, home, step, stepIndex, tribeSlug }: Aca
             <ArrowRightIcon aria-hidden className={styles.AcademyHome__icon} />
           </Link>
         ) : null}
-        {step.key === "access" && access.canStartCheckout && !home.showConfirming ? (
-          <Button
-            aria-busy={pendingAction === "checkout" || undefined}
-            className={styles.AcademyHome__actionButton}
-            disabled={pendingAction !== null}
-            onClick={home.handleCheckout}
-            type="button"
-          >
-            {pendingAction === "checkout"
-              ? ACADEMY_HOME_COPY.checkoutPending
-              : ACADEMY_HOME_COPY.checkoutButton}
-          </Button>
+        {isAccessStep && access.canStartCheckout && !home.showConfirming ? (
+          <AcademyCheckoutButton home={home} label={ACADEMY_HOME_COPY.checkoutButton} />
         ) : null}
-        {step.key === "access" && actionErrors.checkout ? (
+        {isAccessStep && home.showContinuePayment ? (
+          <AcademyCheckoutButton home={home} label={ACADEMY_HOME_COPY.continuePayment} />
+        ) : null}
+        {isAccessStep && actionErrors.checkout ? (
           <p className={styles.AcademyHome__error} role="alert">
             {actionErrors.checkout}
           </p>
@@ -796,20 +995,22 @@ type AcademyAccessDetailsProps = Pick<AcademyHomeSectionProps, "home" | "tribeSl
 
 /** Courses link, status refresh and renewal cancellation of the own access. */
 function AcademyAccessActions({ access, home, status, tribeSlug }: AcademyAccessDetailsProps) {
-  const { cancelableRenewalStatus, pendingAction } = home;
+  const { actionErrors, cancelableRenewalStatus, pendingAction } = home;
 
   return (
     <div className={styles.AcademyHome__actions}>
-      <Link
-        className={
-          status.isLearning ? styles.AcademyHome__primaryLink : styles.AcademyHome__secondaryLink
-        }
-        href={ROUTES.tribes.courses(tribeSlug)}
-      >
-        {status.isLearning ? ACADEMY_HOME_COPY.continueLearning : ACADEMY_HOME_COPY.basicCourses}
-        <ArrowRightIcon aria-hidden className={styles.AcademyHome__icon} />
-      </Link>
-      {home.showConfirming || access.renewalStatus === "canceling" ? (
+      {status.canOpenCourses ? (
+        <Link
+          className={
+            status.isLearning ? styles.AcademyHome__primaryLink : styles.AcademyHome__secondaryLink
+          }
+          href={ROUTES.tribes.courses(tribeSlug)}
+        >
+          {status.isLearning ? ACADEMY_HOME_COPY.continueLearning : ACADEMY_HOME_COPY.basicCourses}
+          <ArrowRightIcon aria-hidden className={styles.AcademyHome__icon} />
+        </Link>
+      ) : null}
+      {home.showRefresh ? (
         <Button
           aria-busy={pendingAction === "refresh" || undefined}
           className={styles.AcademyHome__actionButton}
@@ -827,12 +1028,19 @@ function AcademyAccessActions({ access, home, status, tribeSlug }: AcademyAccess
         <Button
           className={styles.AcademyHome__actionButton}
           disabled={pendingAction !== null}
-          onClick={() => home.openCancelDialog(cancelableRenewalStatus)}
+          onClick={() => home.openCancelDialog(access)}
           type="button"
           variant="secondary"
         >
-          {ACADEMY_HOME_COPY.cancelButton}
+          {cancelableRenewalStatus === "canceling"
+            ? ACADEMY_HOME_COPY.cancelRetryButton
+            : ACADEMY_HOME_COPY.cancelButton}
         </Button>
+      ) : null}
+      {actionErrors.cancel && !home.isCancelDialogOpen ? (
+        <p className={cn(styles.AcademyHome__error, styles.AcademyHome__actionError)} role="alert">
+          {actionErrors.cancel}
+        </p>
       ) : null}
     </div>
   );
@@ -897,12 +1105,17 @@ function AcademyAccessSection({ access, home, status, tribeSlug }: AcademyAccess
   );
 }
 
-type AcademyOfferPartProps = Pick<AcademyHomeSectionProps, "canManage" | "home" | "tribeSlug"> & {
+type AcademyOfferPartProps = Pick<AcademyHomeSectionProps, "canConfigureOffer" | "canManage" | "home" | "tribeSlug"> & {
   offer: AcademyOfferDto;
 };
 
-/** Free join or admission request for a visitor, or the closed admissions notice. */
-function AcademyAdmissionAction({ home, offer, tribeSlug }: Omit<AcademyOfferPartProps, "canManage">) {
+/** Free join or admission request, or the closed admissions notice. */
+function AcademyAdmissionAction({
+  entryMode,
+  home,
+  offer,
+  tribeSlug,
+}: Pick<AcademyOfferPartProps, "home" | "offer" | "tribeSlug"> & { entryMode: EntryMode }) {
   const { actionErrors, pendingAction } = home;
 
   if (!offer.admissionEnabled) {
@@ -911,16 +1124,20 @@ function AcademyAdmissionAction({ home, offer, tribeSlug }: Omit<AcademyOfferPar
 
   return (
     <div className={styles.AcademyHome__actions}>
-      {offer.admissionRequiresRequest ? <Link className={styles.AcademyHome__secondaryLink} href={buildAdmissionEntryRoute(tribeSlug)}>Solicitar ingreso</Link> :
-      <Button
-        aria-busy={pendingAction === "join" || undefined}
-        disabled={pendingAction !== null}
-        onClick={home.handleJoin}
-        type="button"
-      >
-        {pendingAction === "join" ? ACADEMY_HOME_COPY.joinPending : ACADEMY_HOME_COPY.joinButton}
-      </Button>
-      }
+      {entryMode === "admission_request" ? (
+        <Link className={styles.AcademyHome__secondaryLink} href={buildAdmissionEntryRoute(tribeSlug)}>
+          {ACADEMY_HOME_COPY.admissionRequestLink}
+        </Link>
+      ) : (
+        <Button
+          aria-busy={pendingAction === "join" || undefined}
+          disabled={pendingAction !== null}
+          onClick={home.handleJoin}
+          type="button"
+        >
+          {pendingAction === "join" ? ACADEMY_HOME_COPY.joinPending : ACADEMY_HOME_COPY.joinButton}
+        </Button>
+      )}
       {actionErrors.join ? (
         <p className={cn(styles.AcademyHome__error, styles.AcademyHome__actionError)} role="alert">
           {actionErrors.join}
@@ -930,8 +1147,17 @@ function AcademyAdmissionAction({ home, offer, tribeSlug }: Omit<AcademyOfferPar
   );
 }
 
+/** Placeholder of an empty offer: the leader configures it; a guardian or member waits. */
+function describeEmptyOffer(canConfigureOffer: boolean, canManage: boolean): string {
+  if (canConfigureOffer) {
+    return ACADEMY_HOME_COPY.emptyOfferLeader;
+  }
+
+  return canManage ? ACADEMY_HOME_COPY.emptyOfferGuardian : ACADEMY_HOME_COPY.emptyOfferMember;
+}
+
 /** Benefits and price of the offer, or a placeholder while it is empty. */
-function AcademyOfferContent({ canManage, offer, tribeSlug }: Omit<AcademyOfferPartProps, "home">) {
+function AcademyOfferContent({ canConfigureOffer, canManage, offer, tribeSlug }: Omit<AcademyOfferPartProps, "home">) {
   const hasOfferContent = Boolean(offer.description || offer.benefits.length > 0 || offer.price);
 
   return (
@@ -956,10 +1182,8 @@ function AcademyOfferContent({ canManage, offer, tribeSlug }: Omit<AcademyOfferP
 
       {!hasOfferContent ? (
         <div className={styles.AcademyHome__empty}>
-          <p className={styles.AcademyHome__text}>
-            {canManage ? ACADEMY_HOME_COPY.emptyOfferLeader : ACADEMY_HOME_COPY.emptyOfferMember}
-          </p>
-          {canManage ? (
+          <p className={styles.AcademyHome__text}>{describeEmptyOffer(canConfigureOffer, canManage)}</p>
+          {canConfigureOffer ? (
             <Link
               className={styles.AcademyHome__secondaryLink}
               href={ROUTES.tribes.academyManage(tribeSlug)}
@@ -973,18 +1197,23 @@ function AcademyOfferContent({ canManage, offer, tribeSlug }: Omit<AcademyOfferP
   );
 }
 
-/** "La academia": offer, entry action for visitors and community notes. */
-function AcademyOfferSection({ canManage, home, offer, tribeSlug }: AcademyOfferPartProps) {
+/** "La academia": offer, entry action for visitors and recoverable members, and community notes. */
+function AcademyOfferSection({ canConfigureOffer, canManage, home, offer, tribeSlug }: AcademyOfferPartProps) {
   return (
     <section aria-labelledby="academy-offer-heading" className={styles.AcademyHome__section}>
       <h2 className={styles.AcademyHome__sectionTitle} id="academy-offer-heading">
         {ACADEMY_HOME_COPY.offerHeading}
       </h2>
 
-      <AcademyOfferContent canManage={canManage} offer={offer} tribeSlug={tribeSlug} />
+      <AcademyOfferContent
+        canConfigureOffer={canConfigureOffer}
+        canManage={canManage}
+        offer={offer}
+        tribeSlug={tribeSlug}
+      />
 
-      {home.access === null ? (
-        <AcademyAdmissionAction home={home} offer={offer} tribeSlug={tribeSlug} />
+      {home.entryMode ? (
+        <AcademyAdmissionAction entryMode={home.entryMode} home={home} offer={offer} tribeSlug={tribeSlug} />
       ) : null}
 
       <ul className={styles.AcademyHome__notes}>
@@ -1006,31 +1235,33 @@ function AcademyOfferSection({ canManage, home, offer, tribeSlug }: AcademyOffer
 /** Confirmation before cancelling the renewal or the pending subscription. */
 function AcademyCancelDialog({ home }: Pick<AcademyHomeSectionProps, "home">) {
   const { actionErrors, pendingAction } = home;
-  const cancelDialogCopy = CANCEL_DIALOG_COPY[home.cancelingRenewalStatus];
+  const cancelDialogCopy = CANCEL_DIALOG_COPY[home.cancelKind];
+  const isCanceling = pendingAction === "cancel";
 
   return (
-    <Dialog onOpenChange={home.setIsCancelDialogOpen} open={home.isCancelDialogOpen}>
+    <Dialog onOpenChange={home.setCancelDialogOpen} open={home.isCancelDialogOpen}>
       <DialogContent
         title={cancelDialogCopy.title}
         description={cancelDialogCopy.description}
+        showCloseButton={!isCanceling}
         footer={
           <>
             <Button
               disabled={pendingAction !== null}
-              onClick={() => home.setIsCancelDialogOpen(false)}
+              onClick={() => home.setCancelDialogOpen(false)}
               type="button"
               variant="secondary"
             >
               {ACADEMY_HOME_COPY.cancelKeep}
             </Button>
             <Button
-              aria-busy={pendingAction === "cancel" || undefined}
+              aria-busy={isCanceling || undefined}
               disabled={pendingAction !== null}
               onClick={home.handleCancel}
               type="button"
               variant="danger"
             >
-              {pendingAction === "cancel" ? ACADEMY_HOME_COPY.cancelPending : ACADEMY_HOME_COPY.cancelConfirm}
+              {isCanceling ? ACADEMY_HOME_COPY.cancelPending : ACADEMY_HOME_COPY.cancelConfirm}
             </Button>
           </>
         }
@@ -1050,11 +1281,11 @@ function AcademyCancelDialog({ home }: Pick<AcademyHomeSectionProps, "home">) {
  * next action. Every decision shown comes from the server status; the page
  * never claims a cancellation, approval or coverage before it is confirmed.
  *
- * @param props - Offer, own status and tribe slug.
+ * @param props - Offer, own status, management roles and tribe slug.
  * @returns Academy page content.
  */
 export function AcademyHome(props: AcademyHomeProps) {
-  const { canManage, offer, tribeSlug } = props;
+  const { canConfigureOffer, canManage, offer, tribeSlug } = props;
   const home = useAcademyHome(props);
   const { access, status } = home;
 
@@ -1068,7 +1299,13 @@ export function AcademyHome(props: AcademyHomeProps) {
       ) : null}
 
       {offer ? (
-        <AcademyOfferSection canManage={canManage} home={home} offer={offer} tribeSlug={tribeSlug} />
+        <AcademyOfferSection
+          canConfigureOffer={canConfigureOffer}
+          canManage={canManage}
+          home={home}
+          offer={offer}
+          tribeSlug={tribeSlug}
+        />
       ) : null}
 
       <AcademyCancelDialog home={home} />
