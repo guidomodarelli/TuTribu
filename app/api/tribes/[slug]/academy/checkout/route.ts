@@ -21,18 +21,27 @@ import {
   academyCheckoutBodySchema,
   academyTribeParamsSchema,
 } from "@/src/modules/product-access/infrastructure/api/academy-request-schemas";
+import { summarizeErrorCauses } from "@/src/modules/shared/infrastructure/observability/error-cause-summary";
 
 const OPERATION = "academy-checkout";
+
+const CHECKOUT_PROVIDER_FAILURE_LOG = "Academy checkout provider operation failed";
 
 const CHECKOUT_FAILURE_RESPONSE = {
   checkout_unresolved: { message: ACADEMY_ROUTE_COPY.checkoutUnresolved, status: ACADEMY_HTTP_STATUS.conflict },
   already_subscribed: { message: ACADEMY_ROUTE_COPY.alreadySubscribed, status: ACADEMY_HTTP_STATUS.conflict },
   covered: { message: ACADEMY_ROUTE_COPY.covered, status: ACADEMY_HTTP_STATUS.conflict },
   forbidden: { message: ACADEMY_ROUTE_MESSAGE.forbidden, status: ACADEMY_HTTP_STATUS.forbidden },
+  // Definite: retrying cannot help until the leader reconnects the seller account.
+  integration_unavailable: {
+    message: ACADEMY_ROUTE_COPY.checkoutIntegrationUnavailable,
+    status: ACADEMY_HTTP_STATUS.conflict,
+  },
   invalid_input: { message: ACADEMY_ROUTE_MESSAGE.invalidInput, status: ACADEMY_HTTP_STATUS.badRequest },
   not_eligible: { message: ACADEMY_ROUTE_COPY.notEligible, status: ACADEMY_HTTP_STATUS.unprocessable },
   not_found: { message: ACADEMY_ROUTE_MESSAGE.notFound, status: ACADEMY_HTTP_STATUS.notFound },
   offer_changed: { message: ACADEMY_ROUTE_COPY.offerChanged, status: ACADEMY_HTTP_STATUS.conflict },
+  provider_rejected: { message: ACADEMY_ROUTE_COPY.checkoutRejected, status: ACADEMY_HTTP_STATUS.unprocessable },
   provider_unavailable: {
     message: ACADEMY_ROUTE_COPY.checkoutUnavailable,
     status: ACADEMY_HTTP_STATUS.serviceUnavailable,
@@ -49,9 +58,10 @@ export async function POST(request: Request, context: AcademyTribeRouteContext) 
       operation: OPERATION,
       schemas: { body: academyCheckoutBodySchema, params: academyTribeParamsSchema },
     },
-    async ({ body, logger, modules, params, requestId, respond }) => {
+    async ({ body, logger, metadata, modules, params, requestId, respond }) => {
       const result = await modules.subscriptions.useCases.startAcademySubscription({
         acceptedOfferVersion: body.acceptedOfferVersion,
+        acceptedPrice: body.acceptedPrice,
         correlationId: requestId,
         tribeSlug: params.slug,
       });
@@ -66,10 +76,10 @@ export async function POST(request: Request, context: AcademyTribeRouteContext) 
 
       const failure = CHECKOUT_FAILURE_RESPONSE[result.status];
 
-      if (result.status === "provider_unavailable" || result.status === "checkout_unresolved") {
+      if ("cause" in result) {
         logger.warn({
-          message: "Academy checkout provider unavailable",
-          metadata: { requestId, tribeSlug: params.slug, checkoutStatus: result.status },
+          message: CHECKOUT_PROVIDER_FAILURE_LOG,
+          metadata: { ...metadata, causes: summarizeErrorCauses(result.cause), checkoutStatus: result.status },
         });
       }
 

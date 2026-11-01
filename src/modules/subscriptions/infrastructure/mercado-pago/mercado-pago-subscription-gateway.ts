@@ -36,7 +36,50 @@ export class MercadoPagoRequestError extends Error {
     super(message);
     this.name = "MercadoPagoRequestError";
   }
+
+  /** Closed diagnostic code (`operation:status`) logged in cause chains instead of the message. */
+  get code(): string {
+    return `${this.operation}:${this.statusCode}`;
+  }
 }
+
+/** A required Mercado Pago application credential is missing from the deployment. */
+export class MercadoPagoConfigurationError extends Error {
+  readonly code = "invalid_configuration";
+
+  /** @param variableName - Name of the missing environment variable (never its value). */
+  constructor(variableName: string) {
+    super(variableName + " is required for Mercado Pago integration");
+    this.name = "MercadoPagoConfigurationError";
+  }
+}
+
+/**
+ * How a failed Mercado Pago call must be handled: the seller integration must
+ * be reconnected, the provider definitively rejected the request, or a
+ * transient failure may succeed on retry.
+ */
+export type MercadoPagoFailureKind = "integration_unavailable" | "provider_rejected" | "provider_unavailable";
+
+/** Provider HTTP statuses that decide how a failure is classified. */
+const MERCADO_PAGO_FAILURE_HTTP_STATUS = {
+  badRequest: 400,
+  forbidden: 403,
+  notFound: 404,
+  unauthorized: 401,
+  unprocessable: 422,
+} as const;
+/** Provider statuses that reject the seller credentials themselves. */
+const MERCADO_PAGO_CREDENTIAL_REJECTION_STATUSES: ReadonlySet<number> = new Set([
+  MERCADO_PAGO_FAILURE_HTTP_STATUS.unauthorized,
+  MERCADO_PAGO_FAILURE_HTTP_STATUS.forbidden,
+]);
+/** Provider statuses that definitively reject the request: retrying it unchanged fails again. */
+const MERCADO_PAGO_DEFINITE_REJECTION_STATUSES: ReadonlySet<number> = new Set([
+  MERCADO_PAGO_FAILURE_HTTP_STATUS.badRequest,
+  MERCADO_PAGO_FAILURE_HTTP_STATUS.notFound,
+  MERCADO_PAGO_FAILURE_HTTP_STATUS.unprocessable,
+]);
 
 /** Arguments for recovering a checkout under its original seller account. */
 export type MercadoPagoCheckoutReferenceInput = {
@@ -46,23 +89,66 @@ export type MercadoPagoCheckoutReferenceInput = {
 };
 
 /**
+ * Outcome of a checkout search by reservation reference: one pending checkout,
+ * a confirmed absence (the search answered and nothing has the reference), or
+ * an unresolved answer (several matches, or a match that is not pending).
+ */
+export type MercadoPagoCheckoutReferenceResult =
+  | { checkoutUrl: string; providerSubscriptionId: string; status: "found" }
+  | { status: "absent" | "unresolved" };
+
+/**
  * Recovers one authoritative pending checkout by reservation reference.
  * @param input - Seller credentials and the original reservation reference.
- * @returns Matching pending checkout, or null if absent or ambiguous.
+ * @returns The matching pending checkout, a confirmed absence, or an unresolved answer.
  */
-export async function findMercadoPagoSubscriptionCheckoutByReference(input: MercadoPagoCheckoutReferenceInput): Promise<{ checkoutUrl: string; providerSubscriptionId: string } | null> {
+export async function findMercadoPagoSubscriptionCheckoutByReference(input: MercadoPagoCheckoutReferenceInput): Promise<MercadoPagoCheckoutReferenceResult> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.recoverSubscriptionCheckout;
   const url = new URL(`${MERCADO_PAGO_URL.preapproval}/search`);
   url.searchParams.set("q", input.externalReference);
   const init = buildMercadoPagoReadRequest(input.accessToken);
   const response = await fetchMercadoPago(operation, url.toString(), init, input.traceContext);
   const body = await readMercadoPagoResponse<{ paging?: { total?: number }; results?: MercadoPagoPreapprovalResponse[] }>(operation, response, input.traceContext);
-  const matches = (body.results ?? []).filter((subscription) => subscription.external_reference === input.externalReference);
-  if (matches.length !== 1 || (body.paging?.total ?? matches.length) !== 1 || !matches[0].id) return null;
+  const results = body.results ?? [];
+  const matches = results.filter((subscription) => subscription.external_reference === input.externalReference);
+  // Absence is proven only when the search returned every result it counted and none has the reference.
+  if (matches.length === 0 && (body.paging?.total ?? results.length) <= results.length) return { status: "absent" };
+  if (matches.length !== 1 || (body.paging?.total ?? matches.length) !== 1 || !matches[0].id) return { status: "unresolved" };
   const detailResponse = await fetchMercadoPago(operation, `${MERCADO_PAGO_URL.preapproval}/${encodeURIComponent(matches[0].id)}`, init, input.traceContext);
   const detail = await readMercadoPagoResponse<MercadoPagoSubscriptionResponse & MercadoPagoPreapprovalResponse>(operation, detailResponse, input.traceContext);
-  if (detail.external_reference !== input.externalReference || detail.id !== matches[0].id || detail.status !== MERCADO_PAGO_SUBSCRIPTION_STATUS.pending || !detail.init_point) return null;
-  return { checkoutUrl: detail.init_point, providerSubscriptionId: detail.id };
+  if (detail.external_reference !== input.externalReference || detail.id !== matches[0].id || detail.status !== MERCADO_PAGO_SUBSCRIPTION_STATUS.pending || !detail.init_point) return { status: "unresolved" };
+  return { checkoutUrl: detail.init_point, providerSubscriptionId: detail.id, status: "found" };
+}
+
+/**
+ * Classifies a failed Mercado Pago call. A missing application credential or a
+ * rejected seller token (401/403, or a definite rejection of its refresh) needs the
+ * integration to be reconnected; 400/404/422 is a definite rejection; anything
+ * else (5xx, 429, network, timeout) is transient.
+ *
+ * @param error - Error thrown by a gateway call or by the token refresh.
+ * @returns How the caller must treat the failure.
+ */
+export function classifyMercadoPagoFailure(error: unknown): MercadoPagoFailureKind {
+  if (error instanceof MercadoPagoConfigurationError) {
+    return "integration_unavailable";
+  }
+
+  if (!(error instanceof MercadoPagoRequestError)) {
+    return "provider_unavailable";
+  }
+
+  const isDefiniteRejection = MERCADO_PAGO_DEFINITE_REJECTION_STATUSES.has(error.statusCode);
+
+  // A refused refresh (for example `invalid_grant`) leaves the seller without a usable token.
+  if (
+    MERCADO_PAGO_CREDENTIAL_REJECTION_STATUSES.has(error.statusCode) ||
+    (error.operation === MERCADO_PAGO_PAYMENT_OPERATION.refreshAccessToken && isDefiniteRejection)
+  ) {
+    return "integration_unavailable";
+  }
+
+  return isDefiniteRejection ? "provider_rejected" : "provider_unavailable";
 }
 
 const MERCADO_PAGO_ENV = {
@@ -124,6 +210,16 @@ const MERCADO_PAGO_PAYMENT_OPERATION = {
   updatePreapprovalSubscriptionStatus:
     "update-mercado-pago-preapproval-subscription-status",
 } as const;
+
+/**
+ * Operations sent once: a repeated creation could open a second checkout, and
+ * a repeated OAuth grant could reuse a code or a rotated refresh token.
+ */
+const MERCADO_PAGO_SINGLE_ATTEMPT_OPERATIONS: ReadonlySet<string> = new Set([
+  MERCADO_PAGO_PAYMENT_OPERATION.createPendingPreapprovalSubscription,
+  MERCADO_PAGO_PAYMENT_OPERATION.exchangeOAuthCode,
+  MERCADO_PAGO_PAYMENT_OPERATION.refreshAccessToken,
+]);
 
 const MERCADO_PAGO_PAYMENT_OPERATION_LOG = {
   completedMessage: "Mercado Pago payment operation completed",
@@ -320,7 +416,7 @@ function readRequiredMercadoPagoEnvironment(name: string): string {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(name + " is required for Mercado Pago integration");
+    throw new MercadoPagoConfigurationError(name);
   }
 
   return value;
@@ -525,7 +621,7 @@ async function fetchMercadoPago(
 
   return fetchWithResilience(mercadoPagoFetch, url, init, {
     ...MERCADO_PAGO_FETCH_RESILIENCE,
-    maxRetries: operation === MERCADO_PAGO_PAYMENT_OPERATION.createPendingPreapprovalSubscription
+    maxRetries: MERCADO_PAGO_SINGLE_ATTEMPT_OPERATIONS.has(operation)
       ? 0 : MERCADO_PAGO_FETCH_RESILIENCE.maxRetries,
     lifecycleLogger: buildMercadoPagoLifecycleLogger(operation, traceContext),
   });
@@ -927,7 +1023,8 @@ async function requestMercadoPagoOAuthToken(
   buildGrant: () => Record<string, string>,
   missingAccessTokenMessage: string
 ): Promise<MercadoPagoOAuthTokenResult> {
-  const response = await fetch(MERCADO_PAGO_URL.oauthToken, {
+  // Bounded like every provider call: a hung token endpoint cannot hold the request until the platform timeout.
+  const response = await fetchMercadoPago(operation, MERCADO_PAGO_URL.oauthToken, {
     body: JSON.stringify({
       client_id: readRequiredMercadoPagoEnvironment(MERCADO_PAGO_ENV.clientId),
       client_secret: readRequiredMercadoPagoEnvironment(

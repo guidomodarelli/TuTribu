@@ -243,8 +243,7 @@ function buildRequestProductAccessModule(
     isAcademySalesActivationAllowed,
     now: () => new Date(),
     ownAcademyRenewalReader: {
-      getOwnAcademyRenewalStatus: ({ tribeSlug }) =>
-        academySubscriptionRepository.getOwnRenewalStatus({ tribeSlug }),
+      getOwnAcademyRenewal: ({ tribeSlug }) => academySubscriptionRepository.getOwnRenewal({ tribeSlug }),
     },
     ownVerificationStatesReader: {
       listOwnVerificationStates: memberVerifications.useCases.listOwnVerificationStates,

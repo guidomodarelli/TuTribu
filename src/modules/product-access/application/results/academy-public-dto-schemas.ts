@@ -20,7 +20,9 @@ export const academyAccessStatusDtoSchema = z.strictObject({
   hasBonusCoverage: z.boolean(),
   hasPaidCoverage: z.boolean(),
   isLeaderPreview: z.boolean(),
+  lastPaymentRejected: z.boolean(),
   level: z.enum(["academy", "basic"]),
+  membershipRecovery: z.enum(["admission_request", "free_join"]).nullable(),
   nextAction: z.enum([
     "complete_checkout",
     "contact_support",
@@ -29,7 +31,7 @@ export const academyAccessStatusDtoSchema = z.strictObject({
     "view_offer",
     "wait_for_verification",
   ]),
-  renewalStatus: z.enum(["active", "canceled", "canceling", "none", "pending"]),
+  renewalStatus: z.enum(["active", "canceled", "canceling", "none", "paused", "pending"]),
 });
 
 export type AcademyAccessStatusDto = z.infer<typeof academyAccessStatusDtoSchema>;
@@ -44,6 +46,17 @@ export const academyReconcileDtoSchema = z.strictObject({
 });
 
 export type AcademyReconcileDto = z.infer<typeof academyReconcileDtoSchema>;
+
+/**
+ * Successful answer of the academy renewal cancellation: `cancel_unconfirmed`
+ * means the request is recorded but the provider has not confirmed it yet.
+ */
+export const academyCancelRenewalDtoSchema = z.strictObject({
+  message: z.string(),
+  status: z.enum(["cancel_unconfirmed", "canceled"]),
+});
+
+export type AcademyCancelRenewalDto = z.infer<typeof academyCancelRenewalDtoSchema>;
 
 export const academyOfferDtoSchema = z.strictObject({
   admissionEnabled: z.boolean(),

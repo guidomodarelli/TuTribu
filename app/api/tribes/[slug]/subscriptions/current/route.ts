@@ -5,13 +5,16 @@
  */
 
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import { academyCancelRenewalDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import { ACADEMY_ROUTE_COPY } from "@/src/modules/product-access/constants/academy-route-copy";
 import { createRequestModules } from "@/src/modules/setup";
+import { summarizeErrorCauses } from "@/src/modules/shared/infrastructure/observability/error-cause-summary";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { HTTP_STATUS } from "@/app/api/route-http-status";
 
 const CURRENT_SUBSCRIPTION_ROUTE_LOG = {
+  academyCancelNotConfirmedMessage: "Academy renewal cancellation was not confirmed by the provider",
   cancelFailureMessage: "Current member subscription cancellation failed",
   feature: "subscriptions",
   operation: "cancel-current-member-subscription",
@@ -30,6 +33,11 @@ const CURRENT_SUBSCRIPTION_ROUTE_RESPONSE = {
 const PRODUCT_QUERY_PARAM = "product";
 const ACADEMY_PRODUCT = "academy";
 
+/** The cancellation is recorded but the provider has not confirmed it yet. */
+const HTTP_STATUS_ACCEPTED = 202;
+/** The provider definitively refused the cancellation. */
+const HTTP_STATUS_UNPROCESSABLE = 422;
+
 function createJsonResponse(body: Record<string, unknown>, status: number): Response {
   return Response.json(body, { status });
 }
@@ -38,6 +46,10 @@ type RequestModules = Awaited<ReturnType<typeof createRequestModules>>;
 
 type CancelOwnTribeMemberSubscriptionResult = Awaited<
   ReturnType<RequestModules["subscriptions"]["useCases"]["cancelOwnTribeMemberSubscription"]>
+>;
+
+type CancelOwnAcademyRenewalResult = Awaited<
+  ReturnType<RequestModules["subscriptions"]["useCases"]["cancelOwnAcademyRenewal"]>
 >;
 
 function createDeleteResultResponse(result: CancelOwnTribeMemberSubscriptionResult): Response {
@@ -69,6 +81,37 @@ function createDeleteResultResponse(result: CancelOwnTribeMemberSubscriptionResu
   }
 }
 
+/**
+ * Status and copy of each academy renewal cancellation outcome. Only a
+ * confirmed or recorded cancellation is a 2xx; a definite refusal is not a 5xx,
+ * because nothing was applied.
+ */
+const ACADEMY_CANCEL_RESPONSE: Record<CancelOwnAcademyRenewalResult["status"], { message: string; status: number }> = {
+  cancel_unconfirmed: { message: ACADEMY_ROUTE_COPY.cancelUnconfirmed, status: HTTP_STATUS_ACCEPTED },
+  canceled: { message: ACADEMY_ROUTE_COPY.cancelConfirmed, status: HTTP_STATUS.ok },
+  integration_unavailable: { message: ACADEMY_ROUTE_COPY.cancelIntegrationUnavailable, status: HTTP_STATUS.conflict },
+  not_found: { message: ACADEMY_ROUTE_COPY.cancelNotFound, status: HTTP_STATUS.notFound },
+  provider_rejected: { message: ACADEMY_ROUTE_COPY.cancelRejected, status: HTTP_STATUS_UNPROCESSABLE },
+  provider_unavailable: { message: ACADEMY_ROUTE_COPY.cancelUnavailable, status: HTTP_STATUS.serviceUnavailable },
+};
+
+/**
+ * Answers an academy renewal cancellation; a successful body is validated
+ * against its public DTO.
+ */
+function createAcademyCancelResponse(result: CancelOwnAcademyRenewalResult): Response {
+  const response = ACADEMY_CANCEL_RESPONSE[result.status];
+
+  if (result.status === "canceled" || result.status === "cancel_unconfirmed") {
+    return createJsonResponse(
+      academyCancelRenewalDtoSchema.parse({ message: response.message, status: result.status }),
+      response.status
+    );
+  }
+
+  return createJsonResponse({ message: response.message, status: result.status }, response.status);
+}
+
 export async function DELETE(
   request: Request,
   context: {
@@ -77,27 +120,34 @@ export async function DELETE(
     }>;
   }
 ) {
-  const { slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: CURRENT_SUBSCRIPTION_ROUTE_LOG.feature,
     operation: CURRENT_SUBSCRIPTION_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules({
-    mercadoPagoWebhookVerified: true,
-    requestId,
-  });
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+  let slug: string | null = null;
+  let viewerId: string | null = null;
 
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
+  // Composition and the session read stay inside the boundary: a pool or auth
+  // outage answers the same logged JSON 500 as any other failure.
   try {
+    ({ slug } = await context.params);
+    const modules = await createRequestModules({
+      mercadoPagoWebhookVerified: true,
+      requestId,
+    });
+    const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+    if (!authenticatedMember) {
+      return createJsonResponse(
+        { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.unauthorizedMessage },
+        HTTP_STATUS.unauthorized
+      );
+    }
+
+    viewerId = authenticatedMember.id;
+
     if (new URL(request.url).searchParams.get(PRODUCT_QUERY_PARAM) === ACADEMY_PRODUCT) {
       // Academy renewal: stops future charges only; the access already paid
       // stays until it ends, and membership, role and progress are untouched.
@@ -106,22 +156,20 @@ export async function DELETE(
         tribeSlug: slug,
       });
 
-      if (academyResult.status === "canceled") {
-        return createJsonResponse(
-          { message: ACADEMY_ROUTE_COPY.cancelConfirmed, status: academyResult.status },
-          HTTP_STATUS.ok
-        );
+      if ("cause" in academyResult) {
+        logger.warn({
+          message: CURRENT_SUBSCRIPTION_ROUTE_LOG.academyCancelNotConfirmedMessage,
+          metadata: {
+            cancelStatus: academyResult.status,
+            causes: summarizeErrorCauses(academyResult.cause),
+            requestId,
+            slug,
+            viewerId,
+          },
+        });
       }
 
-      return academyResult.status === "provider_unavailable"
-        ? createJsonResponse(
-            { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.providerUnavailableMessage },
-            HTTP_STATUS.serviceUnavailable
-          )
-        : createJsonResponse(
-            { message: ACADEMY_ROUTE_COPY.cancelNotFound },
-            HTTP_STATUS.notFound
-          );
+      return createAcademyCancelResponse(academyResult);
     }
 
     const result =
@@ -135,8 +183,10 @@ export async function DELETE(
       message: CURRENT_SUBSCRIPTION_ROUTE_LOG.cancelFailureMessage,
       error,
       metadata: {
+        causes: summarizeErrorCauses(error),
+        requestId,
         slug,
-        viewerId: authenticatedMember.id,
+        viewerId,
       },
     });
 

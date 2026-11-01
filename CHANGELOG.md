@@ -4,6 +4,34 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Added
+
+- En la academia, una suscripción que todavía espera el pago muestra «Continuar el pago» para retomar el mismo pago en Mercado Pago, sin generar otro.
+- Si Mercado Pago rechazó el último cobro de la academia, la página lo avisa y pide revisar el medio de pago, en lugar de seguir diciendo que se está confirmando.
+- Quien quedó con la membresía inactiva por una suscripción puede volver a ingresar desde la página de la academia («Ingresar gratis» o «Solicitar ingreso»), en lugar de que se le pida contactar a la gestión.
+
+### Changed
+
+- Al volver a ingresar gratis con una membresía inactiva por una suscripción, quien estaba silenciado sigue silenciado y un guardián vuelve como integrante.
+- Contratar la academia compara el precio que viste con el vigente: si cambió, avisa que la oferta cambió antes de abrir Mercado Pago.
+- Si la conexión de la tribu con Mercado Pago no está disponible, contratar, actualizar el estado o cancelar lo dicen y explican qué hacer, en lugar de pedir que vuelvas a intentar en unos minutos.
+
+### Fixed
+
+- Después de «Ingresar gratis», la academia muestra al instante tu acceso y el aviso de ingreso, en lugar de seguir mostrando la vista de visitante hasta recargar.
+- Un pago de la academia que no llegó a abrirse en Mercado Pago ya no deja la página trabada en «Estamos confirmando tu suscripción»: vuelve a ofrecer «Contratar academia» y, si quedó sin confirmar, un nuevo intento abre otro pago a los pocos minutos.
+- Dos contrataciones casi simultáneas de la academia ya no responden «La venta de la academia está pausada».
+- Una renovación pausada en Mercado Pago se muestra como pausada y se puede cancelar, en lugar de aparecer como cancelada.
+- Una cancelación que quedó pendiente de confirmación ahora se puede reintentar, y «Actualizar estado» la completa si Mercado Pago sigue cobrando.
+- Una cancelación confirmada por Mercado Pago ya no se revierte por una falla al consultarla después; si Mercado Pago no responde, el pedido queda registrado y se confirma más tarde.
+- Mientras se cancela la renovación el diálogo ya no se puede cerrar, así que el resultado siempre se ve; si ya no había nada para cancelar, la página muestra el estado actual.
+- El diálogo de cancelación ya no promete conservar un acceso pago que todavía no se confirmó.
+- Si la academia empieza a pedir solicitud con la página abierta, «Ingresar gratis» lo explica y muestra «Solicitar ingreso», en lugar de pedir que revises los datos.
+- Una falla al ingresar gratis muestra «No pudimos sumarte a la tribu. Intentá de nuevo en unos minutos.» en lugar del mensaje de las solicitudes de admisión.
+- Abrir la academia con mayúsculas en la dirección lleva a la dirección correcta, así que ingresar y gestionar funcionan.
+- Una persona bloqueada o dada de baja ya no ve «Ver cursos básicos», que la llevaba a una página inexistente.
+- Un guardián ya no ve «Todavía no cargaste la oferta» ni «Configurar la oferta»: ve que quien lidera la tribu todavía no la cargó.
+
 ## [1.12.0] - 2026-10-31
 
 ### Fixed
