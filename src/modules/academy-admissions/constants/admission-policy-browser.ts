@@ -50,8 +50,6 @@ export const ADMISSION_POLICY_PREFLIGHT_REASON_COPY = {
   preflight_marker_inconsistent: "La activación registrada no coincide con las reglas guardadas y el equipo tiene que revisarla.",
   preflight_storage_unavailable: "La plataforma todavía no terminó de preparar la protección de los datos de admisión.",
   preflight_ingress_unprotected: "La plataforma todavía no protegió todas las formas de entrar a la academia.",
-  preflight_unknown_commercial_history: "Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas. Decidí cómo vuelve cada una si regulariza el pago.",
-  preflight_privileged_commercial_membership: "Hay guardianes bloqueados por pago. Decidí si vuelven como integrantes, sin su rol, o si quedan retirados.",
   preflight_runtime_unavailable: "La plataforma todavía no preparó todos los recorridos de admisión.",
   preflight_evaluator_disabled: "Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.",
   preflight_recovery_locked: "La plataforma pausó las admisiones mientras recupera un servicio.",
@@ -98,7 +96,6 @@ export const ADMISSION_POLICY_DESTINATION_COPY = {
   connection: "Ir a Conexión",
   contactStep: "Revisar «Cómo se contactan»",
   academy: "Ir a Gestionar academia",
-  commercialReview: "Revisar membresías bloqueadas por pago",
   recheck: "Volver a comprobar",
 } as const;
 
@@ -112,11 +109,11 @@ export const ADMISSION_POLICY_DRAFT_COPY = {
   returnToRules: "Volver a Reglas para activar",
 } as const;
 
-/** @param count - Unknown commercial histories. @returns The count line of the requirements callout. */
-export function unknownCommercialMembershipCountCopy(count: number): string {
-  return `Membresías bloqueadas por pago sin revisar: ${count}.`;
-}
-/** @param count - Privileged commercial memberships. @returns The count line of the requirements callout. */
-export function privilegedCommercialMembershipCountCopy(count: number): string {
-  return `Guardianes bloqueados por pago: ${count}.`;
+/**
+ * @param count - Commercial memberships the first activation converts.
+ * @returns What happens to them, with singular agreement, for the final step before activating.
+ */
+export function freeConversionImpactCopy(count: number): string {
+  if (count === 1) return "Al activar, 1 membresía bloqueada por pago pasa a ser integrante gratuita: entra a la tribu sin acceso al contenido pago de la academia y, si era guardiana, pierde ese rol. Después podés gestionarla desde Integrantes.";
+  return `Al activar, ${count} membresías bloqueadas por pago pasan a ser integrantes gratuitas: entran a la tribu sin acceso al contenido pago de la academia y las que eran guardianas pierden ese rol. Después podés gestionarlas desde Integrantes.`;
 }

@@ -9,10 +9,9 @@ import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/a
 import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_POLICY_MODE_OPTIONS, ADMISSION_POLICY_CONTACT_OPTIONS, ADMISSION_POLICY_PHONE_CHANNEL_OPTIONS } from "@/src/modules/academy-admissions/constants/admission-policy-options";
-import { ADMISSION_POLICY_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_POLICY_BROWSER_COPY, freeConversionImpactCopy } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_STEP, type AdmissionPolicyStepId } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
-import { COMMERCIAL_MEMBERSHIP_REVIEW_COPY } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 import { PolicyRulesSummary } from "../policy-rules-summary";
 import type { AdmissionPolicySettingsLinks } from "../policy-action-feedback";
 import styles from "./styles.module.scss";
@@ -21,19 +20,14 @@ import styles from "./styles.module.scss";
  * @param editing - Whether an activated control is being edited; pause and resume own intake there.
  * @returns The step order of the flow, so callers can open a step by its id.
  */
-export function admissionPolicyStepIds(editing: boolean, includeMemberships = false): AdmissionPolicyStepId[] {
+export function admissionPolicyStepIds(editing: boolean): AdmissionPolicyStepId[] {
   if (editing) return [ADMISSION_POLICY_STEP.admission, ADMISSION_POLICY_STEP.contact, ADMISSION_POLICY_STEP.review];
-  return [ADMISSION_POLICY_STEP.admission, ADMISSION_POLICY_STEP.contact, ADMISSION_POLICY_STEP.intake, ...(includeMemberships ? [ADMISSION_POLICY_STEP.memberships] : []), ADMISSION_POLICY_STEP.review];
+  return [ADMISSION_POLICY_STEP.admission, ADMISSION_POLICY_STEP.contact, ADMISSION_POLICY_STEP.intake, ADMISSION_POLICY_STEP.review];
 }
-
-/** The membership review inserted before the final step while memberships blocked by payment need a decision. */
-export type PolicyMembershipStep = { content: ReactNode; blockedReason: string | null };
 
 type PolicyRulesStepsProps = {
   state: AdmissionPolicyStateDto; draft: AdmissionPolicyDraft; editing: boolean; step: number; confirmed: boolean;
   busy: boolean; finalLoading: boolean; lockedReason: string | null; validationMessage: string | null; links: AdmissionPolicySettingsLinks; feedback: ReactNode;
-  /** Present only before activation, while the review has pending or just-decided memberships. */
-  membershipStep?: PolicyMembershipStep | null;
   /** Final action label override, for example «Activar ahora» when the saved rules are being published. */
   finalLabel?: string;
   onChange: (draft: AdmissionPolicyDraft) => void; onStepChange: (step: number) => void; onConfirm: (confirmed: boolean) => void; onRunFinal: () => void;
@@ -57,6 +51,7 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
   const contactReason = props.validationMessage ?? (phone && draft.requiresAdditionalVerification && !draft.phoneChannel ? ADMISSION_POLICY_BROWSER_COPY.phoneChannelRequired : null);
   const reviewReason = props.lockedReason ?? props.validationMessage ?? (props.confirmed ? null : ADMISSION_POLICY_BROWSER_COPY.confirmRequired);
   const countries = props.state.usage?.allowedCountries ?? [];
+  const conversionCount = props.state.controlActivated ? 0 : props.state.impact.freeConversionMemberCount ?? 0;
 
   const steps: Record<AdmissionPolicyStepId, GuidedStep> = {
     admission: {
@@ -94,10 +89,6 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
       id: ADMISSION_POLICY_STEP.intake, title: "Recibir solicitudes", description: "Decidí si la academia empieza a recibir solicitudes apenas actives las admisiones.",
       content: <Checkbox id={`${instanceId}-open`} checked={draft.isOpen} label="Recibir nuevas solicitudes" description="Si no lo marcás, las admisiones quedan activadas pero pausadas: nadie puede postularse hasta que las reanudes." onCheckedChange={(checked) => change({ isOpen: checked === true })} />,
     },
-    memberships: {
-      id: ADMISSION_POLICY_STEP.memberships, title: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.stepTitle, description: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.stepDescription,
-      blockedReason: props.membershipStep?.blockedReason ?? undefined, content: props.membershipStep?.content ?? null,
-    },
     review: {
       id: ADMISSION_POLICY_STEP.review, title: props.editing ? "Revisá y guardá" : "Revisá y activá", description: "Esto es lo que elegiste. Podés volver atrás para cambiarlo.", blockedReason: reviewReason ?? undefined,
       content: <>
@@ -106,13 +97,14 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
           <p className={styles.PolicyRulesSteps__note}>{pendingImpact(props.state.impact.pendingRequestCount)}</p>
           {draft.requiresAdditionalVerification && <p className={styles.PolicyRulesSteps__note}>Activar los códigos inicia una nueva exigencia de comprobación y no aprueba solicitudes automáticamente.</p>}
           {!props.editing && <p className={styles.PolicyRulesSteps__note}>Al activar, el tipo de contacto queda fijo y ya no se puede cambiar.</p>}
+          {!props.editing && conversionCount > 0 && <p className={styles.PolicyRulesSteps__note}>{freeConversionImpactCopy(conversionCount)}</p>}
         </div>
         <Checkbox id={`${instanceId}-confirm`} checked={props.confirmed} label={props.editing ? "Revisé las reglas y quiero guardar los cambios." : "Revisé las reglas y quiero activar las admisiones."} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
       </>,
     },
   };
 
-  return <GuidedSteps label={props.editing ? "Editar reglas de admisión" : "Configurar reglas de admisión"} steps={admissionPolicyStepIds(props.editing, Boolean(props.membershipStep)).map((id) => steps[id])} current={props.step} onCurrentChange={props.onStepChange} busy={props.busy}
+  return <GuidedSteps label={props.editing ? "Editar reglas de admisión" : "Configurar reglas de admisión"} steps={admissionPolicyStepIds(props.editing).map((id) => steps[id])} current={props.step} onCurrentChange={props.onStepChange} busy={props.busy}
     finalAction={{ label: props.finalLabel ?? (props.editing ? "Guardar cambios" : "Guardar y activar admisiones"), loading: props.finalLoading, disabled: Boolean(reviewReason), onRun: props.onRunFinal }}
     footer={props.feedback} />;
 }

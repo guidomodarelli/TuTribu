@@ -23,8 +23,6 @@ export type AdmissionSetupFacts = {
     usage: { countryCount: number; verificationDailyLimit: number; notificationDailyLimit: number } | null;
   } | null;
   notifications: { emailEnabled: boolean; receivesEmail: boolean } | null;
-  /** Memberships blocked by payment that wait for a leader decision; `null` or absent when they could not be read. */
-  memberships?: { pendingCount: number; resolvedCount: number } | null;
   /**
    * Informational activation check: a platform block means only the TuTribu team can let the leader open admissions;
    * closed academy admissions mean the leader has to switch them on in academy management first.
@@ -55,7 +53,7 @@ export type AdmissionSetupProgress = {
 };
 
 /**
- * @param facts - Current configuration of rules, messaging, notifications, membership review and activation check.
+ * @param facts - Current configuration of rules, messaging, notifications and activation check.
  * @returns Ordered steps with their status, the required progress and the next step to take.
  */
 export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): AdmissionSetupProgress {
@@ -69,13 +67,10 @@ export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): Admiss
   const activated = policy.open || policy.paused;
   const draftRules = policy.exists && !activated;
   const connected = messaging?.connected ?? false;
-  const memberships = facts.memberships ?? null;
-  const reviewNeeded = !activated && memberships !== null && (memberships.pendingCount > 0 || memberships.resolvedCount > 0);
   const byId: Record<AdmissionSetupStepId, AdmissionSetupStep | null> = {
     rules: { id: ADMISSION_SETUP_STEP.rules, status: stepStatus(policy.exists, true), ...(draftRules ? { draft: true } : {}) },
     connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}) },
     usage: { id: ADMISSION_SETUP_STEP.usage, status: stepStatus(usageReady, needsMessaging), ...(lowNoticeQuota ? { lowNoticeQuota: true } : {}) },
-    memberships: reviewNeeded ? { id: ADMISSION_SETUP_STEP.memberships, status: stepStatus(memberships.pendingCount === 0, true) } : null,
     open: { id: ADMISSION_SETUP_STEP.open, status: stepStatus(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...activationFlags(activated, facts.activation ?? null) },
     notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(notifications !== null && notifications.emailEnabled && notifications.receivesEmail, false), ...(notifications?.emailEnabled && !notifications.receivesEmail ? { emailOmitted: true } : {}) },
   };
@@ -106,9 +101,9 @@ function activationFlags(activated: boolean, activation: NonNullable<AdmissionSe
   return activation.admissionsClosed ? { admissionsClosed: true } : {};
 }
 
-/** Rules, the membership review (when shown) and opening are always required; messaging steps only when the rules or notices send messages. */
+/** Rules and opening are always required; messaging steps only when the rules or notices send messages. */
 function isRequired(id: AdmissionSetupStepId, needsMessaging: boolean): boolean {
-  if (id === ADMISSION_SETUP_STEP.rules || id === ADMISSION_SETUP_STEP.open || id === ADMISSION_SETUP_STEP.memberships) return true;
+  if (id === ADMISSION_SETUP_STEP.rules || id === ADMISSION_SETUP_STEP.open) return true;
   if (id === ADMISSION_SETUP_STEP.notifications) return false;
   return needsMessaging;
 }

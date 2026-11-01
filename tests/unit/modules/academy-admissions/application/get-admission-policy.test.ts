@@ -35,6 +35,15 @@ describe("current admission policy view", () => {
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
   });
 
+  it("should announce the free conversion count only before the first activation", async () => {
+    const data = fixture();
+    data.facts.read.mockResolvedValue({ pendingRequestCount: 0, preparation: null, freeConversionMemberCount: 2 });
+    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { impact: { freeConversionMemberCount: 2 } } });
+    data.current.controlActivated = true;
+    const activated = await data.useCase.execute(data.query);
+    expect(activated.ok && activated.value.impact).not.toHaveProperty("freeConversionMemberCount");
+  });
+
   it("should expose true absence without a fake version, creation or claimed preflight readiness", async () => {
     const data = fixture(), result = await data.useCase.execute(data.query);
     expect(result).toMatchObject({ ok: true, value: { state: "not_configured", policy: null, usage: null, controlActivated: false, preparation: { state: "not_evaluated" }, impact: { pendingRequestCount: 3, historicalLinksProtected: false, contactTypeLocked: false } } });

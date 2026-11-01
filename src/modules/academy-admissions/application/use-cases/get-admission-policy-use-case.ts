@@ -43,7 +43,7 @@ export class GetAdmissionPolicyUseCase {
       const value = admissionPolicyStateResultSchema.parse({ state, controlActivated: current.controlActivated,
         policy: policy ? projectAdmissionPolicy(policy, usage, validationReasons(structural, operational)) : null,
         usage, preparation: { state: preparation ? ADMISSION_POLICY_PREPARATION_STATE.evaluated : ADMISSION_POLICY_PREPARATION_STATE.notEvaluated, requirements: [...new Set(requirements)] },
-        impact: { pendingRequestCount: view.pendingRequestCount, contactTypeLocked: Boolean(policy?.activatedAt) || current.controlActivated, historicalLinksProtected: current.controlActivated, warnings: structural?.warnings ?? [] } });
+        impact: { pendingRequestCount: view.pendingRequestCount, ...(view.freeConversionMemberCount === undefined || current.controlActivated ? {} : { freeConversionMemberCount: view.freeConversionMemberCount }), contactTypeLocked: Boolean(policy?.activatedAt) || current.controlActivated, historicalLinksProtected: current.controlActivated, warnings: structural?.warnings ?? [] } });
       return { ok: true as const, value };
     } catch (error) { return admissionOperationFailure(error); }
   }

@@ -17,7 +17,7 @@ type AdmissionPageRead = { ok: true; value: unknown } | { ok: false; failure: Ad
  * @param code - Semantic failure.
  * @returns The closed unavailable page state with the own message of the code.
  */
-export function unavailableAdmissionPage(code: AdmissionErrorCode): UnavailableAdmissionPage {
+function unavailableAdmissionPage(code: AdmissionErrorCode): UnavailableAdmissionPage {
   return { kind: "unavailable", code, message: ADMISSION_ERROR_MESSAGE[code] };
 }
 

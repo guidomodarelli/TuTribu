@@ -25,6 +25,7 @@ import { readAdmissionPolicyWithControlMarker } from "./postgres-admission-polic
 import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
+import { convertCommercialMembershipsOnActivation } from "./postgres-commercial-membership-conversion";
 import { readSelectedMessagingResource } from "@/src/modules/messaging/infrastructure/repositories/postgres-selected-messaging-resource-reader";
 
 /** @param code - Unmet requirement. @returns The `admission_ineligible` outcome carrying the requirement as its private, loggable cause. */
@@ -183,7 +184,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return this.run(intent, REAUTHENTICATION_OPERATION.updateAdmissionPolicy, { confirmed: intent.confirmed, expectedVersion: intent.expectedVersion, patch: intent.patch }, (database, ledgerId) => this.change(database, intent, ledgerId, intent.patch));
   }
 
-  /** @param intent - Explicit original activation intent. @returns Policy and monotonic marker committed at one authoritative instant, with no membership or messaging effects. */
+  /** @param intent - Explicit original activation intent. @returns Policy and monotonic marker committed at one authoritative instant; commercial memberships with member history become free active members in the same commit, with no messaging effects. */
   async activate(intent: AdmissionPolicyActivationIntent): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     return this.run(intent, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, { confirmed: intent.confirmed, expectedVersion: intent.expectedVersion }, async (database, ledgerId) => {
       const current = await this.current(database, intent.context.tribeId);
@@ -197,6 +198,8 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw requirementUnmet(proposal.reason);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(proposal.policy, true, false);
       const changedAt = await this.save(database, proposal.policy, current.policy.version, intent.context.userId);
+      // Commercial memberships become free members before the marker protects the tribe, in this same commit.
+      await convertCommercialMembershipsOnActivation(database, intent.context, ledgerId);
       const updated = (await database.execute(sql`update public.tribes set admissions_control_activated_at=${proposal.controlActivatedAt} where id=${intent.context.tribeId} and admissions_control_activated_at is null returning id`)).rows[0];
       if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
       await this.audit(database, intent, { ledgerId, previousPolicy: current.policy, policy: proposal.policy, createdAt: changedAt });

@@ -70,16 +70,10 @@ describe("deriveAdmissionSetupProgress", () => {
     expect(statuses(omitted).notifications).toBe("optional");
   });
 
-  it("requires the membership review only while memberships blocked by payment wait for a decision before opening", () => {
-    const draft: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, memberships: { pendingCount: 2, resolvedCount: 0 } };
-    expect(deriveAdmissionSetupProgress(draft)).toMatchObject({ next: "memberships", completed: 1, required: 3 });
-    expect(statuses(draft)).toMatchObject({ memberships: "pending", open: "pending" });
-    const decided: AdmissionSetupFacts = { ...draft, memberships: { pendingCount: 0, resolvedCount: 2 } };
-    expect(deriveAdmissionSetupProgress(decided)).toMatchObject({ next: "open", completed: 2, required: 3 });
-    const none: AdmissionSetupFacts = { ...draft, memberships: { pendingCount: 0, resolvedCount: 0 } };
-    expect(deriveAdmissionSetupProgress(none).steps.map((step) => step.id)).not.toContain("memberships");
-    const activated: AdmissionSetupFacts = { ...draft, policy: { ...draft.policy, open: true } };
-    expect(deriveAdmissionSetupProgress(activated).steps.map((step) => step.id)).not.toContain("memberships");
+  it("never asks to review memberships blocked by payment: the activation converts them", () => {
+    const draft: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true } };
+    expect(deriveAdmissionSetupProgress(draft).steps.map((step) => step.id)).toEqual(["rules", "connection", "usage", "open", "notifications"]);
+    expect(deriveAdmissionSetupProgress(draft)).toMatchObject({ next: "open", completed: 1, required: 2 });
   });
 
   it("flags unpublished drafts and a platform block on the opening step", () => {

@@ -8,7 +8,11 @@ import type { AdmissionPolicyActivationFacts } from "../policies/admission-polic
 /** Absence has no version; a policy read never initializes or activates the resource. */
 export type AdmissionPolicyState = { policy: AdmissionPolicy | null; controlActivated: boolean; usage: AdmissionMessagingUsagePolicy | null };
 /** Counts and preparation are current private owner projections for an informational leader query. */
-export type AdmissionPolicyViewFacts = { pendingRequestCount: number; preparation: Omit<AdmissionPolicyActivationFacts, "now"> | null };
+export type AdmissionPolicyViewFacts = {
+  pendingRequestCount: number; preparation: Omit<AdmissionPolicyActivationFacts, "now"> | null;
+  /** Commercial memberships the first activation will turn into free active members; absent once control is active. */
+  freeConversionMemberCount?: number;
+};
 export interface AdmissionPolicyViewFactsReader {
   /** @param context - Current leader scope. @param policy - Current stored policy or true absence. @returns Current impact and evaluated preparation, or explicit unevaluated preparation. */
   read(context: AuthorizedAdmissionContext, policy: AdmissionPolicy | null): Promise<AdmissionPolicyViewFacts>;

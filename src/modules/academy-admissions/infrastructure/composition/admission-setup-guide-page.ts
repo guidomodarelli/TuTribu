@@ -13,9 +13,7 @@ import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/me
 import { MESSAGING_USAGE_POLICY_STATE } from "@/src/modules/messaging/constants/messaging-limits";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
-import { loadCommercialMembershipReviewState } from "./commercial-membership-review-page";
 import { loadAdmissionPreflightState } from "./admission-preflight-page";
-import type { CommercialMembershipReviewPageState } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-page-state";
 import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
 import { isAdmissionPolicyPlatformReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_PREFLIGHT_REASON } from "@/src/modules/academy-admissions/constants/admission-preflight";
@@ -25,8 +23,6 @@ export type AdmissionSetupGuideOpeners = {
   policy: Parameters<typeof loadAdmissionPolicyPageState>[1];
   notifications: Parameters<typeof loadAdmissionNotificationSettingsPageState>[1];
   messaging: Parameters<typeof loadMessagingConnectionsPageState>[1];
-  /** Leader-only review of memberships blocked by payment; omitted where the page does not need it. */
-  reviews?: Parameters<typeof loadCommercialMembershipReviewState>[1];
   /** Leader-only informational activation check; omitted where the page does not need it. */
   preflight?: Parameters<typeof loadAdmissionPreflightState>[1];
 };
@@ -43,27 +39,21 @@ export type AdmissionSetupGuideState = { slug: string; progress: AdmissionSetupP
  */
 export async function loadAdmissionSetupGuideState(input: unknown, open: AdmissionSetupGuideOpeners): Promise<AdmissionSetupGuideState> {
   const routeInput = readRouteInput(input);
-  const [policyState, notificationState, messagingState, reviewState, preflight] = await Promise.all([
+  const [policyState, notificationState, messagingState, preflight] = await Promise.all([
     loadAdmissionPolicyPageState(input, open.policy),
     loadAdmissionNotificationSettingsPageState(input, open.notifications),
     loadMessagingConnectionsPageState(input, open.messaging),
-    open.reviews && routeInput ? loadCommercialMembershipReviewState(routeInput, open.reviews) : Promise.resolve(null),
     open.preflight && routeInput ? loadAdmissionPreflightState(routeInput, open.preflight) : Promise.resolve(null),
   ]);
   if (policyState.kind !== "ready") return null;
   const messaging = readMessagingFacts(messagingState);
   if (!messaging.leader) return null;
-  return { slug: policyState.slug, progress: deriveAdmissionSetupProgress({ policy: readPolicyFacts(policyState), messaging: messaging.facts, notifications: readNotificationFacts(notificationState), memberships: readMembershipFacts(reviewState), activation: readActivationFacts(preflight) }) };
+  return { slug: policyState.slug, progress: deriveAdmissionSetupProgress({ policy: readPolicyFacts(policyState), messaging: messaging.facts, notifications: readNotificationFacts(notificationState), activation: readActivationFacts(preflight) }) };
 }
 
 /** @param input - Untrusted page input. @returns Only its route params, for loaders that accept no query. */
 function readRouteInput(input: unknown): { params: unknown } | null {
   return typeof input === "object" && input !== null && "params" in input ? { params: input.params } : null;
-}
-
-/** Pending and recorded decisions of the membership review; an unreadable review never adds a step. */
-function readMembershipFacts(state: CommercialMembershipReviewPageState | null): AdmissionSetupFacts["memberships"] {
-  return state?.kind === "ready" ? { pendingCount: state.list.pendingCount, resolvedCount: state.list.resolvedCount } : null;
 }
 
 /**

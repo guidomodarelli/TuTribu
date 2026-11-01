@@ -38,8 +38,10 @@ import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/cons
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
-import { COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_LABEL, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
-import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { PostgresAdmissionPolicyViewFactsReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader";
+import { createSubscriptionMembershipReconciliationRepository } from "@/tests/support/subscription-membership-reconciliation-fixture";
+import { TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE } from "@/src/modules/subscriptions/constants/subscriptions";
+import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY, freeConversionImpactCopy } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
 import { AdmissionPolicyRequirementError } from "@/src/modules/academy-admissions/domain/errors/admission-policy-requirement-error";
@@ -176,15 +178,15 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       let recoveryLocked = false;
       const preflight = admissionModule.createPreflightModule({ runtime, readRecoveryLock: async () => recoveryLocked }).useCases;
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [] } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=false where tribe_id=${data.tribeId}`));
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_evaluator_disabled"] } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=true where tribe_id=${data.tribeId}`));
       recoveryLocked = true;
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_recovery_locked"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_recovery_locked"] } });
       recoveryLocked = false;
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter table public.academy_admission_decisions disable trigger admission_decision_commit_guard`));
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_storage_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_storage_unavailable"] } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter table public.academy_admission_decisions enable trigger admission_decision_commit_guard`));
       expect(await preflight.execute(query)).toMatchObject({ ok: true, value: { prepared: true } });
       await database.withContext(data.fixture.own, async (transaction) => {
@@ -193,7 +195,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${privileged},'guardian','removed','payment_blocked','muted')`);
       });
       const before = await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`select id,role,status,created_at,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} order by id`));
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } } });
+      // Commercial memberships no longer block the preflight: the activation itself converts them.
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [] } });
       const after = await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`select id,role,status,created_at,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} order by id`));
       expect(after.rows).toEqual(before.rows);
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false, policy: { activatedAt: null, version: 1 } });
@@ -265,7 +268,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       expect(await inventory()).toMatchObject({ tribeId: data.tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: false, ingressProtected: false, runtimePrepared: false });
       for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       const current = await inventory();
-      expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
+      expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false });
       const prepared = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).readPreparation(data.tribeId).then((preparation) => preparation.prepared));
       expect(await prepared()).toBe(false);
       runtimePrepared = true;
@@ -284,35 +287,80 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       expect(await prepared()).toBe(true);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
       const preview = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPreflightModule({ runtime: { isPrepared: async () => false }, readRecoveryLock: async () => false }).useCases;
-      expect(await preview.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preview.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_runtime_unavailable"] } });
     });
   }, 300_000);
 
-  it("should retain unknown and privileged commercial history without backfill and reject a foreign inventory scope", async () => {
+  it("should convert commercial members into free tribemates at the first activation, keep a paid way in for pending checkouts and keep converted members out of stale subscription reconciliation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
-      for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
-      const unknownId = randomUUID(), privilegedId = randomUUID();
+      data.setPrepared(true);
+      const ids = { paidBlocked: randomUUID(), inactiveRemoved: randomUUID(), guardian: randomUUID(), mutedBlocked: randomUUID(), abandoned: randomUUID(), conduct: randomUUID(), muted: randomUUID() };
+      const integrationId = randomUUID(), priceId = randomUUID(), providerId = randomUUID(), checkoutProviderId = randomUUID(), slug = `policy-${data.tribeId}`;
       await database.withContext(data.fixture.own, async (transaction) => {
-        for (const userId of [unknownId, privilegedId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic preflight account',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknownId},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${privilegedId},'guardian','removed','payment_blocked','muted')`);
+        for (const userId of Object.values(ids)) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic commercial member',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status,last_seen_at) values
+          (${data.tribeId},${ids.paidBlocked},'tribemate','blocked','payment_blocked','active',null),
+          (${data.tribeId},${ids.inactiveRemoved},'tribemate','removed','subscription_inactive',null,clock_timestamp()-interval '90 days'),
+          (${data.tribeId},${ids.guardian},'guardian','blocked','payment_blocked',null,null),
+          (${data.tribeId},${ids.mutedBlocked},'tribemate','blocked','payment_blocked','muted',null),
+          (${data.tribeId},${ids.abandoned},'tribemate','blocked','payment_blocked',null,null),
+          (${data.tribeId},${ids.conduct},'tribemate','blocked','conduct_blocked',null,null),
+          (${data.tribeId},${ids.muted},'tribemate','muted','none',null,null)`);
+        // The removed member's old membership subscription still has a Mercado Pago preapproval that can send a late status.
+        await transaction.execute(sql`insert into public.tribe_payment_integrations(id,tribe_id,provider,account_label,status,access_token,token_expires_at,connected_by) values (${integrationId},${data.tribeId},'mercado_pago','Synthetic seller','connected',${randomUUID()},clock_timestamp()+interval '1 day',${data.fixture.userId})`);
+        await transaction.execute(sql`insert into public.tribe_subscription_prices(id,tribe_id,name,amount_cents,currency,frequency,status,is_current,mercado_pago_preapproval_plan_id,payment_integration_id,product_key,created_by) values (${priceId},${data.tribeId},'Synthetic membership',1500,'ARS','monthly','active',true,${randomUUID()},${integrationId},'membership',${data.fixture.userId})`);
+        await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,mercado_pago_preapproval_id,status,status_reason,product_key) values (${data.tribeId},${ids.inactiveRemoved},${priceId},${integrationId},${providerId},'canceled','subscription_inactive','membership')`);
+        // A paid checkout still pending at activation: its preapproval exists but no payment was confirmed yet.
+        await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,mercado_pago_preapproval_id,status,status_reason,product_key) values (${data.tribeId},${ids.abandoned},${priceId},${integrationId},${checkoutProviderId},'pending','payment_blocked','membership')`);
       });
-      const before = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id in (${unknownId},${privilegedId}) order by user_id`)).rows);
-      const observed = await database.withContext(data.fixture.own, async (transaction) => {
-        const repository = new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false);
-        const inventory = await repository.read(data.readContext);
-        expect(await repository.readPreparation(data.tribeId)).toMatchObject({ prepared: false });
-        await expect(repository.readPreparation(randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
-        return inventory;
-      });
-      expect(observed).toMatchObject({ unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 });
-      expect(observed).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: true });
-      expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id in (${unknownId},${privilegedId}) order by user_id`)).rows)).toEqual(before);
-      expect(observed).not.toHaveProperty("members");
-      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
-      await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).read(data.readContext))).rejects.toMatchObject({ code: "permission_denied" });
+      expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
+      const operationId = randomUUID();
+      expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 1 })).toMatchObject({ state: "completed", result: { controlActivated: true } });
+      const members = async () => Object.fromEntries((await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ user_id: string; role: string; status: string; status_reason: string; commercial_recovery_status: string | null }>(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id<>${data.fixture.userId}`))).rows.map((row) => [Object.entries(ids).find(([, id]) => id === row.user_id)?.[0], { role: row.role, status: row.status, reason: row.status_reason, recovery: row.commercial_recovery_status }]));
+      const converted = { role: "tribemate", status: "active", reason: "none" };
+      const expected = {
+        paidBlocked: { ...converted, recovery: "active" }, inactiveRemoved: { ...converted, recovery: null }, guardian: { ...converted, recovery: null }, mutedBlocked: { ...converted, recovery: "muted" },
+        abandoned: { role: "tribemate", status: "blocked", reason: "payment_blocked", recovery: "active" }, conduct: { role: "tribemate", status: "blocked", reason: "conduct_blocked", recovery: null }, muted: { role: "tribemate", status: "muted", reason: "none", recovery: null },
+      };
+      expect(await members()).toEqual(expected);
+      const ledgerId = (await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ id: string }>(sql`select id from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${operationId}`))).rows[0].id;
+      const audit = (await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ member_user_id: string; actor_user_id: string; decision: string; basis: string; previous_role: string; previous_status: string; resulting_status: string; operation_id: string }>(sql`select member_user_id,actor_user_id,decision,basis,previous_role,previous_status,resulting_status,operation_id from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId} order by member_user_id`))).rows;
+      const conversions = audit.filter((row) => row.decision === "convert_free");
+      expect(conversions.map((row) => row.member_user_id).sort()).toEqual([ids.paidBlocked, ids.inactiveRemoved, ids.guardian, ids.mutedBlocked].sort());
+      expect(conversions.every((row) => row.basis === "academy_activation_conversion" && row.resulting_status === "active" && row.actor_user_id === data.fixture.userId && row.operation_id === ledgerId)).toBe(true);
+      // The pending checkout is not converted: only the snapshot a paid invitation promises is recorded, audited.
+      expect(audit.filter((row) => row.decision !== "convert_free")).toEqual([{ member_user_id: ids.abandoned, actor_user_id: data.fixture.userId, decision: "recover_active", basis: "academy_activation_pending_checkout", previous_role: "tribemate", previous_status: "blocked", resulting_status: "blocked", operation_id: ledgerId }]);
+      expect(audit.find((row) => row.member_user_id === ids.guardian)).toMatchObject({ previous_role: "guardian", previous_status: "blocked" });
+      const reconcile = (status: "authorized" | "cancelled") => createSubscriptionMembershipReconciliationRepository(database, { userId: data.fixture.userId, email: null }, status).reconcileProviderSubscribers({ priceId, tribeSlug: slug, source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton });
+      // The payment of the pending checkout confirms after the activation: it joins as an active paid member.
+      await reconcile("authorized");
+      const afterPayment = await members();
+      expect(afterPayment.abandoned).toEqual({ role: "tribemate", status: "active", reason: "none", recovery: "active" });
+      // A late cancellation of an old preapproval must not block or remove a converted member again.
+      await reconcile("cancelled");
+      const afterCancellation = await members();
+      for (const key of ["paidBlocked", "inactiveRemoved", "guardian", "mutedBlocked", "conduct", "muted"] as const) expect(afterCancellation[key]).toEqual(expected[key]);
+      // A replayed activation neither converts again nor duplicates the audit.
+      expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 1 })).toMatchObject({ state: "completed", replayed: true });
+      expect((await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`))).rows[0].count).toBe(5);
     });
-  }, 300_000);
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it("should count the commercial members the first activation converts and reject a foreign inventory scope", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database); await data.initialize();
+      const memberId = randomUUID(), abandonedId = randomUUID();
+      await database.withContext(data.fixture.own, async (transaction) => {
+        for (const userId of [memberId, abandonedId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic preflight account',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${memberId},'guardian','removed','payment_blocked','muted'),(${data.tribeId},${abandonedId},'tribemate','blocked','payment_blocked',null)`);
+      });
+      expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
+      const facts = await new PostgresAdmissionPolicyViewFactsReader((_context, work) => database.withContext(data.fixture.own, work), null).read(data.readContext, (await data.reader.read(data.readContext)).policy);
+      expect(facts).toMatchObject({ freeConversionMemberCount: 1 });
+      await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).readPreparation(randomUUID()))).rejects.toMatchObject({ code: "permission_denied" });
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
   it("should compose current policy absence and protected loss through native query owners without secret access", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -518,7 +566,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
         expect(await saved.json()).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 2, changed: true, controlActivated: false } });
         const preflight = await request("GET", "/policy/preflight");
         expect(preflight.status).toBe(200);
-        expect(await preflight.json()).toEqual({ prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } });
+        expect(await preflight.json()).toEqual({ prepared: true, reasons: [] });
         expect((await request("PUT", "/policy", { ...edit, operationId: randomUUID() })).status).toBe(409);
         const activation = await request("POST", "/policy/activate", { operationId: randomUUID(), confirmed: true, expectedVersion: 2 });
         expect(activation.status).toBe(409);
@@ -559,15 +607,15 @@ async function expectGuidedFlowFits(page: Page, label: string): Promise<void> {
   await page.waitForFunction((name) => { const form = document.querySelector(`form[aria-label="${CSS.escape(name)}"]`); return form !== null && form.scrollWidth <= form.clientWidth + 1; }, label, { timeout: 10_000 });
 }
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy settings browser", () => {
-  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should stop the chained activation on memberships blocked by payment and clear it once each one is decided in $engine", async ({ engine, browserType }) => {
+  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should announce in the final step how many memberships blocked by payment become free members, with no review step, in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
       await data.initialize();
       await database.withContext(data.fixture.own, async (transaction) => {
-        const unknown = randomUUID(), crossed = randomUUID(), guardian = randomUUID();
-        for (const [userId, name] of [[unknown, "Integrante sintética A"], [crossed, "Integrante sintética B"], [guardian, "Guardián sintético"]]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},${name},${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
-        // A canonical pair (removed + subscription_inactive), a crossed pair (blocked + subscription_inactive) and a guardian: the review lists every commercial combination.
-        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${crossed},'tribemate','blocked','subscription_inactive',null),(${data.tribeId},${guardian},'guardian','blocked','payment_blocked','muted')`);
+        const paid = randomUUID(), guardian = randomUUID(), abandoned = randomUUID();
+        for (const [userId, name] of [[paid, "Integrante sintética A"], [guardian, "Guardián sintético"], [abandoned, "Checkout sintético"]]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},${name},${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
+        // Two former members convert; the abandoned paid checkout never joined and is not counted.
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${paid},'tribemate','blocked','payment_blocked','active'),(${data.tribeId},${guardian},'guardian','removed','subscription_inactive','muted'),(${data.tribeId},${abandoned},'tribemate','blocked','payment_blocked',null)`);
       });
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const browser = await browserType.launch({ headless: true });
@@ -584,56 +632,15 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
               const next = page.getByRole("button", { name: "Continuar", exact: true });
               await next.waitFor({ timeout: 90_000 });
-              /** The server-read preflight of the saved draft already names what blocks activation. */
-              const impact = page.getByRole("region", { name: "Lo que falta resolver" });
-              await impact.waitFor({ timeout: 90_000 });
-              const desktop = width === 1280;
-              expect((await impact.textContent())?.includes("Membresías bloqueadas por pago sin revisar: 2.")).toBe(desktop);
-              expect(await impact.textContent()).toContain("Guardianes bloqueados por pago: 1.");
-              /** The chained flow stops at the membership review: its continue action stays disabled and the final action is never offered. */
-              await next.click({ timeout: 90_000 });
               while (await next.count() && await next.isEnabled()) await next.click();
-              await page.getByText(COMMERCIAL_MEMBERSHIP_REVIEW_COPY.pendingBlocked, { exact: true }).first().waitFor({ timeout: 90_000 });
-              expect(await next.isDisabled()).toBe(true);
-              expect(await page.getByRole("button", { name: "Guardar y activar admisiones", exact: true }).count()).toBe(0);
-              const rows = page.getByRole("list", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, exact: true }).locator(":scope > li");
-              expect(await rows.count()).toBe(desktop ? 3 : 1);
+              await page.getByRole("navigation", { name: "Paso 4 de 4", exact: true }).waitFor({ timeout: 90_000 });
+              await page.getByText(freeConversionImpactCopy(2), { exact: true }).waitFor({ timeout: 90_000 });
               await expectGuidedFlowFits(page, "Configurar reglas de admisión");
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               expect(runtimeErrors).toEqual([]);
-              await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-preflight.png`), fullPage: true });
+              await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-free-conversion.png`), fullPage: true });
               const forbidden = [data.fixture.userId, data.sessionId, data.sessionToken, secret];
-              /** Each context writes its own export: a capture file holds only the captures of the page that wrote it. */
-              const capture = (name: string, outputFile: string) => captureAdmissionReview(page, name, forbidden, outputFile, { selector: 'section[aria-label="Reglas de admisión"]' });
-              if (desktop) await capture("admission-policy-preflight", "preflight-captures.json");
-              /**
-               * Decides one listed membership through the real audited resolution.
-               * @param row - Listed membership row. @param decision - Visible decision label. @param remaining - Rows expected afterwards.
-               */
-              const decide = async (row: ReturnType<typeof rows.first>, decision: string, remaining: number) => {
-                await row.getByRole("radio", { name: decision, exact: true }).click();
-                await row.getByRole("checkbox", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.confirm, exact: true }).check();
-                const resolution = page.waitForResponse((result) => result.request().method() === "POST" && new URL(result.url()).pathname.endsWith("/resolution"));
-                await row.getByRole("button", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.submit, exact: true }).click();
-                expect((await resolution).status()).toBe(200);
-                if (remaining > 0) await page.waitForFunction(({ label, count }) => document.querySelectorAll(`ul[aria-label="${CSS.escape(label)}"] > li`).length === count, { label: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, count: remaining });
-              };
-              /** Desktop decides both unknown histories (the canonical and the crossed pair); mobile retires the remaining guardian. */
-              if (desktop) {
-                const unknownRows = rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history });
-                await decide(unknownRows.first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate.recover_active, 2);
-                await capture("admission-policy-membership-decided", "preflight-captures.json");
-                await decide(rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history }).first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate.recover_muted, 1);
-                expect(await next.isDisabled()).toBe(true);
-                await capture("admission-policy-membership-guardian", "preflight-captures.json");
-              } else {
-                await decide(rows.first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.guardian.retire, 0);
-                await page.getByText(commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow), { exact: true }).first().waitFor({ timeout: 90_000 });
-                await impact.waitFor({ state: "detached" });
-                await page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.activateNow, exact: true }).waitFor();
-                await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-memberships-done.png`), fullPage: true });
-                await capture("admission-policy-memberships-done", "memberships-done-captures.json");
-              }
+              if (width === 1280) await captureAdmissionReview(page, "admission-policy-free-conversion", forbidden, "preflight-captures.json", { selector: 'section[aria-label="Reglas de admisión"]' });
               expect(activationRequests).toBe(0);
             } finally { await context.close(); }
           }

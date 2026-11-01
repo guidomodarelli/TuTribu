@@ -25,9 +25,6 @@ import { ADMISSION_POLICY_BROWSER_PATH } from "@/src/modules/academy-admissions/
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
 import { ADMISSION_WHATSAPP_ROUTE_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
-import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
-import { commercialMembershipResolutionResultSchema, commercialMembershipReviewListSchema } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-schemas";
-import { COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 
@@ -116,7 +113,7 @@ function createSessionViewer(auth: ReturnType<typeof createAuthClient>): Admissi
 }
 
 /** @param options - Explicit own HTTP transport; the default viewer uses the installed native SDK. @returns A same-origin application client with cancellation and safe owned contracts. */
-export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionAccountBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient & CommercialMembershipReviewBrowserClient {
+export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionAccountBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient {
   const transport = options.fetch ?? globalThis.fetch;
   const viewer = options.viewer ?? createSessionViewer(createAuthClient());
   const signOutClient = createAuthClient({ fetchOptions: { customFetchImpl: transport } });
@@ -167,14 +164,6 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       const operation = result.value;
       if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && (operation.result.admissionRequestId.toLowerCase() !== requestId.toLowerCase() || operation.result.version !== input.expectedVersion + (operation.result.changed ? 1 : 0))) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return { status: "ready", value: operation.state === OPERATION_STATE.completed ? operation.result : operation };
-    },
-    readCommercialReviews: (slug, signal) => request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}`, commercialMembershipReviewListSchema, signal),
-    resolveCommercialReview: async (slug, memberId, input, signal) => {
-      const result = await request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}/${encodeURIComponent(memberId)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.resolutionSegment}`, createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema), signal, { body: input });
-      if (result.status !== "ready") return result;
-      const operation = result.value;
-      if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && operation.result.memberId !== memberId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-      return result;
     },
     operation: (slug, operationId, signal) => request(`${base(slug)}/operations/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     submit: async (slug, input, signal) => {

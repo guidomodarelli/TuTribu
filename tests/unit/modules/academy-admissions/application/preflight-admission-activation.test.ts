@@ -12,16 +12,16 @@ function fixture() {
   const tribeId = randomUUID(), userId = randomUUID(), now = new Date("2026-10-07T08:00:00Z");
   const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T08:00:00Z") }, googleAccount: null, identityEvidence: null};
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
-  const facts: AdmissionActivationInventory = { tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: false, evaluatorEnabled: true, recoveryLocked: false, unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 };
+  const facts: AdmissionActivationInventory = { tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: false, evaluatorEnabled: true, recoveryLocked: false };
   const inventory = { read: vi.fn(async () => facts) };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   return { actor, facts, inventory, query: { tribeId, requestId: randomUUID() }, useCase: new PreflightAdmissionActivationUseCase(resolver, inventory) };
 }
 
 describe("informational cutover preflight", () => {
-  it("should return current aggregate blockers without repairing history or exposing private inventory", async () => {
+  it("should return current blockers without exposing private inventory", async () => {
     const data = fixture(), original = { ...data.facts };
-    expect(await data.useCase.execute(data.query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 } } });
+    expect(await data.useCase.execute(data.query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_runtime_unavailable"] } });
     expect(data.facts).toEqual(original);
   });
 
@@ -34,11 +34,9 @@ describe("informational cutover preflight", () => {
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
   });
 
-  it("should reject another tribe's inventory and invalid counts as an unusable owned contract", async () => {
+  it("should reject another tribe's inventory as an unusable owned contract", async () => {
     const data = fixture();
     data.inventory.read.mockResolvedValueOnce({ ...data.facts, tribeId: randomUUID() });
-    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
-    data.inventory.read.mockResolvedValueOnce({ ...data.facts, unknownCommercialMemberCount: -1 });
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
   });
 });

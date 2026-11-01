@@ -8,7 +8,7 @@
     "section": null,
     "subflow": "Configurar y activar reglas de admisión"
   },
-  "description": "Configurar las reglas de admisión: borrador, revisión comercial, preflight, activación y pausa de la política.",
+  "description": "Configurar las reglas de admisión: borrador, preflight, activación (que convierte en gratuitas las membresías bloqueadas por pago) y pausa de la política.",
   "routes": [
     "/[slug]/academia/admissions/settings"
   ],
