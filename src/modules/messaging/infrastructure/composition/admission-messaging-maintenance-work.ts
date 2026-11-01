@@ -1,12 +1,13 @@
 /** Adapts existing owner results into safe phase evidence without provider DTOs or human-session impersonation. @module admission-messaging-maintenance-work */
 import "server-only";
 import type { AdmissionDataRetentionResult } from "@/src/modules/academy-admissions/domain/repositories/admission-data-retention";
-import type { AdmissionNotificationProducerResult } from "@/src/modules/notifications/domain/repositories/admission-notification-producer";
+import type { AdmissionNotificationProducerResult, AdmissionNotificationProducerStop } from "@/src/modules/notifications/domain/repositories/admission-notification-producer";
 import type { MessagingSecretRetentionResult } from "../../domain/repositories/messaging-secret-retention";
 import type { MessageDispatchObservedRunResult } from "../../application/results/message-dispatch-observation-result";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
 import type { AdmissionMessagingMaintenanceMetric, AdmissionMessagingMaintenanceMetricKey, AdmissionMessagingMaintenancePhaseOutput, AdmissionMessagingMaintenancePhaseRequest, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenanceRuntime, AdmissionMessagingMaintenanceWork } from "../../domain/repositories/admission-messaging-maintenance";
-import { AdmissionMessagingMaintenanceError } from "../../domain/errors/admission-messaging-maintenance-error";
+import { AdmissionMessagingMaintenanceError, findAdmissionMessagingMaintenanceError } from "../../domain/errors/admission-messaging-maintenance-error";
+import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
 import { AdmissionExpirationError } from "@/src/modules/academy-admissions/domain/errors/admission-expiration-error";
 import { AdmissionRetentionError } from "@/src/modules/academy-admissions/domain/errors/admission-retention-error";
@@ -16,7 +17,7 @@ import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGE_DISPATCH_OBSERVATION_OUTCOME, MESSAGE_DISPATCH_RUN_OUTCOME } from "../../constants/message-dispatch-observation";
-import { ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS } from "@/src/modules/notifications/constants/admission-notification-producer";
+import { ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS, ADMISSION_NOTIFICATION_PRODUCER_STOP } from "@/src/modules/notifications/constants/admission-notification-producer";
 import { ADMISSION_MESSAGING_MAINTENANCE_METRIC, ADMISSION_MESSAGING_MAINTENANCE_OPERATION, ADMISSION_MESSAGING_MAINTENANCE_PHASE, ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS, ADMISSION_MESSAGING_MAINTENANCE_REASON } from "../../constants/admission-messaging-maintenance";
 
 /** Binds concrete original use cases to one current run, deadline and cancellation scope. */
@@ -46,6 +47,19 @@ function maintenanceErrorStatus(reason: AdmissionMessagingMaintenanceError["reas
   return ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.unresolved;
 }
 
+/**
+ * Lets the notification producer tell a maintenance guard rejection apart from an uncertain step, since its owners wrap every foreign error.
+ * @param error - Failure of one producer step.
+ * @returns The guard stop behind it, or null for any other failure (including an unresolved progress write).
+ */
+export function classifyAdmissionMaintenanceProducerStop(error: unknown): AdmissionNotificationProducerStop | null {
+  const reason = findAdmissionMessagingMaintenanceError(error)?.reason;
+  if (reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached) return ADMISSION_NOTIFICATION_PRODUCER_STOP.deadlineReached;
+  if (reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable) return ADMISSION_NOTIFICATION_PRODUCER_STOP.authorityUnavailable;
+  if (reason === ADMISSION_MESSAGING_MAINTENANCE_REASON.recoveryLocked) return ADMISSION_NOTIFICATION_PRODUCER_STOP.recoveryLocked;
+  return null;
+}
+
 /** Uses only own original owner entrypoints; provider lookup and sending remain outside every SQL transaction. */
 export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessagingMaintenanceWork {
   /**
@@ -57,14 +71,19 @@ export class OriginalAdmissionMessagingMaintenanceWork implements AdmissionMessa
    */
   constructor(private readonly createOwners: (run: AdmissionMessagingMaintenanceRun, deadlineAtMilliseconds: number, signal: AbortSignal, phaseDeadlineAtMilliseconds: number) => AdmissionMessagingMaintenanceOwners, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly runtime: AdmissionMessagingMaintenanceRuntime) {}
 
-  /** @param error - Actual own failure, without forwarding raw exception text. @returns A closed configuration, authority or uncertain-phase result; a generic failure never proves rollback. */
+  /**
+   * @param error - Actual own failure, without forwarding raw exception text.
+   * @returns A closed configuration, authority or uncertain-phase result; a generic failure never proves rollback. A maintenance guard
+   * rejection keeps its own reason even inside an owner's unresolved wrapper, because it rejected before that owner's single commit.
+   */
   private failed(error: unknown): AdmissionMessagingMaintenancePhaseOutput {
-    if (error instanceof AdmissionMessagingMaintenanceError) {
-      const status = maintenanceErrorStatus(error.reason);
-      return { status, reason: error.reason, metrics: [], hasRemainingWork: true };
+    const maintenanceError = findAdmissionMessagingMaintenanceError(error);
+    if (maintenanceError) {
+      const status = maintenanceErrorStatus(maintenanceError.reason);
+      return { status, reason: maintenanceError.reason, metrics: [], hasRemainingWork: true };
     }
     if (error instanceof MessagingCryptographyError) return { status: ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.notConfigured, reason: ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable, metrics: [], hasRemainingWork: true };
-    const code = error instanceof AdmissionExpirationError || error instanceof AdmissionRetentionError || error instanceof MessagingRetentionError || error instanceof MessagingDeliveryStorageError || error instanceof MessagingSecretAccessError ? error.code : null;
+    const code = error instanceof AdmissionExpirationError || error instanceof AdmissionRetentionError || error instanceof AdmissionOperationError || error instanceof MessagingRetentionError || error instanceof MessagingDeliveryStorageError || error instanceof MessagingSecretAccessError ? error.code : null;
     if (code === MESSAGING_ERROR_CODE.permissionDenied) return { status: ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.failed, reason: ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable, metrics: [], hasRemainingWork: true };
     if (code === MESSAGING_ERROR_CODE.connectionIncomplete) return { status: ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.deferred, reason: ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable, metrics: [], hasRemainingWork: true };
     return { status: ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS.unresolved, reason: ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved, metrics: [], hasRemainingWork: true };

@@ -96,7 +96,7 @@ import type { AdmissionMessagingMaintenanceExternalScope, AdmissionMessagingMain
 import { AdmissionMessagingMaintenanceError } from "./domain/errors/admission-messaging-maintenance-error";
 import { RunAdmissionMessagingMaintenanceUseCase } from "./application/use-cases/run-admission-messaging-maintenance-use-case";
 import { PostgresAdmissionMessagingMaintenanceProgress } from "./infrastructure/repositories/postgres-admission-messaging-maintenance-progress";
-import { OriginalAdmissionMessagingMaintenanceWork } from "./infrastructure/composition/admission-messaging-maintenance-work";
+import { OriginalAdmissionMessagingMaintenanceWork, classifyAdmissionMaintenanceProducerStop } from "./infrastructure/composition/admission-messaging-maintenance-work";
 import { guardMaintenanceMessageDeliverySender } from "./infrastructure/composition/maintenance-message-delivery-sender";
 import type { NotificationDeliveryPreparation } from "./infrastructure/notification-delivery-preparation";
 import { PurposeRoutedMessageDeliverySender } from "./infrastructure/purpose-routed-message-delivery-sender";
@@ -429,7 +429,7 @@ export function buildAdmissionMessagingMaintenanceModule(dependencies: Admission
       purgeAdmission: () => buildAdmissionDataRetentionModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.purgeData.execute(),
       purgeMessaging: () => buildMessagingSecretRetentionModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.purgeSecrets.execute(),
       materializeReminders: () => buildAdmissionNotificationReminderModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.materializeReminders.execute(),
-      prepareNotifications: () => buildAdmissionNotificationProducerModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock, readSecurityConfig: dependencies.readSecurityConfig, publicAppBaseUrl: dependencies.publicAppBaseUrl(), runtime: { now: dependencies.runtime.now, createId: dependencies.runtime.createId, report: (error) => dependencies.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId: run.runId, phase: ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications }) } }).useCases.prepareEmailNotifications.prepareGroups(phaseDeadline),
+      prepareNotifications: () => buildAdmissionNotificationProducerModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock, readSecurityConfig: dependencies.readSecurityConfig, publicAppBaseUrl: dependencies.publicAppBaseUrl(), runtime: { now: dependencies.runtime.now, createId: dependencies.runtime.createId, report: (error) => dependencies.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId: run.runId, phase: ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications }), classifyStop: classifyAdmissionMaintenanceProducerStop } }).useCases.prepareEmailNotifications.prepareGroups(phaseDeadline),
       dispatchOutbox: () => worker().useCases.dispatch.execute(),
       reconcileLeases: () => new PostgresMessageDeliveryRepository({ execute: executeNew, authorizeMaintenance: async () => authorize(), readSecurityConfig: dependencies.readSecurityConfig }).reconcileExpiredLeases(ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT),
     };

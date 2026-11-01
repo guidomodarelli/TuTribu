@@ -9,6 +9,7 @@ import { createAdmissionMaintenanceResultFixture } from "@/tests/support/admissi
 import { ADMISSION_MESSAGING_MAINTENANCE_ROUTE } from "@/src/modules/messaging/constants/admission-messaging-maintenance";
 import type { OwnHttpDiagnostic } from "@/src/modules/shared/infrastructure/http/own-json-route-boundary";
 import type { AdmissionMessagingMaintenanceResult } from "@/src/modules/messaging/domain/repositories/admission-messaging-maintenance";
+import { AdmissionMessagingMaintenanceError } from "@/src/modules/messaging/domain/errors/admission-messaging-maintenance-error";
 
 /** @returns Own operation fakes behind the real HTTP boundary; no framework, SDK, auth library or validator is mocked. */
 function fixture() {
@@ -125,5 +126,13 @@ describe("protected admission messaging maintenance HTTP boundary", () => {
     expect(JSON.stringify(await response.json())).not.toContain(privateValue);
     expect(JSON.stringify(test.diagnostics)).not.toContain(privateValue);
     expect(test.execute).not.toHaveBeenCalled();
+  });
+
+  it("should log the class names and closed codes of a composition failure so an operator can tell why maintenance is unavailable", async () => {
+    const test = fixture(), privateValue = randomUUID();
+    test.create.mockRejectedValueOnce(new AdmissionMessagingMaintenanceError("configuration_unavailable", { cause: Object.assign(new Error(privateValue), { code: "ERR_INVALID_URL" }) }));
+    expect((await test.handler(test.request())).status).toBe(503);
+    expect(test.diagnostics).toEqual([expect.objectContaining({ stage: "operation", code: "maintenance_unavailable", status: 503, causes: [{ name: "AdmissionMessagingMaintenanceError", code: "configuration_unavailable" }, { name: "Error", code: "ERR_INVALID_URL" }] })]);
+    expect(JSON.stringify(test.diagnostics)).not.toContain(privateValue);
   });
 });
