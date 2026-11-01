@@ -4,6 +4,20 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Cuando la plataforma todavía no puede proteger las admisiones (falta su seguridad, sus claves no están inscriptas o está pausada mientras recupera un servicio), guardar cambios en Habilitados, Importación, Invitaciones, Avisos, Conexión o Países y cupos, enviar o cancelar una solicitud, corregir el WhatsApp, pedir o validar un código, aceptar una invitación personal y decidir solicitudes ya no deja la pantalla trabada esperando «el resultado de la operación anterior» ni muestra «El recurso solicitado no está disponible»: avisa que depende del equipo de TuTribu, no registra nada y no ofrece reintentar lo mismo.
+- Las pantallas de Reglas, Habilitados, Importación, Invitaciones, Avisos, Conexión, Países y cupos y la bandeja de solicitudes avisan antes de empezar, con «Depende del equipo de TuTribu» y su código de diagnóstico, cuando la plataforma no puede proteger lo que se guarda ahí, y deshabilitan esos guardados en lugar de dejar completar formularios que iban a fallar. La bandeja no ofrece aprobar ni rechazar mientras tanto.
+- La página para pedir el ingreso y el enlace heredado aparecen cerrados mientras la plataforma no puede proteger las admisiones, en lugar de ofrecer el formulario, el paso del código o el cambio de cuenta.
+- Una invitación personal que no se puede mostrar porque la plataforma no puede proteger las admisiones ya no ofrece «Reintentar» en un bucle.
+- Cancelar una solicitud mientras la plataforma no puede protegerla ya no responde «No tenés permiso para realizar esta operación.».
+- En Avisos, un cambio del correo de la tribu que no se pudo registrar ya no impide guardar tu frecuencia de avisos ni oculta toda la sección.
+- En Países y cupos, un guardado rechazado ya no oculta la página ni deja pendiente un intento que nunca se registró.
+- En Conexión, salir de un guardado rechazado por la plataforma ya no exige volver a escribir la clave de Zavu; configurar un canal ya no consulta a Zavu antes de comprobar que la plataforma puede proteger el cambio, y una conexión guardada con una seguridad anterior de la plataforma ya no se muestra como activa: indica que necesita la clave otra vez.
+- En Habilitados, Importación e Invitaciones se puede descartar una operación anterior que nunca se registró sin perder el borrador ni el archivo, y una vista previa de importación que ya no se puede confirmar pide crear otra con el mismo archivo.
+- En Reglas de admisión, pausar sin la seguridad de la plataforma muestra que las admisiones siguen abiertas y que depende del equipo de TuTribu, en lugar de un texto pensado para postulantes y un reintento que fallaba; el bloqueo ya no dice que se guardó un borrador cuando no se guardó nada; reintentar una operación muestra el bloqueo de esa misma acción; si no se puede volver a leer la configuración se muestra ese error en lugar de un aviso vacío, y «Volver a comprobar» detecta claves sin inscribir y la pausa de recuperación sin informar una pausa cuando lo que falta es la configuración.
+- La guía «Configurá las admisiones» muestra un único aviso del equipo de TuTribu y deja de invitar a definir reglas, conectar mensajería o elegir países y cupos mientras la plataforma no puede proteger esos cambios, sin mencionar un borrador que no existe.
+
 ## [1.12.0] - 2026-10-31
 
 ### Fixed
