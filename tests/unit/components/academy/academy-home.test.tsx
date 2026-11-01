@@ -53,11 +53,23 @@ function access(overrides: Partial<AcademyAccessStatusDto> = {}): AcademyAccessS
     hasBonusCoverage: false,
     hasPaidCoverage: false,
     isLeaderPreview: false,
+    lastPaymentRejected: false,
     level: "basic",
+    membershipRecovery: null,
     nextAction: "request_verification",
     renewalStatus: "none",
     ...overrides,
   };
+}
+
+/** Status of a member who reached the provider checkout and still owes its first payment. */
+function pendingCheckoutAccess(overrides: Partial<AcademyAccessStatusDto> = {}): AcademyAccessStatusDto {
+  return access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending", ...overrides });
+}
+
+/** Status of a member whose membership is inactive for a commercial reason. */
+function inactiveMemberAccess(overrides: Partial<AcademyAccessStatusDto> = {}): AcademyAccessStatusDto {
+  return access({ eligibility: "verified", nextAction: "contact_support", ...overrides });
 }
 
 describe("AcademyHome", () => {
@@ -67,7 +79,7 @@ describe("AcademyHome", () => {
   });
 
   it("should navigate to a protected admission request without posting a direct join or refreshing the route", () => {
-    render(<AcademyHome access={null} canManage={false} isCheckoutReturn={false} offer={{ ...offer, admissionRequiresRequest: true }} tribeSlug="synthetic-academy" />);
+    render(<AcademyHome access={null} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={{ ...offer, admissionRequiresRequest: true }} tribeSlug="synthetic-academy" />);
     expect(screen.getByRole("link", { name: "Solicitar ingreso" })).toHaveAttribute("href", "/admissions/synthetic-academy");
     expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -75,7 +87,7 @@ describe("AcademyHome", () => {
   });
 
   it("guides a basic member to verify before buying", () => {
-    render(<AcademyHome access={access()} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={access()} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
 
     expect(screen.getByText("Confirmá tu vinculación para acceder a la academia.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Solicitar verificación" })).toHaveAttribute(
@@ -96,7 +108,7 @@ describe("AcademyHome", () => {
           level: "academy",
           nextAction: "continue_learning",
         })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -110,7 +122,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ eligibility: "verified", firstActivatedAt: "2026-01-01T03:00:00.000Z" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -122,14 +134,14 @@ describe("AcademyHome", () => {
     ).toBeInTheDocument();
   });
 
-  it("starts the checkout once with the accepted offer version", async () => {
+  it("starts the checkout once with the accepted offer version and price", async () => {
     const user = userEvent.setup();
     respondWithJson({ checkoutUrl: "https://www.mercadopago.com.ar/checkout/synthetic" }, 200);
 
     render(
       <AcademyHome
         access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -143,7 +155,10 @@ describe("AcademyHome", () => {
       expect(navigateToUrl).toHaveBeenCalledWith("https://www.mercadopago.com.ar/checkout/synthetic")
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ acceptedOfferVersion: 3 });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      acceptedOfferVersion: 3,
+      acceptedPrice: { amountCents: 1_500_000, currency: "ARS" },
+    });
   });
 
   it("releases a hung checkout at the deadline so the member can try again", async () => {
@@ -159,7 +174,7 @@ describe("AcademyHome", () => {
       render(
         <AcademyHome
           access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
-          canManage={false}
+          canConfigureOffer={false} canManage={false}
           isCheckoutReturn={false}
           offer={offer}
           tribeSlug="tribu"
@@ -179,11 +194,11 @@ describe("AcademyHome", () => {
     }
   });
 
-  it("shows the confirmation state on a checkout return instead of a new purchase", () => {
+  it("shows a pending checkout as waiting for its payment, with a way to continue it instead of a new purchase", () => {
     render(
       <AcademyHome
-        access={access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending" })}
-        canManage={false}
+        access={pendingCheckoutAccess()}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn
         offer={offer}
         tribeSlug="tribu"
@@ -191,9 +206,48 @@ describe("AcademyHome", () => {
     );
 
     expect(
-      screen.getByText("Estamos confirmando tu suscripción. No hace falta que vuelvas a pagar.")
+      screen.getByText(
+        "Tu suscripción espera el pago en Mercado Pago. Si ya pagaste, no hace falta que vuelvas a pagar; si no terminaste, podés continuar el pago."
+      )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continuar el pago" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Contratar academia" })).not.toBeInTheDocument();
+  });
+
+  it("resumes the pending checkout at the provider when the member continues the payment", async () => {
+    const user = userEvent.setup();
+    vi.mocked(navigateToUrl).mockClear();
+    respondWithJson({ checkoutUrl: "https://www.mercadopago.com.ar/checkout/pending-synthetic" }, 200);
+
+    render(<AcademyHome access={pendingCheckoutAccess()} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Continuar el pago" }));
+
+    await waitFor(() =>
+      expect(navigateToUrl).toHaveBeenCalledWith("https://www.mercadopago.com.ar/checkout/pending-synthetic")
+    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/tribes/tribu/academy/checkout");
+  });
+
+  it("re-renders the current offer when the checkout says it changed", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ message: "La oferta cambió. Revisá las condiciones actualizadas antes de continuar.", status: "offer_changed" }, 409);
+
+    render(
+      <AcademyHome
+        access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Contratar academia" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("La oferta cambió.");
+    expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
   it("announces the cancellation only after the server confirms it", async () => {
@@ -209,7 +263,7 @@ describe("AcademyHome", () => {
     respondWithJson({ message: "ok", status: "canceled" }, 200);
     respondWithJson({ ...paidAccess, renewalStatus: "canceled" }, 200);
 
-    render(<AcademyHome access={paidAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={paidAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
     expect(screen.queryByText(/Cancelaste la renovación/)).not.toBeInTheDocument();
@@ -230,7 +284,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ eligibility: "verified", hasPaidCoverage: true, level: "academy", renewalStatus: "active" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -250,7 +304,7 @@ describe("AcademyHome", () => {
     respondWithJson({ message: "ok", status: "canceled" }, 200);
     respondWithJson({ ...pendingAccess, canStartCheckout: true, nextAction: "view_offer", renewalStatus: "canceled" }, 200);
 
-    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={pendingAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
 
     expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
@@ -287,7 +341,7 @@ describe("AcademyHome", () => {
     const pendingAccess = access({ eligibility: "verified", nextAction: "complete_checkout", renewalStatus: "pending" });
     respondWithJson({ message: "No pudimos contactar a Mercado Pago. Intentá de nuevo más tarde." }, 503);
 
-    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={pendingAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
     const dialog = await screen.findByRole("dialog");
@@ -301,23 +355,113 @@ describe("AcademyHome", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("lets a signed-in visitor join for free and refreshes the access", async () => {
+  it("lets a signed-in visitor join for free and shows the new access right away", async () => {
     const user = userEvent.setup();
     respondWithJson({ message: "Te sumaste a la tribu.", status: "joined" }, 201);
+    respondWithJson(access(), 200);
 
-    render(<AcademyHome access={null} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={null} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Ingresar gratis" }));
 
-    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/tribes/tribu/academy/join");
+    expect(await screen.findByRole("heading", { name: "Tu acceso" })).toBeInTheDocument();
+    expect(screen.getByText("Te sumaste a la tribu.", { selector: "p" })).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/tribes/tribu/academy/join",
+      "/api/tribes/tribu/academy/access",
+    ]);
+  });
+
+  it("takes the access of the refreshed server render after joining", () => {
+    const view = render(<AcademyHome access={null} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    expect(screen.getByRole("button", { name: "Ingresar gratis" })).toBeEnabled();
+
+    // router.refresh() keeps client state and only passes the new server props.
+    view.rerender(<AcademyHome access={access()} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    expect(screen.getByRole("heading", { name: "Tu acceso" })).toBeInTheDocument();
+    expect(screen.getByText("Acceso básico")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
+  });
+
+  it("re-renders the offer when the academy now asks for an admission request", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ code: "request_required", message: "Esta academia ahora pide una solicitud de ingreso.", requestId: "request-1" }, 409);
+
+    render(<AcademyHome access={null} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Ingresar gratis" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Esta academia ahora pide una solicitud de ingreso.");
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a free join to a member left inactive by a subscription, with its own explanation", async () => {
+    const user = userEvent.setup();
+    respondWithJson({ message: "Te sumaste a la tribu.", status: "joined" }, 201);
+    respondWithJson(access({ eligibility: "verified", nextAction: "view_offer" }), 200);
+
+    render(
+      <AcademyHome
+        access={inactiveMemberAccess({ membershipRecovery: "free_join" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(
+      screen.getByText("Tu membresía en la tribu está inactiva. Podés volver a ingresar a la academia.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Contactá a quien administra la tribu/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ingresar gratis" }));
+
+    expect(await screen.findByText("Acceso básico")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
+  });
+
+  it("links an inactive member of a protected academy to the admission request", () => {
+    render(
+      <AcademyHome
+        access={inactiveMemberAccess({ membershipRecovery: "admission_request" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={{ ...offer, admissionRequiresRequest: true }}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Solicitar ingreso" })).toHaveAttribute("href", "/admissions/tribu");
+    expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer the courses nor an entry to a member who cannot recover the membership alone", () => {
+    render(
+      <AcademyHome
+        access={inactiveMemberAccess()}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(
+      screen.getByText("Tu membresía no permite usar la academia. Contactá a quien administra la tribu.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ver cursos básicos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
   });
 
   it("explains that sales are paused", () => {
     render(
       <AcademyHome
         access={access()}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={{ ...offer, salesEnabled: false }}
         tribeSlug="tribu"
@@ -331,6 +475,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ isLeaderPreview: true })}
+        canConfigureOffer
         canManage
         isCheckoutReturn={false}
         offer={offer}
@@ -349,7 +494,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -367,6 +512,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ isLeaderPreview: true })}
+        canConfigureOffer
         canManage
         isCheckoutReturn={false}
         offer={{ ...offer, benefits: [], description: "", price: null, title: "" }}
@@ -381,6 +527,221 @@ describe("AcademyHome", () => {
     );
   });
 
+  it("tells a guardian that the leader has not loaded the offer, without offering to configure it", () => {
+    render(
+      <AcademyHome
+        access={access({ eligibility: "verified", nextAction: "view_offer" })}
+        canConfigureOffer={false}
+        canManage
+        isCheckoutReturn={false}
+        offer={{ ...offer, benefits: [], description: "", price: null, title: "" }}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(screen.getByText("Quien lidera la tribu todavía no cargó la oferta.")).toBeInTheDocument();
+    expect(screen.queryByText(/Todavía no cargaste la oferta/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Configurar la oferta" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Gestionar academia" })).toBeInTheDocument();
+  });
+
+  it("shows a renewal paused at the provider as paused, cancelable and without a new purchase", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <AcademyHome
+        access={access({ eligibility: "verified", nextAction: "view_offer", renewalStatus: "paused" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(screen.getByText("Tu renovación está pausada en Mercado Pago.")).toBeInTheDocument();
+    expect(screen.queryByText("La renovación está cancelada.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Contratar academia" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Se detienen los próximos cobros. Tu cuenta y tu progreso siguen guardados.")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/acceso ya pagado/)).not.toBeInTheDocument();
+  });
+
+  it("lets the member retry a cancellation still pending confirmation", async () => {
+    const user = userEvent.setup();
+    const cancelingAccess = access({
+      accessEndsAt: "2026-08-10T03:00:00.000Z",
+      eligibility: "verified",
+      hasPaidCoverage: true,
+      level: "academy",
+      nextAction: "continue_learning",
+      renewalStatus: "canceling",
+    });
+    respondWithJson({ message: "Cancelaste la renovación. Conservás el acceso ya pagado hasta su vencimiento.", status: "canceled" }, 200);
+    respondWithJson({ ...cancelingAccess, renewalStatus: "canceled" }, 200);
+
+    render(<AcademyHome access={cancelingAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    expect(screen.getByText("La cancelación de tu renovación está pendiente de confirmación.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Reintentar cancelación" }));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(
+      await screen.findByText("Cancelaste la renovación. Conservás el acceso hasta el 10 ago 2026.", { selector: "p" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar cancelación" })).not.toBeInTheDocument();
+  });
+
+  it("asks the member to review the payment method when the provider rejected the last payment", () => {
+    render(
+      <AcademyHome
+        access={access({ eligibility: "verified", lastPaymentRejected: true, nextAction: "view_offer", renewalStatus: "active" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(
+      screen.getByText(
+        "Mercado Pago rechazó el último cobro. Revisá tu medio de pago en Mercado Pago y después tocá «Actualizar estado»."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Estamos confirmando tu suscripción/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeEnabled();
+  });
+
+  it("does not promise paid access when cancelling a renewal whose first payment is not confirmed", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <AcademyHome
+        access={access({ eligibility: "verified", nextAction: "view_offer", renewalStatus: "active" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("¿Cancelar la suscripción a la academia?")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/acceso ya pagado/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open while the cancellation is in flight and shows its answer", async () => {
+    const user = userEvent.setup();
+    let answerCancellation: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { answerCancellation = resolve; }));
+
+    render(
+      <AcademyHome
+        access={access({ eligibility: "verified", hasPaidCoverage: true, level: "academy", nextAction: "continue_learning", renewalStatus: "active" })}
+        canConfigureOffer={false} canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Sí, cancelar renovación" }));
+    expect(await within(dialog).findByRole("button", { name: "Cancelando…" })).toBeDisabled();
+    expect(within(dialog).queryByRole("button", { name: "Cerrar diálogo" })).not.toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await act(async () => {
+      answerCancellation(new Response(JSON.stringify({ message: "No pudimos contactar a Mercado Pago. Tu renovación sigue activa; intentá de nuevo más tarde." }), { headers: { "Content-Type": "application/json" }, status: 503 }));
+    });
+
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent("No pudimos contactar a Mercado Pago.");
+  });
+
+  it("rereads the renewal when there is nothing left to cancel", async () => {
+    const user = userEvent.setup();
+    const paidAccess = access({
+      accessEndsAt: "2026-08-10T03:00:00.000Z",
+      eligibility: "verified",
+      hasPaidCoverage: true,
+      level: "academy",
+      nextAction: "continue_learning",
+      renewalStatus: "active",
+    });
+    respondWithJson({ message: "No encontramos una renovación activa para cancelar." }, 404);
+    respondWithJson({ ...paidAccess, renewalStatus: "canceled" }, 200);
+
+    render(<AcademyHome access={paidAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(await screen.findByText("La renovación está cancelada.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("alert")).toHaveTextContent("No encontramos una renovación activa para cancelar.");
+    expect(screen.queryByRole("button", { name: "Cancelar renovación" })).not.toBeInTheDocument();
+  });
+
+  it("stops offering the cancellation the server confirmed even when the reread fails", async () => {
+    const user = userEvent.setup();
+    const paidAccess = access({
+      accessEndsAt: "2026-08-10T03:00:00.000Z",
+      eligibility: "verified",
+      hasPaidCoverage: true,
+      level: "academy",
+      nextAction: "continue_learning",
+      renewalStatus: "active",
+    });
+    respondWithJson({ message: "Cancelaste la renovación. Conservás el acceso ya pagado hasta su vencimiento.", status: "canceled" }, 200);
+    respondWithJson({ message: "Servicio no disponible." }, 503);
+
+    render(<AcademyHome access={paidAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(
+      await screen.findByText("Cancelaste la renovación. Conservás el acceso hasta el 10 ago 2026.", { selector: "p" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("La renovación está cancelada.")).toBeInTheDocument();
+    expect(screen.queryByText("Tu renovación mensual está activa.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar renovación" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos leer tu estado actualizado.");
+  });
+
+  it("explains a cancellation recorded but not yet confirmed by the provider", async () => {
+    const user = userEvent.setup();
+    const paidAccess = access({
+      accessEndsAt: "2026-08-10T03:00:00.000Z",
+      eligibility: "verified",
+      hasPaidCoverage: true,
+      level: "academy",
+      nextAction: "continue_learning",
+      renewalStatus: "active",
+    });
+    const unconfirmed =
+      "Registramos tu pedido de cancelación, pero Mercado Pago todavía no lo confirmó. Tocá «Actualizar estado» en unos minutos para confirmarlo.";
+    respondWithJson({ message: unconfirmed, status: "cancel_unconfirmed" }, 202);
+    respondWithJson({ ...paidAccess, renewalStatus: "canceling" }, 200);
+
+    render(<AcademyHome access={paidAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+
+    await user.click(screen.getByRole("button", { name: "Cancelar renovación" }));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar renovación" }));
+
+    expect(await screen.findByText(unconfirmed, { selector: "p" })).toHaveAttribute("role", "status");
+    expect(screen.queryByText(/Cancelaste la renovación/)).not.toBeInTheDocument();
+    expect(screen.getByText("La cancelación de tu renovación está pendiente de confirmación.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar cancelación" })).toBeEnabled();
+  });
+
   it("announces a failed cancellation once, inside the dialog where it happened", async () => {
     const user = userEvent.setup();
     respondWithJson({ message: "No pudimos contactar a Mercado Pago." }, 503);
@@ -389,7 +750,7 @@ describe("AcademyHome", () => {
       <>
         <AcademyHome
           access={access({ eligibility: "verified", hasPaidCoverage: true, level: "academy", renewalStatus: "active" })}
-          canManage={false}
+          canConfigureOffer={false} canManage={false}
           isCheckoutReturn={false}
           offer={offer}
           tribeSlug="tribu"
@@ -412,7 +773,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ eligibility: "verified", hasPaidCoverage: true, level: "academy", renewalStatus: "active" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -436,7 +797,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn
         offer={offer}
         tribeSlug="tribu"
@@ -456,7 +817,7 @@ describe("AcademyHome", () => {
     respondWithJson({ message: "No encontramos el recurso.", status: "not_found" }, 404);
     respondWithJson(basicAccess, 200);
 
-    render(<AcademyHome access={basicAccess} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={basicAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
 
@@ -478,7 +839,7 @@ describe("AcademyHome", () => {
     respondWithJson({ message: null, status: "reconciled" }, 200);
     respondWithJson(authorizedAccess, 200);
 
-    render(<AcademyHome access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })} canConfigureOffer={false} canManage={false} isCheckoutReturn offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
 
@@ -500,7 +861,7 @@ describe("AcademyHome", () => {
     render(
       <AcademyHome
         access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
-        canManage={false}
+        canConfigureOffer={false} canManage={false}
         isCheckoutReturn={false}
         offer={offer}
         tribeSlug="tribu"
@@ -524,7 +885,7 @@ describe("AcademyHome", () => {
     respondWithJson({ message: "Ya revisamos tu estado hace instantes. Probá de nuevo en un minuto.", status: "throttled" }, 200);
     respondWithJson(pendingAccess, 200);
 
-    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={pendingAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
 
@@ -540,7 +901,7 @@ describe("AcademyHome", () => {
     respondWithJson({ message: null, status: "reconciled" }, 200);
     respondWithJson({ message: "Servicio no disponible." }, 503);
 
-    render(<AcademyHome access={pendingAccess} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
+    render(<AcademyHome access={pendingAccess} canConfigureOffer={false} canManage={false} isCheckoutReturn={false} offer={offer} tribeSlug="tribu" />);
 
     await user.click(screen.getByRole("button", { name: "Actualizar estado" }));
 

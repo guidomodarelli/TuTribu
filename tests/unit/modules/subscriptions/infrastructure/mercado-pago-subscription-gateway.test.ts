@@ -1,5 +1,8 @@
 import { vi, describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
 import {
+  classifyMercadoPagoFailure,
+  MercadoPagoConfigurationError,
+  MercadoPagoRequestError,
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
   createMercadoPagoPendingPreapprovalSubscription,
@@ -107,7 +110,28 @@ describe("mercado pago subscription gateway", () => {
       return { ok: true, status: 200, json: async () => body };
     });
     await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" }))
-      .resolves.toEqual({ providerSubscriptionId: "recovered-1", checkoutUrl: "https://checkout.example/recovered" });
+      .resolves.toEqual({ providerSubscriptionId: "recovered-1", checkoutUrl: "https://checkout.example/recovered", status: "found" });
+  });
+
+  it("should confirm that no checkout exists when the search answers without matches", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ paging: { total: 0 }, results: [] }) });
+    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" }))
+      .resolves.toEqual({ status: "absent" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("should confirm an absence when every result the search counted has another reference", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ paging: { total: 2 }, results: [
+      { id: "first", external_reference: "reservation-10" }, { id: "second", external_reference: "reservation-11" },
+    ] }) });
+    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" }))
+      .resolves.toEqual({ status: "absent" });
+  });
+
+  it("should not confirm an absence when the search reports matches it did not return", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ paging: { total: 1 }, results: [] }) });
+    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" }))
+      .resolves.toEqual({ status: "unresolved" });
   });
 
   it("should not retry subscription creation after an ambiguous transport failure", async () => {
@@ -123,8 +147,25 @@ describe("mercado pago subscription gateway", () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ paging: { total: 2 }, results: [
       { id: "first", external_reference: "reservation-1" }, { id: "second", external_reference: "reservation-1" },
     ] }) });
-    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" })).resolves.toBeNull();
+    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" })).resolves.toEqual({ status: "unresolved" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["a rejected seller token", new MercadoPagoRequestError("Unauthorized", 401, "get-mercado-pago-preapproval-status"), "integration_unavailable"],
+    ["a rejected token refresh", new MercadoPagoRequestError("invalid_grant", 400, "refresh-mercado-pago-access-token"), "integration_unavailable"],
+    ["missing application credentials", new MercadoPagoConfigurationError("MERCADO_PAGO_CLIENT_ID"), "integration_unavailable"],
+    ["a definite request rejection", new MercadoPagoRequestError("Invalid", 422, "create-mercado-pago-pending-preapproval-subscription"), "provider_rejected"],
+    ["a provider outage", new MercadoPagoRequestError("Unavailable", 503, "get-mercado-pago-preapproval-status"), "provider_unavailable"],
+    ["a rate limit", new MercadoPagoRequestError("Too many", 429, "refresh-mercado-pago-access-token"), "provider_unavailable"],
+    ["a network failure", new TypeError("fetch failed"), "provider_unavailable"],
+  ] as const)("should classify %s", (_case, error, kind) => {
+    expect(classifyMercadoPagoFailure(error)).toBe(kind);
+  });
+
+  it("should expose the operation and status of a provider rejection as a closed diagnostic code", () => {
+    expect(new MercadoPagoRequestError("Rejected", 404, "update-mercado-pago-preapproval-subscription-status").code)
+      .toBe("update-mercado-pago-preapproval-subscription-status:404");
   });
 
   it("should retain the HTTP status and operation when the provider rejects a request", async () => {
@@ -914,7 +955,22 @@ describe("mercado pago subscription gateway", () => {
           refresh_token: "stored-refresh-token",
         }),
         method: "POST",
+        signal: expect.any(AbortSignal),
       })
     );
+  });
+
+  it("should bound the token refresh and never repeat it after a transport failure", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Connection lost after sending request"));
+
+    await expect(refreshMercadoPagoAccessToken("stored-refresh-token")).rejects.toThrow("Connection lost after sending request");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject a token refresh without application credentials as a configuration failure", async () => {
+    delete process.env.MERCADO_PAGO_CLIENT_ID;
+
+    await expect(refreshMercadoPagoAccessToken("stored-refresh-token")).rejects.toBeInstanceOf(MercadoPagoConfigurationError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

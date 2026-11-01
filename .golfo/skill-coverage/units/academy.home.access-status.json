@@ -76,7 +76,7 @@
       "path": "src/modules/subscriptions/infrastructure/repositories/postgres-academy-subscription-repository.ts",
       "reason": "Adaptador inyectado por la raíz de composición (boundary): se declara explícito para que sus cambios invaliden la cobertura.",
       "role": "server",
-      "symbol": "PostgresAcademySubscriptionRepository.getOwnRenewalStatus"
+      "symbol": "PostgresAcademySubscriptionRepository.getOwnRenewal"
     },
     {
       "path": "src/modules/tribes/setup.ts",

@@ -73,7 +73,7 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
     return {
       cancelPreapproval: unused,
       createPreapproval: unused,
-      findCheckoutByReference: async () => null,
+      findCheckoutByReference: async () => ({ status: "unresolved" as const }),
       getAuthorizedPayment: unused,
       getPayment: unused,
       getPreapprovalStatus: unused,
@@ -100,7 +100,7 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
         await creationGate;
         return { providerSubscriptionId, checkoutUrl: `https://checkout.example/${providerSubscriptionId}` };
       },
-      findCheckoutByReference: async () => { notifySecondRequest(); return null; },
+      findCheckoutByReference: async () => { notifySecondRequest(); return { status: "unresolved" as const }; },
     }));
     const command = { acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug };
     const first = repository.startCheckout(command);
@@ -122,9 +122,9 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
   it("should recover a created subscription after an ambiguous failure without creating again", async () => {
     const recovered = { providerSubscriptionId: "synthetic-recovered", checkoutUrl: "https://checkout.example/recovered" };
     const create = vi.fn(async () => { throw new Error("The provider accepted creation but the response timed out"); });
-    const repository = buildRepository(buildGateway({ createPreapproval: create, findCheckoutByReference: async () => recovered }));
+    const repository = buildRepository(buildGateway({ createPreapproval: create, findCheckoutByReference: async () => ({ ...recovered, status: "found" as const }) }));
     const command = { acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug };
-    expect(await repository.startCheckout(command)).toEqual({ status: "checkout_unresolved" });
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "checkout_unresolved" });
     expect(await repository.startCheckout(command)).toEqual({ checkoutUrl: recovered.checkoutUrl, status: "redirect" });
     expect(create).toHaveBeenCalledTimes(1);
     const subscriptions = await pool.query("select mercado_pago_preapproval_id from public.tribe_member_subscriptions where tribe_id=$1 and user_id=$2", [tribeId, memberId]);
@@ -136,7 +136,7 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
       .mockResolvedValue({ providerSubscriptionId: "synthetic-corrected", checkoutUrl: "https://checkout.example/corrected" });
     const repository = buildRepository(buildGateway({ createPreapproval: create }));
     const command = { acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug };
-    expect(await repository.startCheckout(command)).toEqual({ status: "provider_unavailable" });
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "provider_rejected" });
     expect(await repository.startCheckout(command)).toEqual({ status: "redirect", checkoutUrl: "https://checkout.example/corrected" });
     expect(create).toHaveBeenCalledTimes(2);
   });
@@ -145,8 +145,8 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
     const create = vi.fn(async () => { throw new Error("Connection lost"); });
     const repository = buildRepository(buildGateway({ createPreapproval: create, findCheckoutByReference: async () => { throw new Error("Search unavailable"); } }));
     const command = { acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug };
-    expect(await repository.startCheckout(command)).toEqual({ status: "checkout_unresolved" });
-    expect(await repository.startCheckout(command)).toEqual({ status: "checkout_unresolved" });
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "checkout_unresolved" });
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "checkout_unresolved" });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -330,5 +330,217 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
       releaseCreation();
       await checkout;
     }
+  });
+
+  /** Creates a provider double whose created checkout id and URL follow the reservation id. */
+  function creationEchoingReservation() {
+    return vi.fn(async (input: { externalReference: string; idempotencyKey: string }) => {
+      const reservationId = input.externalReference.split(":").at(-1);
+      return { checkoutUrl: `https://checkout.example/${reservationId}`, providerSubscriptionId: `synthetic-${reservationId}` };
+    });
+  }
+
+  /** Reads the member's academy subscriptions, oldest first. */
+  async function readOwnSubscriptions() {
+    const result = await pool.query("select id,status,mercado_pago_preapproval_id,price_snapshot_amount_cents,cancel_requested_at is not null as cancel_requested from public.tribe_member_subscriptions where tribe_id=$1 and user_id=$2 and product_key='academy' order by created_at", [tribeId, memberId]);
+    return result.rows as Array<{ cancel_requested: boolean; id: string; mercado_pago_preapproval_id: string | null; price_snapshot_amount_cents: number; status: string }>;
+  }
+
+  /** Links a checkout for the member and leaves the provider reporting the given recurrence state. */
+  async function linkSubscription(repository: PostgresAcademySubscriptionRepository) {
+    const result = await repository.startCheckout({ acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug });
+    expect(result.status).toBe("redirect");
+    const [subscription] = await readOwnSubscriptions();
+    return subscription;
+  }
+
+  it("should read a reservation that never reached the provider as no renewal, and contract it again with the current price", async () => {
+    // An expired token without a refresh token leaves the seller integration unusable.
+    await pool.query("update public.tribe_payment_integrations set token_expires_at=now() - interval '1 hour', refresh_token=null where tribe_id=$1", [tribeId]);
+    const create = creationEchoingReservation();
+    const repository = buildRepository(buildGateway({ createPreapproval: create }));
+
+    expect(await repository.startCheckout({ acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug }))
+      .toMatchObject({ status: "integration_unavailable" });
+    expect(await repository.getOwnRenewal({ tribeSlug })).toEqual({ lastPaymentRejected: false, status: "none" });
+    expect(create).not.toHaveBeenCalled();
+
+    await pool.query("update public.tribe_payment_integrations set token_expires_at=null where tribe_id=$1", [tribeId]);
+    await pool.query("update public.tribe_subscription_prices set amount_cents=4500 where tribe_id=$1 and product_key='academy'", [tribeId]);
+    expect(await repository.startCheckout({ acceptedOfferVersion: 1, acceptedPrice: { amountCents: 3000, currency: "ARS" }, correlationId: randomUUID(), tribeSlug }))
+      .toEqual({ status: "offer_changed" });
+
+    const resumed = await repository.startCheckout({ acceptedOfferVersion: 1, acceptedPrice: { amountCents: 4500, currency: "ARS" }, correlationId: randomUUID(), tribeSlug });
+
+    expect(resumed.status).toBe("redirect");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0]?.[0]).toMatchObject({ amountCents: 4500 });
+    const subscriptions = await readOwnSubscriptions();
+    expect(subscriptions).toHaveLength(1);
+    expect(subscriptions[0]).toMatchObject({ price_snapshot_amount_cents: 4500, status: "pending" });
+    expect(await repository.getOwnRenewal({ tribeSlug })).toEqual({ lastPaymentRejected: false, status: "pending" });
+  });
+
+  it("should replace a reservation whose stale creation the provider confirms it never received", async () => {
+    let searchResult: "absent" | "unresolved" = "absent";
+    const create = vi.fn(creationEchoingReservation()).mockRejectedValueOnce(new Error("Connection lost before the provider answered"));
+    const repository = buildRepository(buildGateway({ createPreapproval: create, findCheckoutByReference: async () => ({ status: searchResult }) }));
+    const command = { acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug };
+
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "checkout_unresolved" });
+    // A young claim may still belong to a creation in flight: it is kept.
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "checkout_unresolved" });
+    expect(create).toHaveBeenCalledTimes(1);
+
+    await pool.query("update public.subscription_idempotency_operations set created_at=now() - interval '10 minutes' where tribe_id=$1 and operation_key like 'academy-provider-creation:%'", [tribeId]);
+    searchResult = "unresolved";
+    // An ambiguous search never releases the claim.
+    expect(await repository.startCheckout(command)).toMatchObject({ status: "checkout_unresolved" });
+    searchResult = "absent";
+
+    const replaced = await repository.startCheckout(command);
+
+    expect(replaced.status).toBe("redirect");
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0]?.[0].idempotencyKey).not.toBe(create.mock.calls[1]?.[0].idempotencyKey);
+    const [stale, fresh] = await readOwnSubscriptions();
+    expect(stale).toMatchObject({ mercado_pago_preapproval_id: null, status: "canceled" });
+    expect(fresh).toMatchObject({ mercado_pago_preapproval_id: `synthetic-${fresh.id}`, status: "pending" });
+    const audit = await pool.query("select reason from public.academy_audit_events where entity_id=$1 and action='academy_checkout_replaced'", [stale.id]);
+    expect(audit.rows).toEqual([{ reason: "provider_checkout_absent" }]);
+  });
+
+  it("should reuse the reservation a concurrent checkout of the same member committed first", async () => {
+    const competing = await pool.connect();
+    try {
+      await competing.query("begin");
+      await competing.query("insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,product_key,status,status_reason,price_snapshot_name,price_snapshot_amount_cents,price_snapshot_currency,price_snapshot_frequency,price_snapshot_provider_plan_id,offer_version_snapshot,terms_accepted_at) select tribe_id,$2,id,payment_integration_id,'academy','pending','none',name,amount_cents,currency,frequency,mercado_pago_preapproval_plan_id,1,now() from public.tribe_subscription_prices where tribe_id=$1 and product_key='academy'", [tribeId, memberId]);
+      const repository = buildRepository(buildGateway({ createPreapproval: creationEchoingReservation() }));
+      const checkout = repository.startCheckout({ acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug });
+      await waitForLockWait();
+      await competing.query("commit");
+
+      expect((await checkout).status).toBe("redirect");
+    } finally {
+      competing.release();
+    }
+    const subscriptions = await readOwnSubscriptions();
+    expect(subscriptions).toHaveLength(1);
+    expect(subscriptions[0]?.mercado_pago_preapproval_id).toBe(`synthetic-${subscriptions[0]?.id}`);
+  });
+
+  /** Waits until a statement of this database blocks on a row or index lock. */
+  async function waitForLockWait() {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const waiting = await pool.query("select count(*)::integer as total from pg_stat_activity where datname=current_database() and wait_event_type='Lock'");
+      if (waiting.rows[0].total > 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    throw new Error("The concurrent checkout never waited for the competing reservation");
+  }
+
+  it("should record a cancellation as canceled when the provider no longer has the subscription", async () => {
+    const repository = buildRepository(buildGateway({
+      cancelPreapproval: async () => { throw new MercadoPagoRequestError("Not found", 404, "update-mercado-pago-preapproval-subscription-status"); },
+      createPreapproval: creationEchoingReservation(),
+    }));
+    await linkSubscription(repository);
+    await pool.query("update public.tribe_member_subscriptions set status='active' where tribe_id=$1", [tribeId]);
+
+    expect(await repository.cancelOwnRenewal({ correlationId: randomUUID(), tribeSlug })).toEqual({ status: "canceled" });
+    expect(await repository.getOwnRenewal({ tribeSlug })).toMatchObject({ status: "canceled" });
+  });
+
+  it("should trust the confirmed cancellation answer without a second provider read", async () => {
+    const readStatus = vi.fn(async () => { throw new Error("A second read is not needed"); });
+    const repository = buildRepository(buildGateway({
+      cancelPreapproval: async () => "cancelled",
+      createPreapproval: creationEchoingReservation(),
+      getPreapprovalStatus: readStatus,
+    }));
+    await linkSubscription(repository);
+    await pool.query("update public.tribe_member_subscriptions set status='active' where tribe_id=$1", [tribeId]);
+
+    expect(await repository.cancelOwnRenewal({ correlationId: randomUUID(), tribeSlug })).toEqual({ status: "canceled" });
+    expect(readStatus).not.toHaveBeenCalled();
+    expect((await readOwnSubscriptions())[0]).toMatchObject({ status: "canceled" });
+  });
+
+  it("should keep an unconfirmed cancellation recorded and complete it on the next reconciliation", async () => {
+    const cancel = vi.fn(async (): Promise<string> => { throw new Error("The provider answer was lost"); });
+    const repository = buildRepository(buildGateway({
+      cancelPreapproval: cancel,
+      createPreapproval: creationEchoingReservation(),
+      getPreapprovalStatus: async () => "authorized",
+      searchAuthorizedPayments: async () => [],
+    }));
+    const subscription = await linkSubscription(repository);
+    await pool.query("update public.tribe_member_subscriptions set status='active' where tribe_id=$1", [tribeId]);
+
+    expect(await repository.cancelOwnRenewal({ correlationId: randomUUID(), tribeSlug })).toMatchObject({ status: "cancel_unconfirmed" });
+    expect(await repository.getOwnRenewal({ tribeSlug })).toMatchObject({ status: "canceling" });
+
+    cancel.mockResolvedValueOnce("cancelled");
+    expect(await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: subscription.mercado_pago_preapproval_id! }))
+      .toEqual({ appliedInvoices: 0, status: "reconciled" });
+
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(await repository.getOwnRenewal({ tribeSlug })).toMatchObject({ status: "canceled" });
+  });
+
+  it("should withdraw a cancellation the seller integration cannot send", async () => {
+    const repository = buildRepository(buildGateway({
+      cancelPreapproval: async () => { throw new MercadoPagoRequestError("Unauthorized", 401, "update-mercado-pago-preapproval-subscription-status"); },
+      createPreapproval: creationEchoingReservation(),
+    }));
+    await linkSubscription(repository);
+    await pool.query("update public.tribe_member_subscriptions set status='active' where tribe_id=$1", [tribeId]);
+
+    expect(await repository.cancelOwnRenewal({ correlationId: randomUUID(), tribeSlug })).toMatchObject({ status: "integration_unavailable" });
+    expect((await readOwnSubscriptions())[0]).toMatchObject({ cancel_requested: false, status: "active" });
+    expect(await repository.getOwnRenewal({ tribeSlug })).toMatchObject({ status: "active" });
+  });
+
+  it("should show a renewal paused at the provider as paused and still cancel it", async () => {
+    const repository = buildRepository(buildGateway({
+      cancelPreapproval: async () => "cancelled",
+      createPreapproval: creationEchoingReservation(),
+      getPreapprovalStatus: async () => "paused",
+      searchAuthorizedPayments: async () => [],
+    }));
+    const subscription = await linkSubscription(repository);
+
+    await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: subscription.mercado_pago_preapproval_id! });
+
+    expect(await repository.getOwnRenewal({ tribeSlug })).toMatchObject({ status: "paused" });
+    expect(await repository.cancelOwnRenewal({ correlationId: randomUUID(), tribeSlug })).toEqual({ status: "canceled" });
+  });
+
+  it("should report a rejected last payment of the subscription", async () => {
+    const debitDate = new Date(Date.now() - 60_000).toISOString();
+    let preapprovalId = "";
+    const repository = buildRepository(buildGateway({
+      createPreapproval: creationEchoingReservation(),
+      getPreapprovalStatus: async () => "authorized",
+      searchAuthorizedPayments: async () => [{ id: "synthetic-rejected-invoice", preapprovalId, currencyId: "ARS", debitDate,
+        lastModified: debitDate, paymentId: "synthetic-rejected-payment", paymentStatus: "rejected", paymentStatusDetail: "cc_rejected_insufficient_amount",
+        status: "processed", transactionAmount: 30 }],
+    }));
+    const subscription = await linkSubscription(repository);
+    preapprovalId = subscription.mercado_pago_preapproval_id!;
+
+    await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: preapprovalId });
+
+    expect(await repository.getOwnRenewal({ tribeSlug })).toEqual({ lastPaymentRejected: true, status: "active" });
+  });
+
+  it("should report a broken seller integration while reconciling as not transient", async () => {
+    const repository = buildRepository(buildGateway({ createPreapproval: creationEchoingReservation() }));
+    const subscription = await linkSubscription(repository);
+    // An expired token without a refresh token leaves the seller integration unusable.
+    await pool.query("update public.tribe_payment_integrations set token_expires_at=now() - interval '1 hour', refresh_token=null where tribe_id=$1", [tribeId]);
+
+    expect(await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: subscription.mercado_pago_preapproval_id! }))
+      .toMatchObject({ appliedInvoices: 0, status: "integration_unavailable" });
   });
 });
