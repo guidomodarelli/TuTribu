@@ -208,6 +208,12 @@ type SubscriptionContextRow = {
   user_id: string;
 };
 
+/** Provider context of a cancellation request, with whether this attempt recorded it. */
+type CancellationContextRow = SubscriptionContextRow & {
+  is_new_cancellation_request: boolean;
+  user_id: string;
+};
+
 type ReservationRow = {
   access_token: string | null;
   checkout_url: string | null;
@@ -368,7 +374,9 @@ function buildRecordPaymentPeriodStatement({
 }
 
 /**
- * Marks the viewer's live academy renewal as cancel-requested and returns its provider context.
+ * Marks the viewer's live academy renewal as cancel-requested and returns its
+ * provider context. An earlier request keeps its timestamp; only a request this
+ * transaction recorded carries `now()`, which `is_new_cancellation_request` reports.
  */
 function buildRequestRenewalCancellationStatement(tribeSlug: string): SQL {
   return sql`
@@ -396,7 +404,8 @@ function buildRequestRenewalCancellationStatement(tribeSlug: string): SQL {
           tribe_member_subscriptions.payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
-          tribe_payment_integrations.token_expires_at
+          tribe_payment_integrations.token_expires_at,
+          tribe_member_subscriptions.cancel_requested_at = now() as is_new_cancellation_request
       `;
 }
 
@@ -749,9 +758,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     // Billing stays reachable for blocked members: only ownership is checked.
     const context = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(buildRequestRenewalCancellationStatement(tribeSlug));
-      const row = (result.rows[0] ?? null) as (SubscriptionContextRow & {
-        user_id: string;
-      }) | null;
+      const row = (result.rows[0] ?? null) as CancellationContextRow | null;
 
       if (row) {
         await this.recordAuditEvent(database, {
@@ -778,8 +785,8 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     const token = await this.resolveTokenOrFailure(context, operation);
 
     if ("failure" in token) {
-      // Nothing reached the provider: undo the request so the member can retry.
-      await this.withdrawCancellationRequest(context.subscription_id);
+      // Nothing reached the provider: undo this request so the member can retry.
+      await this.withdrawCancellationRequest(context);
 
       return { cause: token.failure, status: toCancellationFailureStatus(token.failure) };
     }
@@ -1144,23 +1151,39 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     };
 
     // The durable local claim protects creation even when the provider ignores its header.
-    if (!(await this.claimProviderCreation(row.subscription_id))) {
+    const claimed = await this.claimProviderCreation(row.subscription_id);
+
+    if (!claimed) {
       return this.recoverClaimedCheckout(row, provider, command.correlationId);
     }
 
+    // A concurrent checkout may have refreshed the snapshot before the claim:
+    // the provider receives the contract the claim protects, never the one read earlier.
+    const creationToken = claimed.payment_integration_id === row.payment_integration_id
+      ? token
+      : await this.resolveTokenOrFailure(claimed, operation);
+
+    if ("failure" in creationToken) {
+      // Nothing reached the provider: release the claim so a retry may create it.
+      await this.releaseProviderCreationClaim(row.subscription_id);
+
+      return { cause: creationToken.failure, status: toCheckoutFailureStatus(creationToken.failure) };
+    }
+
+    const traceContext = { ...provider.traceContext, providerPlanId: claimed.provider_plan_id };
     let providerCheckout: { checkoutUrl: string; providerSubscriptionId: string };
 
     try {
       providerCheckout = await this.gateway.createPreapproval({
-        accessToken: provider.accessToken,
-        amountCents: row.amount_cents,
+        accessToken: creationToken.accessToken,
+        amountCents: claimed.amount_cents,
         backUrl,
-        currency: row.currency,
+        currency: claimed.currency,
         externalReference: provider.externalReference,
-        idempotencyKey: provider.traceContext.operationKey,
+        idempotencyKey: traceContext.operationKey,
         payerEmail: row.payer_email,
-        reason: row.price_name,
-        traceContext: provider.traceContext,
+        reason: claimed.price_name,
+        traceContext,
       });
     } catch (error) {
       const failure = toProviderError(error, operation);
@@ -1231,9 +1254,24 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     };
   }
 
-  /** Takes the durable creation claim of a reservation; false when it already exists. */
-  private async claimProviderCreation(subscriptionId: string): Promise<boolean> {
+  /**
+   * Takes the durable creation claim of a reservation and reads, in the same
+   * transaction, the snapshot it protects. The reservation row lock serializes
+   * the claim with a concurrent refresh of an unclaimed reservation: a refresh
+   * that committed first is read here, and a later one sees the claim and
+   * keeps the snapshot.
+   *
+   * @returns The protected reservation, or null when the claim already exists.
+   */
+  private async claimProviderCreation(subscriptionId: string): Promise<ReservationRow | null> {
     return this.executeWithDatabase(async (database) => {
+      await database.execute(sql`
+        select tribe_member_subscriptions.id
+        from public.tribe_member_subscriptions
+        where tribe_member_subscriptions.id = ${subscriptionId}
+          and tribe_member_subscriptions.user_id = public.current_app_user_id()
+        for update
+      `);
       const result = await database.execute(sql`
         insert into public.subscription_idempotency_operations
           (operation_key, operation_type, tribe_id, user_id, payload_hash, response_body)
@@ -1244,7 +1282,13 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         on conflict (operation_key) do nothing returning id
       `);
 
-      return result.rows.length > 0;
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const protectedResult = await database.execute(buildReservationStatement(subscriptionId));
+
+      return protectedResult.rows[0] as ReservationRow;
     });
   }
 
@@ -1425,25 +1469,40 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     }
 
     if (!live.mercado_pago_preapproval_id && !live.has_creation_claim) {
-      const refreshed = await database.execute(sql`
-        with current_academy_price as (${buildCurrentAcademyPriceStatement(tribeId)})
-        update public.tribe_member_subscriptions
-        set price_id = current_academy_price.id,
-            payment_integration_id = current_academy_price.payment_integration_id,
-            price_snapshot_name = current_academy_price.name,
-            price_snapshot_amount_cents = current_academy_price.amount_cents,
-            price_snapshot_currency = current_academy_price.currency,
-            price_snapshot_frequency = current_academy_price.frequency,
-            price_snapshot_provider_plan_id = current_academy_price.mercado_pago_preapproval_plan_id,
-            offer_version_snapshot = ${command.acceptedOfferVersion},
-            terms_accepted_at = now(),
-            updated_at = timezone('utc', now())
-        from current_academy_price
-        where tribe_member_subscriptions.id = ${live.id}
-        returning tribe_member_subscriptions.id
+      // The claim is checked again here: this statement runs after the row lock,
+      // so it sees a claim committed while this checkout waited for that lock.
+      const refreshResult = await database.execute(sql`
+        with current_academy_price as (${buildCurrentAcademyPriceStatement(tribeId)}),
+        creation_claim as (
+          select 1
+          from public.subscription_idempotency_operations
+          where subscription_idempotency_operations.operation_key = ${ACADEMY_OPERATION.creationKeyPrefix + live.id}
+        ),
+        refreshed as (
+          update public.tribe_member_subscriptions
+          set price_id = current_academy_price.id,
+              payment_integration_id = current_academy_price.payment_integration_id,
+              price_snapshot_name = current_academy_price.name,
+              price_snapshot_amount_cents = current_academy_price.amount_cents,
+              price_snapshot_currency = current_academy_price.currency,
+              price_snapshot_frequency = current_academy_price.frequency,
+              price_snapshot_provider_plan_id = current_academy_price.mercado_pago_preapproval_plan_id,
+              offer_version_snapshot = ${command.acceptedOfferVersion},
+              terms_accepted_at = now(),
+              updated_at = timezone('utc', now())
+          from current_academy_price
+          where tribe_member_subscriptions.id = ${live.id}
+            and not exists (select 1 from creation_claim)
+          returning tribe_member_subscriptions.id
+        )
+        select
+          exists (select 1 from refreshed) as is_refreshed,
+          exists (select 1 from creation_claim) as has_creation_claim
       `);
+      const refresh = refreshResult.rows[0] as { has_creation_claim: boolean; is_refreshed: boolean };
 
-      if (refreshed.rows.length === 0) {
+      // A claimed reservation keeps its snapshot and resumes through the claim recovery.
+      if (!refresh.is_refreshed && !refresh.has_creation_claim) {
         return { status: "sales_closed" };
       }
     }
@@ -1600,13 +1659,21 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     }
   }
 
-  /** Clears a cancellation request that never reached the provider, so the member can retry. */
-  private async withdrawCancellationRequest(subscriptionId: string): Promise<void> {
+  /**
+   * Clears a cancellation request this attempt recorded and could not send, so
+   * the member can retry. An earlier request stays recorded: it may already
+   * have reached the provider, and the reconciliation keeps completing it.
+   */
+  private async withdrawCancellationRequest(context: CancellationContextRow): Promise<void> {
+    if (!context.is_new_cancellation_request) {
+      return;
+    }
+
     await this.executeWithDatabase((database) =>
       database.execute(sql`
         update public.tribe_member_subscriptions
         set cancel_requested_at = null
-        where id = ${subscriptionId}
+        where id = ${context.subscription_id}
           and status <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled}
       `)
     );
@@ -1615,11 +1682,11 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
   /**
    * Classifies a failed cancellation call. A missing preapproval is already
    * gone at the provider (recorded as canceled); a definite rejection undoes
-   * the request; a transient failure may have applied it, so the request stays
+   * the request this attempt recorded; a transient failure may have applied it, so the request stays
    * recorded for the reconciliation to complete.
    */
   private async resolveCancellationFailure(
-    context: SubscriptionContextRow,
+    context: CancellationContextRow,
     error: unknown
   ): Promise<CancelAcademyRenewalResult> {
     if (isMissingPreapprovalError(error)) {
@@ -1634,7 +1701,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       return { cause: failure, status: "cancel_unconfirmed" };
     }
 
-    await this.withdrawCancellationRequest(context.subscription_id);
+    await this.withdrawCancellationRequest(context);
 
     return { cause: failure, status: toCancellationFailureStatus(failure) };
   }
