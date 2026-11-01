@@ -200,14 +200,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission operatio
     });
   }, 120_000);
 
-  it("should retain a current unfinished claim until its lease expires and then recover once", async () => {
+  it("should release the lease of a rolled back effect so resending the same original completes it once at once", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareOperation(database);
-      await expect(fixture.repository.run(fixture.command, resultSchema, async () => { throw new Error("Synthetic crash before the mutation"); })).rejects.toMatchObject({ code: "operation_unresolved" });
-      expect(await fixture.repository.run(fixture.command, resultSchema, fixture.work)).toEqual({ state: "started", operationId: fixture.command.idempotencyKey });
-      expect(fixture.effectCount()).toBe(0);
-      await database.withContext(fixture.own, async (transaction) => transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where idempotency_key=${fixture.command.idempotencyKey}`));
+      await expect(fixture.repository.run(fixture.command, resultSchema, async () => { throw new Error("Synthetic crash before the mutation"); })).rejects.toMatchObject({ code: "operation_unresolved", cause: { message: "Synthetic crash before the mutation" } });
+      expect(await fixture.repository.read(fixture.command, resultSchema)).toEqual({ state: "started", operationId: fixture.command.idempotencyKey });
       expect(await fixture.repository.run(fixture.command, resultSchema, fixture.work)).toMatchObject({ state: "completed", replayed: false, result: { version: 2 } });
+      expect(fixture.effectCount()).toBe(1);
+      expect(await fixture.repository.run(fixture.command, resultSchema, fixture.work)).toMatchObject({ state: "completed", replayed: true });
       expect(fixture.effectCount()).toBe(1);
     });
   }, 120_000);
