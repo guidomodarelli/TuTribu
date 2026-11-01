@@ -15,6 +15,8 @@ export const MESSAGING_CONNECTIONS_STEP_COPY={
 export const MESSAGING_CONNECTIONS_FLOW_COPY={
   label:"Pasos de la conexión",next:"Siguiente",activate:"Activar conexión",replace:"Reemplazar conexión seleccionada",active:"Conexión activa",
   busy:"Esperá a que termine la operación en curso.",
+  /** The page first checks that the session of the server render is still current; nothing was started yet. */
+  checkingSession:"Comprobando tu sesión…",
   keyRequired:"Guardá la clave de Zavu para seguir.",
   /** Shown at Activación when the selection is already active and no new candidate exists. */
   selectedActive:"La conexión seleccionada ya está activa. Solo hace falta guardar otra clave en Clave si querés reemplazarla.",

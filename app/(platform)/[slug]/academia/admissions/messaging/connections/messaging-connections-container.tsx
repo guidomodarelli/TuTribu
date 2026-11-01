@@ -47,7 +47,7 @@ import {messagingConnectionsIntentStore} from "@/lib/messaging/messaging-connect
 import {MESSAGING_CONNECTIONS_BROWSER_PHASE as PHASE,MESSAGING_CONNECTIONS_UI_COPY as COPY,MESSAGING_CREDENTIAL_CHECK_UI_COPY as CHECK_COPY,MESSAGING_CONNECTIONS_WRITE_ACTION as WRITE_ACTION,type MessagingConnectionsWriteAction,MESSAGING_CONNECTION_HISTORY_LIMIT} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
-import {activateCandidate,archiveOriginal,checkConnectionsViewer,clearEarlierDiagnostics,configureChannel,isDiagnosticIntent,issueDiagnostic,observeResource,performLifecycle,readCurrentConnection,readDiagnosticDelivery,readIssuedDiagnostic,recoverOriginal,replaceCandidateKey,restoreConnections,restoreHistory,resumeOriginal,saveConnection,validateCredential,verifyDiagnostic,type ConnectionsContext,type ConnectionsPhase,type ConnectionsReady,type ConnectionsRestoration,type CredentialFieldErrors,type LeaderConfiguration} from "./messaging-connections-operations";
+import {activateCandidate,archiveOriginal,checkConnectionsViewer,clearEarlierDiagnostics,configureChannel,isDiagnosticIntent,issueDiagnostic,observeResource,pendingCopyFor,performLifecycle,readCurrentConnection,readDiagnosticDelivery,readIssuedDiagnostic,recoverOriginal,replaceCandidateKey,restoreConnections,restoreHistory,resumeOriginal,saveConnection,validateCredential,verifyDiagnostic,type ConnectionsContext,type ConnectionsPhase,type ConnectionsReady,type CredentialFieldErrors,type IssuedDiagnostic,type LeaderConfiguration} from "./messaging-connections-operations";
 
 /** Own ports may be injected; real auth/shared UI remain the production defaults. */
 type ContainerProps={initialState:MessagingConnectionsPageState;client?:MessagingConnectionsBrowserClient;store?:MessagingConnectionsIntentStore;resourcesClient?:MessagingResourcesBrowserClient;diagnosticClient?:MessagingDiagnosticBrowserClient;activationClient?:MessagingActivationBrowserClient;lifecycleClient?:MessagingLifecycleBrowserClient};
@@ -77,7 +77,9 @@ function useConnectionsState(ready:ConnectionsReady|null){
   const[focusKey,setFocusKey]=useState(false);
   /** Counts saves rejected by field validation, so the form moves focus to the first field to fix. */
   const[validationAttempt,setValidationAttempt]=useState(0);
-  return{initialLifecycleTarget,currentStepId,setCurrentStepId,securityOpen,setSecurityOpen,observedAt,setObservedAt,configuration,setConfiguration,name,setName,apiKey,setApiKey,confirmed,setConfirmed,validationConfirmed,setValidationConfirmed,needsCurrent,setNeedsCurrent,canResume,setCanResume,resumeConfirmed,setResumeConfirmed,canArchive,setCanArchive,archiveConfirmed,setArchiveConfirmed,history,setHistory,phase,setPhase,notice,setNotice,fieldErrors,setFieldErrors,pending,setPending,currentReadFailed,setCurrentReadFailed,readingCurrent,setReadingCurrent,writingAction,setWritingAction,recoveryBusy,setRecoveryBusy,diagnosticReferences,setDiagnosticReferences,replacementScope,setReplacementScope,focusKey,setFocusKey,validationAttempt,setValidationAttempt};
+  /** A recovered test waiting to be accepted once the configuration read with it is rendered, so it is compared with that configuration. */
+  const[recoveredIssuance,setRecoveredIssuance]=useState<IssuedDiagnostic|null>(null);
+  return{recoveredIssuance,setRecoveredIssuance,initialLifecycleTarget,currentStepId,setCurrentStepId,securityOpen,setSecurityOpen,observedAt,setObservedAt,configuration,setConfiguration,name,setName,apiKey,setApiKey,confirmed,setConfirmed,validationConfirmed,setValidationConfirmed,needsCurrent,setNeedsCurrent,canResume,setCanResume,resumeConfirmed,setResumeConfirmed,canArchive,setCanArchive,archiveConfirmed,setArchiveConfirmed,history,setHistory,phase,setPhase,notice,setNotice,fieldErrors,setFieldErrors,pending,setPending,currentReadFailed,setCurrentReadFailed,readingCurrent,setReadingCurrent,writingAction,setWritingAction,recoveryBusy,setRecoveryBusy,diagnosticReferences,setDiagnosticReferences,replacementScope,setReplacementScope,focusKey,setFocusKey,validationAttempt,setValidationAttempt};
 }
 /** Every state of the connections route. */
 type ConnectionsState=ReturnType<typeof useConnectionsState>;
@@ -130,7 +132,7 @@ function renderConnectionPanel({state,actions,replaceable,pendingAction,isBusy,p
 
 /** @param pending - Unresolved original. @param writingOriginal - Whether another write of the flow runs. @param notice - Persistent explanation. @param needsCurrent - Whether the configuration must be read again. @returns The explanation shown above the flow, if any. */
 function attentionNoticeFor(pending:MessagingConnectionsPendingIntent|null,writingOriginal:boolean,notice:string|null,needsCurrent:boolean):string|null{
-  if(pending)return writingOriginal?null:notice??COPY.pending;
+  if(pending)return writingOriginal?null:notice??pendingCopyFor(pending);
   return needsCurrent?CHECK_COPY.stale:null;
 }
 
@@ -217,7 +219,9 @@ function renderLeaderWorkspace(view:ConnectionsView,leader:LeaderConfiguration,c
   /** @returns Nothing after opening exactly where the next action is resolved, with its channel preselected. */
   const openNextAction=()=>{if(action.target?.kind==="security"){if(candidate)lifecycleController.preselect(candidate.id,candidate.id!==leader.selected?.id);state.setSecurityOpen(true);return;}const index=flow.findIndex((step)=>step.id===actionStepId);state.setSecurityOpen(false);if(index>=0)moveTo(index);};
   const done=action.step===MESSAGING_CONNECTIONS_NEXT_STEP.active;
-  const steps=flow.map((step,index)=>({id:step.id,title:step.title,description:step.description,content:index===currentIndex?renderStepContent(view,leader,step,{connectionPanel,activeNext:done}):null,blockedReason:step.blockedReason??(isBusy&&index===currentIndex?FLOW_COPY.busy:undefined)}));
+  // The first session check runs before the leader starts anything, so it names itself instead of an operation in progress.
+  const busyReason=state.phase===PHASE.checking?FLOW_COPY.checkingSession:FLOW_COPY.busy;
+  const steps=flow.map((step,index)=>({id:step.id,title:step.title,description:step.description,content:index===currentIndex?renderStepContent(view,leader,step,{connectionPanel,activeNext:done}):null,blockedReason:step.blockedReason??(isBusy&&index===currentIndex?busyReason:undefined)}));
   const replacing=Boolean(candidate&&leader.selected&&leader.selected.id!==candidate.id);
   const finalAction={label:finalActionLabel(done,replacing),loading:pendingAction===WRITE_ACTION.activateCandidate,disabled:done||!activationController.canActivate,onRun:()=>{void activationController.activate();}};
   return<MessagingConnectionsWorkspace selected={leader.selected} candidate={candidate} platformRequirement={leader.platformRequirement} nextAction={action} nextActionInView={actionInView} usageHref={`/${encodeURIComponent(view.ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} onNextAction={openNextAction} busy={isBusy} attention={renderAttention(view)} onReadCurrent={()=>{void actions.readCurrent();}} readingCurrent={state.readingCurrent} currentReadFailed={state.currentReadFailed} steps={steps} current={currentIndex} onCurrentChange={moveTo} finalAction={finalAction} recovery={diagnosticHistory} security={renderSecurity(view,leader)} securityOpen={state.securityOpen} onSecurityToggle={()=>state.setSecurityOpen((open)=>!open)} />;
@@ -254,12 +258,15 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
   const report=useRef<MessagingConnectionsFeedback|null>(null);
   const{busy,...controllers}=useConnectionsControllers(ready,state,facts,{resourcesClient,context:connectionsContext});
   /** @returns Current render facts, ports, refs and controllers; it is only built when an operation runs. */
-  function connectionsContext():ConnectionsContext{return{...state,...facts,...controllers,ready,client,store,resourcesClient,diagnosticClient,activationClient,lifecycleClient,busy,mounted,observation,firstDiagnosticAbsence,report};}
+  function connectionsContext():ConnectionsContext{return{...state,...facts,...controllers,ready,client,store,resourcesClient,diagnosticClient,activationClient,lifecycleClient,busy,mounted,observation,firstDiagnosticAbsence,report,deferIssuance:state.setRecoveredIssuance};}
   /** Effect-only callbacks observe the latest viewer/controller without restarting restoration for a render-only identity change. */
   const restoreViewer=useEffectEvent((signal:AbortSignal)=>checkConnectionsViewer(connectionsContext(),signal));
-  const restoreDiagnostic=useEffectEvent((result:Parameters<ConnectionsRestoration["acceptIssuance"]>[0])=>controllers.diagnosticController.acceptIssuance(result));
   const restorationScope=useEffectEvent(()=>state);
-  useEffect(()=>{mounted.current=true;const controller=new AbortController(),operations=observation;const scope:ConnectionsRestoration|null=ready?{...restorationScope(),ready,client,store,mounted,checkViewer:(signal)=>restoreViewer(signal),acceptIssuance:(result)=>restoreDiagnostic(result)}:null;
+  // A recovered test is accepted by the controller of the render that already shows the configuration it was read with: in the same tick as
+  // that read, the controller would still compare it with the earlier snapshot (Atrás restores an older one) and then reset it for the new scope.
+  const{recoveredIssuance,setRecoveredIssuance}=state,acceptRecoveredIssuance=useEffectEvent((result:IssuedDiagnostic)=>controllers.diagnosticController.acceptIssuance(result));
+  useEffect(()=>{if(!recoveredIssuance)return;acceptRecoveredIssuance(recoveredIssuance);setRecoveredIssuance(null);},[recoveredIssuance,setRecoveredIssuance]);
+  useEffect(()=>{mounted.current=true;const controller=new AbortController(),operations=observation;const scope=ready?{...restorationScope(),ready,client,store,mounted,checkViewer:(signal:AbortSignal)=>restoreViewer(signal),acceptIssuance:restorationScope().setRecoveredIssuance}:null;
     if(scope)void restoreConnections(scope,controller.signal).catch(()=>{if(controller.signal.aborted||!mounted.current)return;scope.setApiKey("");scope.setPhase(PHASE.unavailable);scope.setNotice(COPY.storageUnavailable);});
     return()=>{mounted.current=false;controller.abort();operations.current?.abort();};},[ready,client,store]);
   if(!ready||state.phase===PHASE.unavailable)return<AdmissionRouteError embedded {...resolveMessagingRouteRecovery(initialState.kind==="unavailable"?initialState.code:null,{pathname,search:searchParams?.toString()??""})} message={initialState.kind==="unavailable"?initialState.message:state.notice??COPY.viewerChanged} />;

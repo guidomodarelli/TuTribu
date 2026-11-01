@@ -67,6 +67,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   {"name":"MessagingCryptographyError","code":"messaging_crypto_configuration_invalid"}]}</pre></div>
 <p>Para que funcione, cada falla llega a la boundary con su error real como <code>cause</code>, y cada clase de error propia expone un <code>code</code> cerrado. Una lectura de configuración, una llamada a un proveedor o un SQL que puede fallar dentro de una operación se envuelve en el error tipado de la feature, con <code>cause</code>, en el lugar donde falla. Por ejemplo, <code>readFingerprint</code> envuelve la lectura de las claves de mensajería.</p>
 <div class="callout c-info">Al reproducir un 500 reportado, leé primero <code>causes</code>. Si una falla sigue saliendo sin causas, agregar la <code>cause</code> faltante es parte del arreglo.</div>
+<p>La boundary registra como <code>error</code> toda falla 5xx y como <code>warn</code> el resto. Una feature que responde por debajo de 5xx una falla que no registró nada (mensajería responde 424 con <code>MessagingFailure.definitive</code>, para que el navegador no deje la escritura incierta) puede pasar <code>logsAsError</code> para mantener en <code>error</code> una falla inesperada, como la de la base al resolver la tribu. Un resultado de enrutamiento sin clase de error se adjunta por su propia <code>cause</code> (<code>messagingTribeRoutingFailure</code>), así el log nombra el error real y no solo su tipo.</p>
 </div>
 
 <div class="section">

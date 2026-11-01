@@ -12,6 +12,18 @@ import {boundBrowserRequest} from "@/lib/browser-request-deadline";
 /** @param code - Own semantic outcome. @param uncertain - Whether a write may have committed. @returns Safe localized facts with no body, transport cause or provider error. */
 export function messagingBrowserFailure(code:MessagingErrorCode,uncertain=false):MessagingUsageBrowserResult<never>{return{status:"failed",code,message:MESSAGING_ERROR_MESSAGE[code],uncertain};}
 
+/**
+ * A failure bound to its original decides by that original: a completed one is its final answer (a stored denial, or a
+ * credential check that completed with a provider failure, even under a 5xx), while an unfinished or unresolved one stays
+ * uncertain and recoverable. Without an original, only a 5xx leaves a write uncertain.
+ * @param failure - Guarded own public failure. @param status - Its HTTP status.
+ * @returns Whether the write may have committed.
+ */
+function isUncertainWriteFailure(failure:{code:MessagingErrorCode;operation?:{state:string}},status:number):boolean{
+  if(failure.operation)return failure.operation.state!==OPERATION_STATE.completed||failure.code===MESSAGING_ERROR_CODE.operationUnresolved;
+  return status>=HTTP_STATUS.serverError;
+}
+
 /** @param transport - Native fetch or an owned HTTP boundary. @returns A single-request observer; all input and DTO ownership stays with the caller. */
 export function createMessagingBrowserRequest(transport:typeof fetch=globalThis.fetch){
   /** @param url - Fixed same-origin adapter path. @param schema - Own public DTO guard. @param signal - Observation lifetime. @param write - Explicit method/input, absent for reads. @returns A safe observed result or uncertainty, never inferred rollback or an automatic retry. */
@@ -29,8 +41,7 @@ export function createMessagingBrowserRequest(transport:typeof fetch=globalThis.
       let body:unknown;try{body=await response.json();}catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);}
       if(signal.aborted)return{status:"aborted"};
       const publicFailure=messagingPublicErrorSchema.safeParse(body);
-      // A failure bound to a completed original is its final answer (for example a stored denial); an unfinished or unresolved original stays uncertain and recoverable.
-      if(publicFailure.success){const operation=publicFailure.data.operation,unresolved=operation!==undefined&&(operation.state!==OPERATION_STATE.completed||publicFailure.data.code===MESSAGING_ERROR_CODE.operationUnresolved);return messagingBrowserFailure(publicFailure.data.code,writing&&(response.status>=HTTP_STATUS.serverError||unresolved));}
+      if(publicFailure.success)return messagingBrowserFailure(publicFailure.data.code,writing&&isUncertainWriteFailure(publicFailure.data,response.status));
       if(!response.ok)return messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);
       const parsed=schema.safeParse(body);return parsed.success?{status:"ready",value:parsed.data}:messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);
     }catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.dependencyUnavailable,writing);}

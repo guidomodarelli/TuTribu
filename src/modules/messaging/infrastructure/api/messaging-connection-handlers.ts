@@ -7,7 +7,7 @@ import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admis
 import { messagingConnectionMutationSchema } from "@/src/modules/messaging/application/results/messaging-connection-mutation-result";
 import { createMessagingRouteBoundary } from "./messaging-route-http";
 import { messagingConnectionCreateSchema,messagingTribeParamsSchema } from "./messaging-request-schemas";
-import { messagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_HTTP_OPERATION } from "@/src/modules/messaging/constants/messaging-http";
 import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/messaging-connection";
@@ -41,7 +41,7 @@ export function createMessagingConnectionHandlers(open:()=>Promise<MessagingConn
         if(body.value.providerId!==MESSAGING_INITIAL_PROVIDER_ID)return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.missingCapability));
         const services=await open(),requestId=boundary.requestContext.requestId;
         const routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-        if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+        if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
         const outcome=await services.connections.create({...body.value,providerId:MESSAGING_INITIAL_PROVIDER_ID,tribeId:routing.value.tribeId,requestId});if(!outcome.ok)return boundary.failure(outcome.failure);
         const schema=createAdmissionOperationStateSchema(messagingConnectionMutationSchema),parsed=schema.safeParse(outcome.value);
         if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));

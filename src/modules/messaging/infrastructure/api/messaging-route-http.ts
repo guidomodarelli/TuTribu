@@ -69,8 +69,21 @@ export function createMessagingRouteBoundary(input: { request: Request; operatio
     invalidInput: () => messagingFailure(MESSAGING_ERROR_CODE.invalidInput),
     unusableContract: () => messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable),
     unexpectedFailure: (cause) => messagingFailure(MESSAGING_ERROR_CODE.unexpectedFailure, { cause }),
-    projectFailure: (failure, requestId) => projectOwnPublicFailure(failure, requestId, { status: MESSAGING_ERROR_HTTP_STATUS, message: MESSAGING_ERROR_MESSAGE }),
+    projectFailure: (failure, requestId) => projectMessagingFailure(failure, requestId),
+    // A definitive unexpected failure (a database failure while resolving the tribe) is answered with 424 but stays an error in the log.
+    logsAsError: (failure) => failure.code === MESSAGING_ERROR_CODE.unexpectedFailure,
   });
+}
+
+/**
+ * @param failure - Own failure of a messaging route.
+ * @param requestId - Correlation id of the request.
+ * @returns Its public projection; a definitive failure that registered nothing answers 424 instead of a 5xx, so the browser
+ * releases the write instead of keeping it uncertain.
+ */
+export function projectMessagingFailure(failure: MessagingFailure, requestId: string) {
+  const projected = projectOwnPublicFailure(failure, requestId, { status: MESSAGING_ERROR_HTTP_STATUS, message: MESSAGING_ERROR_MESSAGE });
+  return failure.definitive && projected.status >= HTTP_STATUS.serverError ? { ...projected, status: HTTP_STATUS.failedDependency } : projected;
 }
 
 /** @param state - State of the original operation. @returns 202 while the original operation is still started, otherwise 200. */

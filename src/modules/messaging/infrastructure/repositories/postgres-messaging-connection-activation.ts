@@ -10,6 +10,7 @@ import type {MessagingConnectionVersion,MessagingConnectionCapability} from "@/s
 import type {ConnectionDiagnostic} from "@/src/modules/messaging/domain/entities/connection-diagnostic";
 import {PostgresAdmissionOperationRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import {AdmissionOperationError} from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
+import {MessagingRequirementError} from "../../domain/errors/messaging-requirement-error";
 import {knownConnectionFailureCode} from "./messaging-operation-failure-code";
 import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";
 import {MessagingSecretAccessError} from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
@@ -108,7 +109,7 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
         /** @param now - Current SQL clock after the preceding waits. @returns Nothing when original locked activation evidence is still valid. */
         const requireCurrentEvidence=(now:Date)=>{
           const assessment=assessMessagingConnectionActivation(model,resource,{...facts,now});
-          if(!assessment.allowed)throw new AdmissionOperationError(activationFailureCode(assessment.reason));
+          if(!assessment.allowed)throw new AdmissionOperationError(activationFailureCode(assessment.reason),{cause:new MessagingRequirementError(assessment.reason)});
         };
         requireCurrentEvidence(current.now);
         const selected=(await database.execute<{id:string;selected_version:number|null;version:number;state:TenantMessagingConnection["state"]}>(sql`select id,selected_version,version,state from public.tenant_messaging_connections where tribe_id=${context.tribeId} and is_selected order by id for update`)).rows[0];

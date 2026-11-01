@@ -29,7 +29,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("ordinary connection 
       await database.grantTablesToNonBypass(["admission_email_settings"]);
       expect(await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select tribe_id from public.admission_email_settings where tribe_id=${context.tribeId}`)).rows,"non_bypass")).toEqual([]);
       const owner=new PostgresMessagingConnectionDisconnection((_context,run)=>database.withContext(fixture.fixture.own,run),async()=>fixture.fixture.config,(transaction)=>new PostgresMessagingLifecycleDependencies(transaction,readAdmissionEmailLifecycleDependency)),input={operationId:randomUUID(),confirmed:true as const,expectedVersion:1};
-      await expect(owner.disconnect(context,input)).rejects.toMatchObject({code:"connection_incomplete"});expect(await previous.snapshot()).toEqual(before);
+      await expect(owner.disconnect(context,input)).rejects.toMatchObject({code:"connection_retirement_blocked",cause:{code:"connection_retirement_blocked",cause:{name:"MessagingRequirementError",code:"notification_dependency"}}});expect(await previous.snapshot()).toEqual(before);
       await database.withContext(fixture.fixture.own,async(transaction)=>{
         await transaction.execute(sql`update public.admission_email_settings set enabled=false,version=version+1,updated_at=clock_timestamp() where tribe_id=${context.tribeId}`);
         expect(await readAdmissionEmailLifecycleDependency(context,transaction)).toBe(false);
