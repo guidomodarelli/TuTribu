@@ -17,13 +17,13 @@ import {
 const AUTH_CLIENT_ERROR = {
   googleSignInRejected: "Better Auth rejected Google sign-in.",
   signOutRejected: "Better Auth rejected sign-out.",
+  googleRedirectUrlMissing: "Better Auth returned no Google authorization URL.",
 } as const;
 const GOOGLE_SOCIAL_PROVIDER = "google";
 /** Google authorization parameter that selects its screens. */
 const GOOGLE_PROMPT_PARAM = "prompt";
 /** Shows the Google account chooser and still asks for the offline consent the provider configuration requests. */
 const GOOGLE_ACCOUNT_CHOOSER_PROMPT = "select_account consent";
-const GOOGLE_AUTHORIZATION_URL_MISSING = "Better Auth returned no Google authorization URL.";
 
 const authClient = createAuthClient();
 
@@ -86,7 +86,7 @@ export async function startGoogleSignIn(callbackUrl: string, options: { selectAc
 
   throwIfAuthClientFailed(result, AUTH_CLIENT_ERROR.googleSignInRejected);
   const authorizationUrl = result.data?.url;
-  if (!authorizationUrl) throw new Error(GOOGLE_AUTHORIZATION_URL_MISSING);
+  if (!authorizationUrl) throw new Error(AUTH_CLIENT_ERROR.googleRedirectUrlMissing);
   navigateToUrl(withGoogleAccountChooser(authorizationUrl));
 }
 

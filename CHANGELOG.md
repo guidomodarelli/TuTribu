@@ -16,7 +16,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Contratar la academia compara el precio que viste con el vigente: si cambió, avisa que la oferta cambió antes de abrir Mercado Pago.
 - Si la conexión de la tribu con Mercado Pago no está disponible, contratar, actualizar el estado o cancelar lo dicen y explican qué hacer, en lugar de pedir que vuelvas a intentar en unos minutos.
 - «Cambiar de cuenta» en la solicitud de ingreso o en una invitación personal abre el selector de cuentas de Google, para que puedas elegir otra cuenta aunque tengas una sola sesión abierta.
-- Los celulares argentinos escritos sin el 9 (por ejemplo «+54 11 1234 5678») se guardan como +54 9 11 1234 5678, el número que reciben los códigos por SMS o WhatsApp, y siguen coincidiendo con la lista de habilitados y las invitaciones guardadas antes. Los ejemplos de teléfono ahora usan un celular argentino.
+- Los celulares argentinos escritos sin el 9 (por ejemplo «+54 11 1234 5678») se guardan como +54 9 11 1234 5678, el número que reciben los códigos por SMS o WhatsApp, y siguen coincidiendo con la lista de habilitados, las invitaciones, las solicitudes pendientes y los contactos reservados guardados antes. Los ejemplos de teléfono ahora usan un celular argentino.
 - Si las reglas, la invitación o la solicitud cambian mientras tenés la página abierta, al enviar, confirmar, pedir un código o cancelar la página lee los datos actuales y te pide confirmar de nuevo, en lugar de repetir el mismo rechazo.
 
 ### Fixed

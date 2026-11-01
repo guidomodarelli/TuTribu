@@ -1,7 +1,7 @@
 /** Names the retry wait behind an `admission_ineligible` submission. @module admission-retry-wait-error */
 
 /** Closed reason of a submission refused while the previous own request keeps its retry wait. */
-export const ADMISSION_RETRY_WAIT_ERROR_CODE = "retry_wait_active";
+const ADMISSION_RETRY_WAIT_ERROR_CODE = "retry_wait_active";
 
 /**
  * Private cause of an `admission_ineligible` submission sent before the previous cancelled, expired or rejected request let a new one in:

@@ -4,7 +4,7 @@ import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AdmissionVerificationAccountScope } from "../../domain/repositories/admission-contact-verification";
-import { admissionContactStoredValues, type AdmissionContact } from "../../domain/value-objects/admission-contact";
+import { admissionContactStoredValues, isSameAdmissionContact, type AdmissionContact } from "../../domain/value-objects/admission-contact";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_INVITATION_STATUS } from "../../constants/admission-eligibility";
@@ -19,7 +19,7 @@ export async function authorizePersonalContactIssuance(database: RequestDatabase
   const invitation = (await database.execute<{ status: string; contact_type: string; normalized_contact: string; requires_allowlist: boolean; expires_at: string | null; authorization_revoked_at: string | null; redeemed_by_user_id: string | null; redeemed_request_id: string | null; token_key_id: string }>(sql`select status,contact_type,normalized_contact,requires_allowlist,expires_at,authorization_revoked_at,redeemed_by_user_id,redeemed_request_id,token_key_id from public.academy_personal_invitations where id=${invitationId} and tribe_id=${context.tribeId} for share`)).rows[0];
   // An invitation saved before an Argentine mobile took its 9 still names the same phone.
   const stored = admissionContactStoredValues(contact);
-  if (invitation?.contact_type !== contact.type || !stored.includes(invitation.normalized_contact) || invitation.authorization_revoked_at !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+  if (!invitation || !isSameAdmissionContact({ type: invitation.contact_type, value: invitation.normalized_contact }, contact) || invitation.authorization_revoked_at !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
   const now = await admissionDatabaseNow(database);
   if (context.admissionRequestId) {
     const request = (await database.execute<{ status: string; source: string; invitation_id: string | null; expires_at: string }>(sql`select status,source,invitation_id,expires_at from public.academy_admission_requests where id=${context.admissionRequestId} and user_id=${context.userId} and tribe_id=${context.tribeId} for share`)).rows[0];

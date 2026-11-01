@@ -9,7 +9,7 @@ import type {AdmissionContactVerificationOperations,AdmissionVerificationAccount
 import type { AdmissionCurrentChallengeReader, AdmissionCurrentChallengeQuery } from "../../domain/repositories/admission-current-challenge-reader";
 import { admissionCurrentChallengeSelectionSchema } from "../../application/results/admission-current-challenge-schemas";
 import type {VerificationChallengeScope} from "../../domain/entities/contact-verification-challenge";
-import {admissionContactStoredValues} from "../../domain/value-objects/admission-contact";
+import {isSameAdmissionContact} from "../../domain/value-objects/admission-contact";
 import type {AdmissionPolicy} from "../../domain/entities/admission-policy";
 import type {AdmissionVerificationProof} from "../../domain/entities/admission-verification-proof";
 import {createAdmissionResourceAuditEvent} from "../../domain/entities/admission-resource-audit-event";
@@ -170,7 +170,7 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     if(request.status!==ADMISSION_REQUEST_STATUS.pending||now>=new Date(request.expires_at))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
     if(request.source!==ADMISSION_REQUEST_SOURCE.common&&request.source!==ADMISSION_REQUEST_SOURCE.legacy)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
     // A request saved before an Argentine mobile took its 9 keeps naming the same phone.
-    if(request.normalized_contact!==null&&(request.contact_type!==contact.type||!admissionContactStoredValues(contact).includes(request.normalized_contact)))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
+    if(request.normalized_contact!==null&&!isSameAdmissionContact({type:request.contact_type??"",value:request.normalized_contact},contact))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
   }
 
   /** @param database - Native authorized transaction. @param context - Exact own account. @param challengeId - Original resource whose immutable contact cannot be replaced by the caller. @returns Original scope without taking an early shared challenge lock that would need an upgrade. */

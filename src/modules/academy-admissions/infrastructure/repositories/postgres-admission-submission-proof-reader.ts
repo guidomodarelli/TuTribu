@@ -8,6 +8,7 @@ import type { VerificationChallengeScope } from "../../domain/entities/contact-v
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { ADMISSION_VERIFICATION_PURPOSE } from "../../constants/admission-eligibility";
 import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
+import { admissionContactStoredValues } from "../../domain/value-objects/admission-contact";
 
 /** Consumes the actual private proof origin and dates without schema-validating PostgreSQL payloads. */
 type SubmissionProofRow = { id: string; user_id: string; tribe_id: string; contact_type: "email" | "phone"; normalized_contact: string; recipient_country: string | null; purpose: "admission"; channel: VerificationChallengeScope["channel"]; verification_epoch: number; connection_id: string; connection_version: number; security_epoch: string; status: AdmissionLocalProofFacts["status"]; verified_at: Date | string; apply_before: Date | string; applied_request_id: string | null };
@@ -32,7 +33,8 @@ export class PostgresAdmissionSubmissionProofReader {
     const resource = policyConnection ? (await this.database.execute<{ environment: string; security_epoch: string }>(sql`select environment,security_epoch from public.messaging_connection_versions where connection_id=${policyConnection.id} and tribe_id=${scope.tribeId} and version=${policyConnection.version} for share`)).rows[0] : null;
     const config = await this.readSecurityConfig();
     const currentConnection = policyConnection && resource && !config.recoveryLocked && resource.environment === config.environment && resource.security_epoch === config.securityEpoch ? { ...policyConnection, securityEpoch: config.securityEpoch } : null;
-    const binding = (await this.database.execute<{ owner_user_id: string }>(sql`select owner_user_id from public.academy_admission_contact_bindings where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value}`)).rows[0];
+    // A binding of the form an Argentine mobile had before it took its 9 counts too; another owner comes first.
+    const binding = (await this.database.execute<{ owner_user_id: string }>(sql`select owner_user_id from public.academy_admission_contact_bindings where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=any(${sql.param(admissionContactStoredValues(contact))}::text[]) order by owner_user_id=${scope.userId}`)).rows[0];
     const verificationScope: VerificationChallengeScope = { userId: scope.userId, tribeId: scope.tribeId, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, verificationEpoch: proof.verificationEpoch, connectionId: proof.connectionId, connectionVersion: proof.connectionVersion, securityEpoch: proof.securityEpoch, channel: row.channel, contact };
     return { proof, currentConnection, contactBinding: binding ? { ownerUserId: binding.owner_user_id, contact } : null, scope: verificationScope };
   }

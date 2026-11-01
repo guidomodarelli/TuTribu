@@ -6,6 +6,7 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_SOURCE_KIND, ADMISSION_OUTCOME, ADMISSION_INVITATION_STATUS, ADMISSION_DENIAL_REASON } from "../../constants/admission-eligibility";
 import { ADMISSION_POLICY_MODE } from "../../constants/admission-policy";
 import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
+import { isSameAdmissionContact } from "../../domain/value-objects/admission-contact";
 import { ADMISSION_REQUEST_STATUS } from "../../constants/admission-request";
 import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "../../constants/admission-public-contract";
 import { ADMISSION_OVERVIEW_MESSAGE } from "../../constants/admission-overview";
@@ -64,7 +65,7 @@ function tribeFactsDiverge(eligibility: AdmissionSubmissionFacts, overview: Pers
 function hidesInvitationFromViewer({ facts, eligibility, invitation, viewer, viewerState }: { facts: PersonalInvitationOverviewFacts; eligibility: AdmissionSubmissionFacts; invitation: PersonalInvitationFacts; viewer: { normalizedEmail: string; userId: string }; viewerState: PersonalInvitationViewerState }): boolean {
   const { activeMember, ownedRedemption } = viewerState;
   if (!ownedRedemption && (!facts.recipientMatchesAccount || invitation.contact.type === ADMISSION_CONTACT_TYPE.email && invitation.contact.value !== viewer.normalizedEmail)) return true;
-  if (eligibility.contactBinding && eligibility.contactBinding.ownerUserId !== viewer.userId && eligibility.contactBinding.contact.type === invitation.contact.type && eligibility.contactBinding.contact.value === invitation.contact.value) return true;
+  if (eligibility.contactBinding && eligibility.contactBinding.ownerUserId !== viewer.userId && isSameAdmissionContact(eligibility.contactBinding.contact, invitation.contact)) return true;
   if (!facts.tokenAvailable && !activeMember && !ownedRedemption || !activeMember && !ownedRedemption && invitation.status !== ADMISSION_INVITATION_STATUS.active) return true;
   return !activeMember && !ownedRedemption && (invitation.authorizationRevoked || invitation.expiresAt !== null && eligibility.now >= invitation.expiresAt);
 }
@@ -72,7 +73,7 @@ function hidesInvitationFromViewer({ facts, eligibility, invitation, viewer, vie
 /** @returns Whether the evaluated preview must look absent: a denial, an allowlist mismatch or a contact conflict. */
 function hidesEvaluatedInvitation({ eligibility, invitation, evaluated, viewerState }: { eligibility: AdmissionSubmissionFacts; invitation: PersonalInvitationFacts; evaluated: AdmissionEligibilityResult; viewerState: PersonalInvitationViewerState }): boolean {
   if (!viewerState.activeMember && !viewerState.pending && (evaluated.outcome === ADMISSION_OUTCOME.denied || evaluated.outcome === ADMISSION_OUTCOME.alreadyMember)) return true;
-  if (evaluated.outcome === ADMISSION_OUTCOME.verificationRequired && invitation.requiresAllowlist && (!eligibility.allowlistEntry?.enabled || eligibility.allowlistEntry.contact.type !== invitation.contact.type || eligibility.allowlistEntry.contact.value !== invitation.contact.value)) return true;
+  if (evaluated.outcome === ADMISSION_OUTCOME.verificationRequired && invitation.requiresAllowlist && (!eligibility.allowlistEntry?.enabled || !isSameAdmissionContact(eligibility.allowlistEntry.contact, invitation.contact))) return true;
   return evaluated.outcome === ADMISSION_OUTCOME.denied && evaluated.reason === ADMISSION_DENIAL_REASON.contactConflict;
 }
 
