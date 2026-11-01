@@ -18,10 +18,10 @@ export type ConfigureMessagingConnectionInput=MessagingConnectionConfigurationIn
 export class ConfigureMessagingConnectionUseCase{
   /** @param resolver - Current native account/leader/resource authority. @param operations - Original-result/CAS/version owner. @param secrets - Independently current private credential storage. @param inspectors - Fresh explicitly scoped real detail readers. */
   constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly operations:MessagingConnectionConfigurationOperations,private readonly secrets:MessagingSecretStore,private readonly inspectors:MessagingConfigurationInspectorFactory){}
-  /** @param original - Authority before awaited private/provider access. @returns Current unchanged context. @throws Safe identity/resource conflict before another RPC or commit. */
-  private async current(original:AuthorizedMessagingContext):Promise<AuthorizedMessagingContext>{
-    const resolved=await this.resolver.execute({tribeId:original.tribeId,connectionId:original.connectionId,requestId:original.requestId,operation:REAUTHENTICATION_OPERATION.configureMessagingConnection});
-    if(!resolved.allowed)throw new MessagingConnectionOperationError(resolved.failure.code);
+  /** @param original - Authority before awaited private/provider access. @param operationId - Original caller UUID, kept unresolved when the platform blocks an already registered original. @returns Current unchanged context. @throws Safe identity/resource conflict before another RPC or commit. */
+  private async current(original:AuthorizedMessagingContext,operationId:string):Promise<AuthorizedMessagingContext>{
+    const resolved=await this.resolver.execute({tribeId:original.tribeId,connectionId:original.connectionId,requestId:original.requestId,operationId,operation:REAUTHENTICATION_OPERATION.configureMessagingConnection});
+    if(!resolved.allowed)throw new MessagingConnectionOperationError(resolved.failure.code,{cause:resolved.failure.cause,...(resolved.failure.operation?{operationId:resolved.failure.operation.operationId}:{})});
     const context=resolved.context;
     if(original.actorUserId!==context.actorUserId||original.sessionId!==context.sessionId||original.accountId!==context.accountId||original.subject!==context.subject)throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
     if(original.tribeId!==context.tribeId||original.connectionId!==context.connectionId||original.connectionVersion!==context.connectionVersion||original.secretRef!==context.secretRef||original.environment!==context.environment||original.securityEpoch!==context.securityEpoch||original.resourceId!==context.resourceId)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.connectionConflict);
@@ -31,7 +31,7 @@ export class ConfigureMessagingConnectionUseCase{
   async execute(input:ConfigureMessagingConnectionInput,signal:AbortSignal){
     try{
       signal.throwIfAborted();
-      const resolved=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operation:REAUTHENTICATION_OPERATION.configureMessagingConnection});
+      const resolved=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operationId:input.operationId,operation:REAUTHENTICATION_OPERATION.configureMessagingConnection});
       if(!resolved.allowed)return{ok:false as const,failure:resolved.failure};
       const context=resolved.context,prepared=await this.operations.prepare(context,input);
       if(prepared.state!=="prepared")return{ok:true as const,value:prepared};
@@ -39,7 +39,7 @@ export class ConfigureMessagingConnectionUseCase{
       signal.throwIfAborted();
       if(!prepared.changed)return{ok:true as const,value:await this.operations.commit(context,input,null)};
       const resources=await this.inspectResources(context,input,signal);
-      await this.current(context);signal.throwIfAborted();
+      await this.current(context,input.operationId);signal.throwIfAborted();
       return{ok:true as const,value:await this.operations.commit(context,input,resources)};
     }catch(error){
       return{ok:false as const,failure:configurationFailure(error,signal)};
@@ -47,13 +47,13 @@ export class ConfigureMessagingConnectionUseCase{
   }
   /** @param context - Current authority. @param input - Original action. @param signal - Native caller cancellation/deadline. @returns The credential and the exact provider resources the change commits. @throws Safe missing capability or invalid input. */
   private async inspectResources(context:AuthorizedMessagingContext,input:ConfigureMessagingConnectionInput,signal:AbortSignal){
-    const credential=await this.secrets.loadAuthorizedSecret(context);await this.current(context);signal.throwIfAborted();
+    const credential=await this.secrets.loadAuthorizedSecret(context);await this.current(context,input.operationId);signal.throwIfAborted();
     const inspector=this.inspectors.create(context,credential),sender=await inspector.retrieveSender(input.senderId,signal);
     if(sender.resourceId!==input.senderId||!sender.channels.includes(input.channel)||input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&!sender.canSendWhatsappTemplates)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
     let template;
     if(input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp){
       if(!input.templateId||!input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.invalidInput);
-      await this.current(context);signal.throwIfAborted();template=await inspector.retrieveTemplate(input.templateId,signal);
+      await this.current(context,input.operationId);signal.throwIfAborted();template=await inspector.retrieveTemplate(input.templateId,signal);
       if(template.resourceId!==input.templateId||!template.authenticationApproved||template.language!==input.templateLanguage)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
     }
     return{credential,sender,...(template?{template}:{})};

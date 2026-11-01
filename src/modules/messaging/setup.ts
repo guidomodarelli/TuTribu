@@ -14,7 +14,7 @@ import { type AuthenticatedFeatureDependencies, createTransactionAccountProvider
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "./infrastructure/config/messaging-security-config";
 import { readMessagingPlatformSecurityFacts } from "./infrastructure/config/messaging-platform-security-facts";
-import { ResolveMessagingContextUseCase, LoadAuthorizedMessagingSecretUseCase } from "./application/use-cases/resolve-messaging-context-use-case";
+import { ResolveMessagingContextUseCase, ResolveMessagingWriteContextUseCase, LoadAuthorizedMessagingSecretUseCase } from "./application/use-cases/resolve-messaging-context-use-case";
 import { ManageMessagingUsageUseCases } from "./application/use-cases/manage-messaging-usage-use-cases";
 import { ManageMessagingConnectionsUseCases } from "./application/use-cases/manage-messaging-connections-use-cases";
 import {ReadMessagingConnectionOperationUseCase} from "./application/use-cases/read-messaging-connection-operation-use-case";
@@ -31,6 +31,7 @@ import {PostgresMessagingConnectionConfiguration} from "./infrastructure/reposit
 import type {MessagingConfigurationInspectorFactory} from "./domain/repositories/messaging-connection-configuration";
 import type {MessagingResourceInspectorFactory} from "./domain/repositories/messaging-resource-inspection";
 import {PostgresMessagingConfigurationReader} from "./infrastructure/repositories/postgres-messaging-configuration-reader";
+import {PostgresMessagingOriginalOperationLookup} from "./infrastructure/repositories/postgres-messaging-original-operation-lookup";
 import type {MessagingPlatformRequirementReader} from "./infrastructure/repositories/messaging-platform-requirement-reader";
 import type {MessagingSecurityFacts,AuthorizedMessagingContext} from "./domain/repositories/messaging-repositories";
 import { ReadMessagingUsageOperationUseCase } from "./application/use-cases/read-messaging-usage-operation-use-case";
@@ -177,7 +178,7 @@ function createMessagingUsage(dependencies: AuthenticatedFeatureDependencies, re
 /**
  * @param dependencies - Native current account, protected transaction executor and current time for this request.
  * @param options - Fixed native slot and current external security.
- * @returns Rechecked sensitive authority without provider or secret access.
+ * @returns Rechecked sensitive authority without provider or secret access; a platform denial of an already registered original stays unresolved.
  */
 function createSensitiveMessagingContext(dependencies: AuthenticatedFeatureDependencies, options: MessagingRequestComposition) {
   return {
@@ -185,7 +186,12 @@ function createSensitiveMessagingContext(dependencies: AuthenticatedFeatureDepen
       async execute(command: Parameters<ResolveMessagingContextUseCase["execute"]>[0]) {
         const account = await dependencies.accounts.getAuthenticatedAccount();
         if (!account) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.authenticationRequired) };
-        return dependencies.execute(account, (database) => new ResolveMessagingContextUseCase(createTransactionAccountProvider(database, account), new PostgresMessagingAuthorizationReader(database, account.session.id, options.selection), { getCurrentSecurityFacts: () => readMessagingPlatformSecurityFacts(options.readSecurityConfig) }, dependencies.clock).execute(command));
+        return dependencies.execute(account, (database) => {
+          const accounts = createTransactionAccountProvider(database, account);
+          const resolver = new ResolveMessagingContextUseCase(accounts, new PostgresMessagingAuthorizationReader(database, account.session.id, options.selection), { getCurrentSecurityFacts: () => readMessagingPlatformSecurityFacts(options.readSecurityConfig) }, dependencies.clock);
+          // A retried write whose original is already registered stays unresolved instead of a definitive platform refusal.
+          return new ResolveMessagingWriteContextUseCase(resolver, accounts, new PostgresMessagingOriginalOperationLookup(database)).execute(command);
+        });
       },
     };
 }

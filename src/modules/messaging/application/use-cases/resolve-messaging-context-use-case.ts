@@ -5,9 +5,14 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
 import { messagingFailure, type MessagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
-import type { AuthorizedMessagingContext, MessagingAccountProvider, MessagingAuthorizationReader, MessagingLeadershipFacts, MessagingSecretStore, MessagingSecurityFacts, MessagingSecurityFactsProvider } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { AuthorizedMessagingContext, MessagingAccountProvider, MessagingAuthorizationReader, MessagingLeadershipFacts, MessagingOriginalOperationLookup, MessagingSecretStore, MessagingSecurityFacts, MessagingSecurityFactsProvider } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import { MessagingPlatformSecurityError } from "@/src/modules/messaging/domain/errors/messaging-platform-security-error";
+import { OPERATION_STATE } from "@/src/constants/operation-state";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
+
+/** Boundary-validated resource identity and fixed server operation; a write also names its original caller UUID. */
+export type ResolveMessagingContextCommand = { tribeId: string; connectionId: string; operation: string; requestId: string; operationId?: string };
 
 /** Checks the authoritative tribe leader and current active membership, not a cached role. */
 function hasCurrentLeadership(leadership: MessagingLeadershipFacts | null, tribeId: string, userId: string): leadership is MessagingLeadershipFacts {
@@ -43,7 +48,7 @@ export class ResolveMessagingContextUseCase {
    * @param command - Boundary-validated resource identity and fixed server operation.
    * @returns Private context or a safe expected failure, without cross-tenant details.
    */
-  async execute(command: { tribeId: string; connectionId: string; operation: string; requestId: string }): Promise<{ context: AuthorizedMessagingContext; allowed: true } | { allowed: false; failure: MessagingFailure }> {
+  async execute(command: ResolveMessagingContextCommand): Promise<{ context: AuthorizedMessagingContext; allowed: true } | { allowed: false; failure: MessagingFailure }> {
     const deny = (code: MessagingFailure["code"]) => ({ allowed: false as const, failure: messagingFailure(code) });
     const initialAccount = await this.accounts.getAuthenticatedAccount();
     if (!initialAccount || !isAuthenticatedSessionLive(initialAccount.session.expiresAt, this.clock())) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
@@ -59,7 +64,7 @@ export class ResolveMessagingContextUseCase {
       throw error;
     }
     // A locked or unidentified platform blocks every connection alike; only the TuTribu team can resolve it.
-    if (security.recoveryLocked || !security.environment || !security.securityEpoch) return deny(MESSAGING_ERROR_CODE.platformSecurityUnavailable);
+    if (security.recoveryLocked || !security.environment || !security.securityEpoch) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.platformSecurityUnavailable, { cause: new MessagingPlatformSecurityError(security.recoveryLocked ? PLATFORM_SECURITY_REQUIREMENT.recoveryLocked : PLATFORM_SECURITY_REQUIREMENT.unconfigured) }) };
     // A connection sealed under another environment or epoch needs a new key from its leader.
     if (connection.environment !== security.environment || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
     // Resource/security reads may wait. Resolve current session/leadership again;
@@ -77,6 +82,40 @@ export class ResolveMessagingContextUseCase {
       tribeId: command.tribeId, connectionId: connection.id, connectionVersion: connection.version, environment: security.environment, securityEpoch: security.securityEpoch,
       operation: command.operation, requestId: command.requestId, secretRef: connection.secretRef,
     } };
+  }
+}
+
+/**
+ * Resolves the authority of a sensitive write that may be a retry. A platform denial is definitive ("nothing was registered")
+ * only for a new original: a write whose original the ledger already holds, or whose registration cannot be checked, stays
+ * unresolved under its operation id, so the browser keeps it and recovers it once the platform is back.
+ */
+export class ResolveMessagingWriteContextUseCase {
+  /**
+   * @param resolver - Current sensitive authority, unchanged for every outcome other than a platform denial.
+   * @param accounts - Current account that owns the original, read only after a platform denial.
+   * @param originals - Ledger lookup of the exact original, without locking it or reading its intent.
+   */
+  constructor(private readonly resolver: Pick<ResolveMessagingContextUseCase, "execute">, private readonly accounts: MessagingAccountProvider, private readonly originals: MessagingOriginalOperationLookup) {}
+
+  /**
+   * @param command - Boundary-validated resource identity and fixed server operation; only a write names its operation id.
+   * @returns The resolver outcome, except a platform denial of a registered or unverifiable original, which becomes unresolved.
+   */
+  async execute(command: ResolveMessagingContextCommand): ReturnType<ResolveMessagingContextUseCase["execute"]> {
+    const outcome = await this.resolver.execute(command);
+    const { operationId } = command;
+    if (outcome.allowed || outcome.failure.code !== MESSAGING_ERROR_CODE.platformSecurityUnavailable || !operationId) return outcome;
+    const unresolved = (cause: unknown) => ({ allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.operationUnresolved, { cause, operation: { operationId, state: OPERATION_STATE.started } }) });
+    try {
+      const account = await this.accounts.getAuthenticatedAccount();
+      // Without a current account the original belongs to nobody who can recover it here; the definitive denial stands.
+      if (!account) return outcome;
+      const registered = await this.originals.isRegistered({ actorUserId: account.userId, tribeId: command.tribeId, operation: command.operation, operationId });
+      return registered ? unresolved(outcome.failure.cause) : outcome;
+    } catch (lookupError) {
+      return unresolved(new AggregateError([outcome.failure.cause, lookupError], "ResolveMessagingWriteContext:execute original lookup failed", { cause: lookupError }));
+    }
   }
 }
 

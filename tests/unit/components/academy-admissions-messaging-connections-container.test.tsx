@@ -807,6 +807,19 @@ describe("connection wizard while the platform cannot protect its writes",()=>{
     expect(fixture.client.validate).toHaveBeenCalledOnce();expect(fixture.client.validate).toHaveBeenCalledWith("synthetic",candidate.id,{operationId,confirmed:true,expectedVersion:2},expect.any(AbortSignal));
     await waitFor(()=>expect(screen.queryByRole("button",{name:"Consultar guardado"})).not.toBeInTheDocument());
   });
+  it("should keep an original whose resumed replay the server kept unresolved because it was already registered while the platform is blocked",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),operationId=randomUUID(),candidate={id:fixture.connectionId,name:"Candidata",version:2,configurationVersion:1,state:"draft" as const,credentialState:"not_validated" as const,credentialMode:"unknown" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[]},configuration={...fixture.configuration,candidate},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration};
+    fixture.store.read.mockReturnValue({type:REAUTHENTICATION_OPERATION.validateMessagingConnection,operationId,original:{connectionId:candidate.id,configurationVersion:1,expectedVersion:2}});
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration}));
+    fixture.client.validate=vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.operationUnresolved,message:MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.operationUnresolved],uncertain:true}));
+    renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} />);
+    await user.click(await screen.findByRole("button",{name:"Consultar guardado"}));
+    await user.click(await screen.findByRole("checkbox",{name:/Confirmo reanudar la operación original/}));await user.click(screen.getByRole("button",{name:"Reanudar operación original"}));
+    expect(await screen.findByText(/La operación original fue consultada/)).toBeVisible();
+    expect(fixture.client.validate).toHaveBeenCalledOnce();
+    expect(fixture.store.write).not.toHaveBeenCalledWith(fixture.viewerId,"synthetic",null);
+    expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeVisible();
+  });
   it("should never show a selection sealed under a previous platform security as active and ask for its key again",async()=>{
     const fixture=containerFixture(),selected={id:fixture.connectionId,name:"Conexión anterior",version:3,configurationVersion:2,state:"active" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,securityCurrent:false,capabilities:[]},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration:{...fixture.configuration,selected}};
     renderWithToasts(<MessagingConnectionsContainer {...fixture} initialState={initialState} />);

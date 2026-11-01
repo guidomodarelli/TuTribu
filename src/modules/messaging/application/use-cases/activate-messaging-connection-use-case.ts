@@ -17,7 +17,7 @@ export class ActivateMessagingConnectionUseCase{
   /** @param input - Original confirmed expected lifecycle and exact server tenant. @returns Original guarded selection commit, genuine progress or current safe denial. */
   async execute(input:ActivateMessagingConnectionInput){
     try{
-      const resolved=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operation:REAUTHENTICATION_OPERATION.activateMessagingConnection});
+      const resolved=await this.resolver.execute({tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operationId:input.operationId,operation:REAUTHENTICATION_OPERATION.activateMessagingConnection});
       if(!resolved.allowed)return{ok:false as const,failure:resolved.failure};
       return{ok:true as const,value:await this.activator.activate(resolved.context,input)};
     }catch(error){const code=error instanceof MessagingConnectionOperationError||error instanceof MessagingSecretAccessError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure;return{ok:false as const,failure:messagingFailure(code,{cause:error,...(error instanceof MessagingConnectionOperationError&&error.code===MESSAGING_ERROR_CODE.operationUnresolved&&error.operationId?{operation:{operationId:error.operationId,state:OPERATION_STATE.started}}:{})})};}

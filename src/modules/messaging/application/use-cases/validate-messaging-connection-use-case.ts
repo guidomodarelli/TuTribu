@@ -41,7 +41,7 @@ export class ValidateMessagingConnectionUseCase {
     let prepared=false;
     try{
       signal.throwIfAborted();
-      const command={tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operation:REAUTHENTICATION_OPERATION.validateMessagingConnection};
+      const command={tribeId:input.tribeId,connectionId:input.connectionId,requestId:input.requestId,operationId:input.operationId,operation:REAUTHENTICATION_OPERATION.validateMessagingConnection};
       const authorization=await this.resolver.execute(command);if(!authorization.allowed)return{ok:false as const,failure:authorization.failure};
       const context=authorization.context,preparation=await this.operations.prepare(context,input);
       if(preparation.state!=="prepared")return{ok:true as const,value:preparation};
