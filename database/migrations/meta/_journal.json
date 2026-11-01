@@ -1443,6 +1443,13 @@
       "when": 1792875600000,
       "tag": "20261024210000_add_message_client_request_id",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1793448000000,
+      "tag": "20261031120000_convert_commercial_memberships_on_admission_activation",
+      "breakpoints": true
     }
   ]
 }

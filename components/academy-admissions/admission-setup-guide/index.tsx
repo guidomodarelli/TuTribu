@@ -25,13 +25,13 @@ const PERCENT = 100;
 type SetupStep = AdmissionSetupProgress["steps"][number];
 
 /**
- * Draft rules and the membership review open the exact rules step; other steps open their page.
+ * Draft rules open the final rules step; other steps open their page.
  *
  * @param slug - Tribe slug. @param id - Setup step. @param draft - Whether the rules are an unpublished draft.
  * @returns The page that completes the step.
  */
 function setupStepHref(slug: string, id: AdmissionSetupStepId, draft: boolean): string {
-  const entry = id === ADMISSION_SETUP_STEP.memberships || (id === ADMISSION_SETUP_STEP.open && draft) ? ADMISSION_SETUP_STEP_POLICY_ENTRY[id] : null;
+  const entry = id === ADMISSION_SETUP_STEP.open && draft ? ADMISSION_SETUP_STEP_POLICY_ENTRY[id] : null;
   return entry ? admissionPolicyStepHref(slug, entry) : `/${encodeURIComponent(slug)}/${ADMISSION_SETUP_STEP_SEGMENT[id]}`;
 }
 

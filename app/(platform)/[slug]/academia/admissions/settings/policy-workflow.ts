@@ -9,11 +9,11 @@ import { type AdmissionPolicyStateDto, admissionPolicyStateResultSchema } from "
 import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import type { AdmissionPolicyActivationReason } from "@/src/modules/academy-admissions/domain/policies/admission-policy-activation";
 import { createAdmissionPolicyDraft, admissionPolicyBrowserIntentSchema, admissionPolicyDraftSchema, type AdmissionPolicyBrowserIntent, type validateAdmissionPolicyBrowserDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
-import { type AdmissionPolicyActivationBlock, type AdmissionPolicyFailure, admissionPolicyStepIds } from "@/components/academy-admissions/admission-policy-form";
+import type { AdmissionPolicyActivationBlock, AdmissionPolicyFailure } from "@/components/academy-admissions/admission-policy-form";
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
-import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_BLOCK_RESOLUTION, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON, ADMISSION_POLICY_STEP, type AdmissionPolicyBlockReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS, ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_BLOCK_RESOLUTION, ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON, type AdmissionPolicyBlockReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_POLICY_OPERATION, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_RULE_FIELDS } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
@@ -49,8 +49,8 @@ export type PolicyControls = {
 };
 /** Current route snapshot, transport and controls shared by every read and write. */
 export type PolicyReadSession = { ready: PolicyReady; client: AdmissionPolicyBrowserClient; controls: PolicyControls };
-/** A session that can also reload the membership review after a requirements check. */
-export type PolicySession = PolicyReadSession & { reloadReview: () => void };
+/** The session every write runs with. */
+export type PolicySession = PolicyReadSession;
 type RecoveredOperation = Extract<Awaited<ReturnType<AdmissionPolicyBrowserClient["operation"]>>, { status: "ready" }>["value"];
 
 /** @param state - Safe current state. @returns The editable draft; a first configuration starts receiving requests by default. */
@@ -71,10 +71,6 @@ function pendingRequirements(state: AdmissionPolicyStateDto): AdmissionPolicyAct
   return [...new Set([...state.preparation.requirements, ...(state.policy?.requirements ?? [])])].filter((requirement) => !ADMISSION_POLICY_SELF_RESOLVED_REQUIREMENTS.includes(requirement));
 }
 
-/** @param reasons - Reasons of a block. @returns Whether any of them is resolved in the membership review. */
-export function hasCommercialReason(reasons: readonly AdmissionPolicyBlockReason[]): boolean {
-  return reasons.some((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] === ADMISSION_POLICY_BLOCK_RESOLUTION.commercialReview);
-}
 /** @param block - Current block. @returns Its reasons that still need work, without the ones the flow resolves itself. */
 export function blockReasons(block: AdmissionPolicyActivationBlock | null): AdmissionPolicyBlockReason[] {
   return block ? [...block.preflightReasons, ...block.requirements].filter((reason) => ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON[reason] !== ADMISSION_POLICY_BLOCK_RESOLUTION.selfResolved) : [];
@@ -86,9 +82,8 @@ export function blockReasons(block: AdmissionPolicyActivationBlock | null): Admi
  */
 export function draftBlock(preflight: AdmissionPolicyPreflightDto | null | undefined, state: AdmissionPolicyStateDto | null): AdmissionPolicyActivationBlock | null {
   const preflightReasons = preflight && !preflight.prepared ? preflight.reasons : [];
-  const impact = preflight && !preflight.prepared ? preflight.impact : { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
   const requirements = (state ? pendingRequirements(state) : []).filter((requirement) => !preflight || !ADMISSION_POLICY_PREFLIGHT_COVERED_REQUIREMENTS.includes(requirement));
-  const block = { message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons, requirements, ...impact };
+  const block = { message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons, requirements };
   return blockReasons(block).length ? block : null;
 }
 
@@ -317,7 +312,7 @@ async function showPolicyRequirements(session: PolicyReadSession, signal: AbortS
   controls.setErrorMessage(null); controls.setFailure(null);
   const savedRequirements = current.status === "ready" ? pendingRequirements(current.value) : [];
   controls.setActivationBlock({ message: BLOCKED_ACTION_COPY[blocked].message, note: BLOCKED_ACTION_COPY[blocked].note,
-    preflightReasons: [], requirements: [...new Set([...proposedRequirements, ...savedRequirements])], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
+    preflightReasons: [], requirements: [...new Set([...proposedRequirements, ...savedRequirements])] });
 }
 
 /** What a final save writes: the proposed rules, whether it also activates, and the failure being retried. */
@@ -359,9 +354,7 @@ async function activateSavedPolicy(session: PolicySession, signal: AbortSignal):
   if (preflight.status === "failed") { showPolicyFailure(controls, preflight.code, preflight.message); controls.setFailure({ stage: STAGE.checking, rulesSaved: true }); return; }
   if (!preflight.value.prepared) {
     controls.setErrorMessage(null); controls.setFailure(null);
-    controls.setActivationBlock({ message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons: preflight.value.reasons, requirements: [], ...preflight.value.impact });
-    /** Memberships blocked by payment are decided in their own step, inserted just before the final one. */
-    if (hasCommercialReason(preflight.value.reasons)) { controls.setStep(admissionPolicyStepIds(false, true).indexOf(ADMISSION_POLICY_STEP.memberships)); session.reloadReview(); }
+    controls.setActivationBlock({ message: COPY.activationIneligible, note: COPY.activationBlockedNote, preflightReasons: preflight.value.reasons, requirements: [] });
     return;
   }
   controls.setStage(STAGE.activating);
@@ -423,14 +416,13 @@ export async function retryPolicyOriginal(session: PolicyReadSession, intent: Ad
 function recheckBlock(controlActivated: boolean, preflight: AdmissionPolicyPreflightDto | null, requirements: AdmissionPolicyActivationReason[]): AdmissionPolicyActivationBlock {
   const copy = controlActivated ? BLOCKED_ACTION_COPY.resume : BLOCKED_ACTION_COPY.activation;
   return { message: copy.message, note: copy.note,
-    preflightReasons: preflight && !preflight.prepared ? preflight.reasons : [], requirements, unknownCommercialMemberCount: preflight?.impact.unknownCommercialMemberCount ?? 0, privilegedCommercialMemberCount: preflight?.impact.privilegedCommercialMemberCount ?? 0 };
+    preflightReasons: preflight && !preflight.prepared ? preflight.reasons : [], requirements };
 }
 
 /** @param session - Current route session. @param next - Fresh requirements block. @returns Nothing after showing it, or the ready notice when nothing is missing. */
-function applyRecheckBlock({ controls, reloadReview }: PolicySession, next: AdmissionPolicyActivationBlock): void {
+function applyRecheckBlock({ controls }: PolicySession, next: AdmissionPolicyActivationBlock): void {
   if (!blockReasons(next).length) { controls.setActivationBlock(null); controls.setStatusMessage(ADMISSION_POLICY_PLATFORM_COPY.recheckedReady); return; }
   controls.setActivationBlock(next); controls.setStatusMessage(ADMISSION_POLICY_PLATFORM_COPY.rechecked);
-  if (hasCommercialReason(next.preflightReasons)) reloadReview();
 }
 
 /** Volver a comprobar: rereads the configuration and the requirements, without writing or asking for another decision. @param session - Current route session. @param controller - Read slot of this recheck. @returns Nothing after releasing the slot. */

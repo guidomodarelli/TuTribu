@@ -8,12 +8,11 @@ import { ADMISSION_POLICY_PUBLIC_STATE } from "@/src/modules/academy-admissions/
 import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_STEP, type AdmissionPolicyAction, type AdmissionPolicyFlowStage } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { PolicyActionFeedback, type AdmissionPolicyActivationBlock, type AdmissionPolicyFailure, type AdmissionPolicySettingsLinks } from "./policy-action-feedback";
-import { PolicyRulesSteps, admissionPolicyStepIds, type PolicyMembershipStep } from "./policy-rules-steps";
+import { PolicyRulesSteps, admissionPolicyStepIds } from "./policy-rules-steps";
 import { PolicyStatusPanel } from "./policy-status-panel";
 import styles from "./styles.module.scss";
 
 export type { AdmissionPolicyActivationBlock, AdmissionPolicyFailure, AdmissionPolicySettingsLinks } from "./policy-action-feedback";
-export type { PolicyMembershipStep } from "./policy-rules-steps";
 export { admissionPolicyStepIds } from "./policy-rules-steps";
 
 /** Preparation and safe messages come from the route container; they are never authority supplied by a form. */
@@ -34,8 +33,6 @@ export type AdmissionPolicyFormProps = {
   onChange: (draft: AdmissionPolicyDraft) => void; onStepChange: (step: number) => void; onConfirm: (confirmed: boolean) => void; onRunFinal: () => void;
   onEdit: () => void; onCancelEdit: () => void; onPauseOpen: (open: boolean) => void; onPauseReason: (reason: string) => void; onPause: () => void; onResume: () => void;
   onRetry: () => void; onReloadCurrent: () => void; onRetryConfirm: (confirmed: boolean) => void; onRetryOriginal: () => void;
-  /** Membership review step inserted before the final step; null when no membership needs a decision. */
-  membershipStep?: PolicyMembershipStep | null;
   /** Final action label override while saved rules are being published. */
   finalLabel?: string;
   /** A reason only the TuTribu team can resolve is known: the draft notice explains it instead of offering to publish. */
@@ -43,8 +40,6 @@ export type AdmissionPolicyFormProps = {
   rechecking?: boolean;
   /** Opens the final step with the saved rules, to publish them. */
   onReviewDraft?: () => void;
-  /** Opens the membership review step. */
-  onReviewCommercial?: () => void;
   /** Rereads the configuration and checks the requirements again. */
   onRecheck?: () => void;
 };
@@ -106,12 +101,12 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
   const unavailable = props.state.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable;
   const showStatus = props.state.controlActivated && !props.editing;
   const lockedReason = policyLockedReason(unavailable, props.uncertain);
-  const stepIds = admissionPolicyStepIds(props.editing, Boolean(props.membershipStep));
+  const stepIds = admissionPolicyStepIds(props.editing);
   const contactStep = stepIds.indexOf(ADMISSION_POLICY_STEP.contact), finalStep = stepIds.length - 1;
   const draftUnpublished = Boolean(props.state.policy) && !props.state.controlActivated && !unavailable;
   const feedback = <PolicyActionFeedback stage={props.stage} errorMessage={props.errorMessage} failure={props.failure} activationBlock={props.activationBlock} links={props.links} busy={props.busy} allowReload={!props.uncertain}
     retrying={props.pendingAction === ADMISSION_POLICY_ACTION.retry} rechecking={props.rechecking} onRetry={props.onRetry} onReloadCurrent={props.onReloadCurrent} onRecheck={props.onRecheck}
-    onReviewContact={showStatus ? undefined : () => props.onStepChange(contactStep)} onReviewCommercial={showStatus ? undefined : props.onReviewCommercial} />;
+    onReviewContact={showStatus ? undefined : () => props.onStepChange(contactStep)} />;
 
   return <div className={styles.AdmissionPolicyForm} aria-busy={props.busy}>
     <PolicySummary props={props} unavailable={unavailable} draftUnpublished={draftUnpublished} finalStep={finalStep} />
@@ -127,7 +122,7 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
           {props.editing && <Button variant="ghost" size="sm" disabled={props.busy} onClick={props.onCancelEdit}>Cancelar edición</Button>}
         </div>
         <PolicyRulesSteps state={props.state} draft={props.draft} editing={props.editing} step={props.step} confirmed={props.confirmed} busy={props.busy} finalLoading={props.pendingAction === ADMISSION_POLICY_ACTION.final}
-          lockedReason={lockedReason} validationMessage={props.validationMessage} links={props.links} feedback={feedback} membershipStep={props.editing ? null : props.membershipStep} finalLabel={props.finalLabel}
+          lockedReason={lockedReason} validationMessage={props.validationMessage} links={props.links} feedback={feedback} finalLabel={props.finalLabel}
           onChange={props.onChange} onStepChange={props.onStepChange} onConfirm={props.onConfirm} onRunFinal={props.onRunFinal} />
       </section>)}
   </div>;

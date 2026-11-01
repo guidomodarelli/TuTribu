@@ -4,8 +4,8 @@ import type { AdmissionPreflightReason } from "../domain/policies/admission-acti
 import { ADMISSION_POLICY_ACTIVATION_ERROR } from "./admission-policy";
 
 /** One decision per step; the leader edits them in this order. */
-export type AdmissionPolicyStepId = "admission" | "contact" | "intake" | "memberships" | "review";
-export const ADMISSION_POLICY_STEP = { admission: "admission", contact: "contact", intake: "intake", memberships: "memberships", review: "review" } as const satisfies Record<string, AdmissionPolicyStepId>;
+export type AdmissionPolicyStepId = "admission" | "contact" | "intake" | "review";
+export const ADMISSION_POLICY_STEP = { admission: "admission", contact: "contact", intake: "intake", review: "review" } as const satisfies Record<string, AdmissionPolicyStepId>;
 
 /** A write in flight: the final chained action passes through saving, checking and activating; status actions pause, resume or retry the original. */
 export type AdmissionPolicyFlowStage = "saving" | "checking" | "activating" | "pausing" | "resuming" | "retrying";
@@ -42,10 +42,10 @@ export type AdmissionPolicyBlockReason = AdmissionPreflightReason | AdmissionPol
  * How a blocking reason is resolved: on another admission page, in a step of this flow, by checking again,
  * by the TuTribu team, or by the flow itself (the chained action creates the missing policy).
  */
-export type AdmissionPolicyBlockResolution = "usage" | "connection" | "contact_step" | "academy" | "commercial_review" | "recheck" | "platform" | "self_resolved";
+export type AdmissionPolicyBlockResolution = "usage" | "connection" | "contact_step" | "academy" | "recheck" | "platform" | "self_resolved";
 export const ADMISSION_POLICY_BLOCK_RESOLUTION = {
   usage: "usage", connection: "connection", contactStep: "contact_step", academy: "academy",
-  commercialReview: "commercial_review", recheck: "recheck", platform: "platform", selfResolved: "self_resolved",
+  recheck: "recheck", platform: "platform", selfResolved: "self_resolved",
 } as const satisfies Record<string, AdmissionPolicyBlockResolution>;
 
 /** Exhaustive map: a new reason cannot ship without saying who resolves it and where. */
@@ -63,8 +63,6 @@ export const ADMISSION_POLICY_BLOCK_RESOLUTION_BY_REASON = {
   preflight_academy_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
   preflight_evaluator_disabled: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
   admission_evaluator_unavailable: ADMISSION_POLICY_BLOCK_RESOLUTION.academy,
-  preflight_unknown_commercial_history: ADMISSION_POLICY_BLOCK_RESOLUTION.commercialReview,
-  preflight_privileged_commercial_membership: ADMISSION_POLICY_BLOCK_RESOLUTION.commercialReview,
   policy_scope_mismatch: ADMISSION_POLICY_BLOCK_RESOLUTION.recheck,
   preflight_scope_mismatch: ADMISSION_POLICY_BLOCK_RESOLUTION.recheck,
   admission_clock_invalid: ADMISSION_POLICY_BLOCK_RESOLUTION.recheck,
@@ -103,5 +101,5 @@ export const ADMISSION_SETTINGS_RETURN_TARGET = { policyReview: "policy-review" 
 /** Query parameter names of the settings navigation; values are validated against their allowlists. */
 export const ADMISSION_SETTINGS_NAVIGATION_PARAM = { returnTo: "return", step: "step" } as const;
 /** Steps of the rules flow that a link may open directly. */
-export type AdmissionPolicyEntryStep = "review" | "memberships";
-export const ADMISSION_POLICY_ENTRY_STEP = { review: "review", memberships: "memberships" } as const satisfies Record<string, AdmissionPolicyEntryStep>;
+export type AdmissionPolicyEntryStep = "review";
+export const ADMISSION_POLICY_ENTRY_STEP = { review: "review" } as const satisfies Record<string, AdmissionPolicyEntryStep>;

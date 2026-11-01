@@ -24,7 +24,7 @@ export class PreflightAdmissionActivationUseCase {
       if (!current.allowed) return { ok: false as const, failure: current.failure };
       if (current.context.userId !== first.context.userId || current.context.sessionId !== first.context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const result = evaluateAdmissionActivationPreflight(query.tribeId, inventory);
-      const parsed = admissionPreflightResultSchema.safeParse({ ...result, impact: { unknownCommercialMemberCount: inventory.unknownCommercialMemberCount, privilegedCommercialMemberCount: inventory.privilegedCommercialMemberCount } });
+      const parsed = admissionPreflightResultSchema.safeParse(result);
       if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: parsed.data };
     } catch (error) { return admissionOperationFailure(error); }

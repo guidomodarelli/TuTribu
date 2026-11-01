@@ -23,9 +23,11 @@ export class PostgresAdmissionPolicyViewFactsReader implements AdmissionPolicyVi
       const current = await readAdmissionPolicy(database, context.tribeId, false);
       if (current?.version !== policy?.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
       const pendingRequestCount = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_requests where tribe_id=${context.tribeId} and status=${ADMISSION_REQUEST_STATUS.pending}`)).rows[0].count;
+      // The same SQL predicate the activation writer uses; it is only counted while the first activation is pending.
+      const conversion = (await database.execute<{ count: number | null }>(sql`select case when tribe.admissions_control_activated_at is null then (select count(*)::int from public.tribe_members member where member.tribe_id=tribe.id and public.commercial_membership_converts_on_activation(member)) end as count from public.tribes tribe where tribe.id=${context.tribeId}`)).rows[0];
       const preparation = current && this.composePreparation ? await this.composePreparation(database, context).read(current) : null;
       await authorizeAdmissionPolicy(database, context);
-      return { pendingRequestCount, preparation };
+      return { pendingRequestCount, preparation, ...(typeof conversion?.count === "number" ? { freeConversionMemberCount: conversion.count } : {}) };
     });
   }
 }

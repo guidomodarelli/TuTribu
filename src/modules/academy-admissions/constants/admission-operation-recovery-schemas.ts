@@ -20,13 +20,11 @@ import { admissionEmailSettingsChangeResultSchema } from "@/src/modules/notifica
 import { admissionNotificationEmailSettingsChangeResultSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
 import { ADMISSION_BATCH_DECISION_OPERATION } from "./admission-batch-decision";
 import { admissionBatchDecisionSnapshotSchema } from "./admission-batch-decision-schema";
-import { commercialMembershipResolutionResultSchema } from "../application/results/commercial-membership-review-schemas";
 /** Infrastructure projects an own recovery envelope; PostgreSQL rows are not schema-validated. */
 export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("operationType", [
   z.object({ operationType: z.literal(ADMISSION_WHATSAPP_OPERATION), operation: createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionWhatsappNumberResultSchema)) }),
   z.object({ operationType: z.literal(ADMISSION_BATCH_DECISION_OPERATION), operation: createAdmissionOperationStateSchema(admissionBatchDecisionSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings), operation: createAdmissionOperationStateSchema(admissionEmailSettingsChangeResultSchema) }),
-  z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview), operation: createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.createPersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.renamePersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.revokePersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
@@ -53,7 +51,6 @@ export const admissionOperationRecoverySchema = z.union([
   z.intersection(z.object({ type: z.literal(ADMISSION_WHATSAPP_OPERATION) }), createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionWhatsappNumberResultSchema))),
   z.intersection(z.object({ type: z.literal(ADMISSION_BATCH_DECISION_OPERATION) }), createAdmissionOperationStateSchema(admissionBatchDecisionSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings) }), createAdmissionOperationStateSchema(admissionNotificationEmailSettingsChangeResultSchema)),
-  z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview) }), createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.createPersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.renamePersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.revokePersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),

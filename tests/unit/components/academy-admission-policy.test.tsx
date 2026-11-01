@@ -24,7 +24,7 @@ function fixture(): AdmissionPolicyFormProps {
     pauseOpen: false, pauseReason: "", uncertain: false, canRetryOriginal: false, retryConfirmed: false,
     onChange: vi.fn(), onStepChange: vi.fn(), onConfirm: vi.fn(), onRunFinal: vi.fn(), onEdit: vi.fn(), onCancelEdit: vi.fn(), onPauseOpen: vi.fn(), onPauseReason: vi.fn(), onPause: vi.fn(), onResume: vi.fn(),
     onRetry: vi.fn(), onReloadCurrent: vi.fn(), onRetryConfirm: vi.fn(), onRetryOriginal: vi.fn(),
-    onReviewDraft: vi.fn(), onReviewCommercial: vi.fn(), onRecheck: vi.fn(),
+    onReviewDraft: vi.fn(), onRecheck: vi.fn(),
   };
 }
 
@@ -133,13 +133,12 @@ describe("guided policy presentation", () => {
 
   it("should explain each missing requirement with the page that resolves it", () => {
     const props = fixture(); props.step = 3;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: [], requirements: ["verification_unavailable", "recipient_countries_not_configured", "phone_channel_required"], unknownCommercialMemberCount: 2, privilegedCommercialMemberCount: 0 };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: [], requirements: ["verification_unavailable", "recipient_countries_not_configured", "phone_channel_required"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const block = screen.getByRole("region", { name: "Lo que falta resolver" });
     expect(within(block).getByRole("alert")).toHaveTextContent("Todavía falta un requisito para activar las admisiones.");
     expect(within(block).getByRole("link", { name: "Ir a Conexión" })).toHaveAttribute("href", props.links.connection);
     expect(within(block).getByRole("link", { name: "Ir a Países y cupos" })).toHaveAttribute("href", props.links.usage);
-    expect(block).toHaveTextContent("Membresías bloqueadas por pago sin revisar: 2.");
     expect(within(block).queryByRole("group", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
     expect(block).not.toHaveTextContent("verification_unavailable");
     fireEvent.click(within(block).getByRole("button", { name: "Revisar «Cómo se contactan»" }));
@@ -202,7 +201,7 @@ describe("guided policy presentation", () => {
 
   it("should explain platform blocks with a copyable diagnostic code, a recheck and a report fallback, without offering to publish", async () => {
     const props = fixture(); props.step = 3; props.platformBlocked = true;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_marker_inconsistent", "preflight_runtime_unavailable"], requirements: ["admission_recovery_locked"], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_marker_inconsistent", "preflight_runtime_unavailable"], requirements: ["admission_recovery_locked"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const platform = screen.getByRole("group", { name: "Depende del equipo de TuTribu" });
     expect(platform).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Lo que ya elegiste quedó guardado como borrador.");
@@ -222,7 +221,7 @@ describe("guided policy presentation", () => {
 
   it("should send closed academy admissions to «Gestionar academia» as a leader action, not as a TuTribu team block", () => {
     const props = fixture(); props.step = 3;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_evaluator_disabled"], requirements: ["admission_evaluator_unavailable"], unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_evaluator_disabled"], requirements: ["admission_evaluator_unavailable"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const block = screen.getByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y volvé a activar estas reglas.");
@@ -231,9 +230,9 @@ describe("guided policy presentation", () => {
     expect(block).not.toHaveTextContent("Código de diagnóstico");
   });
 
-  it("should send academy, scope and commercial blocks to the place that resolves them", () => {
+  it("should send academy and scope blocks to the place that resolves them", () => {
     const props = fixture(); props.step = 3;
-    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_academy_unavailable", "preflight_scope_mismatch", "preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], requirements: ["admission_clock_invalid"], unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 };
+    props.activationBlock = { message: "Todavía falta un requisito para activar las admisiones.", note: "Tus reglas quedaron guardadas como borrador.", preflightReasons: ["preflight_academy_unavailable", "preflight_scope_mismatch"], requirements: ["admission_clock_invalid"] };
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
     const block = screen.getByRole("region", { name: "Lo que falta resolver" });
     expect(block).toHaveTextContent("Primero hay que activar el modo academia en esta tribu.");
@@ -241,24 +240,15 @@ describe("guided policy presentation", () => {
     expect(within(block).getAllByRole("button", { name: "Volver a comprobar" })).toHaveLength(1);
     fireEvent.click(within(block).getByRole("button", { name: "Volver a comprobar" }));
     expect(props.onRecheck).toHaveBeenCalledOnce();
-    expect(block).toHaveTextContent("Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas.");
-    expect(block).toHaveTextContent("Hay guardianes bloqueados por pago. Decidí si vuelven como integrantes, sin su rol, o si quedan retirados.");
-    expect(block).toHaveTextContent("Guardianes bloqueados por pago: 1.");
-    expect(within(block).getAllByRole("button", { name: "Revisar membresías bloqueadas por pago" })).toHaveLength(1);
-    fireEvent.click(within(block).getByRole("button", { name: "Revisar membresías bloqueadas por pago" }));
-    expect(props.onReviewCommercial).toHaveBeenCalledOnce();
     expect(within(block).queryByRole("group", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
   });
 
-  it("should insert the membership review before the final step and keep Continue closed while decisions are pending", () => {
-    const props = fixture(); props.step = 3; props.membershipStep = { content: <p>Contenido de la revisión</p>, blockedReason: "Decidí qué pasa con cada membresía antes de continuar." };
+  it("should announce in the final step how many memberships blocked by payment the activation converts", () => {
+    const props = fixture(); props.step = 3; props.state = { ...props.state, impact: { ...props.state.impact, freeConversionMemberCount: 1 } };
     const view = render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
-    expect(screen.getByRole("navigation", { name: "Paso 4 de 5" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Revisá membresías bloqueadas por pago" })).toHaveTextContent("Contenido de la revisión");
-    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
-    expect(screen.getByText("Decidí qué pasa con cada membresía antes de continuar.")).toBeInTheDocument();
-    view.rerender(<AdmissionPolicyForm {...props} step={4} confirmed finalLabel="Activar ahora" membershipStep={{ content: null, blockedReason: null }} />);
-    fireEvent.click(screen.getByRole("button", { name: "Activar ahora" }));
-    expect(props.onRunFinal).toHaveBeenCalledOnce();
+    expect(screen.getByRole("navigation", { name: "Paso 4 de 4" })).toBeInTheDocument();
+    expect(screen.getByText("Al activar, 1 membresía bloqueada por pago pasa a ser integrante gratuita: entra a la tribu sin acceso al contenido pago de la academia y, si era guardiana, pierde ese rol. Después podés gestionarla desde Integrantes.")).toBeInTheDocument();
+    view.rerender(<AdmissionPolicyForm {...props} state={{ ...props.state, controlActivated: true }} />);
+    expect(screen.queryByText(/membresía bloqueada por pago/)).not.toBeInTheDocument();
   });
 });

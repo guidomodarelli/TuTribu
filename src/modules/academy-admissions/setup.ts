@@ -1,7 +1,5 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
-import { ManageCommercialMembershipReviewsUseCases } from "./application/use-cases/manage-commercial-membership-reviews-use-cases";
-import { PostgresCommercialMembershipReviewRepository } from "./infrastructure/repositories/postgres-commercial-membership-review-repository";
 import { UpdateAdmissionWhatsappNumberUseCase } from "./application/use-cases/update-admission-whatsapp-number-use-case";
 import { PurgeAdmissionDataUseCase } from "./application/use-cases/purge-admission-data-use-case";
 import { PostgresAdmissionRetentionRepository } from "./infrastructure/repositories/postgres-admission-retention-repository";
@@ -240,7 +238,7 @@ function buildInvitationAndVerificationModules({ dependencies, resolveContext, e
   };
 }
 
-/** @param context - Shared request composition. @returns Policy query/management and commercial membership review module factories. */
+/** @param context - Shared request composition. @returns Policy query and management module factories. */
 function buildPolicyModules({ dependencies, resolveContext, executeForAccount }: AdmissionModuleContext) {
   return {
   /** @param options - Explicit informational preparation evaluator, or null when no evaluation is available. @returns Current leader query without a keyring, command writer or implicit initialization dependency. */
@@ -270,11 +268,6 @@ function buildPolicyModules({ dependencies, resolveContext, executeForAccount }:
     const composePreparation = (database: RequestDatabase, context: AuthorizedAdmissionContext): AdmissionPolicyPreparationReader => new PostgresAdmissionPolicyPreparationReader(options.composePreflight(database, context), usage(database, context), new PostgresAdmissionVerificationReadinessReader(database, authorize(context), options.readSecurityConfig), options.readSecurityConfig);
     const writer = new PostgresAdmissionPolicyRepository(executePolicy, options.readSecurityConfig, composePreparation);
     return { useCases: new ManageAdmissionPolicyUseCases(resolveContext, new PostgresAdmissionPolicyReader(executePolicy, usage), writer), composePreparation };
-  },
-  /** @param options - Live security for the original ledger. @returns The leader's review of memberships blocked by payment through the tribes owner functions. */
-  createCommercialMembershipReviewModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-    const executeReview = executeForAccount;
-    return { useCases: new ManageCommercialMembershipReviewsUseCases(resolveContext, new PostgresCommercialMembershipReviewRepository(executeReview, options.readSecurityConfig)) };
   },
   };
 }

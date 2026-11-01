@@ -24,7 +24,7 @@ export const admissionPolicyStateResultSchema = z.object({
   policy: admissionPolicySchema.nullable(),
   usage: z.object({ version: admissionPublicVersionSchema, allowedCountries: z.array(z.string()) }).nullable(),
   preparation: z.object({ state: z.enum(ADMISSION_POLICY_PREPARATION_STATE), requirements: z.array(z.enum({ ...ADMISSION_POLICY_ACTIVATION_ERROR, ...ADMISSION_POLICY_CONFIGURATION_ERROR })) }),
-  impact: z.object({ pendingRequestCount: z.int().nonnegative(), contactTypeLocked: z.boolean(), historicalLinksProtected: z.boolean(), warnings: z.array(z.enum(ADMISSION_POLICY_CONFIGURATION_WARNING)) }),
+  impact: z.object({ pendingRequestCount: z.int().nonnegative(), freeConversionMemberCount: z.int().nonnegative().optional(), contactTypeLocked: z.boolean(), historicalLinksProtected: z.boolean(), warnings: z.array(z.enum(ADMISSION_POLICY_CONFIGURATION_WARNING)) }),
 }).refine((result) => {
   if (result.impact.historicalLinksProtected !== result.controlActivated || result.impact.contactTypeLocked !== (result.controlActivated || Boolean(result.policy?.activatedAt))) return false;
   if (result.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable) return true;

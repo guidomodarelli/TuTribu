@@ -76,17 +76,6 @@ describe("AdmissionSetupGuideFallback", () => {
     expect(screen.queryByRole("status", { name: "Cargando la guía de configuración" })).not.toBeInTheDocument();
   });
 
-  it("adds the membership review before opening and links to its own step", () => {
-    const progress = deriveAdmissionSetupProgress({
-      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
-      messaging: null, notifications: null, memberships: { pendingCount: 1, resolvedCount: 0 },
-    });
-    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
-    const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
-    expect(items.map((item) => item.textContent)).toEqual(expect.arrayContaining([expect.stringContaining("Revisá membresías bloqueadas por pago")]));
-    expect(screen.getByRole("link", { name: "Revisar membresías" })).toHaveAttribute("href", "/tribu/academia/admissions/settings?step=memberships");
-    expect(screen.getByText("1 de 3 pasos necesarios listos")).toBeInTheDocument();
-  });
 
   it("explains a platform block on the opening step instead of linking to a screen that would fail again", () => {
     const progress = deriveAdmissionSetupProgress({
