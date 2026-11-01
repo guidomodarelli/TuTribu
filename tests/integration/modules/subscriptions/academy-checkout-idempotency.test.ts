@@ -471,6 +471,63 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
     expect(subscriptions[0]).toMatchObject({ price_snapshot_amount_cents: 4500 });
   });
 
+  it("should answer offer_changed when the price changes while an unlinked reservation waits to be refreshed", async () => {
+    await insertPendingReservation();
+    const create = creationEchoingReservation();
+    const repository = buildRepository(buildGateway({ createPreapproval: create }));
+    const competing = await pool.connect();
+    let checkout: ReturnType<typeof repository.startCheckout> | undefined;
+    try {
+      await competing.query("begin");
+      await competing.query("select id from public.tribe_member_subscriptions where tribe_id=$1 and user_id=$2 for update", [tribeId, memberId]);
+      checkout = repository.startCheckout({ acceptedOfferVersion: 1, acceptedPrice: { amountCents: 3000, currency: "ARS" }, correlationId: randomUUID(), tribeSlug });
+      // The checkout already accepted 3000 and now waits for the reservation lock.
+      await waitForLockWait();
+      await pool.query("update public.tribe_subscription_prices set amount_cents=4500 where tribe_id=$1 and product_key='academy'", [tribeId]);
+      await competing.query("commit");
+
+      expect(await checkout).toEqual({ status: "offer_changed" });
+    } finally {
+      competing.release();
+      await checkout?.catch(() => undefined);
+    }
+    expect(create).not.toHaveBeenCalled();
+    const subscriptions = await readOwnSubscriptions();
+    expect(subscriptions).toHaveLength(1);
+    expect(subscriptions[0]).toMatchObject({ price_snapshot_amount_cents: 3000, status: "pending" });
+  });
+
+  it("should answer offer_changed when the price changes before a new reservation is inserted", async () => {
+    await insertPendingReservation();
+    const create = creationEchoingReservation();
+    const repository = buildRepository(buildGateway({ createPreapproval: create }));
+    const competing = await pool.connect();
+    let checkout: ReturnType<typeof repository.startCheckout> | undefined;
+    try {
+      await competing.query("begin");
+      await competing.query("select id from public.tribe_member_subscriptions where tribe_id=$1 and user_id=$2 for update", [tribeId, memberId]);
+      checkout = repository.startCheckout({ acceptedOfferVersion: 1, acceptedPrice: { amountCents: 3000, currency: "ARS" }, correlationId: randomUUID(), tribeSlug });
+      await waitForLockWait();
+      await pool.query("update public.tribe_subscription_prices set amount_cents=4500 where tribe_id=$1 and product_key='academy'", [tribeId]);
+      // Canceling the locked reservation sends the waiting checkout to insert a new one.
+      await competing.query("update public.tribe_member_subscriptions set status='canceled' where tribe_id=$1 and user_id=$2", [tribeId, memberId]);
+      await competing.query("commit");
+
+      expect(await checkout).toEqual({ status: "offer_changed" });
+    } finally {
+      competing.release();
+      await checkout?.catch(() => undefined);
+    }
+    expect(create).not.toHaveBeenCalled();
+    const subscriptions = await readOwnSubscriptions();
+    expect(subscriptions).toEqual([expect.objectContaining({ price_snapshot_amount_cents: 3000, status: "canceled" })]);
+  });
+
+  /** Commits an unlinked pending reservation of the member with the current academy price. */
+  async function insertPendingReservation() {
+    await pool.query("insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,product_key,status,status_reason,price_snapshot_name,price_snapshot_amount_cents,price_snapshot_currency,price_snapshot_frequency,price_snapshot_provider_plan_id,offer_version_snapshot,terms_accepted_at) select tribe_id,$2,id,payment_integration_id,'academy','pending','none',name,amount_cents,currency,frequency,mercado_pago_preapproval_plan_id,1,now() from public.tribe_subscription_prices where tribe_id=$1 and product_key='academy'", [tribeId, memberId]);
+  }
+
   /** Waits until a statement of this database blocks on a row or index lock. */
   async function waitForLockWait() {
     for (let attempt = 0; attempt < 50; attempt += 1) {

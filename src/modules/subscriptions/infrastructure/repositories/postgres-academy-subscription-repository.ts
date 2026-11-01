@@ -428,6 +428,24 @@ function buildCurrentAcademyPriceStatement(tribeId: string): SQL {
 }
 
 /**
+ * Current academy price, and that same price only while it is still the one
+ * the checkout validated. Both read the snapshot of the statement that writes
+ * the reservation, so a price made current or edited after the validation
+ * never reaches it.
+ */
+function buildValidatedAcademyPriceCtes(tribeId: string, validatedPrice: ValidatedAcademyPrice): SQL {
+  return sql`
+        current_academy_price as (${buildCurrentAcademyPriceStatement(tribeId)}),
+        validated_academy_price as (
+          select current_academy_price.*
+          from current_academy_price
+          where current_academy_price.id = ${validatedPrice?.id ?? null}
+            and current_academy_price.amount_cents = ${validatedPrice?.amountCents ?? null}
+            and current_academy_price.currency = ${validatedPrice?.currency ?? null}
+        )`;
+}
+
+/**
  * Reads the academy sales settings, the current price and whether the buyer is verified and already covered.
  */
 function buildAcademyCheckoutContextStatement(tribeId: string, userId: string): SQL {
@@ -437,6 +455,7 @@ function buildAcademyCheckoutContextStatement(tribeId: string, userId: string): 
           coalesce(tribe_academy_settings.access_model = 'academy', false) as is_academy,
           coalesce(tribe_academy_settings.sales_enabled, false) as sales_enabled,
           tribe_academy_settings.offer_version,
+          (select id from current_academy_price) as price_id,
           (select amount_cents from current_academy_price) as price_amount_cents,
           (select currency from current_academy_price) as price_currency,
           public.is_member_verified_for_academy(${tribeId}, ${userId}) as is_verified,
@@ -520,8 +539,26 @@ type AcademyCheckoutContextRow = {
   offer_version: number | null;
   price_amount_cents: number | null;
   price_currency: string | null;
+  price_id: string | null;
   sales_enabled: boolean;
 };
+
+/** Current price the checkout validated, or `null` when none was current. */
+type ValidatedAcademyPrice = { amountCents: number; currency: string; id: string } | null;
+
+/**
+ * Reads the price the checkout validated from its context.
+ *
+ * @param context - Academy sales settings and current price.
+ * @returns The validated price identity, or `null` when no price was current.
+ */
+function readValidatedPrice(context: AcademyCheckoutContextRow): ValidatedAcademyPrice {
+  if (context.price_id === null || context.price_amount_cents === null || context.price_currency === null) {
+    return null;
+  }
+
+  return { amountCents: context.price_amount_cents, currency: context.price_currency, id: context.price_id };
+}
 
 /**
  * Whether the current price differs from the one the buyer saw. A page
@@ -588,12 +625,17 @@ type LiveAcademySubscriptionRow = {
   status: string;
 };
 
-type LiveReservationInput = { command: StartAcademyCheckoutCommand; tribeId: string; userId: string };
+type LiveReservationInput = {
+  command: StartAcademyCheckoutCommand;
+  tribeId: string;
+  userId: string;
+  validatedPrice: ValidatedAcademyPrice;
+};
 
 type LiveReservationResult =
   | { status: "reserved"; subscriptionId: string }
   | { checkoutUrl: string; status: "redirect" }
-  | { status: "already_subscribed" | "sales_closed" };
+  | { status: "already_subscribed" | "offer_changed" | "sales_closed" };
 
 /**
  * Maps the local status of a subscription that reached the provider to the
@@ -1397,13 +1439,19 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       }
 
       const contextResult = await database.execute(buildAcademyCheckoutContextStatement(tribeId, member.user_id));
-      const rejection = findCheckoutContextRejection(contextResult.rows[0] as AcademyCheckoutContextRow, command);
+      const context = contextResult.rows[0] as AcademyCheckoutContextRow;
+      const rejection = findCheckoutContextRejection(context, command);
 
       if (rejection) {
         return rejection;
       }
 
-      const reserved = await this.reserveLiveSubscription(database, { command, tribeId, userId: member.user_id });
+      const reserved = await this.reserveLiveSubscription(database, {
+        command,
+        tribeId,
+        userId: member.user_id,
+        validatedPrice: readValidatedPrice(context),
+      });
 
       if (reserved.status !== "reserved") {
         return reserved;
@@ -1447,18 +1495,18 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
 
     return live
       ? this.reuseLiveSubscription(database, live, input)
-      : this.insertReservation(database, input.tribeId, input.userId, input.command);
+      : this.insertReservation(database, input);
   }
 
   /**
    * Resumes the buyer's live academy subscription. An unlinked reservation that
    * never reached the provider is refreshed with the accepted offer and the
-   * current price, so the checkout never freezes conditions the member did not see.
+   * validated price, so the checkout never freezes conditions the member did not see.
    */
   private async reuseLiveSubscription(
     database: RequestDatabase,
     live: LiveAcademySubscriptionRow,
-    { command, tribeId }: LiveReservationInput
+    { command, tribeId, validatedPrice }: LiveReservationInput
   ): Promise<LiveReservationResult> {
     if (live.status !== TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending) {
       return { status: "already_subscribed" };
@@ -1472,7 +1520,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       // The claim is checked again here: this statement runs after the row lock,
       // so it sees a claim committed while this checkout waited for that lock.
       const refreshResult = await database.execute(sql`
-        with current_academy_price as (${buildCurrentAcademyPriceStatement(tribeId)}),
+        with ${buildValidatedAcademyPriceCtes(tribeId, validatedPrice)},
         creation_claim as (
           select 1
           from public.subscription_idempotency_operations
@@ -1480,30 +1528,32 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         ),
         refreshed as (
           update public.tribe_member_subscriptions
-          set price_id = current_academy_price.id,
-              payment_integration_id = current_academy_price.payment_integration_id,
-              price_snapshot_name = current_academy_price.name,
-              price_snapshot_amount_cents = current_academy_price.amount_cents,
-              price_snapshot_currency = current_academy_price.currency,
-              price_snapshot_frequency = current_academy_price.frequency,
-              price_snapshot_provider_plan_id = current_academy_price.mercado_pago_preapproval_plan_id,
+          set price_id = validated_academy_price.id,
+              payment_integration_id = validated_academy_price.payment_integration_id,
+              price_snapshot_name = validated_academy_price.name,
+              price_snapshot_amount_cents = validated_academy_price.amount_cents,
+              price_snapshot_currency = validated_academy_price.currency,
+              price_snapshot_frequency = validated_academy_price.frequency,
+              price_snapshot_provider_plan_id = validated_academy_price.mercado_pago_preapproval_plan_id,
               offer_version_snapshot = ${command.acceptedOfferVersion},
               terms_accepted_at = now(),
               updated_at = timezone('utc', now())
-          from current_academy_price
+          from validated_academy_price
           where tribe_member_subscriptions.id = ${live.id}
             and not exists (select 1 from creation_claim)
           returning tribe_member_subscriptions.id
         )
         select
           exists (select 1 from refreshed) as is_refreshed,
-          exists (select 1 from creation_claim) as has_creation_claim
+          exists (select 1 from creation_claim) as has_creation_claim,
+          exists (select 1 from current_academy_price) as has_current_price
       `);
-      const refresh = refreshResult.rows[0] as { has_creation_claim: boolean; is_refreshed: boolean };
+      const refresh = refreshResult.rows[0] as { has_creation_claim: boolean; has_current_price: boolean; is_refreshed: boolean };
 
       // A claimed reservation keeps its snapshot and resumes through the claim recovery.
       if (!refresh.is_refreshed && !refresh.has_creation_claim) {
-        return { status: "sales_closed" };
+        // A current price other than the validated one changed after the buyer accepted it.
+        return { status: refresh.has_current_price ? "offer_changed" : "sales_closed" };
       }
     }
 
@@ -1512,13 +1562,11 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
 
   private async insertReservation(
     database: RequestDatabase,
-    tribeId: string,
-    userId: string,
-    command: StartAcademyCheckoutCommand
+    { command, tribeId, userId, validatedPrice }: LiveReservationInput
   ): Promise<LiveReservationResult | { status: "conflict" }> {
     // Freeze the accepted conditions: later catalog edits never change them.
     const result = await database.execute(sql`
-      with current_academy_price as (${buildCurrentAcademyPriceStatement(tribeId)}),
+      with ${buildValidatedAcademyPriceCtes(tribeId, validatedPrice)},
       inserted as (
         insert into public.tribe_member_subscriptions (
           tribe_id,
@@ -1539,31 +1587,37 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
         select
           ${tribeId},
           ${userId},
-          current_academy_price.id,
-          current_academy_price.payment_integration_id,
+          validated_academy_price.id,
+          validated_academy_price.payment_integration_id,
           ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy},
           ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
           ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none},
-          current_academy_price.name,
-          current_academy_price.amount_cents,
-          current_academy_price.currency,
-          current_academy_price.frequency,
-          current_academy_price.mercado_pago_preapproval_plan_id,
+          validated_academy_price.name,
+          validated_academy_price.amount_cents,
+          validated_academy_price.currency,
+          validated_academy_price.frequency,
+          validated_academy_price.mercado_pago_preapproval_plan_id,
           ${command.acceptedOfferVersion},
           now()
-        from current_academy_price
+        from validated_academy_price
         on conflict do nothing
         returning id
       )
       select
         (select id from inserted) as id,
-        exists (select 1 from current_academy_price) as has_current_price
+        exists (select 1 from current_academy_price) as has_current_price,
+        exists (select 1 from validated_academy_price) as has_validated_price
     `);
-    const row = result.rows[0] as { has_current_price: boolean; id: string | null };
+    const row = result.rows[0] as { has_current_price: boolean; has_validated_price: boolean; id: string | null };
 
     if (!row.id) {
-      // Without a current price sales are closed; with one, a concurrent checkout of the buyer inserted first.
-      return { status: row.has_current_price ? "conflict" : "sales_closed" };
+      if (!row.has_current_price) {
+        return { status: "sales_closed" };
+      }
+
+      // A current price other than the validated one changed after the buyer accepted it;
+      // with the validated one, a concurrent checkout of the buyer inserted first.
+      return { status: row.has_validated_price ? "conflict" : "offer_changed" };
     }
 
     await this.recordAuditEvent(database, {
