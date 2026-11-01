@@ -14,6 +14,7 @@ import { resolveDevSignInFormEmail } from "@/src/modules/auth/infrastructure/dev
 import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
 import { readFirstSearchParamValue } from "@/app/search-params";
+import { SIGN_IN_ACCOUNT_CHOOSER_VALUE } from "@/lib/auth/sign-in-redirect";
 
 export type SignInSearchParams = {
   [key: string]: string | string[] | undefined;
@@ -145,14 +146,16 @@ export function SignInPendingView() {
 function SignInView({
   callbackUrl,
   devSignInEmail = null,
+  selectAccount = false,
 }: {
   callbackUrl: string;
   devSignInEmail?: string | null;
+  selectAccount?: boolean;
 }) {
   if (devSignInEmail) {
     return (
       <SignInShell>
-        <SignInWithGoogleButton callbackUrl={callbackUrl} />
+        <SignInWithGoogleButton callbackUrl={callbackUrl} selectAccount={selectAccount} />
         <DevSignInForm callbackUrl={callbackUrl} defaultEmail={devSignInEmail} />
       </SignInShell>
     );
@@ -160,7 +163,7 @@ function SignInView({
 
   return (
     <SignInShell>
-      <AutoSignInWithGoogle callbackUrl={callbackUrl} />
+      <AutoSignInWithGoogle callbackUrl={callbackUrl} selectAccount={selectAccount} />
     </SignInShell>
   );
 }
@@ -206,6 +209,8 @@ export async function SignInContent({
     resolvedSearchParams[QUERY_PARAMS.auth.callbackUrl]
   );
   const callbackUrl = resolveSafeCallbackUrl(rawCallbackUrl, ROUTES.home);
+  // An explicit account change signed out first: Google shows its account chooser instead of the same open session.
+  const selectAccount = readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.auth.selectAccount]) === SIGN_IN_ACCOUNT_CHOOSER_VALUE;
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
@@ -231,6 +236,7 @@ export async function SignInContent({
     <SignInView
       callbackUrl={callbackUrl}
       devSignInEmail={resolveDevSignInFormEmail(process.env)}
+      selectAccount={selectAccount}
     />
   );
 }

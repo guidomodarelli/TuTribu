@@ -24,7 +24,7 @@ export const ADMISSION_REVIEW_HISTORY_ACTOR_LABEL = { account: "Cuenta registrad
 /** Only the owned normalized vocabulary is displayed, never raw event names. */
 export const ADMISSION_REVIEW_HISTORY_EVENT_LABEL = {
   pending_created: "Solicitud presentada", proof_attached: "Verificación incorporada", approved: "Solicitud aprobada", rejected: "Solicitud rechazada",
-  cancelled: "Solicitud cancelada", expired: "Solicitud vencida", retry_allowed: "Nuevo intento habilitado", unclassified: "Evento conservado",
+  cancelled: "Solicitud cancelada", expired: "Solicitud vencida", retry_allowed: "Nuevo intento habilitado", whatsapp_number_changed: "Teléfono de WhatsApp actualizado", unclassified: "Evento conservado",
 } as const satisfies Readonly<Record<AdmissionReviewHistoryEventKind, string>>;
 /** Strict own props reject private additions even when an inward adapter returns an otherwise valid page. */
 export const admissionReviewHistoryPageStateSchema: z.ZodType<AdmissionReviewHistoryPageState> = z.discriminatedUnion("kind", [

@@ -65,7 +65,8 @@ export function interruptedObservationMessage(unresolved: boolean): string {
 export function settlePersonalInitialization(refs: PersonalRequestRefs, initialization: AbortController, setters: Pick<PersonalSettledRequest, "setPhase" | "setErrorMessage">): void {
   if (refs.controllerRef.current !== initialization) return;
   refs.busyRef.current = false; refs.controllerRef.current = null;
-  if (refs.activeRef.current && initialization.signal.aborted) { setters.setPhase(refs.pendingRef.current ? PERSONAL_INVITATION_UI_PHASE.uncertain : PERSONAL_INVITATION_UI_PHASE.idle); setters.setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); }
+  // Only an original still unresolved is reported as such; a slow first read with nothing sent is an interrupted read.
+  if (refs.activeRef.current && initialization.signal.aborted) { const unresolved = Boolean(refs.pendingRef.current); setters.setPhase(unresolved ? PERSONAL_INVITATION_UI_PHASE.uncertain : PERSONAL_INVITATION_UI_PHASE.idle); setters.setErrorMessage(interruptedObservationMessage(unresolved)); }
 }
 
 /** @param refs - Workflow refs. @param initialization - The mount's own initialization. Retires the mount and cancels whichever request is running now. */

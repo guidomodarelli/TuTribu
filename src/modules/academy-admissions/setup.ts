@@ -154,7 +154,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
      * @returns Server-derived submission/reviewer/cancellation use cases with atomic DB-only owners.
      */
     createManualRequestModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const executeRequest = async <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => {
+      const executeRequest = async <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => {
         const account = await readCurrentFeatureSessionContext(dependencies.accounts);
         if (account?.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);

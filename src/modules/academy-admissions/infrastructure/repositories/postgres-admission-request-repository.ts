@@ -23,6 +23,7 @@ import { PostgresAdmissionAuthorizationReader, type AdmissionSubmissionActorCont
 import { readLockedAdmissionFacts } from "./postgres-locked-admission-facts";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { AdmissionRetryWaitError } from "@/src/modules/academy-admissions/domain/errors/admission-retry-wait-error";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema, type AdmissionSubmissionResult, admissionWhatsappNumberResultSchema  } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { PostgresOwnAdmissionRequestReader } from "./postgres-own-admission-request-reader";
@@ -331,7 +332,8 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       return { operationId: input.operationId, outcome: ADMISSION_OUTCOME.alreadyMember, admissionRequestId: null, committedRequestVersion: null, membership: { role: existing.role, status: existing.status }, created: false };
     }
     if (previous?.status === ADMISSION_REQUEST_STATUS.pending && facts.now < previous.expiresAt) return this.pendingResult(database, input, previous, false);
-    if (previous && facts.now < getAdmissionRetryAllowedAt(previous)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+    const retryAllowedAt = previous ? getAdmissionRetryAllowedAt(previous) : null;
+    if (retryAllowedAt && facts.now < retryAllowedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionRetryWaitError(retryAllowedAt) });
     if (previous?.status === ADMISSION_REQUEST_STATUS.pending) await this.expire(database, input, { request: previous, ledgerId, policy: facts.policy });
     return null;
   }

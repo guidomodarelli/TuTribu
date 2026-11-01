@@ -15,6 +15,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Al volver a ingresar gratis con una membresía inactiva por una suscripción, quien estaba silenciado sigue silenciado y un guardián vuelve como integrante.
 - Contratar la academia compara el precio que viste con el vigente: si cambió, avisa que la oferta cambió antes de abrir Mercado Pago.
 - Si la conexión de la tribu con Mercado Pago no está disponible, contratar, actualizar el estado o cancelar lo dicen y explican qué hacer, en lugar de pedir que vuelvas a intentar en unos minutos.
+- «Cambiar de cuenta» en la solicitud de ingreso o en una invitación personal abre el selector de cuentas de Google, para que puedas elegir otra cuenta aunque tengas una sola sesión abierta.
+- Los celulares argentinos escritos sin el 9 (por ejemplo «+54 11 1234 5678») se guardan como +54 9 11 1234 5678, el número que reciben los códigos por SMS o WhatsApp, y siguen coincidiendo con la lista de habilitados, las invitaciones, las solicitudes pendientes y los contactos reservados guardados antes. Los ejemplos de teléfono ahora usan un celular argentino.
+- Si las reglas, la invitación o la solicitud cambian mientras tenés la página abierta, al enviar, confirmar, pedir un código o cancelar la página lee los datos actuales y te pide confirmar de nuevo, en lugar de repetir el mismo rechazo.
 - El límite del archivo CSV para importar habilitados pasa de 5 MiB a 3 MiB, para que la vista previa siempre llegue a guardarse.
 - El reporte descargado de una importación de habilitados nombra sus columnas en español (Fila, Contacto, Nombre, Resultado, Errores, Versión de entrada).
 
@@ -53,6 +56,19 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - En Habilitados, Importación e Invitaciones se puede descartar una operación anterior que nunca se registró sin perder el borrador ni el archivo, y una vista previa de importación que ya no se puede confirmar pide crear otra con el mismo archivo.
 - En Reglas de admisión, pausar sin la seguridad de la plataforma muestra que las admisiones siguen abiertas y que depende del equipo de TuTribu, en lugar de un texto pensado para postulantes y un reintento que fallaba; el bloqueo ya no dice que se guardó un borrador cuando no se guardó nada; reintentar una operación muestra el bloqueo de esa misma acción; si no se puede volver a leer la configuración se muestra ese error en lugar de un aviso vacío, y «Volver a comprobar» detecta claves sin inscribir y la pausa de recuperación sin informar una pausa cuando lo que falta es la configuración.
 - La guía «Configurá las admisiones» muestra un único aviso del equipo de TuTribu y deja de invitar a definir reglas, conectar mensajería o elegir países y cupos mientras la plataforma no puede proteger esos cambios, sin mencionar un borrador que no existe.
+- Pedir el código de ingreso desde otra pestaña, otro navegador o el celular muestra el código que ya está vigente para ese destino, listo para escribirlo o reenviarlo, en lugar de «Ese código ya no está vigente».
+- Retomar una solicitud con un código anterior que ya no sirve (de una invitación personal o de un canal que la academia desactivó) ya no deja la pantalla esperando: se puede pedir un código nuevo.
+- En la prueba de un canal de mensajería, enviar otra prueba al mismo destino mientras la anterior sigue vigente explica que ya se envió un código, en lugar de decir que no está vigente.
+- El enlace del correo sobre tu solicitud de ingreso abre la solicitud; los enlaces enviados antes, sin la academia, también funcionan después de iniciar sesión.
+- Un enlace de invitación clásico a una academia que todavía no activó el control de admisión lleva a su página de academia, con el ingreso gratuito, en lugar de mostrar las admisiones cerradas.
+- Quien recupera una membresía comercial ya puede recibir el código de ingreso, en lugar de que se le pida asistencia autorizada.
+- Una invitación personal durante la espera para volver a presentar muestra cuándo se puede, en lugar de ofrecer «Confirmar invitación» y rechazarla siempre.
+- Si la comprobación inicial de una invitación personal tarda demasiado, el aviso dice que no se pudo consultar, en lugar de hablar de una operación que no existe.
+- Cancelar o corregir el teléfono de una solicitud que acaba de vencer explica que venció, en lugar de no hacer nada o mostrar «Falta un requisito actual».
+- El historial de una solicitud muestra «Teléfono de WhatsApp actualizado» cuando el solicitante corrige su teléfono, en lugar de «Evento conservado» con Pendiente → Pendiente.
+- «Cambiar de cuenta» desde la página de tu solicitud lleva la cuenta nueva a la entrada de la academia, en lugar de una solicitud que no puede ver.
+- «Cambiar de cuenta» queda deshabilitado mientras hay una operación anterior sin confirmar, y después de cerrar la sesión no se vuelve a habilitar mientras se abre el inicio de sesión.
+- En la revisión, una solicitud sin teléfono cuando las reglas lo exigen explica por qué no se puede aprobar.
 - Una operación de admisión que quedó registrada sin terminar (Reglas, Países y cupos, la revisión individual y en lote, la solicitud de ingreso, Habilitados y la importación) ya no deja la pantalla trabada: se puede reintentar con los mismos datos sin que se aplique dos veces.
 - En Habilitados, Importación, Invitaciones y la invitación personal, un cambio que no llegó a registrarse o que no terminó se puede reintentar o descartar, en lugar de bloquear la pantalla hasta cerrar la pestaña; buscar y «Ver más» siguen disponibles mientras tanto.
 - Una vista previa de importación creada antes de cambiar las Reglas ya no entra en un bucle de «La configuración cambió»: vuelve a pedir el archivo y una vista previa nueva con la configuración actual.

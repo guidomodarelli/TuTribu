@@ -100,6 +100,8 @@ describe("manual admission lifecycle", () => {
     const request = pending(), actor = { userId: request.userId, tribeId: request.tribeId, role: null, status: null };
     expect(proposeAdmissionCancellation({ request, expectedVersion: 1, decisionId: randomUUID(), actor, internalReason: null, now: request.submittedAt })).toMatchObject({ allowed: true, request: { status: "cancelled", version: 2, source: "common" } });
     expect(proposeAdmissionCancellation({ request, expectedVersion: 1, decisionId: randomUUID(), actor: { ...actor, userId: randomUUID() }, internalReason: null, now: request.submittedAt })).toMatchObject({ allowed: false, code: "permission_denied" });
+    // A request that reached its deadline names that, instead of a missing requirement.
+    expect(proposeAdmissionCancellation({ request, expectedVersion: 1, decisionId: randomUUID(), actor, internalReason: null, now: request.expiresAt })).toMatchObject({ allowed: false, code: "request_expired" });
   });
 
   it("should preserve the historical legacy reference when a coherent reviewer rejects its common-path request", () => {

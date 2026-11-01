@@ -16,6 +16,8 @@ export const MESSAGING_ERROR_CODE = {
   verificationCodeIncorrect: "verification_code_incorrect",
   challengeExpired: "challenge_expired",
   challengeInvalidated: "challenge_invalidated",
+  /** A live test code for the same destination already exists; it is replaced only through an explicit resend. */
+  challengeAlreadySent: "challenge_already_sent",
   verificationAttemptsExceeded: "verification_attempts_exceeded",
   /** Kept only for persisted audit values and responses from older servers; current writers never emit it. */
   reauthenticationRequired: "reauthentication_required",
@@ -38,6 +40,7 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.verificationCodeIncorrect]: "El código no es correcto. Revisá el código recibido para esta prueba de conexión.",
   [MESSAGING_ERROR_CODE.challengeExpired]: "El código de la prueba venció. Solicitá uno nuevo cuando esté disponible.",
   [MESSAGING_ERROR_CODE.challengeInvalidated]: "Ese código ya no está vigente para esta prueba de conexión.",
+  [MESSAGING_ERROR_CODE.challengeAlreadySent]: "Ya enviamos un código de prueba a ese destino. Ingresalo o usá «Reenviar» cuando esté disponible.",
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: "Alcanzaste el límite de intentos de esta prueba. Esperá antes de intentar otra vez.",
   [MESSAGING_ERROR_CODE.reauthenticationRequired]: "Tu sesión cambió. Recargá la página e intentá de nuevo.",
   [MESSAGING_ERROR_CODE.connectionIncomplete]: "La academia todavía no tiene preparada la conexión necesaria.",

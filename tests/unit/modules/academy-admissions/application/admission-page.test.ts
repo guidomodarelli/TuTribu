@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { GetAdmissionPageUseCase } from "@/src/modules/academy-admissions/application/use-cases/get-admission-page-use-case";
 import { loadAdmissionPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-page";
+import { admissionNotificationPath } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-path";
 import type { AdmissionOverviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -15,9 +16,12 @@ function pageFixture() {
   const request = { id: randomUUID(), status: "pending" as const, version: 1, submittedAt: now.toISOString(), expiresAt: "2026-11-06T01:00:00Z", source: "common" as const, needsVerification: false, eligibilityReasons: [], contact: { type: "email" as const, maskedValue: "a•••@example.test", evidenceKind: "declared" as const } };
   const overview: AdmissionOverviewDto = { tribe: { slug: "synthetic-academy", name: "Academia sintética", accessModel: "academy" }, policy: { mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, isOpen: true, version: 1 }, state: "pending", nextAction: "view_request", safeMessage: "Tu solicitud está pendiente.", request };
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
-  const readers = { overview: { execute: vi.fn(async () => ({ ok: true as const, value: overview })) }, own: { getOwn: vi.fn(async () => ({ ok: true as const, value: request })) }, resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId: randomUUID() } })) } };
+  const readers = { overview: { execute: vi.fn(async () => ({ ok: true as const, value: overview })) }, own: { getOwn: vi.fn(async () => ({ ok: true as const, value: request })), findOwnTribeSlug: vi.fn(async () => ({ ok: true as const, value: "synthetic-academy" })) }, resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId: randomUUID() } })) } };
   return { account, accounts, request, overview, readers, now, useCase: new GetAdmissionPageUseCase(accounts, readers, () => now) };
 }
+
+/** A request link that names its tribe never resolves it again. */
+const unusedTribeResolution = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.unexpectedFailure, cause: new Error("Synthetic unused tribe resolution") } }));
 
 describe("admission page state", () => {
   it("should validate a historical arrival through its own reader without exposing token or session in SSR state", async () => {
@@ -64,10 +68,10 @@ describe("admission page state", () => {
   it("should drop unknown query keys without reading them and still reject a malformed known key", async () => {
     const execute = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic") } })), requestId = randomUUID();
     // A role in the query is ignored: the use case only receives the slug, the request id and its own request context.
-    await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy", role: "leader", utm_source: "newsletter" }, mode: "request" }, async () => ({ page: { execute } }));
+    await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy", role: "leader", utm_source: "newsletter" }, mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe: unusedTribeResolution } }));
     expect(execute).toHaveBeenCalledOnce();
     expect(JSON.stringify(execute.mock.calls)).not.toMatch(/leader|newsletter/);
-    expect(await loadAdmissionPageState({ params: { slug: "synthetic-academy" }, query: { fbclid: "tracking" }, mode: "entry" }, async () => ({ page: { execute } }))).not.toMatchObject({ code: "invalid_input" });
+    expect(await loadAdmissionPageState({ params: { slug: "synthetic-academy" }, query: { fbclid: "tracking" }, mode: "entry" }, async () => ({ page: { execute, resolveOwnRequestTribe: unusedTribeResolution } }))).not.toMatchObject({ code: "invalid_input" });
     const open = vi.fn();
     expect(await loadAdmissionPageState({ params: { requestId: randomUUID() }, query: { tribe: "Not A Slug!" }, mode: "request" }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
     expect(open).not.toHaveBeenCalled();
@@ -78,8 +82,33 @@ describe("admission page state", () => {
     expect(await loadAdmissionPageState({ params: { requestId: "not-a-uuid" }, query: { tribe: "synthetic-academy" }, mode: "request" }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
     expect(open).not.toHaveBeenCalled();
     const requestId = randomUUID();
-    const state = await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy" }, mode: "request" }, async () => ({ page: { execute: async () => ({ ok: false, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic private auth payload") } }) } }));
+    const state = await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy" }, mode: "request" }, async () => ({ page: { execute: async () => ({ ok: false, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic private auth payload") } }), resolveOwnRequestTribe: unusedTribeResolution } }));
     expect(state).toEqual({ kind: "unavailable", code: "authentication_required", message: ADMISSION_ERROR_MESSAGE.authentication_required, returnPath: `/admissions/requests/${requestId}?tribe=synthetic-academy` });
     expect(JSON.stringify(state)).not.toContain("Synthetic private auth payload");
+  });
+
+  it("should open the applicant request link of an admission email", async () => {
+    const requestId = randomUUID(), tribeSlug = "synthetic-academy";
+    const href = admissionNotificationPath("applicant", tribeSlug, requestId);
+    const url = new URL(href, "https://tutribu.app"), execute = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic") } }));
+    const state = await loadAdmissionPageState({ params: { requestId: url.pathname.split("/").at(-1) }, query: Object.fromEntries(url.searchParams), mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe: unusedTribeResolution } }));
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ slug: tribeSlug, admissionRequestId: requestId }));
+    expect(state).toMatchObject({ kind: "unavailable", code: "authentication_required", returnPath: `/admissions/requests/${requestId}?tribe=${tribeSlug}` });
+  });
+
+  it("should resolve the tribe of an own request link sealed without it and keep that link as the sign-in return", async () => {
+    const requestId = randomUUID(), execute = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.resourceUnavailable, cause: new Error("Synthetic") } }));
+    const resolveOwnRequestTribe = vi.fn(async () => ({ ok: true as const, value: "resolved-academy" }));
+    expect(await loadAdmissionPageState({ params: { requestId }, query: {}, mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe } }))).toMatchObject({ returnPath: `/admissions/requests/${requestId}?tribe=resolved-academy` });
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ slug: "resolved-academy", admissionRequestId: requestId }));
+    const signedOut = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic") } }));
+    expect(await loadAdmissionPageState({ params: { requestId }, query: {}, mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe: signedOut } }))).toEqual({ kind: "unavailable", code: "authentication_required", message: ADMISSION_ERROR_MESSAGE.authentication_required, returnPath: `/admissions/requests/${requestId}` });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("should resolve a tribe only from the signed-in account own request", async () => {
+    const fixture = pageFixture(), admissionRequestId = randomUUID(), correlation = randomUUID();
+    expect(await fixture.useCase.resolveOwnRequestTribe({ requestId: correlation, admissionRequestId })).toEqual({ ok: true, value: "synthetic-academy" });
+    expect(fixture.readers.own.findOwnTribeSlug).toHaveBeenCalledWith({ requestId: correlation, admissionRequestId });
   });
 });

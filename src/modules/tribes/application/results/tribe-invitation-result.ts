@@ -101,6 +101,7 @@ export type TribeInvitationsByPriceResult = {
 export type TribeInvitationAcceptanceResult = {
   status:
     | "admission_required"
+    | "academy_join_available"
     | "accepted"
     | "blocked"
     | "invalid"

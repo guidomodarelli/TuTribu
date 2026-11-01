@@ -11,7 +11,7 @@ export const ADMISSION_UI_COPY = {
   read: "Consultar estado", reading: "Consultando estado…", cancel: "Cancelar solicitud", cancelling: "Cancelando solicitud…",
   confirm: "Confirmo que quiero solicitar ingreso a esta academia", confirmCancel: "Confirmo que quiero cancelar esta solicitud",
   confirmationRequired: "Confirmá la acción antes de continuar.", contactRecovery: "La operación del código no quedó confirmada. Consultala antes de seguir.", message: "Mensaje para los responsables (opcional)",
-  phone: "Teléfono", country: "País del teléfono", countryHelp: "Usá el código de dos letras del país y un número con su prefijo internacional.",
+  phone: "Teléfono", country: "País del teléfono", countryHelp: "Usá el código de dos letras del país y un celular con su prefijo internacional, por ejemplo +54 9 11 1234 5678.",
   declared: "Este contacto fue declarado y no está comprobado.", verified: "La comprobación del contacto tiene el alcance indicado por la academia.",
   email: "Se usa el correo de tu cuenta. Esta solicitud no lo convierte en un contacto comprobado.",
   expires: "Plazo de la solicitud", submitted: "Presentada", retryAt: "Podés volver a presentar desde", retry: "Volver a solicitar ingreso",
@@ -48,3 +48,18 @@ export type AdmissionFeedbackOrigin = "page" | "submit" | "cancel" | "whatsapp";
 
 /** Names each feedback origin of the applicant page. */
 export const ADMISSION_FEEDBACK_ORIGIN = { page: "page", submit: "submit", cancel: "cancel", whatsapp: "whatsapp" } as const satisfies Record<string, AdmissionFeedbackOrigin>;
+
+/**
+ * Definitive write refusals that mean the server state behind the page changed (rules, request, invitation or proof):
+ * the page reads that state again and asks for a new confirmation, so a retry never resends the version it refused.
+ */
+export const ADMISSION_STATE_CHANGED_WRITE_CODES: readonly AdmissionErrorCode[] = [
+  ADMISSION_ERROR_CODE.policyConflict, ADMISSION_ERROR_CODE.admissionsPaused, ADMISSION_ERROR_CODE.additionalVerificationRequired,
+  ADMISSION_ERROR_CODE.proofUnavailable, ADMISSION_ERROR_CODE.admissionIneligible, ADMISSION_ERROR_CODE.invitationUnavailable,
+  ADMISSION_ERROR_CODE.requestConflict, ADMISSION_ERROR_CODE.requestExpired,
+];
+
+/** Applicant copy for refusals whose shared catalogue copy addresses whoever edits the rules. */
+export const ADMISSION_APPLICANT_REFUSAL_COPY: Readonly<Partial<Record<AdmissionErrorCode, string>>> = {
+  [ADMISSION_ERROR_CODE.policyConflict]: "Las reglas de la academia cambiaron. Actualizamos los datos; volvé a confirmar.",
+};

@@ -5,13 +5,13 @@ export type AdmissionErrorCode =
   | "invitation_unavailable" | "policy_conflict" | "request_conflict" | "idempotency_conflict"
   | "allowlist_conflict" | "allowlist_import_conflict" | "invitation_conflict" | "usage_policy_conflict"
   | "connection_conflict" | "recipient_not_allowed" | "contact_evidence_required" | "additional_verification_required"
-  | "contact_binding_conflict" | "challenge_expired" | "challenge_invalidated" | "proof_unavailable"
+  | "contact_binding_conflict" | "challenge_expired" | "challenge_invalidated" | "challenge_already_sent" | "proof_unavailable"
   | "verification_attempts_exceeded" | "usage_limit_reached" | "verification_code_incorrect" | "reauthentication_required"
   | "admissions_paused" | "admission_ineligible" | "membership_recovery_required" | "connection_incomplete" | "usage_policy_missing"
   | "missing_capability" | "invalid_credentials" | "upstream_rejected" | "provider_rate_limited"
   | "transport_timeout" | "dependency_unavailable" | "delivery_unknown" | "operation_unresolved"
   | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure" | "whatsapp_number_required"
-  | "platform_security_unavailable" | "connection_retirement_blocked" | "original_dispatch_unresolved";
+  | "platform_security_unavailable" | "request_expired" | "connection_retirement_blocked" | "original_dispatch_unresolved";
 
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
 export const ADMISSION_ERROR_CODE = {
@@ -35,6 +35,8 @@ export const ADMISSION_ERROR_CODE = {
   contactBindingConflict: "contact_binding_conflict",
   challengeExpired: "challenge_expired",
   challengeInvalidated: "challenge_invalidated",
+  /** A live code for the same destination already exists; a new one replaces it only through an explicit resend. */
+  challengeAlreadySent: "challenge_already_sent",
   proofUnavailable: "proof_unavailable",
   verificationAttemptsExceeded: "verification_attempts_exceeded",
   usageLimitReached: "usage_limit_reached",
@@ -44,6 +46,8 @@ export const ADMISSION_ERROR_CODE = {
   admissionsPaused: "admissions_paused",
   admissionIneligible: "admission_ineligible",
   membershipRecoveryRequired: "membership_recovery_required",
+  /** The own pending request reached its deadline before the edit or cancellation. */
+  requestExpired: "request_expired",
   ...MESSAGING_CONNECTION_ERROR_CODE,
 } as const satisfies Record<string, AdmissionErrorCode>;
 
@@ -69,6 +73,7 @@ export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.contactBindingConflict]: "No pudimos usar ese contacto para el ingreso. Revisá tu cuenta o pedí ayuda.",
   [ADMISSION_ERROR_CODE.challengeExpired]: "El código venció. Solicitá uno nuevo cuando esté disponible.",
   [ADMISSION_ERROR_CODE.challengeInvalidated]: "Ese código ya no está vigente. Consultá el estado antes de pedir otro.",
+  [ADMISSION_ERROR_CODE.challengeAlreadySent]: "Ya enviamos un código a ese destino. Ingresalo o usá «Reenviar» cuando esté disponible.",
   [ADMISSION_ERROR_CODE.proofUnavailable]: "La prueba de contacto ya no está disponible para este ingreso.",
   [ADMISSION_ERROR_CODE.verificationAttemptsExceeded]: "Alcanzaste el límite de intentos de verificación. Esperá antes de intentar otra vez.",
   [ADMISSION_ERROR_CODE.usageLimitReached]: "Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.",
@@ -77,6 +82,7 @@ export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.admissionsPaused]: "Las admisiones están pausadas. Podés consultar o cancelar tu solicitud.",
   [ADMISSION_ERROR_CODE.admissionIneligible]: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.",
   [ADMISSION_ERROR_CODE.membershipRecoveryRequired]: "La recuperación de tu pertenencia requiere asistencia autorizada.",
+  [ADMISSION_ERROR_CODE.requestExpired]: "El plazo de la solicitud venció antes de este cambio. Actualizamos su estado.",
   [ADMISSION_ERROR_CODE.connectionIncomplete]: "La academia todavía no tiene preparada la conexión necesaria.",
   [ADMISSION_ERROR_CODE.usagePolicyMissing]: "La academia todavía no tiene preparados los cupos de mensajería.",
   [ADMISSION_ERROR_CODE.missingCapability]: "La academia todavía no tiene preparado el canal necesario.",

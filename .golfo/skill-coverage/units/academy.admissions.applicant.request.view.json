@@ -8,7 +8,7 @@
     "section": null,
     "subflow": "Consultar el estado de la solicitud"
   },
-  "description": "Carga de la página del estado de la propia solicitud (`?tribe=`); la query conserva `tribe` y descarta claves desconocidas.",
+  "description": "Carga de la página del estado de la propia solicitud (`?tribe=`, o la tribu de la solicitud propia cuando un enlace anterior no la trae); la query conserva `tribe` y descarta claves desconocidas.",
   "routes": [
     "/admissions/requests/[requestId]"
   ],
