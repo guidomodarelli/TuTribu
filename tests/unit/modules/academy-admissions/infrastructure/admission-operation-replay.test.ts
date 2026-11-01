@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
+import { registerAdmissionOperationMacKeys } from "@/tests/support/admission-operation-mac-keys";
 import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -27,6 +28,8 @@ async function prepareOperation(database: AcademyAdmissionTestDatabase) {
   const rings = {} as Parameters<typeof createMessagingSecurityConfig>[0]["keyrings"];
   for (const purpose of purposes) { const keyId = randomUUID(); rings[purpose] = { activeKeyId: keyId, keys: [{ id: keyId, material: randomBytes(32) }] }; }
   const config = await createMessagingSecurityConfig({ environment: randomUUID(), securityEpoch: randomUUID(), recoveryLocked: false, keyrings: rings });
+  // The ledger signs only with enrolled material, as a native server whose keys were enrolled with `pnpm messaging:enroll-keys`.
+  await registerAdmissionOperationMacKeys(database, config);
   const authorize = async (transaction: RequestDatabase) => Boolean((await transaction.execute(sql`select id from public.tribe_members where tribe_id=${tribeId} and user_id=${actorUserId} and role='leader' and status='active' for share`)).rows[0]);
   const repository = new PostgresAdmissionOperationRepository((run) => database.withContext(own, run), authorize, async () => config);
   const command = { actorUserId, tribeId, operationType: "update_allowlist_entry", idempotencyKey: randomUUID(), intent: { entryId, expectedVersion: 1, displayName: "Primero" } };

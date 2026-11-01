@@ -11,6 +11,8 @@ import { admissionReviewQuerySchema } from "@/src/modules/academy-admissions/inf
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
+import { recordAdmissionAdministrativeExposure } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-administrative-exposure";
+import { ADMISSION_ADMINISTRATIVE_SURFACE } from "@/src/modules/academy-admissions/constants/admission-administrative-exposure";
 
 describe("current admission reviewer SQL", () => {
   it.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("should read only current leader/guardian scope oldest-first and close on current role/session revocation", async () => {
@@ -88,9 +90,20 @@ describe("current admission reviewer SQL", () => {
       expect((await proofReader.readList(scope, { limit: 25, requiresExceptionReason: true })).records).toEqual([]);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,is_open=false,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${tribeId}`));
       const pausedReader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => null);
-      expect((await pausedReader.readList(scope, { limit: 25, needsVerification: true })).records.map((record) => record.request.id)).toEqual([]);
-      const pausedFalse = await pausedReader.readList(scope, { limit: 25, needsVerification: false });
-      expect(pausedFalse.records.map((record) => projectAdmissionReview(record).needsVerification)).toEqual([false, false]);
+      // A pause stops presenting and approving, but the pending requests still need the current proof: the derived filter keeps them.
+      const pausedNeedsProof = await pausedReader.readList(scope, { limit: 25, needsVerification: true });
+      expect(pausedNeedsProof.records.map((record) => record.request.id)).toEqual([firstRequest, secondRequest]);
+      expect(pausedNeedsProof.records.map((record) => projectAdmissionReview(record).eligibleActions.includes("approve"))).toEqual([false, false]);
+      expect((await pausedReader.readList(scope, { limit: 25, needsVerification: false })).records).toEqual([]);
+      // A detail exposure bound to a version that moved after the read is a request conflict for a live reviewer, not a lost permission.
+      const currentVersion = (await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ version: number }>(sql`select version from public.academy_admission_requests where id=${firstRequest}`)).rows))[0].version;
+      const exposeDetail = (resourceVersion: number) => database.withContext({ userId: guardianId, email: null }, (transaction) => recordAdmissionAdministrativeExposure(transaction, scope, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.reviews, resourceId: firstRequest, resourceVersion, itemCount: 1 }), "non_bypass");
+      const exposureCount = async () => (await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ total: number }>(sql`select count(*)::int as total from public.academy_admission_audit_events where tribe_id=${tribeId} and resource_id=${firstRequest} and event_type='authorized_resource_exposure'`)).rows))[0].total;
+      const exposuresBefore = await exposureCount();
+      await expect(exposeDetail(currentVersion - 1)).rejects.toMatchObject({ name: "AdmissionOperationError", code: "request_conflict" });
+      expect(await exposureCount()).toBe(exposuresBefore);
+      await expect(exposeDetail(currentVersion)).resolves.toBeUndefined();
+      expect(await exposureCount()).toBe(exposuresBefore + 1);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='tribemate' where tribe_id=${tribeId} and user_id=${guardianId}`));
       const reader = new PostgresAdmissionReviewReader((current, run) => database.withContext({ userId: current.userId, email: null }, run, "non_bypass"), async () => null);
       await expect(reader.readDetail(scope, firstRequest)).rejects.toMatchObject({ code: "permission_denied" });
