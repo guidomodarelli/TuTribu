@@ -225,6 +225,56 @@ describe("list workflow ownership", () => {
     expect(data.client.list).toHaveBeenCalledOnce(); expect(data.client.write).toHaveBeenCalledOnce();
   });
 
+  it("should resend a started original as is and keep searching available while it waits", async () => {
+    const data = fixture();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    const { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.select(data.entry)); act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Reintento" }); result.current.setConfirmed(true); });
+    await act(async () => result.current.save());
+    const original = result.current.pending!;
+    // Reads never touch the pending original.
+    await act(async () => result.current.searchEntries());
+    expect(data.client.list).toHaveBeenCalledOnce(); expect(result.current.pending).toEqual(original);
+    expect(result.current.originalRetryable).toBe(false);
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "update_allowlist_entry", operationId: original.input.operationId, state: "started" } });
+    await act(async () => result.current.readOriginal());
+    expect(result.current.errorMessage).toBe(ALLOWLIST_BROWSER_COPY.started); expect(result.current.originalRetryable).toBe(true); expect(result.current.originalAbsent).toBe(false);
+    await act(async () => result.current.retryOriginal());
+    const [first, second] = vi.mocked(data.client.write).mock.calls.map(([, intent]) => intent);
+    expect(second).toEqual(first);
+    expect(result.current.pending).toBeNull(); expect(result.current.phase).toBe("idle"); expect(result.current.originalRetryable).toBe(false);
+    expect(readAllowlistWorkflow(data.initialState.viewerId, data.initialState.slug)?.pending).toBeNull();
+    expect(result.current.page.items[0]).toMatchObject({ id: data.entry.id }); expect(result.current.errorMessage).toBeNull();
+  });
+
+  it("should keep a started original pending when its resend answers it is still running", async () => {
+    const data = fixture();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    const { result } = renderHook(() => useAllowlistWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => { result.current.changeDraft({ ...result.current.draft, identity: "new@example.test" }); result.current.setConfirmed(true); });
+    await act(async () => result.current.save());
+    const original = result.current.pending!;
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "Recurso no disponible.", uncertain: false });
+    await act(async () => result.current.readOriginal());
+    expect(result.current.originalRetryable).toBe(true); expect(result.current.originalAbsent).toBe(true);
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "ready", value: { state: "started", operationId: original.input.operationId } });
+    await act(async () => result.current.retryOriginal());
+    expect(vi.mocked(data.client.write).mock.calls[1][1]).toEqual(original);
+    expect(result.current.pending).toEqual(original); expect(result.current.errorMessage).toBe(ALLOWLIST_BROWSER_COPY.started); expect(result.current.phase).toBe("uncertain");
+    expect(result.current.originalRetryable).toBe(true); expect(result.current.originalAbsent).toBe(false);
+  });
+
+  it("should not open an entry whose contact type the rules no longer use", async () => {
+    const data = fixture(), { result } = renderHook(() => useAllowlistWorkflow(data));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.select({ ...data.entry, contactType: "phone", identity: "+5491100000000" }));
+    expect(result.current.draft.entryId).toBeNull();
+    act(() => result.current.select(data.entry));
+    expect(result.current.draft.entryId).toBe(data.entry.id);
+  });
+
   it("should not dispatch a write while the read reports a platform requirement", async () => {
     const data = fixture(), initialState = { ...data.initialState, platformRequirement: "security_unconfigured" as const };
     const { result } = renderHook(() => useAllowlistWorkflow({ ...data, initialState }));

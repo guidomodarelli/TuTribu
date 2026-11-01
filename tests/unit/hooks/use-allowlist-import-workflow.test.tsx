@@ -233,6 +233,88 @@ describe("explicit import workflow", () => {
     expect(await screen.findByText(ALLOWLIST_IMPORT_BROWSER_COPY.discarded)).toBeInTheDocument();
     expect(data.client.write).toHaveBeenCalledOnce();
   });
+  it("should resend an absent preview with the same original and file, and discard a started one without the list changing", async () => {
+    const data = fixture();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "Recurso no disponible.", uncertain: false });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => result.current.changeDraft(data.draft)); act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.preview());
+    const original = result.current.pending!;
+    expect(result.current.pendingPreview).toBe(true); expect(result.current.originalRetryable).toBe(false);
+    await act(async () => result.current.readOriginal());
+    expect(result.current.originalRetryable).toBe(true);
+    await act(async () => result.current.retryOriginal());
+    const [first, second] = vi.mocked(data.client.write).mock.calls;
+    expect(second[1]).toEqual(first[1]); expect(second[2]).toMatchObject(data.draft); expect(second[1]).toEqual(original);
+    expect(result.current.pending).toBeNull(); expect(result.current.snapshot).toEqual(data.snapshot); expect(result.current.originalRetryable).toBe(false);
+  });
+  it("should let the leader discard a preview that stays started, since a preview never changes the list", async () => {
+    const data = fixture();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => result.current.changeDraft(data.draft)); act(() => result.current.setConfirmed(true));
+    await act(async () => result.current.preview());
+    const original = result.current.pending!;
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "preview_allowlist_import", operationId: original.operationId, state: "started" } });
+    await act(async () => result.current.readOriginal());
+    expect(result.current.errorMessage).toBe(ALLOWLIST_IMPORT_BROWSER_COPY.started);
+    expect(result.current.originalRetryable).toBe(true); expect(result.current.previewDiscardable).toBe(true); expect(result.current.originalAbsent).toBe(false);
+    act(() => result.current.discardOriginal());
+    expect(result.current.pending).toBeNull(); expect(result.current.draft).toMatchObject(data.draft); expect(data.client.write).toHaveBeenCalledOnce();
+  });
+  it("should resend a started confirmation as is so its remaining rows finish without a new original", async () => {
+    const data = fixture(), operationId = randomUUID(), intent = { type: "confirm_allowlist_import" as const, operationId, importId: data.importId, expectedVersion: 1, selectedRows: [1] };
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: intent, unresolved: [] });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "confirm_allowlist_import", operationId, state: "started" } });
+    vi.mocked(data.client.write).mockResolvedValue({ status: "ready", value: { state: "completed", operationId, replayed: false, result: { importId: data.importId, sourceVersion: 2, state: "completed", counts: { selected: 1, added: 1, unchanged: 0, skipped: 0, conflict: 0 } } } });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    await act(async () => result.current.readOriginal());
+    expect(result.current.originalRetryable).toBe(true);
+    await act(async () => result.current.retryOriginal());
+    expect(vi.mocked(data.client.write).mock.calls[0][1]).toEqual(intent);
+    expect(result.current.pending).toBeNull(); expect(result.current.unresolved).toEqual([]);
+  });
+  it("should mark a preview made for an older rules version unusable and ask to reread the rules before a new preview", async () => {
+    const data = fixture(), code = ADMISSION_ERROR_CODE.policyConflict;
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: null, unresolved: [] });
+    // The server records the denial and answers it as a definitive 409.
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.confirm());
+    expect(result.current.errorMessage).toBe(ALLOWLIST_IMPORT_BROWSER_COPY.policyConflict); expect(result.current.policyConflict).toBe(true);
+    expect(result.current.snapshot).toBeNull(); expect(result.current.hasSavedImport).toBe(false); expect(result.current.step).toBe(ALLOWLIST_IMPORT_STEP.upload);
+    // The same preview is never confirmed again: a new preview waits for the current rules.
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.preview());
+    expect(data.client.write).toHaveBeenCalledOnce();
+    vi.mocked(data.client.policy).mockResolvedValue({ status: "ready", value: { ...data.policy, policy: { contactType: "email", version: 2 } } as typeof data.policy });
+    await act(async () => result.current.readPolicy());
+    expect(result.current.policyConflict).toBe(false); expect(result.current.policy.version).toBe(2);
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.preview());
+    expect(vi.mocked(data.client.write).mock.calls[1][1]).toMatchObject({ type: "preview_allowlist_import", expectedPolicyVersion: 2 });
+  });
+  it("should let the leader close an expired import whose confirmations can no longer finish and choose another file", async () => {
+    const data = fixture(), previous = { type: "confirm_allowlist_import" as const, operationId: randomUUID(), importId: data.importId, expectedVersion: 1, selectedRows: [1] };
+    const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);
+    writeAllowlistImport({ viewerId: data.initialState.viewerId, slug: "synthetic", draft: saved, importId: data.importId, selection: [1], pending: null, unresolved: [previous] });
+    vi.mocked(data.client.read).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: ADMISSION_ERROR_MESSAGE.resource_unavailable, uncertain: false });
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data), { wrapper: WithToaster });
+    await waitFor(() => expect(result.current.importUnusable).toBe(true));
+    expect(result.current.snapshot).toBeNull(); expect(result.current.hasSavedImport).toBe(true); expect(result.current.unresolved).toEqual([previous]);
+    act(() => result.current.closeUnusableImport());
+    expect(result.current.importUnusable).toBe(false); expect(result.current.unresolved).toEqual([]); expect(result.current.hasSavedImport).toBe(false);
+    expect(result.current.draft).toMatchObject(data.draft); expect(result.current.step).toBe(ALLOWLIST_IMPORT_STEP.upload);
+    expect((await readAllowlistImport(data.initialState.viewerId, "synthetic", { files: data.drafts }))?.unresolved).toEqual([]);
+    expect(await screen.findByText(ALLOWLIST_IMPORT_BROWSER_COPY.importClosed)).toBeInTheDocument();
+    act(() => result.current.setConfirmed(true)); await act(async () => result.current.preview());
+    expect(vi.mocked(data.client.write).mock.calls[0][1]).toMatchObject({ type: "preview_allowlist_import" });
+  });
   it("should not dispatch a preview or a confirmation while the read reports a platform requirement", async () => {
     const data = fixture(), initialState = { ...data.initialState, platformRequirement: "recovery_locked" as const };
     const saved = await data.drafts.save(data.initialState.viewerId, "synthetic", data.draft, new AbortController().signal);

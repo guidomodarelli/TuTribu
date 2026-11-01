@@ -103,7 +103,10 @@ async function recoverUsageOriginal(session: MessagingUsageSession, intent: Mess
   if (signal.aborted || original.status === "aborted") return "stop";
   if (!await checkViewer(signal) || signal.aborted) return "stop";
   if (original.status === "ready") {
-    if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId || original.value.state !== "completed") { controls.setErrorMessage(COPY.uncertain); return "stop"; }
+    if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return "stop"; }
+    // Registered but not finished (its effect rolled back or is still running): the current usage stays visible and the same original
+    // can be resent, which the ledger reclaims once nobody works on it.
+    if (original.value.state !== "completed") { controls.setCanRetry(true); controls.setErrorMessage(COPY.started); return "continue"; }
     forgetUsageIntent(session);
     if (intent.type === OPERATION.initialize) { settleRecoveredInitialization(controls, intent); return "recovered"; }
     controls.setStatusMessage(COPY.recovered);
@@ -187,7 +190,8 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
   if (signal.aborted || result.status === "aborted") return STOPPED;
   if (!await checkViewer(signal) || signal.aborted) return STOPPED;
   if (result.status === "failed") return usageWriteFailure(writer, result);
-  if (result.value.operationId !== intent.input.operationId || result.value.state !== "completed") { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
+  if (result.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
+  if (result.value.state !== "completed") { controls.setErrorMessage(COPY.startedWrite); return UNRESOLVED; }
   if (result.value.replayed) { await writer.readCurrent(signal); return STOPPED; }
   const projected = messagingUsagePolicyStateSchema.parse({ state: MESSAGING_USAGE_POLICY_STATE.configured, policy: result.value.result });
   if (!projected.policy) return STOPPED;

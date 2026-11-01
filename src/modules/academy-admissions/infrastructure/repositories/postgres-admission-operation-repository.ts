@@ -101,10 +101,13 @@ export class PostgresAdmissionOperationRepository {
       try {
         claim = await this.executeWithDatabase((database) => this.runChunkStep({ database, command, schema, claim: currentClaim, mutate }));
       } catch (error) {
-        return await this.recoverChunkFailure(command, schema, error);
+        return await this.recoverChunkFailure(command, schema, error, await this.releaseAfterFailure(currentClaim, error));
       }
     }
-    return claim.state === "claimed" ? { state: OPERATION_STATE.started, operationId: command.idempotencyKey } : claim;
+    if (claim.state !== "claimed") return claim;
+    // Committed blocks stay; nobody keeps working on the rest, so the same original may resume it right away.
+    await this.releaseAfterFailure(claim, null);
+    return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
   }
   /**
    * Runs one DB-only block on the current claim and completes or renews it.
@@ -141,14 +144,33 @@ export class PostgresAdmissionOperationRepository {
   /**
    * A block may have COMMITted before its response was lost. Never redispatch it here: the row owner and exact original must be consulted first.
    * @param command - Original scoped operation. @param schema - Own final snapshot. @param error - The block failure.
+   * @param failure - The same failure as reported after releasing the lease (it also carries a failed release).
    * @returns The completed original when the registry proves it.
    * @throws AdmissionOperationError for current denial, or unresolved progress otherwise.
    */
-  private async recoverChunkFailure<Result>(command: AdmissionOperationCommand, schema: z.ZodType<Result>, error: unknown): Promise<AdmissionOperationResult<Result>> {
+  private async recoverChunkFailure<Result>(command: AdmissionOperationCommand, schema: z.ZodType<Result>, error: unknown, failure: unknown): Promise<AdmissionOperationResult<Result>> {
     if (isAccessDenial(error)) throw error;
     try { const original = await this.read(command, schema); if (original?.state === OPERATION_STATE.completed) return original; }
-    catch (recoveryError) { if (isAccessDenial(recoveryError)) throw recoveryError; throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, recoveryError], "Admission block original recovery failed", { cause: error }) }); }
-    throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: error });
+    catch (recoveryError) { if (isAccessDenial(recoveryError)) throw recoveryError; throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([failure, recoveryError], "Admission block original recovery failed", { cause: failure }) }); }
+    throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: failure });
+  }
+
+  /**
+   * Gives up this request's own lease once its effect stopped (rolled back, rejected or out of blocks): nothing keeps working on the
+   * original, so resending the same original reclaims it at once instead of answering `started` until the lease expires. A committed
+   * effect already cleared the lease, and another owner's lease is never touched.
+   * @param claim - This request's claim. @param failure - The effect failure, or null when there is none to report.
+   * @returns The failure to report: unchanged, or carrying the release failure too when the lease could not be released (it then
+   * still expires after {@link ADMISSION_OPERATION_LEASE_MS}).
+   */
+  private async releaseAfterFailure(claim: Extract<OperationClaim<unknown>, { state: "claimed" }>, failure: unknown): Promise<unknown> {
+    try {
+      await this.executeWithDatabase((database) => database.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp(),version=version+1 where id=${claim.ledgerId} and state=${OPERATION_STATE.started} and lease_owner=${claim.owner} and lease_until>clock_timestamp()`));
+      return failure;
+    } catch (releaseError) {
+      if (failure === null) return null;
+      return new AggregateError([failure, releaseError], "Admission operation lease release failed", { cause: failure });
+    }
   }
 
   private readonly authorizeRegistration?: OperationAuthorizer;
@@ -381,6 +403,7 @@ export class PostgresAdmissionOperationRepository {
       throw new AdmissionOperationError(ADMISSION_ERROR_CODE.unexpectedFailure, { cause: error });
     }
     if (claim.state !== "claimed") return claim;
+    const ownClaim = claim;
     try {
       return await this.executeWithDatabase(async (database) => {
         const original = await this.readLockedOriginal(database, command);
@@ -388,7 +411,7 @@ export class PostgresAdmissionOperationRepository {
         const row = await this.confirmLockedOriginal(database, command, original);
         if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
         const now = await clock(database);
-        if (row.lease_owner !== claim.owner || row.version !== claim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
+        if (row.lease_owner !== ownClaim.owner || row.version !== ownClaim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
         const value = await mutate(database, row.id);
         const parsed = schema.safeParse(value);
         if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { operationId: command.idempotencyKey });
@@ -397,14 +420,16 @@ export class PostgresAdmissionOperationRepository {
         await this.assertAuthorized(database, command);
         const completedAt = await clock(database);
         if (new Date(row.lease_until) <= completedAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-        const completed = (await database.execute(sql`update public.academy_admission_operations set state=${OPERATION_STATE.completed},public_result=${JSON.stringify(parsed.data)}::jsonb,completed_at=${completedAt},lease_owner=null,lease_until=null,version=version+1 where id=${row.id} and state=${OPERATION_STATE.started} and lease_owner=${claim.owner} and version=${claim.version} and lease_until>clock_timestamp() returning id`)).rows[0];
+        const completed = (await database.execute(sql`update public.academy_admission_operations set state=${OPERATION_STATE.completed},public_result=${JSON.stringify(parsed.data)}::jsonb,completed_at=${completedAt},lease_owner=null,lease_until=null,version=version+1 where id=${row.id} and state=${OPERATION_STATE.started} and lease_owner=${ownClaim.owner} and version=${ownClaim.version} and lease_until>clock_timestamp() returning id`)).rows[0];
         if (!completed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
         return { state: OPERATION_STATE.completed, operationId: command.idempotencyKey, replayed: false, result: parsed.data };
       });
     } catch (error) {
       // The claim is registered: an owner check that finds the platform security unusable mid-effect cannot discard the original.
-      if (error instanceof AdmissionOperationError && error.code !== ADMISSION_ERROR_CODE.platformSecurityUnavailable) throw error;
-      throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: error, operationId: command.idempotencyKey });
+      const keepsOwnCode = error instanceof AdmissionOperationError && error.code !== ADMISSION_ERROR_CODE.platformSecurityUnavailable;
+      // The effect rolled back (or its COMMIT reply was lost): the same original may be resent at once.
+      const failure = await this.releaseAfterFailure(ownClaim, error);
+      throw keepsOwnCode ? error : new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: failure, operationId: command.idempotencyKey });
     }
   }
 }

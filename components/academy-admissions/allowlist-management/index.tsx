@@ -14,9 +14,10 @@ import { ALLOWLIST_ENTRY_STATUS } from "@/src/modules/academy-admissions/constan
 import { ALLOWLIST_FILTER_ALL, ALLOWLIST_STATUS_LABEL, ALLOWLIST_SOURCE_LABEL, ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ALLOWLIST_FILTER_OPTIONS, ALLOWLIST_ENTRY_STATUS_OPTIONS } from "@/src/modules/academy-admissions/constants/allowlist-options";
+import { isOtherContactType } from "@/hooks/use-allowlist-workflow-support";
 import styles from "./styles.module.scss";
 
-export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; /** Why the platform cannot protect list writes now; while present, entries can be read but not added or edited. */ platformRequirement: PlatformSecurityRequirement | null; /** The last consult proved the pending original absent, so it can be discarded. */ originalAbsent: boolean; onDiscardOriginal: () => void; /** Rules page where the leader saves the configuration the list depends on. */ policyHref: string; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; /** «Ver más» in progress: the shown entries stay and only its button reports progress. */ loadingMore: boolean; /** Failure of «Ver más», shown next to its button. */ moreError: string | null; conflict: boolean; errorMessage: string | null; fieldError: string | null; step: number; onStepChange: (step: number) => void; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; /** Rereads the platform block without changing the applied filters. */ onRecheckPlatform: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void };
+export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; /** Why the platform cannot protect list writes now; while present, entries can be read but not added or edited. */ platformRequirement: PlatformSecurityRequirement | null; /** The last consult proved the pending original absent, so it can be discarded. */ originalAbsent: boolean; onDiscardOriginal: () => void; /** The pending original answered `started` or absent, so it can be resent as is. */ originalRetryable: boolean; onRetryOriginal: () => void; /** Rules page where the leader saves the configuration the list depends on. */ policyHref: string; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; /** «Ver más» in progress: the shown entries stay and only its button reports progress. */ loadingMore: boolean; /** Failure of «Ver más», shown next to its button. */ moreError: string | null; conflict: boolean; errorMessage: string | null; fieldError: string | null; step: number; onStepChange: (step: number) => void; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; /** Rereads the platform block without changing the applied filters. */ onRecheckPlatform: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void };
 
 /** @param value - Chosen status option. @returns The entry status it names; anything but enabled reads as disabled. */
 function toEntryStatus(value: string): AllowlistDraft["status"] {
@@ -46,7 +47,14 @@ function ContactStepContent({ props, fieldId, editing, disabled, contactLabel }:
   </>;
 }
 
-/** @param props - Listed entries, filters, paging state and callbacks. @param fieldId - Prefix of the field ids. @param disabled - Whether controls wait. @returns The searchable entry list with its paging. */
+/** @param props - Listed entry and editor state. @param entry - The entry. @param disabled - Whether reads wait. @returns Its edit action, or why it cannot be edited. */
+function EntryAction({ props, entry, disabled }: { props: AllowlistManagementProps; entry: AllowlistEntryResult; disabled: boolean }) {
+  if (isOtherContactType(entry, props.contactType)) return <span className={styles.AllowlistManagement__help}>{ALLOWLIST_BROWSER_COPY.otherContactType}</span>;
+  // Editing replaces the draft, so it waits while an earlier original is pending.
+  return <Button type="button" variant="secondary" size="sm" disabled={disabled || props.pending || Boolean(props.platformRequirement)} onClick={() => props.onSelect(entry)} aria-label={`Editar ${entry.identity}`}>Editar</Button>;
+}
+
+/** @param props - Listed entries, filters, paging state and callbacks. @param fieldId - Prefix of the field ids. @param disabled - Whether reads wait; a pending original does not block them. @returns The searchable entry list with its paging. */
 function AllowlistEntries({ props, fieldId, disabled }: { props: AllowlistManagementProps; fieldId: string; disabled: boolean }) {
   return <section className={styles.AllowlistManagement__entries} aria-labelledby={`${fieldId}-entries`}><h2 id={`${fieldId}-entries`}>Entradas de la lista</h2>
     <GuidedStepsDisclosure summary="Buscar y filtrar entradas">
@@ -56,7 +64,7 @@ function AllowlistEntries({ props, fieldId, disabled }: { props: AllowlistManage
         <Button type="submit" variant="secondary" disabled={disabled}>Buscar</Button>
       </form>
     </GuidedStepsDisclosure>
-    {props.items.length === 0 ? <EmptyState label="Lista de habilitados vacía" title="No hay entradas con estos filtros." description="Agregá una entrada o importá un CSV; también podés cambiar la búsqueda." /> : <ul className={styles.AllowlistManagement__list}>{props.items.map((entry) => <li className={styles.AllowlistManagement__row} key={entry.id}><div className={styles.AllowlistManagement__identity}><strong>{entry.identity}</strong>{entry.displayName && <span>{entry.displayName}</span>}<span className={styles.AllowlistManagement__help}>{ALLOWLIST_STATUS_LABEL[entry.status]} · {ALLOWLIST_SOURCE_LABEL[entry.source]} · Versión {entry.version}</span></div><Button type="button" variant="secondary" size="sm" disabled={disabled || Boolean(props.platformRequirement)} onClick={() => props.onSelect(entry)} aria-label={`Editar ${entry.identity}`}>Editar</Button></li>)}</ul>}
+    {props.items.length === 0 ? <EmptyState label="Lista de habilitados vacía" title="No hay entradas con estos filtros." description="Agregá una entrada o importá un CSV; también podés cambiar la búsqueda." /> : <ul className={styles.AllowlistManagement__list}>{props.items.map((entry) => <li className={styles.AllowlistManagement__row} key={entry.id}><div className={styles.AllowlistManagement__identity}><strong>{entry.identity}</strong>{entry.displayName && <span>{entry.displayName}</span>}<span className={styles.AllowlistManagement__help}>{ALLOWLIST_STATUS_LABEL[entry.status]} · {ALLOWLIST_SOURCE_LABEL[entry.source]} · Versión {entry.version}</span></div><EntryAction props={props} entry={entry} disabled={disabled} /></li>)}</ul>}
     {props.hasNext && <div className={styles.AllowlistManagement__actions}>
       <Button type="button" variant="secondary" loading={props.loadingMore} disabled={disabled && !props.loadingMore} onClick={props.onNext}>Ver más entradas</Button>
       {props.moreError && <p role="alert" className={styles.AllowlistManagement__error}>{props.moreError}</p>}
@@ -88,7 +96,7 @@ function AllowlistEditor({ props, fieldId, editing, unresolved, steps, disabled,
   return <section className={styles.AllowlistManagement__editor} aria-labelledby={`${fieldId}-editor`}>
     <h2 id={`${fieldId}-editor`}>{editing ? "Editar entrada" : "Agregar entrada"}</h2>
     {props.errorMessage && <p role="alert" className={styles.AllowlistManagement__error}>{props.errorMessage}</p>}
-    {unresolved && <div className={styles.AllowlistManagement__callout}><p role="status">{ALLOWLIST_BROWSER_COPY.pendingBlocked}</p><div className={styles.AllowlistManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>{props.originalAbsent && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onDiscardOriginal}>Descartar el cambio sin registrar</Button>}</div></div>}
+    {unresolved && <div className={styles.AllowlistManagement__callout}><p role="status">{ALLOWLIST_BROWSER_COPY.pendingBlocked}</p><div className={styles.AllowlistManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>{props.originalRetryable && !props.platformRequirement && <Button type="button" variant="primary" disabled={props.busy} onClick={props.onRetryOriginal}>Reintentar el cambio original</Button>}{props.originalAbsent && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onDiscardOriginal}>Descartar el cambio sin registrar</Button>}</div></div>}
     <AllowlistEditorBody props={props} editing={editing} steps={steps} disabled={disabled} reviewReason={reviewReason} />
   </section>;
 }
@@ -134,7 +142,7 @@ export function AllowlistManagement(props: AllowlistManagementProps) {
     <p className={styles.AllowlistManagement__help}>La lista habilita coincidencias futuras según las reglas de admisión.</p>
     {!props.privateVisible ? <p role="alert">{props.errorMessage ?? ALLOWLIST_BROWSER_COPY.account}</p> : <>
       <AllowlistEditor props={props} fieldId={fieldId} editing={editing} unresolved={unresolved} steps={steps} disabled={disabled} reviewReason={reviewReason} />
-      <AllowlistEntries props={props} fieldId={fieldId} disabled={disabled} />
+      <AllowlistEntries props={props} fieldId={fieldId} disabled={!props.ready || props.busy} />
     </>}
   </section>;
 }

@@ -41,6 +41,8 @@ export const ADMISSION_POLICY_BROWSER_COPY = {
   confirmRequired: "Marcá la confirmación para continuar.",
   invalid: "Revisá las reglas y confirmá la acción antes de continuar.",
   retry: "La operación original aún no está registrada. Podés confirmar un reintento con los mismos datos.",
+  started: "La operación original todavía no terminó. Si no avanza, podés confirmar un reintento con los mismos datos: no se aplica dos veces.",
+  startedWrite: "La operación todavía no terminó. Consultá la operación original para ver su resultado o reintentarla con los mismos datos.",
   contactLocked: "El tipo de contacto quedó fijado al activar el control.",
   phoneAllowlist: "La lista por teléfono requiere comprobar el contacto con un código.",
   phoneChannelRequired: "Elegí el canal para enviar el código por teléfono.",

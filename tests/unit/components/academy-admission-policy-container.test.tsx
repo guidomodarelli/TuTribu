@@ -463,6 +463,22 @@ describe("guided policy route workflow", () => {
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
 
+  it("should offer resending a restored original that is still started and complete it with the same operation and payload", async () => {
+    const data = fixture(), operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
+    const intent = { type: "update_admission_policy" as const, input: { operationId, confirmed: true as const, expectedVersion: 3, ...createAdmissionPolicyDraft(data.policy), requiresAdditionalVerification: true } };
+    writeAdmissionPolicyIntent(viewerId, slug, intent);
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_admission_policy", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/La operación original todavía no terminó/)).toBeInTheDocument());
+    expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo reintentar/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(data.client.updatePolicy).toHaveBeenCalledOnce());
+    expect(data.client.updatePolicy.mock.calls[0][1]).toEqual(intent.input);
+    await waitFor(() => expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull());
+    expect(screen.queryByRole("button", { name: "Reintentar operación original" })).not.toBeInTheDocument();
+  });
+
   it("should withhold original retry confirmation until current policy can be read after original absence", async () => {
     const data = fixture(), operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
     writeAdmissionPolicyIntent(viewerId, slug, { type: "update_admission_policy", input: { operationId, confirmed: true, expectedVersion: 3, ...createAdmissionPolicyDraft(data.policy) } });

@@ -11,7 +11,7 @@ import { authorizeAdmissionLeader } from "@/src/modules/academy-admissions/infra
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native block ledger", () => {
-  it("should preserve the first committed row after a later block rolls back and resume only pending rows", async () => {
+  it("should preserve the first committed row after a later block rolls back and resume only pending rows at once", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAllowlistManagement(database), importId = randomUUID(), context = await fixture.confirm(REAUTHENTICATION_OPERATION.confirmAllowlistImport, importId);
       await database.withContext(fixture.own, async (transaction) => {
@@ -32,8 +32,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native block ledge
       await expect(repository.runChunks(command, schema, 5, work)).rejects.toMatchObject({ code: "operation_unresolved", operationId: command.idempotencyKey });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select row_number,outcome from public.academy_allowlist_import_rows where import_id=${importId} order by row_number`)).rows).toEqual([{ row_number: 1, outcome: "skipped" }, { row_number: 2, outcome: null }, { row_number: 3, outcome: null }]);
-        await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where actor_user_id=${fixture.userId} and tribe_id=${fixture.tribeId} and idempotency_key=${command.idempotencyKey}`);
       });
+      // The rolled back block released the lease: the same original resumes without waiting for it to expire.
       expect(await repository.runChunks(command, schema, 5, work)).toMatchObject({ state: "completed", result: { confirmedRows: 3 }, replayed: false });
       expect(await repository.runChunks(command, schema, 5, async () => { throw new Error("Confirmed work was repeated"); })).toMatchObject({ state: "completed", replayed: true, result: { confirmedRows: 3 } });
       await expect(repository.runChunks({ ...command, intent: { ...command.intent, selectedRows: [2, 3] } }, schema, 5, work)).rejects.toMatchObject({ code: "idempotency_conflict" });

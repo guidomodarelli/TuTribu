@@ -475,6 +475,21 @@ describe("guided usage route workflow", () => {
     expect(data.client.operation.mock.invocationCallOrder[0]).toBeLessThan(data.client.update.mock.invocationCallOrder[1]);
   });
 
+  it("should keep the current usage visible for a restored started original and complete it by resending the same operation", async () => {
+    const data = fixture(), input = { operationId, expectedVersion: 3, confirmed: true as const, allowedCountries: ["US"], verificationDailyLimit: 120, notificationDailyLimit: 200 };
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/La operación original todavía no terminó/)).toBeInTheDocument());
+    expect(data.client.read).toHaveBeenCalled();
+    expect(screen.getByText("De 100 a 120")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })); fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toEqual(input);
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+  });
+
   it("should withhold retry when current read fails and abort the active private read on unmount", async () => {
     const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "initialize_messaging_usage", input: { operationId, confirmed: true } });
     data.client.read.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el uso actual.", uncertain: false });
