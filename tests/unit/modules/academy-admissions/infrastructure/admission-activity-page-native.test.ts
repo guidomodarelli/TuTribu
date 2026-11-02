@@ -83,8 +83,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   await history.getByRole("alert").waitFor({ state: "hidden" });
                   expect(await history.getByRole("alert").count()).toBe(0);
                   await page.getByRole("button", { name: "Aplicar filtros" }).click();
-                  await page.getByText("No hay eventos para los filtros aplicados.", { exact: true }).waitFor();
-                  expect(await page.getByRole("region", { name: "Consumo del día UTC" }).innerText()).not.toContain(String(VALIDATION.foreignNotificationLimit));
+                  // The shared empty state animates its title in separate spans, so the rendered page text is read instead of one exact text node.
+                  await expect.poll(async () => (await page.locator("main").innerText()).includes("No hay eventos para los filtros aplicados."), { timeout: VALIDATION.browserTimeoutMs }).toBe(true);
+                  expect(await page.getByRole("region", { name: "Consumo del día", exact: true }).innerText()).not.toContain(String(VALIDATION.foreignNotificationLimit));
                   await page.getByRole("textbox", { name: "Referencia del recurso (opcional)" }).fill("");
                   await page.getByRole("button", { name: "Aplicar filtros" }).click();
                   await page.getByRole("button", { name: "Ver actividad anterior" }).click();
@@ -101,14 +102,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   const changed = await usage.update(version, ++limit);
                   version += 1;
                   expect(changed).toMatchObject({ state: "completed", result: { version } });
-                  expect(await page.getByRole("region", { name: "Consumo del día UTC" }).innerText()).toContain(`versión ${oldVersion}`);
+                  expect(await page.getByRole("region", { name: "Consumo del día", exact: true }).innerText()).toContain(`versión ${oldVersion}`);
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).click();
                   await page.getByText(`Versión de uso observada: ${version}. Configuración actual: versión ${version}.`, { exact: true }).waitFor();
                   await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
                   expect(await history.innerText()).toMatch(/Versión histórica\s+1/u);
                   await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
                   if (engine === "chromium" && width === 1280) {
-                    await captureAdmissionReview(page, "admission-consumption-current", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo del día UTC"]' });
+                    await captureAdmissionReview(page, "admission-consumption-current", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo del día"]' });
                     await captureAdmissionReview(page, "admission-activity-history", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[class*="AdmissionActivity"]', omit: "details dl" });
                   }
                   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -117,7 +118,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).click();
                   await page.getByRole("button", { name: "Reintentar", exact: true }).waitFor();
-                  expect(await page.getByRole("region", { name: "Consumo del día UTC" }).count()).toBe(0);
+                  expect(await page.getByRole("region", { name: "Consumo del día", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("region", { name: "Historial de actividad" }).count()).toBe(0);
                   if (engine === "chromium" && width === 1280) await captureAdmissionReview(page, "admission-activity-permission-loss", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo e historial de admisión"]' });
                   await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
