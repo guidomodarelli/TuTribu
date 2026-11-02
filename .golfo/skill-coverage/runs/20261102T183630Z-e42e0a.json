@@ -1,0 +1,3542 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "fix/messaging-identity-confirmation",
+    "commit": "868e2b61a467b2e97d3afe6d8d8be0a6c399e9e3",
+    "fingerprint": "sha256:ee070b83cdeb634cee59b9c0249b4c7bea50a497f9e9b1d1a9afdd4cb00adda9",
+    "uncommittedFiles": [
+      "app/(platform)/[slug]/academia/admissions/messaging/error.tsx",
+      "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx",
+      "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts",
+      "components/academy-admissions/admission-route-error/index.tsx",
+      "components/academy-admissions/messaging-route-error/index.tsx",
+      "components/auth/sign-in-with-google-button/index.tsx",
+      "components/auth/sign-in-with-google-button/styles.module.scss",
+      "lib/auth/safe-callback-url.ts",
+      "lib/messaging/messaging-route-recovery.ts",
+      "src/modules/messaging/constants/messaging-errors.ts",
+      "src/modules/messaging/constants/messaging-route-error.ts"
+    ],
+    "fileCount": 306,
+    "inputCount": 1952
+  },
+  "evidence": [
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-11-02T18:37:04.424Z",
+      "source": "attested",
+      "summary": "Checklist liviano: sin use client nuevo en page/layout (MessagingRouteError y el boton son hojas cliente ya montadas por contenedores cliente), sin await ni lecturas runtime nuevas, error.tsx de Uso y Conexion siguen siendo use client con retry, sin cambios de loading.tsx."
+    },
+    {
+      "command": "pnpm typecheck",
+      "durationMs": 2491,
+      "exitCode": 0,
+      "kind": "command",
+      "outcome": "pass",
+      "outputSha256": "de5c2b5bb9dc029b88144b4e9c960ca6b22d77f6cf07953c336148cc67346bf4",
+      "recordedAt": "2026-11-02T18:37:24.823Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "Sin recorrido en navegador: no se levanto el dev server con portless ni hubo sesion Google real; los estados se validaron con Testing Library."
+  ],
+  "mode": "lightweight",
+  "pendingChecks": [
+    "Recorrer en https://dev.tutribu.app el rechazo authentication_required y el regreso desde Google."
+  ],
+  "recordedAt": "2026-11-02T18:41:03.342Z",
+  "result": "partial",
+  "runId": "20261102T183630Z-e42e0a",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "skill definition changed (1.3.0 → 1.3.0): SKILL.md, references/nextjs-apis.md, references/server-client-split.md",
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/error.tsx#AdmissionMessagingSettingsError",
+        "reason": "route file changed: segment layout, boundary or page"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/controls",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/finishSaved",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/readCurrent",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/relaunchRead",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/resetDraft",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/retryOriginal",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/runWriteSession",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/save",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/saveValues",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer/write",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageContainer~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#MessagingUsageUnavailable",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-container.tsx#saveBlockedMessage",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#announceForgottenUsageOriginal",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#chosenValuesOf",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#draftOf",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#finishUsageSave",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#forgetUnregisteredUsageOriginal",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#forgetUsageIntent",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#isUnexpectedUpdate",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#MessagingUsageControls",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#MessagingUsageReady",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#MessagingUsageSession",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#MessagingUsageValues",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#readUsageConfiguration",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#readUsageCurrent",
+        "reason": "adds awaited work to the render path (+3 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#recoverUsageOriginal",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#reopenChosenValues",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#reportUsageFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#restoreStoredUsageIntent",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#retryUsageOriginal",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#runUsageWriteSession",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#saveUsageValues",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#settledUsagePhase",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#settleRecoveredInitialization",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#UNRESOLVED.code",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#UNRESOLVED.status",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#UNRESOLVED.uncertain",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#UNRESOLVED~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#UsageRecoveryOutcome",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#usageWriteFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/messaging-usage-workflow.ts#writeUsageIntent",
+        "reason": "adds awaited work to the render path (+4 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/messaging/page.tsx#MessagingContent",
+        "reason": "route file changed: segment layout, boundary or page"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/private-read-lifecycle.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/private-read-lifecycle.ts#PrivateReadLifecycle",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/private-read-lifecycle.ts#releasePrivateWork",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/private-read-lifecycle.ts#startPrivateReadLifecycle/restored",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/private-read-lifecycle.ts#startPrivateReadLifecycle~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/loading.module.scss#*",
+        "reason": "styles of a skeleton or loading boundary changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/layout.module.scss#*",
+        "reason": "styles of a skeleton or loading boundary changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/loading.module.scss#*",
+        "reason": "styles of a skeleton or loading boundary changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/notification-center.tsx#NotificationCenter~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/notification-center.tsx#resolveBellSurface",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-section-navigation/index.tsx#AdmissionSectionNavigation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-route-error/index.tsx#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-route-error/index.tsx#MessagingRouteError",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#countryName",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#describeCountries",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage/countryName",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage/describeCountries",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#MessagingUsage~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#MessagingUsageProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#SavedUsageSummary",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#UsageCountriesContent",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#UsageFeedback",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#UsageOriginalRecovery",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#UsageReviewContent/names",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/messaging-usage/index.tsx#UsageReviewContent~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#PlatformSecurityNotice/copy",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#PlatformSecurityNotice~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#PlatformSecurityNoticeProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-navigation.ts#resolveAppRailNavigation~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell/closeSheet",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell/onShellKeyDown",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell/select",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell/setRail",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell/toggleRail",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/app-rail/app-rail-shell/index.tsx#AppRailShell~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-shell/index.tsx#Brand",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#Breadcrumbs",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#BreadcrumbsProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#CurrentCrumb",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#FloatScrim",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-shell/index.tsx#NavGroup~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#NavGroupChildren",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#NavGroupChildrenProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-shell/index.tsx#Navigation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#NavigationSheet",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#NavigationSheetProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-shell/index.tsx#NavRow",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-shell/index.tsx#PanelGlyph",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/app-rail/app-rail-shell/index.tsx#Profile",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RailContentProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RailLabelStack",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RailLabelStackProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RailSidebar",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RailSidebarProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RailToggle",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#ResponsiveRailSetters",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#RowHighlight",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#SheetBody",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#sheetShift",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useAppRailShellState/select",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useAppRailShellState/setRail",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useAppRailShellState/toggleRail",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useAppRailShellState~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useMeasuredLabelWidths",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useOverlaidRailEscape",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useRailShortcut",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/app-rail/app-rail-shell/index.tsx#useResponsiveRail",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "components/auth/avatar-session-menu-client/index.tsx#AUTH_SIGN_OUT_REQUEST.errorMessage",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "components/auth/avatar-session-menu-client/index.tsx#AUTH_SIGN_OUT_REQUEST~frame",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "components/auth/avatar-session-menu-client/index.tsx#AvatarSessionMenuClient/handleSignOut",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#PAGE_SHOW_EVENT",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY.idle",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY.redirecting",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.fullWidthSize",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.inlineSize",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.type",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButton/handleGoogleSignIn",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButton~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButtonProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/forms/guided-steps/index.tsx#GuidedStepGlyph",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/forms/guided-steps/index.tsx#GuidedStepPanel",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/forms/guided-steps/index.tsx#GuidedStepProgressItem",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/forms/guided-steps/index.tsx#GuidedSteps/submit",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "modified",
+        "key": "components/forms/guided-steps/index.tsx#GuidedSteps~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/notifications/notification-bell/index.tsx#BellTriggerContent",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/notifications/notification-bell/index.tsx#NotificationBell",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/notifications/notification-bell/index.tsx#NotificationPopoverSurface",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/notifications/notification-bell/index.tsx#NotificationSheetSurface",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/notifications/notification-bell/index.tsx#NotificationSurfaceProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/platform/tribe-switcher/index.tsx#buildTribeSwitcherMenuItems",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/platform/tribe-switcher/index.tsx#findActiveTribe",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/platform/tribe-switcher/index.tsx#TribeSwitcher~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/platform/tribe-switcher/index.tsx#TribeSwitcherNavigation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "components/providers/app-providers/app-ui-provider.tsx#AppUIProvider",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/providers/private-aware-siteping/index.tsx#PrivateAwareSiteping",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/theme/theme-mode-dropdown/index.tsx#ThemeModeDropdown~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "modified",
+        "key": "components/tribes/tribe-presence-heartbeat/index.tsx#TribePresenceHeartbeat",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-button/index.tsx#buildLeaderSupportMenuItems",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-button/index.tsx#canManageTribeSupport",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-button/index.tsx#TribeMemberSupportLink",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "components/tribes/tribe-support-button/index.tsx#TribeSupportButton/handleSavedSettings",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "components/tribes/tribe-support-button/index.tsx#TribeSupportButton~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-button/index.tsx#TribeSupportLoadingButton",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-button/index.tsx#useTribeSupportSettings/handleSavedSettings",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-button/index.tsx#useTribeSupportSettings~shell",
+        "reason": "adds awaited work to the render path (+2 awaited steps, +1 requests): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#requestSupportSettingsSave",
+        "reason": "adds awaited work to the render path (+2 awaited steps, +1 requests): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#SupportDialogFooter",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#SupportDialogFooterProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#SupportSettingsFields",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#SupportSettingsFieldsProps",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#TribeSupportConfigDialog/handleSubmit",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#TribeSupportConfigDialog~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#useSupportSettingsForm/handleSubmit",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "components/tribes/tribe-support-config-dialog/index.tsx#useSupportSettingsForm~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#abortNotificationReads",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#AdmissionNotificationContext",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#NotificationVisibleRefreshInput",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/adoptMutationUnreadCount",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/adoptReadUnreadCount",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/beginMutation",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/beginRead",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/loadInbox",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/markAllRead",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/markRead",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/reconcileUnreadCount",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/recordRefreshFeedback",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/refreshList",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/refreshUnreadCount",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/refreshVisible",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter/settleMutation",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "hooks/use-notification-center.ts#useNotificationCenter~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCenterState",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCountReads/adoptReadUnreadCount",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCountReads/beginRead",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCountReads/reconcileUnreadCount",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCountReads/recordRefreshFeedback",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCountReads/refreshUnreadCount",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationCountReads~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationInboxLoad",
+        "reason": "adds awaited work to the render path (+3 awaited steps, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationMarkAll",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers, +1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationMutationTracking/adoptMutationUnreadCount",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationMutationTracking/beginMutation",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationMutationTracking/settleMutation",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationMutationTracking~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationReadMark",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationVisibleRefresh/refreshList",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationVisibleRefresh/refreshVisible",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-notification-center.ts#useNotificationVisibleRefresh~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#ADDRESS_BOUND_ERROR_CODES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#AdmissionRouteRecovery",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#resolveAdmissionRouteRecovery",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#TRANSIENT_ERROR_CODES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-sections.ts#resolveAdmissionPage",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-sections.ts#TRAILING_SEPARATORS",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-sections.ts#withoutTrailingSeparators",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/safe-callback-url.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/safe-callback-url.ts#CALLBACK_URL_RESOLUTION_ORIGIN",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/safe-callback-url.ts#INTERNAL_PATH_PREFIX",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/safe-callback-url.ts#resolveSafeCallbackUrl",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#navigateToUrl",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-route-recovery.ts#isMessagingSignInRequired",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-route-recovery.ts#messagingSignInCallbackUrl",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-route-recovery.ts#resolveMessagingRouteRecovery",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/failure",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/request",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/send",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient/write",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createMessagingUsageBrowserClient~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-usage-api-client.ts#createSessionViewer",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-usage-api-client.ts#failure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-usage-api-client.ts#nativeSessionRead",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/messaging/messaging-usage-api-client.ts#UsageWrite",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-intent.ts#readMessagingUsageIntent",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/messaging/messaging-usage-intent.ts#storageKey",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/scoped-intent-storage.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/scoped-intent-storage.ts#buildScopedIntentKey",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/scoped-intent-storage.ts#readScopedIntentRecord",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/scoped-intent-storage.ts#ScopedIntentOwner",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/siteping/siteping-report-launcher.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/siteping/siteping-report-launcher.ts#currentOpener",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "lib/siteping/siteping-report-launcher.ts#openSitepingReport",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "next.config.ts#<module>",
+        "reason": "project configuration of rendering, caching or navigation changed: applies to every route"
+      },
+      {
+        "change": "added",
+        "key": "next.config.ts#default",
+        "reason": "project configuration of rendering, caching or navigation changed: applies to every route"
+      },
+      {
+        "change": "modified",
+        "key": "next.config.ts#nextConfig.turbopack",
+        "reason": "project configuration of rendering, caching or navigation changed: applies to every route"
+      },
+      {
+        "change": "modified",
+        "key": "pkg:@golfo/ui",
+        "reason": "package version changed: its server or client requirements may differ"
+      },
+      {
+        "change": "added",
+        "key": "pkg:@tanstack/redact",
+        "reason": "new package in the route: it may need a client island"
+      },
+      {
+        "change": "removed",
+        "key": "pkg:@zavudev/sdk",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TRANSPORT_MESSAGE",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_SESSION_CHECK_MESSAGE",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/constants/query-params.ts#QUERY_PARAMS.auth",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts#AllowAdmissionRetryUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#admissionChallengeSource",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#ContactVerificationUseCases",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#GetAdmissionActivityPageUseCase",
+        "reason": "adds awaited work to the render path (+2 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#ACCOUNT_CHANGE_DENIAL_REASONS",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#AdmissionOverviewPresentation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#GetAdmissionOverviewUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#parseOwnRequest",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#presentAdmissionOverview",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#requiresAnotherAccount",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#GetAdmissionPageUseCase",
+        "reason": "adds awaited work to the render path (+2 awaited steps, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#GetAdmissionPolicyPageUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#activationRequirements",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#AdmissionPolicyPreparation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#admissionPolicyPublicState",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#assertPreparationScope",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#DraftValidation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#GetAdmissionPolicyUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#OperationalValidation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#projectAdmissionPolicy",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#validationReasons",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#GetAdmissionReviewHistoryPageUseCase",
+        "reason": "adds awaited work to the render path (+2 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#GetAdmissionReviewPageUseCase",
+        "reason": "adds awaited work to the render path (+2 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#GetAdmissionReviewUseCases",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#GetAllowlistPageUseCase",
+        "reason": "adds awaited work to the render path (+2 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts#GetOwnAdmissionUseCases",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#GetPersonalInvitationManagementPageUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#GetPersonalInvitationOverviewUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#GetPersonalInvitationPageUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#ImportAllowlistUseCases",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#ManageAllowlistUseCases",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#<module>",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#ManageCommercialMembershipReviewsUseCases",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#confirmInvitationMutation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#ManagePersonalInvitationsUseCases",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#PreflightAdmissionActivationUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#assertPolicyOriginal",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#ReadAdmissionOperationUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#recoverOperation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#ReadCurrentAdmissionChallengeUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#applicantOf",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#hasValidSensitiveOperation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#mayReadAdmissionResource",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#ResolveAdmissionContextUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#ResolveAdmissionTribeUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#SubmitAcademyEntryUseCase",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#admissionSubmissionSource",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#declaredWhatsappNumber",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#SubmitAdmissionUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.additionalVerificationRequired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.admissionIneligible",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.admissionsPaused",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.allowlistConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.allowlistImportConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeAlreadySent",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeExpired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeInvalidated",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.connectionConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.contactBindingConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.contactEvidenceRequired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.idempotencyConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.invalidInput",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.invitationConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.invitationUnavailable",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.membershipRecoveryRequired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.permissionDenied",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.policyConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.proofUnavailable",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.reauthenticationRequired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.recipientNotAllowed",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.requestConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.requestExpired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.usageLimitReached",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.usagePolicyConflict",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.verificationAttemptsExceeded",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.verificationCodeIncorrect",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.whatsappNumberRequired",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-operation.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-operation.ts#ADMISSION_OPERATION_MAC_KEY_PURPOSES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-policy-flow.ts#ADMISSION_POLICY_ENTRY_STEP.memberships",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-policy-flow.ts#AdmissionPolicyEntryStep",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_TRANSIENT_PAGE_ERROR_CODES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_DIAGNOSTIC_CODE.recovery_locked",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_DIAGNOSTIC_CODE.security_unconfigured",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_DIAGNOSTIC_CODE~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_REQUIREMENT_COPY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#AllowlistCsvReader",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#decodeAllowlistCsv",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishField",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishRecord",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#AdmissionPlatformSecurityReader",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#createAdmissionPlatformSecurityReader",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#createIdentityBoundExecutor",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#PostgresAdmissionActivationRepository",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#PostgresAdmissionActivityReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#PostgresAdmissionAuthorizationReader",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#AcademyMembershipStateRow",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PostgresAdmissionContactVerificationOperations",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +3 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#assertRecoveryOwnership",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#PostgresAdmissionOperationReader",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#compareBatchResourceIds",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#isAccessDenial",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#NativeSubmissionScope",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#normalizeBatch",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#OperationAuthorizer",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#platformSecurityFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#PostgresAdmissionOperationRepository",
+        "reason": "adds awaited work to the render path (+16 awaited steps, +4 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#allowlistBoundUserId",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PostgresAdmissionOverviewReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#policyPlatformRequirement",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#PostgresAdmissionPolicyRepository",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#requirementUnmet",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts#PostgresAdmissionPolicyViewFactsReader",
+        "reason": "adds awaited work to the render path (+2 database queries, +2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionAuthorizationGuard",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionBatchEffects",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionPreparedDecision",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRecordInput",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRunCommand",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#assertSubmissionEligible",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#PostgresAdmissionRequestRepository",
+        "reason": "adds awaited work to the render path (+6 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#requestContact",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionRequest",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionSourceKind",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#PostgresAdmissionReviewHistoryReader",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#PostgresAdmissionReviewReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#bindingConflicts",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isProofSecurityChanged",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isSameProofDestination",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isUsableChallenge",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PostgresAdmissionVerificationProofWriter",
+        "reason": "adds awaited work to the render path (+3 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#ProofApplicationDenialCode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#proofFromRow",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#requestContactColumns",
+        "reason": "adds awaited work to the render path (+2 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#selectContactBinding",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#PostgresAllowlistImportRepository",
+        "reason": "adds awaited work to the render path (+2 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#AllowlistAuditOperation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#PostgresAllowlistRepository",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#<module>",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#OWNER_DENIAL_CODES",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#PostgresCommercialMembershipReviewRepository",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ResolutionRow",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ReviewListRow",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#toIso",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#AdmissionErrorCodeValue",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CapabilityRow",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#channelSenderId",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CURRENT_CHALLENGE_COLUMNS",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CurrentChallengeRow",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isChannelMismatch",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isIssuanceSecurityChanged",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#issuanceOperationType",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#newDiagnosticId",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PostgresContactVerificationIssuer",
+        "reason": "adds awaited work to the render path (+5 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#senderCapabilityDenial",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#challengeFromRow",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#deniedVerification",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isSameDestination",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isValidationScopeUnavailable",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#macScopeChanged",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#PostgresContactVerificationRepository",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#VerificationFailureIdentity",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#ownRetryAt",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#PostgresOwnAdmissionRequestReader",
+        "reason": "adds awaited work to the render path (+2 awaited steps, +3 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#presentedReasons",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#invitationRecipientMatches",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#isInvitationTokenAvailable",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#policyFacts",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PostgresPersonalInvitationOverviewReader",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#PostgresPersonalInvitationRepository",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#AdmissionModuleContext",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule",
+        "reason": "adds awaited work to the render path (+3 calls to I/O helpers, +2 database queries, +2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeScopedQuery",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeVerification",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildInvitationAndVerificationModules",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildLedgerModules",
+        "reason": "adds awaited work to the render path (+4 awaited steps, +1 database queries, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildPolicyModules",
+        "reason": "adds awaited work to the render path (+2 awaited steps, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildReadModules",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#createAdmissionContextResolver",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/auth/constants/reauthentication-resources.ts#ReauthenticationOperation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/constants/sign-out.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/constants/sign-out.ts#SIGN_OUT_COPY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR.googleRedirectUrlMissing",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR.googleSignInRejected",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_ACCOUNT_CHOOSER_PROMPT",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_PROMPT_PARAM",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_SOCIAL_PROVIDER",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#startGoogleSignIn",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/better-auth/client.ts#withGoogleAccountChooser",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#AuthenticatedFeatureDependencies",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseExecutor",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/commands/messaging-usage-browser-intent.ts#messagingUsageBrowserIntentSchema",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/ports/messaging-usage-browser-client.ts#MessagingUsageBrowserClient",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/results/messaging-errors.ts#MessagingFailure",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/results/messaging-errors.ts#MessagingPublicError",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/results/messaging-public-result-schemas.ts#MessagingUsageCurrentDto",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/results/messaging-public-result-schemas.ts#messagingUsageCurrentSchema",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/results/messaging-usage-page-state.ts#messagingUsagePageStateSchema",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts#ActivateMessagingConnectionUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#abortedOrUnexpectedCode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#configurationFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#ConfigureMessagingConnectionUseCase",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#missingResource",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetSenderRequirement",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetTemplateRequirement",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts#VerifyConnectionDiagnosticUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#GetMessagingConnectionsPageUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#isAuthorityFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#projectNotificationCatalog",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#GetMessagingUsagePageUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts#IssueConnectionDiagnosticUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#ManageMessagingUsageUseCases",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts#ReadMessageDeliveryUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#audienceOf",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#ReadMessagingConfigurationUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts#ReadMessagingConnectionOperationUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#abortedOrUnexpectedCode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#compareResourceIds",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#listResources",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#ReadMessagingResourcesUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#ReadMessagingUsageOperationUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#OriginalMessageContextResolver",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryDependencies",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#resolveOriginalReconciliationContext",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#proposedRecoveryFailureCode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#RecoverNotificationDeliveryUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts#ReserveMessagingUsageUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#hasCurrentLeadership",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingContextUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingWriteContextUseCase",
+        "reason": "adds awaited work to the render path (+3 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#isManagementLeader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#ResolveMessagingTribeManagementUseCase",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopedResourceId",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopeSensitiveOperation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#inspectCredentialOutcome",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#requireSameValidator",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionInput",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCase",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCaseDependencies",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#validationFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeAlreadySent",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.connectionIncomplete",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.deliveryUnknown",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.dependencyUnavailable",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.invalidCredentials",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.missingCapability",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.operationUnresolved",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.providerRateLimited",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.publicContractUnusable",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.transportTimeout",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.unexpectedFailure",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.upstreamPayloadUnusable",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.upstreamRejected",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usagePolicyMissing",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE~frame",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_MESSAGE",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-read-errors.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-read-errors.ts#MESSAGING_READ_ERROR_MESSAGE",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-read-errors.ts#messagingReadErrorMessage",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-route-error.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_INTENT_KEEPING_FAILURES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/constants/messaging-usage.ts#MESSAGING_USAGE_UI_COPY.retry",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/domain/repositories/messaging-usage-operations.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/domain/repositories/messaging-usage-operations.ts#MessagingUsagePageRead",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/api/messaging-error-status.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/api/messaging-error-status.ts#MESSAGING_ERROR_HTTP_STATUS",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/api/messaging-usage-operation-handler.ts#createMessagingUsageOperationHandler",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/api/messaging-usage-operation-handler.ts#emptyQuerySchema",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/api/messaging-usage-operation-handler.ts#operationParamsSchema",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/api/messaging-usage-policy-handlers.ts#createMessagingUsagePolicyHandlers/command",
+        "reason": "interactive handler changed: navigation or server action calls may differ"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/api/messaging-usage-policy-handlers.ts#createMessagingUsagePolicyHandlers~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/api/messaging-usage-policy-handlers.ts#UsageCommandResult",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#createMessagingPageDiagnostics",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#loadMessagingPageRead",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#MESSAGING_PAGE_DIAGNOSTIC_FEATURE",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#messagingPageInputSchema",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#messagingPageUnavailable",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#MessagingPageUnavailable",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#readMessagingPageSlug",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-country-choices.ts#getMessagingUsageCountryChoices",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-country-choices.ts#REGION_NAMES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#loadMessagingUsagePageState",
+        "reason": "adds awaited work to the render path (+2 calls to I/O helpers, +1 database queries, +1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#loadMessagingUsagePageState/failure",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#loadMessagingUsagePageState~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#MESSAGING_USAGE_PAGE_DIAGNOSTIC.contractRejected",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#MESSAGING_USAGE_PAGE_DIAGNOSTIC.loadFailed",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#MESSAGING_USAGE_PAGE_DIAGNOSTIC.operation",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#MESSAGING_USAGE_PAGE_DIAGNOSTIC.readFailed",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#MESSAGING_USAGE_PAGE_DIAGNOSTIC~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/composition/messaging-usage-page.ts#pageInputSchema",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingPlatformRequirement",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingSecurityConfig",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingRecoveryLock",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#readMessagingPlatformSecurityFacts",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#classifyMessagingPlatformSecurityFailure",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#UNCONFIGURED_SECURITY_FAILURES",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/config/messaging-security-config.ts#createMessagingSecurityConfig",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-security-config.ts#importKeyring",
+        "reason": "adds awaited work to the render path (+1 awaited calls inside a loop): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#readMessagingPlatformSecurityRequirement",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#isVerifiableResource",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#PostgresAdmissionVerificationReadinessReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#resourceSenderId",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#knownFailureCode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#PostgresConnectionDiagnosticIssuance",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts#PostgresConnectionDiagnosticOperations",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#PostgresCredentialValidationBudget",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#DatabaseExecutor",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#isOperation",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStore",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStoreDependencies",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#SecurityConfigReader",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#PostgresMessageReconciliationRepository",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#receiptReason",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparationDependencies",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#StatusDatabaseExecutor",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#PostgresMessagingAuthorizationReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#PostgresMessagingResourceExposureRecorder",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#PostgresMessagingConfigurationReader",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#storedCredentialMode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#activationFailureCode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#configuredChannelsOf",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#effectiveSelection",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#isExplicitlyConfirmed",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#PostgresMessagingConnectionActivation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#configuredSenderId",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#PostgresMessagingConnectionConfiguration",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#requiredWhatsappTemplate",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts#PostgresMessagingConnectionDisconnection",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#ConnectionOperationRow",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#PostgresMessagingConnectionOperationReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#assertUnchangedSecurityScope",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#PostgresMessagingConnectionRepository",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#readOriginalResult",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts#PostgresMessagingConnectionSuspension",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#compareEntryKeys",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#PostgresMessagingContactBudgetRepository",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#PostgresMessagingCredentialValidation",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialMode",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialState",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#ledgerTypesOf",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#PostgresMessagingOriginalOperationLookup",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#PostgresMessagingUsageOperationReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#UsageOperationRow",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PostgresMessagingUsageOperations",
+        "reason": "adds awaited work to the render path (+3 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestriction",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestrictions",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#PostgresMessagingUsageRepository",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#CatalogRow",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#PostgresNotificationDeliveryCatalogReader",
+        "reason": "adds awaited work to the render path (+5 database queries, +2 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#assertRecoverySecurityScope",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#isExplicitlyConfirmed",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#PostgresNotificationDeliveryRecoveryRepository",
+        "reason": "adds awaited work to the render path (+3 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryDeadlineExpired",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryDecision",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryRows",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTargetFacts",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTimestamps",
+        "reason": "adds awaited work to the render path (+2 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#StagedRecoveryGroup",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetCapabilityRow",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetVersionRow",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#PostgresNotificationRecoveryOperationReader",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#lookupMessage",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#providerAttemptState",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#ZavuMessageStatusLookup",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule/createManagement",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule/createSensitiveContext",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule/createUsage",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createActorExecutor",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createMessagingManagement/executeGuardedRead",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createMessagingManagement~shell",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +1 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createMessagingUsage",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createSensitiveMessagingContext",
+        "reason": "adds awaited work to the render path (+1 awaited steps, +2 database queries, +1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/setup.ts#createMessagingUsageRequestModule",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/setup.ts#createRequestModules~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionIncomplete",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionRetirementBlocked",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.deliveryUnknown",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.dependencyUnavailable",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.invalidCredentials",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.missingCapability",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.operationUnresolved",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.originalDispatchUnresolved",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.platformSecurityUnavailable",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.providerRateLimited",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.publicContractUnusable",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.transportTimeout",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.unexpectedFailure",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamPayloadUnusable",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamRejected",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.usagePolicyMissing",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.recoveryLocked",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.unconfigured",
+        "reason": "object member read by the route changed: route configuration impact unknown"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT~frame",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#PlatformSecurityRequirement",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/shared/infrastructure/database/postgres-pool.ts#createPostgresPool",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease/release",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease~shell",
+        "reason": "component render changed: hooks, Suspense or client imports may differ"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement",
+        "reason": "adds awaited work to the render path (+2 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/handleCheckedOutClientError",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/releaseClient",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction",
+        "reason": "adds awaited work to the render path (+6 awaited steps, +3 database queries): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/handleCheckedOutClientError",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/releaseClient",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction~shell",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-logger.ts#describeNonErrorValue",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/shared/infrastructure/observability/server-logger.ts#serializeError",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#<module>",
+        "reason": "module directives (\"use client\", \"use server\") or side-effect imports changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#createServerPageDiagnostics/fields",
+        "reason": "new interactive handler in the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#createServerPageDiagnostics~shell",
+        "reason": "adds awaited work to the render path (+1 calls to I/O helpers): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#findContractIssues",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#loadServerPageState",
+        "reason": "adds awaited work to the render path (+1 awaited steps): navigation may wait without a loading boundary"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#ServerPageDiagnostics",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#VALIDATION_CAUSE_MAX_DEPTH",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/domain/value-objects/tribe-slug.ts#<module>",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/domain/value-objects/tribe-slug.ts#TRIBE_SLUG_PATTERN",
+        "reason": "code no longer reached by the route: a layout, boundary or client island may have been removed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApplicableDecision",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#applyApprovedAcademyMembership",
+        "reason": "code rendered by the route changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApprovedMembershipContext",
+        "reason": "new code rendered by the route"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#findApplicableDecision",
+        "reason": "new code rendered by the route"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.messaging.usage.save (/[slug]/academia/admissions/messaging): map the segments that wrap it (layouts, templates, loading, error, not-found), decide the server/client split of each element and the skeleton of each loading state, check the Next.js APIs against the installed version, and verify build, sibling navigation, error containment with retry and the server-rendered shell"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "e10abe05f2183949",
+      "references/decision-rules.md": "5340413b30d4e7a7",
+      "references/nextjs-apis.md": "f605e820b5b5f34e",
+      "references/server-client-split.md": "748fa0a77772932b",
+      "references/skeleton-patterns.md": "65d4c31f0f8beb93",
+      "references/version-notes.md": "b6f6488947de60f0"
+    },
+    "definitionHash": "sha256:84aecfd00b66834709d022b71d64dfc146e8b312ec6b12736b9e8992b47dd958",
+    "name": "nextjs-route-ui-boundaries",
+    "version": "1.3.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-11-02T18:36:30.479Z",
+  "unitId": "academy.admissions.messaging.usage.save"
+}
