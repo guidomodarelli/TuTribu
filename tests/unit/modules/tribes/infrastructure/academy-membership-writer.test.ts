@@ -38,7 +38,7 @@ async function stageApprovedDecision(database:Parameters<PostgresTribeAcademyAdm
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership writer",()=>{
-  it("should reject admission when academy mode changes during a membership lock wait",async()=>{
+  it("should refuse an academy mode change that meets an in-flight admission, so the admission completes inside the academy",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareWriter(database);
       const applicationName=`membership-mode-race-${randomUUID()}`;
@@ -71,11 +71,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership w
         releaseBlocker();
         completed=await Promise.allSettled(writer?[blocker,writer]:[blocker]);
       }
-      expect(completed[0].status).toBe("fulfilled");
-      expect(observedResult).toEqual({status:"admission_closed"});
-      expect(completed[1]).toMatchObject({status:"rejected",reason:{code:"23503"}});
-      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.applicantId}`)).rows)).toEqual([]);
-      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId}`)).rows)).toEqual([]);
+      // Leaving the academy closes its pending requests, and that closure never waits behind the tribe lock the admission holds:
+      // the mode change is rejected for retry (55P03) and the admission it met completes inside the unchanged academy.
+      expect(completed[0].status).toBe("rejected");
+      const modeChangeFailure=completed[0].status==="rejected"?completed[0].reason as {code?:string;cause?:{code?:string}}:null;
+      expect(modeChangeFailure?.code??modeChangeFailure?.cause?.code).toBe("55P03");
+      expect(completed[1].status).toBe("fulfilled");
+      expect(observedResult).toMatchObject({status:"joined",member:{role:"tribemate",status:"active"}});
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select access_model,admission_enabled from public.tribe_academy_settings where tribe_id=${fixture.tribeId}`)).rows)).toEqual([{access_model:"academy",admission_enabled:true}]);
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select count(*)::int as total from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.applicantId}`)).rows)).toEqual([{total:1}]);
     });
   },120_000);
 

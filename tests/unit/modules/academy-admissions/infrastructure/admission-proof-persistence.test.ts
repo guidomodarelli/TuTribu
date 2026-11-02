@@ -1,10 +1,13 @@
 /** @vitest-environment node */
 
 /** Exercises source binding, immutable evidence and one-use application on real Postgres. */
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+
+/** Synthetic hosting environment of the connection version every challenge here is bound to. */
+const PROOF_ENVIRONMENT = "synthetic-proof";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof persistence", () => {
   it("should derive a proof only from its verified admission challenge and apply it once", async () => {
@@ -23,11 +26,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof pe
       await database.withContext({ userId: null, email: null }, async (transaction) => {
         await transaction.execute(sql`insert into public."user" (id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic proof account',${contact},false,clock_timestamp(),clock_timestamp())`);
         await transaction.execute(sql`insert into public.tribes (id,name,slug,created_by) values (${tribeId},'Synthetic proof tribe',${`proof-${tribeId}`},${userId})`);
+        // The complete journal binds every challenge to its exact connection version and delivery.
+        await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,candidate_version) values (${connectionId},${tribeId},${userId},'degraded',${PROOF_ENVIRONMENT},'synthetic-epoch',true,1)`);
+        await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch) values (${connectionId},${tribeId},1,${PROOF_ENVIRONMENT},'synthetic-epoch')`);
       });
       const insertChallenge = (purpose: "admission" | "connection_diagnostic", state: "issued" | "verified") => database.withContext(own, async (transaction) => {
+        const challengeId = randomUUID(), deliveryId = randomUUID();
+        await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) values (${deliveryId},${tribeId},${connectionId},1,${PROOF_ENVIRONMENT},'synthetic-epoch',${purpose},${challengeId},${userId},${challengeId},'email',${randomUUID()},${randomBytes(32)},'synthetic-payload','{}',1,${verifiedAt},${verifiedAt},${expiresAt})`);
         const result = await transaction.execute(sql`
-          insert into public.contact_verification_challenges (user_id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,purpose,verification_epoch,connection_id,connection_version,security_epoch,channel,state,is_current,created_at,expires_at,verified_at,code_mac,mac_key_id,delivery_id)
-          values (${userId},${tribeId},'email',${contact},${new Uint8Array(32)},'synthetic-fingerprint',${purpose},${purpose === "admission" ? 1 : null},${connectionId},1,'synthetic-epoch','email',${state},${state === "verified"},${verifiedAt},${expiresAt},${state === "verified" ? verifiedAt : null},${new Uint8Array(32)},'synthetic-code',${randomUUID()}) returning id
+          insert into public.contact_verification_challenges (id,user_id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,purpose,verification_epoch,connection_id,connection_version,security_epoch,channel,state,is_current,created_at,expires_at,verified_at,code_mac,mac_key_id,delivery_id)
+          values (${challengeId},${userId},${tribeId},'email',${contact},${new Uint8Array(32)},'synthetic-fingerprint',${purpose},${purpose === "admission" ? 1 : null},${connectionId},1,'synthetic-epoch','email',${state},${state === "verified"},${verifiedAt},${expiresAt},${state === "verified" ? verifiedAt : null},${new Uint8Array(32)},'synthetic-code',${deliveryId}) returning id
         `);
         return result.rows[0].id as string;
       });

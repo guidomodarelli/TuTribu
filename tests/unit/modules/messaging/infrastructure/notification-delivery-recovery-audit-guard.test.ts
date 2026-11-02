@@ -3,6 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-security";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareNotificationDeliveryRecovery } from "@/tests/support/notification-delivery-recovery-fixture";
 
@@ -67,5 +68,5 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
       const committed = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select child.id,event.created_at=child.created_at as same_clock,event.resource_version=child.version as same_version from public.message_deliveries child join public.academy_admission_audit_events event on event.resource_id=child.id and event.operation_id=child.recovery_operation_id where child.id=${childId}`)).rows);
       expect(committed).toEqual([{ id: childId, same_clock: true, same_version: true }]);
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 });

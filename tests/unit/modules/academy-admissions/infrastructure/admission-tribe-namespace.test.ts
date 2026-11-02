@@ -10,6 +10,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("private admission 
   it("should register both sides of a real DML wait around the migration without losing a concurrently created tribe", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareContactVerificationDatabase(database), beforeTribeId = randomUUID(), afterTribeId = randomUUID();
+      // The owned branch clones a default branch that already runs this artifact: rewind exactly what it creates (the later
+      // references to the namespace table go with it) so the committed migration itself meets the concurrent writers below.
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`drop trigger admission_tribe_namespace_registration on public.tribes`);
+        await transaction.execute(sql`drop function public.register_admission_tribe_namespace()`);
+        await transaction.execute(sql`drop table public.academy_admission_tribe_namespaces cascade`);
+        await transaction.execute(sql`drop function public.guard_admission_tribe_namespace()`);
+      });
       const horizon = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ deadline: string }>(sql`select clock_timestamp()+interval '60 seconds' as deadline`)).rows[0].deadline);
       let announceLock!: (pid: number) => void, rejectLock!: (error: unknown) => void, releaseLock!: () => void;
       const locked = new Promise<number>((resolve, reject) => { announceLock = resolve; rejectLock = reject; });
@@ -27,7 +35,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("private admission 
       });
       void holder.catch(rejectLock);
       const holderPid = await locked;
-      const migration = database.applyMigration("20261010113000_preserve_admission_tribe_namespaces.sql");
+      const migration = database.rerunMigration("20261010113000_preserve_admission_tribe_namespaces.sql");
       // The original promises remain rejected and are collected after releasing the barrier.
       void migration.catch(() => {});
       let createdAfter: Promise<unknown> | null = null, primaryError: unknown, observationFailed = false;

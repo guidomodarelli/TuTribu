@@ -90,7 +90,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messagin
       expect(JSON.stringify(accesses)).not.toContain(fixture.secretRef);
       let reads = 0;
       const stopped = new PostgresMessagingResourceExposureRecorder((context, run) => database.withContext({ userId: context.actorUserId, email: null }, run), async () => ({ environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, recoveryLocked: ++reads > 1 }));
-      await expect(stopped.record(fixture.context, { kind: "senders", itemCount: 2 })).rejects.toMatchObject({ code: "connection_incomplete" });
+      // A recovery lock that starts mid-record is a platform requirement only the TuTribu team resolves, not an incomplete connection.
+      await expect(stopped.record(fixture.context, { kind: "senders", itemCount: 2 })).rejects.toMatchObject({ code: "platform_security_unavailable" });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::integer as count from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and event_type='authorized_resource_exposure'`)).rows)).toEqual([{ count: 2 }]);
     });
   }, 120_000);

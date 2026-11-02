@@ -40,12 +40,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native closed acad
       });
       const submission = await commands(newcomer).submit.execute({ ...newcomer.input, expectedPolicyVersion: 3 });
       expect(submission.ok).toBe(false);
-      const lockedSubmissionCode = change === "recovery_lock" ? "connection_incomplete" : "admission_ineligible";
+      // A recovery lock is a platform requirement only the TuTribu team resolves: every admission write refuses it as such.
+      const lockedSubmissionCode = change === "recovery_lock" ? "platform_security_unavailable" : "admission_ineligible";
       if (!submission.ok) expect(submission.failure.code).toBe(change === "missing_policy" ? "policy_conflict" : lockedSubmissionCode);
       for (const actor of [fixture, guardian]) {
         const decision = await commands(actor).decide.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: before.request.version, confirmed: true, decision: "approve", internalReason: "Revisión con configuración cerrada", externalMessage: null });
         expect(decision.ok).toBe(false);
-        const lockedDecisionCode = change === "recovery_lock" ? "connection_incomplete" : "admission_ineligible";
+        const lockedDecisionCode = change === "recovery_lock" ? "platform_security_unavailable" : "admission_ineligible";
         if (!decision.ok) expect(decision.failure.code).toBe(change === "missing_settings" ? "request_conflict" : lockedDecisionCode);
       }
       const legacy = new PostgresTribeAcademyAdmissionRepository((run) => database.withContext({ userId: newcomer.userId, email: newcomer.email }, run));

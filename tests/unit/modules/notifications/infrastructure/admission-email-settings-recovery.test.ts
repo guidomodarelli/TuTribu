@@ -59,13 +59,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original em
     });
   }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
 
-  it("should resume an interrupted original only after its lease expires while binding its exact body and preventing duplicate effects", async () => {
+  it("should resume an interrupted original at once, since its effect released the lease, while binding its exact body and preventing duplicate effects", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionEmailSettings(database), original = fixture.command(0, false, "Asia/Kolkata");
       const ledger = new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), async (transaction) => { await authorizeAdmissionPolicy(transaction, fixture.change, "update_admission_email_settings"); return true; }, async () => fixture.config);
       const command = { actorUserId: fixture.own.userId, tribeId: fixture.read.tribeId, operationType: "update_admission_email_settings", idempotencyKey: original.operationId, intent: { expectedVersion: original.expectedVersion, enabled: original.enabled, timeZone: original.timeZone } };
       await expect(ledger.run(command, admissionEmailSettingsChangeResultSchema, async () => { throw new Error("Synthetic interruption after the original claim"); })).rejects.toMatchObject({ code: "operation_unresolved" });
-      expect(await fixture.repository.change(fixture.change, original)).toEqual({ state: "started", operationId: original.operationId });
       await expect(fixture.repository.change(fixture.change, { ...original, timeZone: "UTC" })).rejects.toMatchObject({ code: "idempotency_conflict" });
       await database.withServerEnvironment(async (environment) => {
         const native = new Client({ connectionString: environment.DATABASE_URL });
@@ -75,8 +74,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native original em
           await expect(native.query("update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second' where tribe_id=$1 and idempotency_key=$2 and state='started'", [fixture.read.tribeId, original.operationId])).rejects.toMatchObject({ code: "23514", message: "admission operation claim change requires one version increment" });
         } finally { await native.query("rollback"); await native.end(); }
       });
-      const expired = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where tribe_id=${fixture.read.tribeId} and idempotency_key=${original.operationId} and state='started' returning state`)).rows);
-      expect(expired).toEqual([{ state: "started" }]);
+      // The interrupted effect rolled back and released its own lease: the same original completes on the next send, without waiting.
       expect(await fixture.repository.change(fixture.change, original)).toMatchObject({ state: "completed", operationId: original.operationId, replayed: false, result: { status: "changed", settings: { enabled: false, version: 1, timeZone: "Asia/Kolkata" } } });
       expect(await fixture.repository.change(fixture.change, original)).toMatchObject({ state: "completed", operationId: original.operationId, replayed: true, result: { status: "changed", settings: { version: 1 } } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_operations where tribe_id=${fixture.read.tribeId}) as operations,(select version from public.admission_email_settings where tribe_id=${fixture.read.tribeId}) as settings_version`)).rows[0])).toEqual({ operations: 1, settings_version: 1 });

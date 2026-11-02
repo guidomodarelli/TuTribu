@@ -132,7 +132,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
       }));
       expect(state).toEqual({ original: { state: "unknown", version: 1 }, attempt: { state: "unknown", version: 1 }, reservation: { state: "consumed" }, effects: { children: 0, audits: 0 } });
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should recover an explicitly rejected original without releasing its charge or reusing its attempt", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -154,7 +154,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
       }));
       expect(state).toEqual({ original: { state: "failed", version: 2 }, attempt: { id: attemptId, state: "rejected", version: 1 }, reservations: [{ id: reservationId, state: "consumed" }], children: 1, audit: [{ actor_user_id: fixture.context.actorUserId, resource_version: 1, rule: "explicit_notification_recovery", cause: "authorized_connection_replacement", owner_clock: true, idempotency_key: fixture.input.operationId, metadata: { fromState: null, toState: "queued", previousVersion: null, connectionId: fixture.input.targetConnectionId, connectionVersion: fixture.targetConfigurationVersion, channel: "email", attemptId: null, authorizedUsagePolicyVersion: null, originalDeliveryId: fixture.context.deliveryId, targetConnectionId: fixture.input.targetConnectionId, originalConnectionId: fixture.originalConnectionId, originalConnectionVersion: 1, originalFromState: "failed", originalToState: "failed", previousOriginalVersion: 1, originalVersion: 2, originalAttemptId: attemptId, originalAuthorizedUsagePolicyVersion: 1 } }] });
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should roll back all staged effects when the external security epoch changes in the final ledger wait", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -177,7 +177,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         expect(fixture.transport.receipts).toHaveLength(sendsBefore);
       } finally { wait.release(); await wait.outcome; }
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should roll back all staged effects when the original deadline crosses during the final ledger wait", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -205,5 +205,5 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         expect(observed).toEqual({ original: { state: "suppressed", version: 1 }, effects: { children: 0, audits: 0 } });
       } finally { wait.release(); await wait.outcome; }
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 });

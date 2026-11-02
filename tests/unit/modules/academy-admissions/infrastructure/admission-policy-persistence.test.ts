@@ -97,11 +97,13 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       await data.initialize();
-      const command = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { requiresWhatsappNumber: true } };
+      // A new policy requires the phone by default; the leader declares it optional and old clients that omit the field keep that choice.
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, version: 1 });
+      const command = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { requiresWhatsappNumber: false } };
       expect(await data.repository.update(command)).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 1, changed: true } });
-      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, version: 2, verificationEpoch: 1 });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, version: 2, verificationEpoch: 1 });
       expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 2, patch: { isOpen: true } })).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
-      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, isOpen: true, version: 3 });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, isOpen: true, version: 3 });
       expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 3 })).toMatchObject({ state: "completed", result: { version: 3, changed: false } });
       await expect(data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 2 })).rejects.toMatchObject({ code: "policy_conflict" });
       data.setPrepared(true);
@@ -109,12 +111,12 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 4 })).toMatchObject({ state: "completed", result: { version: 5, controlActivated: true } });
       const preparedReads = data.preparationCount();
       data.setPrepared(false); data.setPreparationFailure(true);
-      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 5, patch: { requiresWhatsappNumber: false } })).toMatchObject({ state: "completed", result: { version: 6, verificationEpoch: 2, changed: true } });
+      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 5, patch: { requiresWhatsappNumber: true } })).toMatchObject({ state: "completed", result: { version: 6, verificationEpoch: 2, changed: true } });
       expect(data.preparationCount()).toBe(preparedReads);
-      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, requiresAdditionalVerification: true, version: 6, verificationEpoch: 2 });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, requiresAdditionalVerification: true, version: 6, verificationEpoch: 2 });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
       await expect(data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 6 })).rejects.toMatchObject({ code: "permission_denied" });
-      expect(await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute(sql`select requires_whatsapp_number,version,verification_epoch,(select count(*)::int from public.message_deliveries where tribe_id=${data.tribeId}) as deliveries from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ requires_whatsapp_number: false, version: 6, verification_epoch: 2, deliveries: 0 }]);
+      expect(await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute(sql`select requires_whatsapp_number,version,verification_epoch,(select count(*)::int from public.message_deliveries where tribe_id=${data.tribeId}) as deliveries from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ requires_whatsapp_number: true, version: 6, verification_epoch: 2, deliveries: 0 }]);
     });
   }, ADMISSION_WHATSAPP_SQL_TIMEOUT_MS);
 
@@ -128,7 +130,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       data.loseNextReply();
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", result: { version: 2, changed: true } });
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
-      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
+      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: true, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
       // Assert: audit and ledger preserve one actual effect and the correct scope.
       const audit = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select event.actor_user_id,event.resource_type,event.resource_id,event.event_type,event.resource_version,event.rule,event.cause,event.metadata,operation.idempotency_key,event.created_at>=operation.created_at as ordered from public.academy_admission_audit_events event join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${data.tribeId} order by event.resource_version`)).rows);
       expect(audit).toEqual([
@@ -233,7 +235,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const data = await preparePolicy(database);
       for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql"]) await database.applyMigration(migration);
       await data.initialize();
-      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { isOpen: true } });
+      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { isOpen: true, requiresWhatsappNumber: false } });
       await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 2 });
       const applicantId = randomUUID(), applicantSessionId = randomUUID();
       await database.withContext(data.fixture.own, async (transaction) => {
@@ -244,7 +246,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const submitted = await requests.submit({ userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 3, source: { kind: "common" }, contact: { type: "email", value: `${applicantId}@example.test` }, proofId: null, message: null });
       if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Native policy transition did not produce the expected pending request");
       const requestId = submitted.result.admissionRequestId;
-      const own = new PostgresOwnAdmissionRequestReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run));
+      // The hosting recovery lock is read from this test, not from an environment that leaves it unset (and therefore locked).
+      const own = new PostgresOwnAdmissionRequestReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => false);
       const query = { userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID() };
       const before = await own.readOwn(query);
       expect(before).toMatchObject({ id: requestId, status: "pending", version: 1, needsVerification: false });
@@ -266,7 +269,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const data = await preparePolicy(database); await data.initialize();
       let runtimePrepared = false;
       const inventory = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).read(data.readContext));
-      expect(await inventory()).toMatchObject({ tribeId: data.tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: false, ingressProtected: false, runtimePrepared: false });
+      // The owned branch clones a default branch that already runs the guarded storage and ingress; the closed cases are produced below by disabling them.
+      expect(await inventory()).toMatchObject({ tribeId: data.tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: false });
       for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       const current = await inventory();
       expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false });

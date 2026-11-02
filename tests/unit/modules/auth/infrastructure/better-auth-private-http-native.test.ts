@@ -12,7 +12,7 @@ import { BETTER_AUTH_SERVER_ONLY_HTTP_PATHS } from "@/src/modules/auth/constants
 import { SECONDS_PER_DAY, MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("built Next private authentication", () => {
-  it("should protect current sessions, OAuth token routes and foreign-origin intent creation in the actual composition", async () => {
+  it("should protect current sessions and OAuth token routes, and no longer expose the removed reauthentication intents, in the actual composition", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       await database.withServerEnvironment(async (environment) => {
         const client = new Client({ connectionString: environment.DATABASE_URL });
@@ -51,12 +51,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("built Next private
               expect(blocked.headers.get("cache-control")).toBe("no-store");
               expect(blocked.headers.get("referrer-policy")).toBe("no-referrer");
             }
-            for (const contentType of ["application/json", "text/plain"]) {
-              const denied = await fetch(`${origin}/api/auth/reauthentication/intents`, { method: "POST", headers: new Headers({ cookie, origin: "https://foreign.example.test", "content-type": contentType }), body: "not-a-readable-command" });
-              expect(denied.status).toBe(403);
-              expect(denied.headers.get("cache-control")).toBe("no-store");
-              expect(denied.headers.get("referrer-policy")).toBe("no-referrer");
-              expect(await denied.json()).toMatchObject({ code: "context_unavailable" });
+            // Sensitive operations authorize with the live leader session: the reauthentication intents API was removed and stays unreachable.
+            for (const requestOrigin of [origin, "https://foreign.example.test"]) {
+              const removed = await fetch(`${origin}/api/auth/reauthentication/intents`, { method: "POST", headers: new Headers({ cookie, origin: requestOrigin, "content-type": "application/json" }), body: "{}" });
+              expect(removed.status).toBe(404);
+              expect(removed.headers.get("cache-control")).toBe("no-store");
+              expect(removed.headers.get("referrer-policy")).toBe("no-referrer");
             }
             expect((await client.query('select count(*)::integer as total from public.session where "userId"=$1 and id=$2', [userId, sessionId])).rows[0].total).toBe(1);
           });

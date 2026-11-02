@@ -59,6 +59,23 @@ async function insertRecoveryOriginScenario(transaction: RequestDatabase, scope:
 }
 
 /**
+ * Removes what the recovery origin cutover creates and restores the live operation foreign key it replaced.
+ * @param database - This test's privately owned branch.
+ * @returns Nothing once the branch matches the schema the cutover upgrades.
+ */
+async function rewindRecoveryOriginCutover(database: AcademyAdmissionTestDatabase): Promise<void> {
+  await database.withContext({ userId: null, email: null }, async (transaction) => {
+    await transaction.execute(sql`drop trigger notification_recovery_origin_registration on public.message_deliveries`);
+    await transaction.execute(sql`drop trigger notification_recovery_origin_release on public.message_deliveries`);
+    await transaction.execute(sql`drop trigger notification_recovery_live_operation_guard on public.academy_admission_operations`);
+    await transaction.execute(sql`alter table public.message_deliveries drop constraint messaging_delivery_recovery_operation_fkey`);
+    await transaction.execute(sql`drop table public.messaging_notification_recovery_origins`);
+    for (const name of ["register_notification_recovery_origin", "guard_notification_recovery_origin_identity", "guard_notification_recovery_live_operation", "release_deleted_notification_recovery_origin"]) await transaction.execute(sql.raw(`drop function public.${name}()`));
+    await transaction.execute(sql`alter table public.message_deliveries add constraint messaging_delivery_recovery_operation_fkey foreign key(recovery_operation_id,tribe_id) references public.academy_admission_operations(id,tribe_id)`);
+  });
+}
+
+/**
  * Applies the actual preceding artifacts and seeds an existing, fully guarded recovery.
  * @param database - This test's privately owned branch, still at the normal baseline.
  * @returns The real upgrade statements and current native source identities.
@@ -71,7 +88,10 @@ async function prepareRecoveryOriginCutover(database: AcademyAdmissionTestDataba
   const migration = migrations.find((entry) => entry.folderMillis === cutover.when);
   if (!migration) throw new Error("Recovery origin upgrade statements are unavailable");
   const preceding = migrations.filter((entry) => entry.folderMillis > Number(latest) && entry.folderMillis < cutover.when);
-  await database.withContext({ userId: null, email: null }, (transaction) => transaction.execute(sql.raw(preceding.flatMap((entry) => entry.sql).join("\n;\n"))));
+  if (preceding.length) await database.withContext({ userId: null, email: null }, (transaction) => transaction.execute(sql.raw(preceding.flatMap((entry) => entry.sql).join("\n;\n"))));
+  // A branch cloned from a default branch that already runs the cutover is rewound to exactly what preceded it,
+  // so the committed artifact itself upgrades the existing recovery below.
+  if (Number(latest) >= cutover.when) await rewindRecoveryOriginCutover(database);
   const fixture = await seedContactVerificationDatabase(database);
   const tribeId = randomUUID(), originalConnectionId = randomUUID(), targetConnectionId = randomUUID();
   const scope = await database.withContext(fixture.own, async (transaction): Promise<RecoveryOriginScope> => {
@@ -93,7 +113,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native notificatio
       const { cutover, fixture, scope, recovery } = await prepareRecoveryOriginCutover(database);
       const { tribeId } = scope;
       await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.tribes where id=${tribeId}`))).rejects.toMatchObject({ cause: { code: "23503", constraint: "messaging_delivery_recovery_operation_fkey" } });
-      await database.applyMigration(`${cutover.tag}.sql`);
+      await database.rerunMigration(`${cutover.tag}.sql`);
       const readOrigins = () => database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select operation_id,tribe_id from public.messaging_notification_recovery_origins where tribe_id=${tribeId}`)).rows);
       expect(await readOrigins()).toEqual([{ operation_id: recovery.operationId, tribe_id: tribeId }]);
       await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.academy_admission_operations where id=${recovery.operationId}`))).rejects.toMatchObject({ cause: { code: "23503" } });
@@ -162,7 +182,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native notificatio
           expect((await upgrade).error).toMatchObject({ cause: { code: "55P03" } });
           expect((await writer).error).toBeNull();
           expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select to_regclass('public.messaging_notification_recovery_origins') is null as unchanged`)).rows)).toEqual([{ unchanged: true }]);
-          await database.applyMigration(`${cutover.tag}.sql`);
+          await database.rerunMigration(`${cutover.tag}.sql`);
         } else {
           upgrade = startUpgrade(); const migrationPid = await observeGate(migrationLocked,upgrade);
           writer = startWriter(); const writerPid = await observeGate(writerStarted,writer);

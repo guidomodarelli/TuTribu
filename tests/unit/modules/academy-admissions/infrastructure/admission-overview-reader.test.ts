@@ -51,7 +51,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission overview
         await transaction.execute(sql`delete from public.tribe_academy_settings where tribe_id=${tribeId}`);
       });
       expect(await reader.readIdentity(query)).toMatchObject({ id: tribeId });
-      expect(await new GetAdmissionOverviewUseCase(accounts, reader, () => new Date()).execute(query)).toMatchObject({ ok: true, value: { state: "pending", nextAction: "view_request" } });
+      // Leaving the academy closes the pending request (academy_unavailable): the overview keeps showing it, closed, without offering a new one.
+      expect(await new GetAdmissionOverviewUseCase(accounts, reader, () => new Date()).execute(query)).toMatchObject({ ok: true, value: { state: "closed", nextAction: "contact_leader", request: { status: "cancelled", version: 2 } } });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${sessionId}`));
       await expect(reader.readOverview(query, { userId: fixture.userId, sessionId })).rejects.toMatchObject({ code: "authentication_required" });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_operations where tribe_id=${tribeId}) as operations,(select count(*)::int from public.tribe_members where tribe_id=${tribeId}) as members,(select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries`)).rows)).toEqual([{ operations: 0, members: 0, deliveries: 0 }]);

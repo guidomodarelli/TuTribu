@@ -14,6 +14,7 @@ import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admi
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 /**
  * Seeds a pending request in an explicitly protected synthetic academy.
@@ -37,6 +38,11 @@ async function prepareAtomicAdmission(database: AcademyAdmissionTestDatabase) {
   const keyrings = {} as Parameters<typeof createMessagingSecurityConfig>[0]["keyrings"];
   for (const purpose of Object.values(MESSAGING_KEY_PURPOSE)) { const keyId = randomUUID(); keyrings[purpose] = { activeKeyId: keyId, keys: [{ id: keyId, material: randomBytes(32) }] }; }
   const config = await createMessagingSecurityConfig({ environment: randomUUID(), securityEpoch: randomUUID(), recoveryLocked: false, keyrings });
+  // The ledger proves operation MAC key continuity before any write, so this hosting material is enrolled like a deployed one.
+  await database.withContext({ userId: null, email: null }, async (transaction) => {
+    await registerMessagingPrivateMacKeyMaterial(transaction, config, MESSAGING_KEY_PURPOSE.operationPayload);
+    await registerMessagingPrivateMacKeyMaterial(transaction, config, MESSAGING_KEY_PURPOSE.contactFingerprint);
+  });
   const authorize = async (transaction: RequestDatabase) => {
     await transaction.execute(sql`select id from public.tribes where id=${tribeId} for update`);
     return Boolean((await transaction.execute(sql`select id from public.tribe_members where tribe_id=${tribeId} and user_id=${leaderId} and role='leader' and status='active' for share`)).rows[0]);
@@ -125,16 +131,20 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission persiste
         await transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,origin,import_id) values (${otherEntryId},${otherTribeId},'email',${contact},decode('01','hex'),'synthetic-import','import',${otherImportId})`);
       });
       const insertRow=(tribeId:string,rowNumber:number,entryId:string|null=null)=>database.withContext(fixture.own,(transaction)=>transaction.insert(academyAllowlistImportRows).values({importId:preview.imported.id,tribeId,rowNumber,entryId,inputData:{email:contact},validationResult:{valid:true}}));
-      await expect(insertRow(otherTribeId,2)).rejects.toMatchObject({cause:{code:"23503"}});
+      // The material guard finds no preview of this import in the other tenant before the foreign key does.
+      await expect(insertRow(otherTribeId,2)).rejects.toMatchObject({cause:{code:"23514"}});
       await expect(insertRow(fixture.tribeId,2,otherEntryId)).rejects.toMatchObject({cause:{code:"23503"}});
       await expect(insertRow(fixture.tribeId,1)).rejects.toMatchObject({cause:{code:"23505"}});
       await expect(insertRow(fixture.tribeId,0)).rejects.toMatchObject({cause:{code:"23514"}});
       await expect(insertRow(fixture.tribeId,10_001)).rejects.toMatchObject({cause:{code:"23514"}});
       const ownEntryId=randomUUID();
-      await database.withContext(fixture.own,async(transaction)=>{
+      // A committed row names the registered confirmation that produced it and the entry version it left.
+      const confirmation=await fixture.ledger.run({actorUserId:fixture.leaderId,tribeId:fixture.tribeId,operationType:"confirm_allowlist_import",idempotencyKey:randomUUID(),intent:{importId:preview.imported.id,rows:[1]}},z.strictObject({entryId:z.uuid()}),async(transaction,ledgerId)=>{
         await transaction.insert(academyAllowlistEntries).values({id:ownEntryId,tribeId:fixture.tribeId,contactType:"email",normalizedContact:contact,contactFingerprint:new Uint8Array([1]),fingerprintKeyId:"synthetic-import",origin:"import",importId:preview.imported.id});
-        await transaction.execute(sql`update public.academy_allowlist_import_rows set entry_id=${ownEntryId},outcome='added',committed_at=clock_timestamp() where import_id=${preview.imported.id} and row_number=1`);
+        await transaction.execute(sql`update public.academy_allowlist_import_rows set entry_id=${ownEntryId},entry_version=1,confirmed_operation_id=${ledgerId},outcome='added',committed_at=clock_timestamp() where import_id=${preview.imported.id} and row_number=1`);
+        return {entryId:ownEntryId};
       });
+      expect(confirmation).toMatchObject({state:"completed",result:{entryId:ownEntryId}});
       const recorded=await database.withContext(fixture.own,(transaction)=>transaction.select({version:academyAllowlistEntries.version,status:academyAllowlistEntries.status,importId:academyAllowlistEntries.importId}).from(academyAllowlistEntries).where(eq(academyAllowlistEntries.id,ownEntryId)));
       expect(recorded).toEqual([{version:1,status:"enabled",importId:preview.imported.id}]);
       await expect(database.withContext(fixture.own,(transaction)=>transaction.update(academyAllowlistEntries).set({importId:otherImportId}).where(eq(academyAllowlistEntries.id,ownEntryId)))).rejects.toMatchObject({cause:{code:"23514"}});
