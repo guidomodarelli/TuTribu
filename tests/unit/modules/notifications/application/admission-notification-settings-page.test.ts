@@ -13,7 +13,7 @@ import type { AdmissionNotificationPreferenceRepository } from "@/src/modules/no
 import type { AdmissionNotificationEmailSettingsRepository } from "@/src/modules/notifications/domain/repositories/admission-notification-email-settings-repository";
 import { resolveAdmissionNotificationPreference } from "@/src/modules/notifications/domain/policies/admission-notification-preference";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
-import { readAdmissionNotificationSettingsPrerequisite } from "@/src/modules/notifications/application/queries/admission-notification-settings-prerequisite";
+import { readAdmissionNotificationEmailPrerequisite } from "@/src/modules/notifications/application/queries/admission-notification-settings-prerequisite";
 
 /** @returns Real authority/use-case composition with doubles only at owned storage ports, without provider or auth SDK mocks. */
 function fixture() {
@@ -133,7 +133,7 @@ describe("current admission notification settings page", () => {
     const result = await data.page.execute(data.query);
 
     expect(result).toMatchObject({ ok: true, value: { canConfigureEmail: true, email: { enabled: false }, preparedEmailAvailable: false } });
-    expect(result.ok && readAdmissionNotificationSettingsPrerequisite(result.value)).toBe("notification_prepared_email");
+    expect(result.ok && result.value.kind === "ready" && readAdmissionNotificationEmailPrerequisite(result.value)).toBe("notification_prepared_email");
     expect(data.email.change).not.toHaveBeenCalled();
   });
 
@@ -143,6 +143,6 @@ describe("current admission notification settings page", () => {
     const result = await data.page.execute(data.query);
 
     expect(result).toMatchObject({ ok: true, value: { canConfigureEmail: false, email: null, preparedEmailAvailable: null } });
-    expect(result.ok && readAdmissionNotificationSettingsPrerequisite(result.value)).toBeNull();
+    expect(result.ok && result.value.kind === "ready" && readAdmissionNotificationEmailPrerequisite(result.value)).toBeNull();
   });
 });

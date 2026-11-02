@@ -25,7 +25,7 @@ export const ADMISSION_SETUP_PREREQUISITE = {
 } as const satisfies Record<string, AdmissionSetupPrerequisiteId>;
 
 /** Tab that resolves each prerequisite, relative to the tribe path. */
-export const ADMISSION_SETUP_PREREQUISITE_SEGMENT = {
+const ADMISSION_SETUP_PREREQUISITE_SEGMENT = {
   allowlist_rules: ADMISSION_POLICY_SETTINGS_SEGMENT,
   allowlist_import_rules: ADMISSION_POLICY_SETTINGS_SEGMENT,
   invitation_rules: ADMISSION_POLICY_SETTINGS_SEGMENT,

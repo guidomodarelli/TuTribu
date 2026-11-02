@@ -7,7 +7,6 @@ import { hydrateRoot } from "react-dom/client";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdmissionNotificationSettingsContainer } from "@/app/(platform)/[slug]/academia/admissions/notifications/notification-settings-container";
-import { AdmissionNotificationSettingsGate } from "@/app/(platform)/[slug]/academia/admissions/notifications/notification-settings-gate";
 import { AdmissionNotificationSettings, type AdmissionNotificationSettingsProps } from "@/components/academy-admissions/admission-notification-settings";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionNotificationSettingsBrowserClient } from "@/src/modules/notifications/application/ports/admission-notification-settings-browser-client";
@@ -593,16 +592,29 @@ describe("admission notification settings presenter", () => {
 describe("admission notification settings prerequisite", () => {
   it("should show the leader the messaging connection instead of a tribe email form the save would reject", async () => {
     const data = fixture(); data.state.preparedEmailAvailable = false;
-    render(<Providers><AdmissionNotificationSettingsGate initialState={data.state} client={data.client} /></Providers>);
+    render(<Providers>{data.node()}</Providers>);
 
     const prerequisite = screen.getByRole("region", { name: "Primero conectá el envío de mensajes" });
     expect(prerequisite).toHaveTextContent("Para habilitar el correo de la tribu hace falta un correo preparado y probado en la conexión de mensajería.");
     expect(within(prerequisite).getByRole("link", { name: "Ir a Conexión" })).toHaveAttribute("href", `/${slug}/academia/admissions/messaging/connections`);
     expect(screen.queryByRole("checkbox", { name: "Habilitar correo de admisión" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Guardar avisos" })).not.toBeInTheDocument();
-    // The form is not mounted, so no browser read or write starts behind the prerequisite.
+    // The browser checks still run behind it, so a retained original can take over; with none, the prerequisite stays.
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
     await act(async () => { await Promise.resolve(); });
-    expect(data.client.viewer).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Primero conectá el envío de mensajes" })).toBeInTheDocument();
+    expect(data.client.changeEmail).not.toHaveBeenCalled();
+  });
+
+  it("should keep recovering a retained tribe email original instead of hiding it behind the prerequisite", async () => {
+    const data = fixture(); data.state.preparedEmailAvailable = false; writeAdmissionNotificationSettingsIntent(viewerId, slug, original("Asia/Kolkata"));
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { state: "started", operationId: originalId } } });
+    render(<Providers>{data.node()}</Providers>);
+
+    // A lost reply leaves its original in this session: the leader can still consult and resolve it while messaging is unprepared.
+    await waitFor(() => expect(screen.getByText("Se reintenta el cambio pendiente")).toBeInTheDocument());
+    expect(data.client.operation).toHaveBeenCalled();
+    expect(screen.queryByRole("region", { name: "Primero conectá el envío de mensajes" })).not.toBeInTheDocument();
     expect(data.client.changeEmail).not.toHaveBeenCalled();
   });
 
@@ -611,7 +623,7 @@ describe("admission notification settings prerequisite", () => {
     ["the capability decides nothing for this read", { preparedEmailAvailable: null }],
   ] as const)("should keep the notices form when %s", async (_case, patch) => {
     const data = fixture(); Object.assign(data.state, patch);
-    render(<Providers><AdmissionNotificationSettingsGate initialState={data.state} client={data.client} /></Providers>);
+    render(<Providers>{data.node()}</Providers>);
     await ready();
 
     expect(screen.queryByRole("region", { name: "Primero conectá el envío de mensajes" })).not.toBeInTheDocument();
@@ -621,7 +633,7 @@ describe("admission notification settings prerequisite", () => {
   it("should never gate a guardian, who does not configure the tribe email", async () => {
     const data = fixture();
     Object.assign(data.state, { canConfigureEmail: false, email: null, platformRequirement: null, preparedEmailAvailable: null, preference: { mode: "omitted", version: 0, source: "implicit" } });
-    render(<Providers><AdmissionNotificationSettingsGate initialState={data.state} client={data.client} /></Providers>);
+    render(<Providers>{data.node()}</Providers>);
     await ready();
 
     expect(screen.queryByRole("region", { name: "Primero conectá el envío de mensajes" })).not.toBeInTheDocument();

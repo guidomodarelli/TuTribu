@@ -27,10 +27,6 @@
       "symbol": "default"
     },
     {
-      "path": "app/(platform)/[slug]/academia/admissions/notifications/notification-settings-gate.tsx",
-      "symbol": "AdmissionNotificationSettingsGate"
-    },
-    {
       "path": "app/(platform)/[slug]/academia/admissions/notifications/notification-settings-container.tsx",
       "symbol": "AdmissionNotificationSettingsContainer"
     },
