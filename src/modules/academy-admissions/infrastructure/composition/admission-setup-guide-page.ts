@@ -101,8 +101,12 @@ function readMessagingFacts(state: MessagingConnectionsPageState): { leader: boo
   return { leader: true, facts: { connected: configuration.selected?.state === MESSAGING_CONNECTION_STATE.active, candidatePending, usage } };
 }
 
-/** Reports the tribe's email switch and whether the personal frequency is not "omitted"; the guide combines both, since email notices need both. */
+/**
+ * Reports the tribe's email switch and whether the personal frequency is not "omitted"; the guide combines both, since email notices
+ * need both. It also carries the email capability the notices page reads with the email write's own rule, so the guide sends the leader
+ * to the connection exactly when the notices page would.
+ */
 function readNotificationFacts(state: AdmissionNotificationSettingsPageState): AdmissionSetupFacts["notifications"] {
   if (state.kind !== "ready") return null;
-  return { emailEnabled: state.email?.enabled ?? false, receivesEmail: state.preference.mode !== ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted };
+  return { emailEnabled: state.email?.enabled ?? false, receivesEmail: state.preference.mode !== ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted, preparedEmailAvailable: state.preparedEmailAvailable };
 }

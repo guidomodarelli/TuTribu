@@ -2,10 +2,11 @@
 /** Presents the guided CSV import (upload, review, confirm) without transport or session access. @module allowlist-import-presenter */
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { Button, Checkbox, EmptyState, Input, Label } from "@golfo/ui";
-import { ButtonLink } from "@/components/navigation/link";
+import { Button, Checkbox, Input, Label } from "@golfo/ui";
 import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
 import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import { AdmissionSetupPrerequisite } from "@/components/academy-admissions/admission-setup-prerequisite";
+import { ADMISSION_SETUP_PREREQUISITE } from "@/src/modules/academy-admissions/constants/admission-setup-prerequisite";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { ALLOWLIST_IMPORT_FILE_ACCEPT, ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT, ALLOWLIST_IMPORT_BROWSER_COPY as COPY, ALLOWLIST_IMPORT_WRITE_ACTION, type AllowlistImportWriteAction } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 import { formatBuenosAiresDateTime } from "@/lib/date-time/buenos-aires-format";
@@ -146,7 +147,7 @@ function ReviewStepContent({ snapshot, props, fieldId, selection, page }: { snap
 function ImportPrerequisite({ props }: { props: AllowlistImportProps }) {
   if (props.platformRequirement) return <PlatformSecurityNotice requirement={props.platformRequirement} consequence={COPY.platformConsequence} onRecheck={props.onRecheckPlatform} busy={!props.ready || props.busy} />;
   if (hasImportFlow(props)) return null;
-  return <EmptyState label={COPY.noPolicyTitle} title={COPY.noPolicyTitle} description={COPY.noPolicy} action={<ButtonLink href={props.policyHref} variant="primary" size="sm">{COPY.noPolicyAction}</ButtonLink>} />;
+  return <AdmissionSetupPrerequisite prerequisite={ADMISSION_SETUP_PREREQUISITE.allowlistImportRules} href={props.policyHref} />;
 }
 
 /** @param props - Import view state. @returns Whether the guided import applies: the rules are saved, or a saved import still needs its progress. */

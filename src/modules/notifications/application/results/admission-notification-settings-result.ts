@@ -13,8 +13,11 @@ export type AdmissionNotificationPreferenceChangeResult =
   | { status: "rejected"; reason: "notification_preference_version_conflict" };
 /** Selects current or historical email configuration without its native cut or provider metadata. */
 export type AdmissionNotificationEmailSettingsView = { enabled: boolean; version: number; timeZone: string };
-/** Current email configuration and the closed platform requirement that blocks changing it, or null when a change can be protected. */
-export type AdmissionNotificationEmailSettingsReadResult = { settings: AdmissionNotificationEmailSettingsView; platformRequirement: PlatformSecurityRequirement | null };
+/**
+ * Current email configuration, the closed platform requirement that blocks changing it (null when a change can be protected) and, while
+ * the email is off and the platform can protect a change, whether enabling it would pass the write's capability rule (null otherwise).
+ */
+export type AdmissionNotificationEmailSettingsReadResult = { settings: AdmissionNotificationEmailSettingsView; platformRequirement: PlatformSecurityRequirement | null; preparedEmailAvailable: boolean | null };
 /** Keeps the original ledger's rejection separate from a confirmed effective write or no-op. */
 export type AdmissionNotificationEmailSettingsChangeResult =
   | { status: "changed" | "unchanged"; settings: AdmissionNotificationEmailSettingsView }

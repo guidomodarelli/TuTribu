@@ -11,6 +11,16 @@ export function resolveAdmissionNotificationEmailSettings(tribeId: string, store
 }
 
 /**
+ * The single rule that lets the tribe email be enabled (or its zone changed while enabled): a prepared, tested email of this exact
+ * tribe. The write applies it inside its transaction and the read reports it, so a screen that hides the form never disagrees with it.
+ * @param tribeId - Exact server-owned tenant. @param preparedEmail - Tested email availability read for a tenant.
+ * @returns Whether the email capability of this tribe is available.
+ */
+export function isAdmissionNotificationPreparedEmailAvailable(tribeId: string, preparedEmail: AdmissionNotificationEmailSettingsChangeFacts["preparedEmail"]): boolean {
+  return preparedEmail.available && preparedEmail.tribeId === tribeId;
+}
+
+/**
  * Plans a CAS-protected change and starts a new cut for every effective enabled epoch.
  * @param facts - Fresh authorized owner facts; the zone and command are validated at their input boundary.
  * @returns A proposed write, a precise no-op or an expected rejection. No provider, preference or OTP state is changed.
@@ -20,6 +30,6 @@ export function planAdmissionNotificationEmailSettingsChange(facts: AdmissionNot
   if (!current) return { status: ADMISSION_EMAIL_SETTINGS_STATUS.rejected, reason: ADMISSION_EMAIL_SETTINGS_REJECTION.scopeMismatch };
   if (facts.change.expectedVersion !== current.version) return { status: ADMISSION_EMAIL_SETTINGS_STATUS.rejected, reason: ADMISSION_EMAIL_SETTINGS_REJECTION.versionConflict };
   if (facts.change.enabled === current.enabled && facts.change.timeZone === current.timeZone) return { status: ADMISSION_EMAIL_SETTINGS_STATUS.unchanged, settings: current };
-  if (facts.change.enabled && (!facts.preparedEmail.available || facts.preparedEmail.tribeId !== facts.tribeId)) return { status: ADMISSION_EMAIL_SETTINGS_STATUS.rejected, reason: ADMISSION_EMAIL_SETTINGS_REJECTION.capabilityUnavailable };
+  if (facts.change.enabled && !isAdmissionNotificationPreparedEmailAvailable(facts.tribeId, facts.preparedEmail)) return { status: ADMISSION_EMAIL_SETTINGS_STATUS.rejected, reason: ADMISSION_EMAIL_SETTINGS_REJECTION.capabilityUnavailable };
   return { status: ADMISSION_EMAIL_SETTINGS_STATUS.changed, settings: { tribeId: facts.tribeId, enabled: facts.change.enabled, timeZone: facts.change.timeZone, version: current.version + 1, enabledAtMicroseconds: facts.change.enabled ? facts.nowMicroseconds : null } };
 }

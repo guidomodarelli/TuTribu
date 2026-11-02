@@ -3,8 +3,9 @@
 import { useId } from "react";
 import { Button, Checkbox, EmptyState, Input, Label, Select } from "@golfo/ui";
 import { GuidedSteps, GuidedStepsDisclosure, type GuidedStep } from "@/components/forms/guided-steps";
-import { ButtonLink } from "@/components/navigation/link";
 import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import { AdmissionSetupPrerequisite } from "@/components/academy-admissions/admission-setup-prerequisite";
+import { ADMISSION_SETUP_PREREQUISITE } from "@/src/modules/academy-admissions/constants/admission-setup-prerequisite";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import type { AllowlistDraft } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
@@ -105,7 +106,7 @@ function AllowlistEditor({ props, fieldId, editing, unresolved, steps, disabled,
 function AllowlistEditorBody({ props, editing, steps, disabled, reviewReason }: Omit<AllowlistEditorProps, "fieldId" | "unresolved">) {
   // Without platform protection no entry can be saved, and the rules cannot be saved either, so this block comes first.
   if (props.platformRequirement) return <PlatformSecurityNotice requirement={props.platformRequirement} consequence={ALLOWLIST_BROWSER_COPY.platformConsequence} onRecheck={props.onRecheckPlatform} busy={disabled} />;
-  if (!props.contactType && !editing) return <EmptyState label={ALLOWLIST_BROWSER_COPY.noPolicyTitle} title={ALLOWLIST_BROWSER_COPY.noPolicyTitle} description={ALLOWLIST_BROWSER_COPY.noPolicy} action={<ButtonLink href={props.policyHref} variant="primary" size="sm">{ALLOWLIST_BROWSER_COPY.noPolicyAction}</ButtonLink>} />;
+  if (!props.contactType && !editing) return <AdmissionSetupPrerequisite prerequisite={ADMISSION_SETUP_PREREQUISITE.allowlistRules} href={props.policyHref} />;
   return <GuidedSteps label={editing ? "Editar entrada de la lista" : "Agregar entrada a la lista"} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
     finalAction={{ label: editing ? "Guardar entrada" : "Agregar entrada", loading: props.writing, disabled: Boolean(reviewReason) || !props.contactType, onRun: props.onSave }} />;
 }

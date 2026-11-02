@@ -7,8 +7,13 @@ import type { AdmissionNotificationEmailSettingsChange, AdmissionNotificationEma
 
 /** Binds explicit confirmation to its original durable operation and resource version. */
 export type AdmissionNotificationEmailSettingsCommand = AdmissionNotificationEmailSettingsChange & { readonly operationId: string; readonly confirmed: true };
-/** Current settings and, read in the same authorized transaction, why the platform cannot protect a change to them right now (null when it can). */
-export type AdmissionNotificationEmailSettingsCurrent = { readonly settings: AdmissionNotificationEmailSettings; readonly platformRequirement: PlatformSecurityRequirement | null };
+/**
+ * Current settings and, read in the same authorized transaction, why the platform cannot protect a change to them right now (null when
+ * it can). `preparedEmailAvailable` is the tested email capability the write requires to enable the email, read with the write's own
+ * rule; it is null when it does not decide anything: the email is already enabled (turning it off never needs it) or the platform
+ * cannot protect any change.
+ */
+export type AdmissionNotificationEmailSettingsCurrent = { readonly settings: AdmissionNotificationEmailSettings; readonly platformRequirement: PlatformSecurityRequirement | null; readonly preparedEmailAvailable: boolean | null };
 /** Keeps current queries separate from historical confirmed mutation results. */
 export interface AdmissionNotificationEmailSettingsRepository {
   /** Reads settings and the platform requirement without persisting defaults or loading provider credentials. */

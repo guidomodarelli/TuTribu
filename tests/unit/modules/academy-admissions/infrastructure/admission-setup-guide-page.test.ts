@@ -11,6 +11,11 @@ import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/au
 import type { AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { createDefaultAdmissionPolicy, type AdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
+import { GetAdmissionNotificationSettingsPageUseCase } from "@/src/modules/notifications/application/use-cases/get-admission-notification-settings-page-use-case";
+import { AdmissionNotificationPreferencesUseCases } from "@/src/modules/notifications/application/use-cases/admission-notification-preferences-use-cases";
+import { AdmissionNotificationEmailSettingsUseCases } from "@/src/modules/notifications/application/use-cases/admission-notification-email-settings-use-cases";
+import { resolveAdmissionNotificationPreference } from "@/src/modules/notifications/domain/policies/admission-notification-preference";
+import type { AdmissionNotificationEmailSettingsCurrent } from "@/src/modules/notifications/domain/repositories/admission-notification-email-settings-repository";
 
 /**
  * @param platformSecurity - Platform security the rules read reports.
@@ -28,9 +33,19 @@ function fixture(platformSecurity: PlatformSecurityRequirement | null, savedPoli
   const page = new GetAdmissionPolicyPageUseCase({ getAuthenticatedAccount: async () => account }, { policy, resolveTribe }, () => now);
   const preflight = { execute: vi.fn(async () => ({ ok: true as const, value: { prepared: false, reasons: ["preflight_policy_unavailable", "preflight_recovery_locked"] } })) };
   const unavailable = async (): Promise<never> => { throw new Error("Synthetic composition that this test does not need"); };
+  /**
+   * @param current - What the email settings port reads for the leader, built for the fixture tribe.
+   * @returns The real notices page use case over owned storage ports, so the guide reads the same email capability as that page.
+   */
+  const notices = (current: (tribeId: string) => AdmissionNotificationEmailSettingsCurrent) => {
+    const preferences = new AdmissionNotificationPreferencesUseCases(resolver, { getOwn: async () => resolveAdmissionNotificationPreference({ tribeId, recipientUserId: userId, currentRole: actor.role, membershipStatus: actor.status }, null), changeOwn: async () => { throw new Error("The guide never writes preferences"); } });
+    const email = new AdmissionNotificationEmailSettingsUseCases(resolver, { get: async () => current(tribeId), change: async () => { throw new Error("The guide never writes email settings"); } });
+    return new GetAdmissionNotificationSettingsPageUseCase({ getAuthenticatedAccount: async () => account }, { resolveTribe, preferences, email }, () => now);
+  };
   return {
     input: { params: { slug: "synthetic-academy" }, query: {} },
     openers: { policy: async () => page, notifications: unavailable, messaging: unavailable, preflight: async () => ({ resolveTribe: { execute: async () => ({ ok: true as const, value: { tribeId } }) }, preflight }) },
+    notices,
   };
 }
 
@@ -42,6 +57,9 @@ describe("setup guide composition", () => {
     // The preflight reports the same missing settings as a recovery lock; the single notice already explains it.
     expect(guide?.progress.steps.find((step) => step.id === "open")).toEqual({ id: "open", status: "pending" });
     expect(guide?.progress.steps.find((step) => step.id === "rules")).toEqual({ id: "rules", status: "pending" });
+    // Unread messaging and notices areas never block a step: the guide shows them as before.
+    expect(guide?.progress.steps.find((step) => step.id === "connection")).toEqual({ id: "connection", status: "optional" });
+    expect(guide?.progress.steps.find((step) => step.id === "notifications")).toEqual({ id: "notifications", status: "optional" });
   });
 
   it("should name the platform recovery lock from the rules read", async () => {
@@ -66,5 +84,22 @@ describe("setup guide composition", () => {
     const verifiedSteps = (await loadAdmissionSetupGuideState(verified.input, verified.openers))?.progress.steps;
     expect(verifiedSteps?.find((step) => step.id === "connection")).toEqual({ id: "connection", status: "pending", messagingNeed: "codes" });
     expect(verifiedSteps?.find((step) => step.id === "usage")).toEqual({ id: "usage", status: "pending" });
+  });
+
+  it("should send the notices step to the connection exactly when the notices page reads no prepared email", async () => {
+    const data = fixture(null);
+    const settings = (tribeId: string) => ({ tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" });
+    const missing = await loadAdmissionSetupGuideState(data.input, { ...data.openers, notifications: async () => data.notices((tribeId) => ({ settings: settings(tribeId), platformRequirement: null, preparedEmailAvailable: false })) });
+    expect(missing?.progress.steps.find((step) => step.id === "notifications")).toEqual({ id: "notifications", status: "optional", blockedBy: "connection" });
+
+    const prepared = await loadAdmissionSetupGuideState(data.input, { ...data.openers, notifications: async () => data.notices((tribeId) => ({ settings: settings(tribeId), platformRequirement: null, preparedEmailAvailable: true })) });
+    expect(prepared?.progress.steps.find((step) => step.id === "notifications")).toEqual({ id: "notifications", status: "optional" });
+  });
+
+  it("should list the required steps first and keep the optional ones after them", async () => {
+    const data = fixture(null);
+    const guide = await loadAdmissionSetupGuideState(data.input, data.openers);
+    expect(guide?.progress.steps.map((step) => step.id)).toEqual(["rules", "open", "connection", "usage", "notifications"]);
+    expect(guide?.progress).toMatchObject({ next: "rules", completed: 0, required: 2 });
   });
 });

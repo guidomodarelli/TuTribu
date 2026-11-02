@@ -57,6 +57,7 @@ function setupStepDetail(step: SetupStep): string {
   const openDetail = openStepDetail(step);
   if (openDetail !== null) return openDetail;
   if (step.emailOmitted) return STEP_COPY.notifications.omitted;
+  if (step.blockedBy && "blocked" in copy) return copy.blocked;
   if (step.status === STATUS.pending && step.messagingNeed && "pendingByNeed" in copy) return copy.pendingByNeed[step.messagingNeed];
   return step.status === STATUS.optional && "optional" in copy ? copy.optional : copy.pending;
 }
@@ -70,7 +71,8 @@ function SetupStepMarker({ done, optional, number }: { done: boolean; optional: 
 /**
  * @param props - One derived step, the tribe slug, whether it is the next step, its required-step number and whether steps may link
  * to their page (never while the platform cannot protect admission writes).
- * @returns The checklist row with its badges, detail and, when next, its action.
+ * @returns The checklist row with its badges, detail and, when next, its action: the step that must be completed first when this one
+ * is blocked by it, else its own page.
  */
 function SetupStepItem({ step, slug, isNext, number, actionable }: { step: SetupStep; slug: string; isNext: boolean; number: number | undefined; actionable: boolean }) {
   const offersAction = isNext && actionable;
@@ -92,14 +94,16 @@ function SetupStepItem({ step, slug, isNext, number, actionable }: { step: Setup
         <span className={styles.AdmissionSetupGuide__detail}>{setupStepDetail(step)}</span>
       </div>
       {offersAction && step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={ROUTES.tribes.academyManage(slug)} variant="primary" size="sm">{STEP_COPY.open.academyAction}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
-      {offersAction && !step.platformBlocked && !step.admissionsClosed && <ButtonLink className={styles.AdmissionSetupGuide__action} href={setupStepHref(slug, step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+      {offersAction && step.blockedBy && "blockedAction" in copy && <ButtonLink className={styles.AdmissionSetupGuide__action} href={setupStepHref(slug, step.blockedBy, false)} variant="primary" size="sm">{copy.blockedAction}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
+      {offersAction && !step.platformBlocked && !step.admissionsClosed && !step.blockedBy && <ButtonLink className={styles.AdmissionSetupGuide__action} href={setupStepHref(slug, step.id, Boolean(step.draft))} variant="primary" size="sm">{copy.action}<ArrowRightIcon aria-hidden="true" /></ButtonLink>}
     </li>
   );
 }
 
 /**
- * Shows the leader's setup as a short ordered checklist with one next action; while the platform cannot protect admission writes,
- * a single «Depende del equipo de TuTribu» notice replaces that action, unless the screen already shows its own.
+ * Shows the leader's setup as a short ordered checklist (required steps first, optional ones last) with one next action; while the
+ * platform cannot protect admission writes, a single «Depende del equipo de TuTribu» notice replaces that action, unless the screen
+ * already shows its own.
  *
  * @param props - Tribe slug for the links, the derived setup progress and whether the screen already explains the platform requirement.
  * @returns Nothing once every step is done; otherwise the checklist.

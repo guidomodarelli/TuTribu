@@ -17,6 +17,9 @@ import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_
 import { ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND as PAGE_KIND } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_RECOMMENDED_MODE } from "@/src/modules/notifications/constants/admission-notification-settings-options";
 import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
+import { AdmissionSetupPrerequisite } from "@/components/academy-admissions/admission-setup-prerequisite";
+import { admissionSetupPrerequisiteHref } from "@/src/modules/academy-admissions/constants/admission-setup-prerequisite";
+import { readAdmissionNotificationEmailPrerequisite } from "@/src/modules/notifications/application/queries/admission-notification-settings-prerequisite";
 import { draftFromEmail, draftModeFor, emailPlanFor, hasPreferenceChange, isSettled, isUnconfiguredEmail, usableTimeZone } from "./notification-settings-plan";
 import { readSettingsCurrent, resetSettingsEmailDraft, REVIEW_STEP_INDEX, saveNotificationSettings, type ReadOptions, type SettingsControls, type SettingsPhase } from "./notification-settings-workflow";
 
@@ -30,6 +33,8 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   const [preference, setPreference] = useState(ready?.preference ?? null), [email, setEmail] = useState(ready?.email ?? null);
   /** Why the platform cannot protect a tribe email change right now, as the last read reported it. */
   const [platformRequirement, setPlatformRequirement] = useState(ready?.platformRequirement ?? null);
+  /** Whether enabling the tribe email would find a prepared email, as the last server read reported it. */
+  const [preparedEmailAvailable, setPreparedEmailAvailable] = useState(ready?.preparedEmailAvailable ?? null);
   const [mode, setMode] = useState<AdmissionNotificationPreferenceMode>(ready ? draftModeFor(ready.preference) : ADMISSION_NOTIFICATION_RECOMMENDED_MODE);
   const [draft, setDraft] = useState<AdmissionNotificationEmailSettingsDraft>(() => draftFromEmail(ready?.email ?? null));
   const [phase, setPhase] = useState<SettingsPhase>(PHASE.checking), [fresh, setFresh] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
@@ -45,7 +50,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   /** A zone the person typed is never replaced by the browser suggestion. */
   const zoneEdited = useRef(false);
   /** Setters and refs never change identity, so one stable bundle serves every read and write. */
-  const controls = useMemo<SettingsControls>(() => ({ setPreference, setEmail, setPlatformRequirement, setMode, setDraft, setPhase, setFresh, setPrivateVisible, setConfirmed, setHasPending, setCanRetry, setError, setStatus, setProgress, setSaving, setEditing, setStep, pending, loaded, busy, slot, hasEmailView, modeEdited, zoneEdited }), []);
+  const controls = useMemo<SettingsControls>(() => ({ setPreference, setEmail, setPlatformRequirement, setPreparedEmailAvailable, setMode, setDraft, setPhase, setFresh, setPrivateVisible, setConfirmed, setHasPending, setCanRetry, setError, setStatus, setProgress, setSaving, setEditing, setStep, pending, loaded, busy, slot, hasEmailView, modeEdited, zoneEdited }), []);
 
   /** Recovers an immutable original first, then reads current state without applying an historical version over it. @returns Whether the current state was read completely. */
   const readCurrent = useCallback(async (signal: AbortSignal, options: ReadOptions = {}) => {
@@ -80,6 +85,9 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
   if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} {...resolveAdmissionRouteRecovery(initialState.kind === PAGE_KIND.unavailable ? initialState.code : null, location)} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible) return <SettingsWithheld checking={phase === PHASE.reading || phase === PHASE.checking} error={error} retry={launchRead} />;
+  // A current read that finds the tribe email off and no prepared email shows the same prerequisite as the page; a retained original keeps its recovery.
+  const prerequisite = hasPending ? null : readAdmissionNotificationEmailPrerequisite({ email, platformRequirement, preparedEmailAvailable });
+  if (prerequisite) return <AdmissionSetupPrerequisite prerequisite={prerequisite} href={admissionSetupPrerequisiteHref(ready.slug, prerequisite)} />;
   const isBusy = phase === PHASE.checking || phase === PHASE.reading || phase === PHASE.writing;
   const settled = isSettled(preference, email, hasPending);
 

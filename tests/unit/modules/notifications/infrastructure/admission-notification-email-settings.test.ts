@@ -16,21 +16,25 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native independent
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareSettings(database);
       const originalCounts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries) as deliveries,(select count(*)::int from public.academy_admission_policies) as policies`)).rows[0]);
-      expect(await fixture.repository.get(fixture.read)).toEqual({ settings: { tribeId: fixture.change.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null });
+      expect(await fixture.repository.get(fixture.read)).toEqual({ settings: { tribeId: fixture.change.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null, preparedEmailAvailable: false });
       expect(await fixture.repository.change(fixture.change, fixture.command(0, true))).toMatchObject({ state: "completed", result: { status: "rejected", reason: "email_capability_unavailable" } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as count from public.admission_email_settings where tribe_id=${fixture.change.tribeId}`)).rows[0])).toEqual({ count: 0 });
       await fixture.selectConnection();
+      // The read reports the same missing capability the write rejects, so the notices page can ask for the connection first.
+      expect((await fixture.repository.get(fixture.read)).preparedEmailAvailable).toBe(false);
       expect(await fixture.repository.change(fixture.change, fixture.command(0, true))).toMatchObject({ state: "completed", result: { status: "rejected", reason: "email_capability_unavailable" } });
       await fixture.prepareEmail();
       fixture.setRecoveryLocked(true);
       // The read names the platform requirement before the leader writes; the write registers nothing and is a definite rejection.
-      expect(await fixture.repository.get(fixture.read)).toMatchObject({ settings: { enabled: false, version: 0 }, platformRequirement: "recovery_locked" });
+      expect(await fixture.repository.get(fixture.read)).toMatchObject({ settings: { enabled: false, version: 0 }, platformRequirement: "recovery_locked", preparedEmailAvailable: null });
       await expect(fixture.repository.change(fixture.change, fixture.command(0, true))).rejects.toMatchObject({ code: "platform_security_unavailable" });
       fixture.setRecoveryLocked(false);
-      expect((await fixture.repository.get(fixture.read)).platformRequirement).toBeNull();
+      expect(await fixture.repository.get(fixture.read)).toMatchObject({ platformRequirement: null, preparedEmailAvailable: true });
       const enabled = await fixture.repository.change(fixture.change, fixture.command(0, true));
       expect(enabled).toMatchObject({ state: "completed", result: { status: "changed", settings: { enabled: true, version: 1 } } });
-      const first = (await fixture.repository.get(fixture.read)).settings;
+      const current = await fixture.repository.get(fixture.read), first = current.settings;
+      // Turning an enabled email off never needs the capability, so the read does not report it.
+      expect(current.preparedEmailAvailable).toBeNull();
       const native = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ exact: string; now: string }>(sql`select (extract(epoch from enabled_at)*1000000)::bigint::text as exact,(extract(epoch from clock_timestamp())*1000000)::bigint::text as now from public.admission_email_settings where tribe_id=${fixture.change.tribeId}`)).rows[0]);
       expect(first.enabledAtMicroseconds).toBe(Number(native.exact));
       expect(first.enabledAtMicroseconds).toBeLessThanOrEqual(Number(native.now));

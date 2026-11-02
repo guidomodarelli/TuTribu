@@ -94,7 +94,7 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
       } catch (error) { return boundary.unexpected(error); }
     },
 
-    /** @param request - Current leader request. @param context - Framework tenant. @returns Read-only current settings and the closed platform requirement, without loading provider credentials or creating the default row. */
+    /** @param request - Current leader request. @param context - Framework tenant. @returns Read-only current settings, the closed platform requirement and the email capability fact, without loading provider credentials or creating the default row. */
     async readEmailSettings(request: Request, context: SettingsRouteContext): Promise<Response> {
       const boundary = createAdmissionRouteBoundary({ request, operation: ADMISSION_NOTIFICATION_SETTINGS_HTTP_OPERATION.emailRead });
       try {
@@ -103,7 +103,7 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
         const result = await scope.services.email.read({ tribeId: scope.tribeId, requestId: scope.requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.settings.tribeId !== scope.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return bindViewer(boundary.success(admissionNotificationEmailSettingsReadResultSchema, { settings: toAdmissionNotificationEmailSettingsView(result.value.settings), platformRequirement: result.value.platformRequirement }), result);
+        return bindViewer(boundary.success(admissionNotificationEmailSettingsReadResultSchema, { settings: toAdmissionNotificationEmailSettingsView(result.value.settings), platformRequirement: result.value.platformRequirement, preparedEmailAvailable: result.value.preparedEmailAvailable }), result);
       } catch (error) { return boundary.unexpected(error); }
     },
 

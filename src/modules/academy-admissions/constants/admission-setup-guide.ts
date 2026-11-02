@@ -34,7 +34,10 @@ export const ADMISSION_SETUP_STEP_STATUS = {
   optional: "optional",
 } as const satisfies Record<string, AdmissionSetupStepStatus>;
 
-/** Completion order: messaging is ready before the rules that depend on it are opened. */
+/**
+ * Base completion order: messaging is ready before the rules that depend on it are opened. The guide lists the required steps first
+ * and the optional ones last, keeping this order inside each group.
+ */
 export const ADMISSION_SETUP_STEP_ORDER = [
   ADMISSION_SETUP_STEP.rules,
   ADMISSION_SETUP_STEP.connection,
@@ -64,15 +67,19 @@ export const ADMISSION_SETUP_STEP_COPY = {
       notices: "Recibís avisos de las solicitudes por correo: conectá Zavu y activá la conexión.",
       codes_and_notices: "Tus reglas envían códigos de verificación y recibís avisos por correo: conectá Zavu y activá la conexión.",
     } satisfies Record<AdmissionSetupMessagingNeed, string>,
-    optional: "Hace falta solo si vas a enviar códigos o avisos por correo.", done: "La conexión está activa.", action: "Conectar mensajería" },
+    optional: "Hace falta solo si vas a enviar códigos o avisos por correo.", done: "La conexión está activa.", action: "Conectar mensajería",
+    /** Testing and activating a connection need saved countries and quotas, so the step opens them first. */
+    blocked: "Antes de probar y activar la conexión, elegí países y cupos: cada prueba usa el cupo de códigos.", blockedAction: "Elegir países y cupos" },
   usage: { title: "Elegí países y cupos", pending: "Indicá a qué países se envía y cuántos mensajes por día.", optional: "Hace falta solo si vas a enviar códigos o avisos por correo.", done: "Los países y cupos están guardados.", lowQuota: "Los países y cupos están guardados, pero el cupo de avisos por día es menor a 20: en un día con varias solicitudes, los avisos siguientes no se envían hasta el día siguiente.", action: "Elegir países y cupos" },
   open: { title: "Abrí las admisiones", pending: "Activá las reglas para empezar a recibir solicitudes.", paused: "Las admisiones están pausadas: nadie puede postularse.", platformBlocked: "Depende del equipo de TuTribu: la plataforma todavía no permite activar las admisiones de esta academia. Lo que guardaste queda como borrador.", platformBlockedUnsaved: "Depende del equipo de TuTribu: la plataforma todavía no permite activar las admisiones de esta academia.", admissionsClosed: "Las admisiones de la academia están cerradas. Encendé «Admisiones abiertas» en Gestionar academia y después activá las reglas.", academyAction: "Ir a Gestionar academia", done: "Las admisiones están abiertas.", action: "Abrir las admisiones" },
-  notifications: { title: "Elegí cómo recibir los avisos", pending: "Activá el correo de la tribu y elegí cada cuánto recibir los avisos.", optional: "Recomendado: así te enterás de cada solicitud nueva.", omitted: "El correo de la tribu está habilitado, pero elegiste «Omitir correos de revisión»: no vas a recibir correos de las solicitudes nuevas.", done: "Recibís los avisos por correo.", action: "Configurar los avisos" },
+  notifications: { title: "Elegí cómo recibir los avisos", pending: "Activá el correo de la tribu y elegí cada cuánto recibir los avisos.", optional: "Recomendado: así te enterás de cada solicitud nueva.", omitted: "El correo de la tribu está habilitado, pero elegiste «Omitir correos de revisión»: no vas a recibir correos de las solicitudes nuevas.", done: "Recibís los avisos por correo.", action: "Configurar los avisos",
+    /** Enabling the tribe email needs a prepared, tested email in the connection, so the step opens the connection first. */
+    blocked: "Para recibir avisos por correo, primero prepará y probá el correo en la conexión de mensajería.", blockedAction: "Preparar el correo" },
 } as const;
 
 export const ADMISSION_SETUP_GUIDE_COPY = {
   title: "Configurá las admisiones",
-  description: "Seguí los pasos en orden. Cada uno se completa en su propia pantalla.",
+  description: "Primero están los pasos necesarios y al final los opcionales. Cada uno se completa en su propia pantalla.",
   listLabel: "Pasos de la configuración",
   progressLabel: "Avance de la configuración",
   optionalBadge: "Opcional",
