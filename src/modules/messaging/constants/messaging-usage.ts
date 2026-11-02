@@ -34,6 +34,10 @@ export const MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT = 20;
 /** Safe browser feedback never renders database or provider messages. */
 export const MESSAGING_USAGE_UI_COPY = {
   invalid: "Revisá los países y los límites diarios antes de confirmar.",
+  /** A save asked while an earlier original is still unresolved: its recovery, above the steps, decides first. */
+  originalPending: "Antes de guardar de nuevo, resolvé el guardado anterior en «Recuperar operación original», arriba de los pasos.",
+  /** Shown once a stored original turns out unregistered: nothing was applied, so the chosen values reopen for a new save. */
+  unregistered: "El guardado anterior no llegó a registrarse. Revisá los valores y guardá de nuevo.",
   quotaInvalid: "Revisá los límites diarios; deben ser enteros desde cero y respetar los máximos actuales.",
   countryInvalid: "Revisá los países; no pueden repetirse ni usar códigos desconocidos.",
   saved: "Los países y cupos quedaron guardados.",
@@ -45,7 +49,6 @@ export const MESSAGING_USAGE_UI_COPY = {
   uncertain: "Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.",
   changedViewer: "La cuenta cambió. Volvé a abrir la configuración de uso con tu cuenta actual.",
   storageFailed: "No pudimos conservar esta acción. Consultá su resultado antes de repetir.",
-  retry: "La operación original todavía no está registrada. Confirmá un reintento con sus mismos datos.",
   started: "La operación original todavía no terminó. Si no avanza, confirmá un reintento con sus mismos datos: no se aplica dos veces.",
   startedWrite: "El guardado todavía no terminó. Consultá la operación original para ver su resultado o reintentarla con los mismos datos.",
   /** Shown once a stored original turns out unregistered while the platform cannot protect saves: nothing is left to retry. */

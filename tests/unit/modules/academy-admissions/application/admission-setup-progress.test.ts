@@ -64,6 +64,26 @@ describe("deriveAdmissionSetupProgress", () => {
     expect(deriveAdmissionSetupProgress(withNotices)).toMatchObject({ next: null, completed: 4, required: 4 });
   });
 
+  it("keeps the messaging steps optional while the tribe email is off, even with a personal frequency that is not omitted", () => {
+    const facts: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, notifications: { emailEnabled: false, receivesEmail: true } };
+    const progress = deriveAdmissionSetupProgress(facts);
+
+    expect(statuses(facts)).toEqual({ rules: "done", connection: "optional", usage: "optional", open: "pending", notifications: "optional" });
+    expect(progress).toMatchObject({ next: "open", completed: 1, required: 2 });
+    expect(progress.steps.find((step) => step.id === "connection")).toEqual({ id: "connection", status: "optional" });
+  });
+
+  it("names what makes the pending connection necessary: codes, email notices to the leader, or both", () => {
+    const connection = (facts: AdmissionSetupFacts) => deriveAdmissionSetupProgress(facts).steps.find((step) => step.id === "connection");
+    const codes: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true, sendsCodes: true } };
+    const notices: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, notifications: { emailEnabled: true, receivesEmail: true } };
+
+    expect(connection(codes)).toEqual({ id: "connection", status: "pending", messagingNeed: "codes" });
+    expect(connection(notices)).toEqual({ id: "connection", status: "pending", messagingNeed: "notices" });
+    expect(connection({ ...codes, notifications: notices.notifications })).toEqual({ id: "connection", status: "pending", messagingNeed: "codes_and_notices" });
+    expect(connection({ ...codes, messaging: { connected: true, usage: null } })).toEqual({ id: "connection", status: "done" });
+  });
+
   it("does not count the omitted personal frequency as receiving email notices", () => {
     const omitted: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true, open: true }, notifications: { emailEnabled: true, receivesEmail: false } };
 

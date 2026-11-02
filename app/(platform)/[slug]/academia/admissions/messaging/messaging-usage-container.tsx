@@ -28,6 +28,16 @@ function MessagingUsageUnavailable({ initialState, pathname, search }: { initial
   return <AdmissionRouteError embedded message={unavailable?.message ?? COPY.storageFailed} {...resolveMessagingRouteRecovery(unavailable?.code ?? null, { pathname, search })} />;
 }
 
+/**
+ * @param facts - Whether an original is still unresolved, whether the save may run and the draft's own error.
+ * @returns `undefined` when the save may run; otherwise the message that says what to do, or null when the page already explains it
+ * (the review step names a missing confirmation, and the platform notice a blocked save).
+ */
+function saveBlockedMessage({ pendingOriginal, canSave, draftMessage }: { pendingOriginal: boolean; canSave: boolean; draftMessage: string | null }): string | null | undefined {
+  if (pendingOriginal) return COPY.originalPending;
+  return canSave ? undefined : draftMessage;
+}
+
 /** @param props - Guarded server snapshot and optional own transport ports. @returns Account-scoped usage summary and guided steps with preserved draft, safe confirmation and no ordinary route refresh. */
 export function MessagingUsageContainer({ initialState, client = messagingUsageBrowserClient }: UsageContainerProps) {
   // Outside an App Router context (isolated renders) both hooks return null at runtime despite their types.
@@ -38,14 +48,14 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   const [retryConfirmed, setRetryConfirmed] = useState(false), [privateVisible, setPrivateVisible] = useState(true);
   const [editing, setEditing] = useState(!ready?.usage.policy), [step, setStep] = useState(FIRST_STEP_INDEX);
   const [writeStep, setWriteStep] = useState<MessagingUsageWriteStep | null>(null), [partialSave, setPartialSave] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   /** Starts from the server snapshot and follows every current read, so a resolved platform problem re-enables saving in the same session. */
   const [platformRequirement, setPlatformRequirementState] = useState<PlatformSecurityRequirement | null>(ready?.platformRequirement ?? null), currentPlatformRequirement = useRef(platformRequirement);
   const pending = useRef<MessagingUsageBrowserIntent | null>(null), loaded = useRef(false), busy = useRef(false);
   const mounted = useRef(false);
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
   /** Setters and refs never change identity, so one stable bundle serves every read and write. */
-  const controls = useMemo<MessagingUsageControls>(() => ({ setState, setDraft, setPhase, setFresh, setConfirmed, setCanRetry, setRetryConfirmed, setPrivateVisible, setEditing, setStep, setWriteStep, setPartialSave, setErrorMessage, setStatusMessage,
+  const controls = useMemo<MessagingUsageControls>(() => ({ setState, setDraft, setPhase, setFresh, setConfirmed, setCanRetry, setRetryConfirmed, setPrivateVisible, setEditing, setStep, setWriteStep, setPartialSave, setErrorMessage, setStatusMessage, setRecoveryMessage,
     setPlatformRequirement: (value: PlatformSecurityRequirement | null) => { currentPlatformRequirement.current = value; setPlatformRequirementState(value); }, platformRequirement: currentPlatformRequirement, pending, loaded, busy, readController, writeController }), []);
 
   /** Native identity is checked before local restoration and after every private asynchronous result. */
@@ -90,8 +100,9 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   const canSave = fresh && !isBusy && !uncertain && !platformBlocked && confirmed && parsedDraft.ok;
   /** A new UUID is created only after validation/current read and a fresh human confirmation, never while an original is pending. */
   const save = () => {
-    if (!canSave || pending.current) { setErrorMessage(COPY.invalid); return; }
-    void saveUsageValues(writer, state.policy, parsedDraft.value);
+    const blocked = saveBlockedMessage({ pendingOriginal: pending.current !== null || uncertain, canSave, draftMessage: parsedDraft.ok ? null : parsedDraft.message });
+    if (blocked !== undefined) { if (blocked) setErrorMessage(blocked); return; }
+    if (parsedDraft.ok) void saveUsageValues(writer, state.policy, parsedDraft.value);
   };
   /** @returns Nothing after restoring the current configuration as the draft, without consent or error. */
   const resetDraft = () => { setDraft(createMessagingUsageDraft(state)); setConfirmed(false); setStep(FIRST_STEP_INDEX); setErrorMessage(null); };
@@ -99,7 +110,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     busy={isBusy} saving={phase === PHASE.writing} progressMessage={writeStep && WRITE_STEP_COPY[writeStep]} canEdit={fresh && !uncertain && !platformBlocked} platformRequirement={platformRequirement}
     impact={parsedDraft.ok && state.policy ? describeMessagingUsageChangeImpact(state.policy, parsedDraft.value) : null}
     validationMessage={parsedDraft.ok ? null : parsedDraft.message} errorMessage={errorMessage} statusMessage={statusMessage} partialMessage={partialSave ? COPY.initializedOnly : null} canRetrySave={partialSave && canSave}
-    uncertain={uncertain} canRetry={canRetry && fresh && !platformBlocked} retryConfirmed={retryConfirmed}
+    uncertain={uncertain} recoveryMessage={recoveryMessage} canRetry={canRetry && fresh && !platformBlocked} retryConfirmed={retryConfirmed}
     onChange={(next) => { setDraft(next); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); }}
     onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }}
     onStepChange={(next) => { setStep(next); setStatusMessage(null); }}
