@@ -2,134 +2,168 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "fix/academy-leader-recovery-exits",
-      "commit": "4ee226f2a4931135e113e866b54ac138a86004ab",
+      "branch": "fix/messaging-identity-confirmation",
+      "commit": "868e2b61a467b2e97d3afe6d8d8be0a6c399e9e3",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx": "7f44e5f42fe7d6ec",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx": "5b1e106dd15d938f",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx": "e4ceaa3516ca5b04",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx": "2eb2abf3d2a56f38",
-        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts": "eb6fe3b977d7d85b",
-        "src/modules/messaging/setup.ts": "36ebb75d1e9b9914",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx": "b0f008bb00503f37",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts": "816a711de21d784d",
+        "src/modules/messaging/setup.ts": "1bc3204fa7aad84b",
         "src/modules/auth/setup.ts": "37e200547ae950e4",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts": "a41b41fe6eb37214",
         "components/academy-admissions/admission-page-skeleton/index.tsx": "0d887d9221b645c1",
-        "components/academy-admissions/admission-route-error/index.tsx": "f1d403b2508a4b3e",
         "components/academy-admissions/admission-settings-page/index.tsx": "8312db77ac7c70e9",
-        "src/modules/messaging/constants/messaging-errors.ts": "82843c943e77b48b",
+        "components/academy-admissions/messaging-route-error/index.tsx": "c1d48f11921cbf2c",
+        "src/modules/messaging/constants/messaging-errors.ts": "99d4cee108932533",
         "src/modules/messaging/application/results/messaging-connections-page-state.ts": "6cb99daba2669d87",
-        "src/modules/shared/infrastructure/observability/server-logger.ts": "91c2a693de13f86f",
-        "src/modules/messaging/infrastructure/api/messaging-request-schemas.ts": "355052b4278426f6",
-        "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts": "92e22749b4186e09",
+        "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts": "e7b4d3152b09ab7a",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts": "afbb97bc27dc4e0e",
+        "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts": "0aa7509f4b313e2c",
+        "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts": "846c8be366882a5d",
+        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts": "ef2fe28d25f540dd",
         "src/modules/messaging/constants/messaging-connection.ts": "abba3abf6b505594",
-        "src/modules/messaging/domain/errors/messaging-secret-access-error.ts": "87c5fcba4cdc6897",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts": "439f762bfc4d4f0a",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts": "febf726f02bba05b",
-        "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts": "1b2972826adb03f8",
-        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts": "23cdff39f70ea032",
-        "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts": "c096e037a713ac49",
-        "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts": "8298312f3af8abb9",
-        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts": "a3630db8fa785673",
         "src/modules/messaging/application/use-cases/messaging-connection-lifecycle-use-cases.ts": "a22fb8a19982728d",
         "src/modules/messaging/application/use-cases/manage-messaging-connections-use-cases.ts": "ac3f45ac2b1d49f5",
-        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts": "d30fb4ad95d197bf",
-        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts": "e9088768be401f1e",
-        "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts": "561e393986911573",
-        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts": "93144ffb24f53244",
+        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts": "96af18c9528cca7c",
+        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts": "4db4a91d3a891366",
+        "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts": "6bdbbed1ebb66814",
+        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts": "e36f53e4be4da490",
         "src/modules/messaging/infrastructure/repositories/postgres-message-delivery-reader.ts": "cb85f6a916ab78f1",
-        "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts": "64a1ccbb8b044342",
-        "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts": "09dee33626a9b2b3",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts": "6d7048a2be9100f3",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts": "f63b68d98ccf6fdf",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts": "2da425676a6de913",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts": "9a2fba96c1f062fe",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts": "4aa0747bb9ef2db8",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts": "175065f8d997ef47",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts": "c97350b8f21f65a2",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts": "bd617661a7c190d8",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts": "4c0ffdd4bf541e71",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts": "1c1c2d6f03937f44",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts": "f266514381bcc654",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts": "3a50fb9ca99e0c3b",
-        "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts": "d6fc68a30a8ee9ec",
-        "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts": "efbc1421443ee68a",
-        "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts": "edbf153bb521f92b",
-        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts": "a82ffe2e288706bd",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts": "1de3330d90d0b928",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts": "f751875fef05ca9d",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts": "5634860a415b3731",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts": "93a9b0a1fc35fd54",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts": "c7edbb0a4fb32a4f",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts": "ead4c20962273fd3",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts": "3f1f2d0050dd0d48",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts": "9ce5ca330f13238e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts": "153e8f2a623d93bc",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts": "13ff911588f92be1",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts": "a8b3421df475d677",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts": "2b10d895334913fd",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts": "08ccdabed5c4cfda",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts": "58a34df3268c0922",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts": "fad999d38ab5d9f6",
+        "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts": "64b3999bb2da42c3",
+        "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts": "cd6a992ad6b74f30",
+        "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts": "639e8dfd91bce339",
+        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts": "8cfe415386335463",
         "src/modules/messaging/application/use-cases/read-notification-delivery-catalog-use-case.ts": "5c55f8eef4f752c0",
         "src/modules/messaging/application/use-cases/read-notification-recovery-operation-use-case.ts": "5c6d32db0f516d29",
-        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts": "963a0fb837822d0d",
-        "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts": "224db6499ab2aefe",
-        "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts": "59ec4e29b7180fe4",
-        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts": "93ad0d2fe70b57af",
-        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts": "45983428e53be7e1",
-        "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts": "32304d52f624588f",
-        "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts": "bf8e815bafa54b99",
-        "src/modules/messaging/application/results/messaging-errors.ts": "b595f26ba1b1f309",
-        "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts": "2208fd24f76c4b1a",
-        "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts": "1d9390c6ea4b68bf",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts": "08d89713bad14ac9",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts": "dfbcb8a5f713a8a4",
-        "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts": "b75b28fb4fe7e63e",
+        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts": "a3e07a36423eabf4",
+        "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts": "c298e7e00155f6d1",
+        "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts": "6824536c28c1602b",
+        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts": "ad4743f06971d932",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts": "97bd4136a7b6985c",
+        "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts": "bdb139f90e960e7c",
+        "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts": "fdfb297b44c25d43",
+        "src/modules/messaging/domain/errors/messaging-secret-access-error.ts": "4699d52289d1bc71",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts": "febf726f02bba05b",
+        "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts": "c877ca2be034dcef",
+        "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts": "76a13abea27f7041",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts": "b633ffc20d60d7dd",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts": "8ae73513da57e0c7",
+        "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts": "944df1a7a87236e3",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts": "fbbbd4550b0be5c0",
+        "src/modules/messaging/application/results/messaging-errors.ts": "fddd6415ee896bfc",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts": "47fa24ea031a4a55",
         "src/modules/auth/domain/repositories/auth-session-repository.ts": "a24500239b787bb2",
         "src/modules/auth/domain/repositories/authenticated-account-provider.ts": "fdc696b5343344df",
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts": "6ae2f4d7a505f8f5",
-        "src/modules/academy-admissions/constants/admission-sections.ts": "31db560723a90ebd",
+        "src/modules/academy-admissions/constants/admission-operation.ts": "960107a06cf7c337",
+        "src/modules/shared/domain/value-objects/platform-security-requirement.ts": "b5248758fac343e3",
+        "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts": "2c5be2f8453ffeca",
+        "src/modules/academy-admissions/constants/admission-sections.ts": "de5e6d7face2061c",
         "components/loaders/route-skeleton/index.tsx": "24ca012df2b27747",
         "components/academy-admissions/admission-page-skeleton/styles.module.scss": "8afe65bc39c4f234",
-        "src/modules/academy-admissions/constants/admission-ui.ts": "a57d7d4286770b34",
-        "components/navigation/link/index.tsx": "62de0ede0cd7c3c7",
+        "components/academy-admissions/admission-settings-page/styles.module.scss": "833cfa2341b7fc1c",
+        "components/navigation/link/index.tsx": "7655c1de74739cc3",
+        "components/academy-admissions/admission-route-error/index.tsx": "c0c6974859fc877c",
+        "src/modules/messaging/constants/messaging-route-error.ts": "d726f9de314879a1",
+        "lib/messaging/messaging-route-recovery.ts": "9830408f907c01d6",
+        "components/auth/sign-in-with-google-button/index.tsx": "b1e2f1fd29d35c44",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts": "b3393e926729a7d4",
+        "src/modules/messaging/domain/errors/messaging-error-code.ts": "339bdd4f4d2e9d63",
+        "src/modules/messaging/constants/messaging-connections-page-state.ts": "8b3eaa2e925926fc",
+        "src/constants/http-status.ts": "ab3d7eebd62cc1ac",
+        "src/modules/messaging/infrastructure/api/messaging-error-status.ts": "6c5079b721eaf8d3",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts": "9e1232547a93542f",
+        "src/modules/messaging/constants/messaging-read-errors.ts": "915d5455aa77ca2d",
+        "src/modules/messaging/infrastructure/api/messaging-request-schemas.ts": "355052b4278426f6",
+        "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
+        "src/modules/academy-admissions/constants/admission-review-ui.ts": "b4951503e685e550",
+        "src/modules/academy-admissions/constants/admission-review-history-page.ts": "288076d50afa469a",
+        "src/modules/academy-admissions/constants/admission-policy-browser.ts": "9af6b0c4bb855d0d",
+        "src/modules/academy-admissions/constants/allowlist-browser.ts": "e264259d9043c594",
+        "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "f965f1a72726b628",
+        "src/modules/academy-admissions/constants/personal-invitation-management-page.ts": "194673edd6bab3a7",
+        "src/modules/messaging/constants/messaging-usage.ts": "76e7cf443599be62",
+        "src/modules/messaging/constants/messaging-connections-browser.ts": "56dceb36e282244b",
+        "src/modules/notifications/constants/admission-notification-settings-page.ts": "93b802dfd5f67053",
+        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "b7211711f27ba592",
+        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
+        "src/modules/academy-admissions/constants/admission-ui.ts": "d3efde47cf734886",
+        "src/constants/page-read.ts": "db487ad39a45c810",
         "src/constants/routes.ts": "f7766aea8d0ef37e",
         "components/academy-admissions/admission-route-error/styles.module.scss": "06d52f5195bb701e",
-        "components/academy-admissions/admission-settings-page/styles.module.scss": "833cfa2341b7fc1c",
-        "src/modules/messaging/domain/errors/messaging-error-code.ts": "347a9bbe72af0c8b",
-        "src/modules/messaging/constants/messaging-connections-page-state.ts": "231187ec823ce706",
-        "src/modules/tribes/domain/value-objects/tribe-slug.ts": "07196b88770dfa73",
-        "src/modules/academy-admissions/constants/admission-navigation.ts": "2117badf56a2fc06",
-        "src/modules/academy-admissions/constants/admission-review-ui.ts": "42d3d87b513edbbb",
-        "src/modules/academy-admissions/constants/admission-review-history-page.ts": "dc04c8d09051bfbb",
-        "src/modules/academy-admissions/constants/admission-policy-browser.ts": "90cfa795912c0e8c",
-        "src/modules/academy-admissions/constants/allowlist-browser.ts": "b515269f65c7afcf",
-        "src/modules/academy-admissions/constants/allowlist-import-browser.ts": "e825df46f40108a0",
-        "src/modules/academy-admissions/constants/personal-invitation-management-page.ts": "d871095503f55239",
-        "src/modules/messaging/constants/messaging-usage.ts": "ba71bbac4e985a5a",
-        "src/modules/messaging/constants/messaging-connections-browser.ts": "6324cc25a232f60b",
-        "src/modules/notifications/constants/admission-notification-settings-page.ts": "806d23ea29b33640",
-        "src/modules/academy-admissions/constants/admission-activity-browser.ts": "d0af64144b8cacf3",
-        "components/loaders/route-skeleton/styles.module.scss": "aba42533e97ac72c",
-        "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
-        "src/modules/messaging/application/results/messaging-configuration-result.ts": "006db510fe714df8",
-        "src/modules/messaging/constants/messaging-provider-catalog.ts": "407ca5f0ea954a6a",
-        "src/modules/messaging/constants/notification-delivery-catalog.ts": "91de009b833e5503",
-        "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
+        "lib/academy-admissions/admission-route-recovery.ts": "97a7e44fda83052a",
+        "src/modules/auth/infrastructure/better-auth/client.ts": "5b89485f59c645c0",
+        "components/auth/sign-in-with-google-button/styles.module.scss": "873da73acb0481e1",
+        "src/modules/tribes/constants/tribe-member-role.ts": "7c4874d19e86ceed",
+        "src/modules/messaging/application/results/messaging-configuration-result.ts": "5d3d98764ec4b138",
+        "src/modules/messaging/constants/messaging-provider-catalog.ts": "2de94e99eeae9a15",
+        "src/modules/messaging/constants/notification-delivery-catalog.ts": "22e9743e9e93cdf3",
+        "src/modules/shared/infrastructure/observability/request-context.ts": "298449d5b583123d",
+        "src/modules/shared/infrastructure/observability/server-logger.ts": "382546b9c64f91b8",
+        "src/modules/shared/infrastructure/validation/validation-issue-summary.ts": "738c0b278fc24011",
+        "src/modules/shared/infrastructure/observability/private-request-context.ts": "f66994d197fff46b",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts": "54f83f243e8c1edb",
+        "src/modules/tribes/domain/value-objects/tribe-slug.ts": "676a1f8eaceeaa38",
+        "lib/browser-navigation.ts": "55dd9a2c92c4734d",
+        "src/modules/shared/constants/platform-security.ts": "be45e4de9ad1b51f",
+        "src/modules/academy-admissions/constants/admission-limits.ts": "5908d81b297e842f",
         "src/modules/messaging/constants/messaging-credential-validation.ts": "0712b1ab28ca1ec2",
         "src/modules/messaging/constants/messaging-public-contract.ts": "d8e21158a5fb4c77",
-        "src/modules/messaging/application/results/messaging-public-result-schemas.ts": "31517e9dc2148f46",
+        "src/modules/messaging/application/results/messaging-public-result-schemas.ts": "273965c88d383ffe",
         "src/modules/messaging/application/ports/messaging-provider-catalog-reader.ts": "8bd9a95aacb70962",
         "src/modules/messaging/constants/message-delivery.ts": "45811d35a492678f",
+        "src/modules/shared/constants/private-http.ts": "d0c330157a6a4fec",
+        "src/modules/shared/constants/error-cause-summary.ts": "8ae1477ab44a98b8",
         "src/modules/messaging/constants/messaging-limits.ts": "a882fb155e9d559f",
         "src/modules/messaging/application/results/messaging-usage-policy-result.ts": "85b3000334c4a35b",
         "src/modules/messaging/domain/repositories/messaging-connection-configuration.ts": "6c13816b2e9cb2d8"
       },
-      "fingerprint": "sha256:775299d33a6c7dcee434883667b039658018c55a352bb62cf82b80843a76e1dc",
+      "fingerprint": "sha256:ff803f4a2a20e5e67b80bda5622c5a9c4462617c416f2bc31069fee0c1bb0634",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/page.tsx#MessagingConnectionsPage": "c170669d22ab5f26",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx#<module>": "2da3ec2294295eb1",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/loading.tsx#MessagingConnectionsLoading": "a92b1ae410f3fdbb",
         "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#MessagingConnectionsError": "ac423f22e1c6f638",
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#MessagingConnectionsError": "f1ee7ca6e41e0043",
         "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#<module>": "f7e3cf85771fe55e",
         "pkg:server-only": "b5339fe42edb5191",
-        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState/failure": "3f0a7f7750d20901",
-        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState~shell": "9e6be129c2822c6b",
-        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#pageInputSchema": "4a7baa63e7f73e84",
-        "pkg:zod": "54793d4376d381b3",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState": "79f37108b05924ff",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.operation": "dbb5b7d6a8bb2b18",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.readFailed": "c3feb12cd0caf1a3",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.contractRejected": "193f1d01214204b9",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.loadFailed": "24ca23e7a2ccc0dc",
+        "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC~frame": "91dece02402b6a9e",
         "src/modules/messaging/setup.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/setup.ts#buildMessagingModule/createManagement": "49a2e28d4e2fe9b1",
-        "src/modules/messaging/setup.ts#buildMessagingModule/createUsage": "d1a4e0a5ba0602d7",
-        "src/modules/messaging/setup.ts#buildMessagingModule~shell": "2cbfc6de3298472d",
-        "src/modules/messaging/setup.ts#buildMessagingModule/createSensitiveContext": "c238263b2047ba8a",
+        "src/modules/messaging/setup.ts#buildMessagingModule": "e8c2ac31cdecd19d",
+        "src/modules/messaging/setup.ts#createActorExecutor": "abd27e09c99ff9b8",
+        "src/modules/messaging/setup.ts#createMessagingManagement/executeGuardedRead": "468d7ca2c5bc06bf",
+        "src/modules/messaging/setup.ts#createMessagingManagement~shell": "75eafee61dec3a46",
+        "src/modules/messaging/setup.ts#createMessagingUsage": "de534c90f2144677",
+        "src/modules/messaging/setup.ts#createSensitiveMessagingContext": "35f9de1e656c4b26",
         "src/modules/auth/setup.ts#<module>": "2da3ec2294295eb1",
         "src/modules/auth/setup.ts#buildAuthModule": "fa12aa3c0affb57e",
         "src/modules/auth/setup.ts#AuthModuleDependencies": "c2c64c7a3276646d",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#createAdmissionPlatformSecurityReader": "c2db342be494dff0",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#AdmissionPlatformSecurityReader": "aa598e9bf753cb9c",
         "components/academy-admissions/admission-page-skeleton/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionPageSkeleton": "d3a2a430ac0ce08a",
         "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS.review": "8d1698c00bd2c93d",
@@ -145,96 +179,48 @@
         "components/academy-admissions/admission-page-skeleton/index.tsx#ADMISSION_PAGE_SKELETON_PARTS~frame": "5567ddee28712c78",
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPart": "e5a5e3e356afe0c1",
         "components/academy-admissions/admission-page-skeleton/index.tsx#AdmissionSkeletonPartPlaceholder": "d5b53572863b7903",
-        "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
-        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "5a2f7ced3b9852bf",
-        "pkg:@golfo/ui": "e77dc2d70f2e7b2a",
         "components/academy-admissions/admission-settings-page/index.tsx#<module>": "2da3ec2294295eb1",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPage": "70ebe75549ed2595",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionPageHeader": "6110c696671918ae",
         "components/academy-admissions/admission-settings-page/index.tsx#AdmissionSettingsPageProps": "f5045537881eebf2",
         "pkg:react": "374a4508a198654b",
+        "components/academy-admissions/messaging-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/academy-admissions/messaging-route-error/index.tsx#MessagingRouteError": "5a17eda2c1d73e65",
         "src/modules/messaging/constants/messaging-errors.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_MESSAGE": "29eadda5553aebe9",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE~frame": "53641dfa8a28313a",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeExpired": "6b4dff8cffa91a34",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeInvalidated": "54fbfe9052a71de6",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.connectionConflict": "34091f5d89b7e37f",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.connectionIncomplete": "4a723a88c2ae2b06",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.credentialValidationLimitReached": "676ae6c5d02a88c3",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.deliveryConflict": "33cf3d2cd9355cc2",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.deliveryUnknown": "e5fed2b5c43672a6",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.dependencyUnavailable": "86429de0046751c5",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.idempotencyConflict": "a4758a304905cafb",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.invalidCredentials": "8ceb98899292be9b",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE~frame": "fadc9e474a79c175",
         "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.invalidInput": "ed7ae04ea7942017",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.missingCapability": "c87e9bf8ecae255d",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.operationUnresolved": "fb0dcd36263e917e",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.providerRateLimited": "0f64b762d6a2f143",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.publicContractUnusable": "3407c360e5b831de",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.reauthenticationRequired": "f40cf6d56a884cc7",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.recipientNotAllowed": "4c915a5db9aac8bb",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.resourceUnavailable": "e0e65cfe4bfecf20",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.transportTimeout": "40c89df91b4a29c8",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.unexpectedFailure": "28ea53251c0f07a6",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.upstreamPayloadUnusable": "f06660b97ec46373",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.upstreamRejected": "eecd44eaf8384c9c",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usageLimitReached": "f9e2f15745b921ec",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usagePolicyConflict": "56240faca8660709",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usagePolicyMissing": "973d84990435729e",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.verificationAttemptsExceeded": "407a491d0043760d",
-        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.verificationCodeIncorrect": "4e7e6d90d921528b",
         "src/modules/messaging/application/results/messaging-connections-page-state.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/results/messaging-connections-page-state.ts#MessagingConnectionsPageState": "113f87d8b3113534",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#createServerLogger/buildEntry": "9b4fe6343e546e6d",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#ServerLogEntry": "d97ee00f435a8803",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#ServerLogLevel": "b4ce6609fff7641c",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#serializeError": "d6f53a36c3770d07",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_ERROR_MESSAGE~frame": "05149e3ed5eb5369",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_ERROR_MESSAGE.unknownError": "3cc35bd162e95871",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_FIELD~frame": "6aa9604efeb506a0",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_FIELD.message": "0f3226ce0b11d0c1",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#createServerLogger~shell": "e08e4a9be1f60a6d",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL~frame": "6354e646933a7fd7",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL.error": "98cde5a54c85e03e",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL.info": "0c99f142304dd517",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL.warn": "6919e3b3b0bc1bd1",
-        "src/modules/shared/infrastructure/observability/server-logger.ts#writeLog": "cee65b6f912936e3",
-        "src/modules/messaging/infrastructure/api/messaging-request-schemas.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/infrastructure/api/messaging-request-schemas.ts#messagingTribeParamsSchema": "d8b13356794c9bd4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext": "e2676e3119582cbe",
-        "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER": "f424d3b14aaf34ae",
-        "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext": "3c853e0cdccfd2b4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER": "53521ebe088784f4",
-        "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId": "264e4321e679f159",
-        "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue": "17626511501da534",
-        "src/modules/messaging/constants/messaging-connection.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_CONNECTION_SLOT~frame": "1df8858e6ba39c8e",
-        "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_CONNECTION_SLOT.selected": "ab35e892f4adeced",
-        "src/modules/messaging/domain/errors/messaging-secret-access-error.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/domain/errors/messaging-secret-access-error.ts#MessagingSecretAccessError": "547e50fcc31bc05e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#PostgresMessagingAuthorizationReader": "eb97c2ef068d19ce",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#LeadershipRow": "fb229d8dfb5d620c",
-        "pkg:drizzle-orm": "87d2d0f645a6b937",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#readCurrentFeatureSessionContext": "8bd268079dfc7647",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseContext": "efed4110bae1bd4f",
+        "pkg:zod": "54793d4376d381b3",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#createMessagingPageDiagnostics": "9d852370b72d1a5d",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#MESSAGING_PAGE_DIAGNOSTIC_FEATURE": "8932d698f3c018d8",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#loadMessagingPageRead": "aaf5582b6e0cf499",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#MessagingPageUnavailable": "bcb31d4c00221afb",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#messagingPageUnavailable": "4ff57bbed8e62db9",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#readMessagingPageSlug": "9521e126520669db",
+        "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#messagingPageInputSchema": "2cb6e5f41cb44a80",
         "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts#ActivateMessagingConnectionUseCase": "8e6afea91787572e",
+        "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts#ActivateMessagingConnectionUseCase": "15160260247c17fe",
         "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#ConfigureMessagingConnectionUseCase": "0e4d563bfbb66d8c",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#ConfigureMessagingConnectionUseCase": "930a3770978b992b",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#configurationFailure": "c5ee315ece053fd0",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#abortedOrUnexpectedCode": "435c3cbb40fa20dc",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#missingResource": "6288e89a77f10393",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetSenderRequirement": "fd5a9cb5e7500296",
+        "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetTemplateRequirement": "254db2b4c50025c6",
         "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#GetMessagingConnectionsPageUseCase": "2ea857a1587f542c",
+        "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#GetMessagingConnectionsPageUseCase": "7a3cb86d6599ced3",
+        "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#isAuthorityFailure": "d23f8dbaca64d689",
+        "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#projectNotificationCatalog": "5cb9c1a1fa52b9c1",
         "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts#IssueConnectionDiagnosticUseCase": "a9791564282f0c4e",
+        "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts#IssueConnectionDiagnosticUseCase": "7d4fceb45109abdc",
         "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#LoadAuthorizedMessagingSecretUseCase": "977ae2021e253404",
+        "src/modules/messaging/constants/messaging-connection.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_AUTHORIZATION_PURPOSE~frame": "bafa7f8fc6d4b042",
         "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader": "0bb6bdd9f66d781f",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
         "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_RESOURCE_SELECTION~frame": "3415fe088575012f",
         "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_RESOURCE_SELECTION.management": "2152b994e1afaa1a",
         "src/modules/messaging/application/use-cases/messaging-connection-lifecycle-use-cases.ts#<module>": "2da3ec2294295eb1",
@@ -242,108 +228,167 @@
         "src/modules/messaging/application/use-cases/manage-messaging-connections-use-cases.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/use-cases/manage-messaging-connections-use-cases.ts#ManageMessagingConnectionsUseCases": "fbcfd8a9345010ad",
         "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#PostgresConnectionDiagnosticIssuance": "964df6c0b89178cc",
+        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#PostgresConnectionDiagnosticIssuance": "1072e880ccec8910",
+        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#knownFailureCode": "11063825be01b163",
+        "pkg:drizzle-orm": "87d2d0f645a6b937",
         "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts#PostgresConnectionDiagnosticOperations": "598ad21305a331eb",
+        "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts#PostgresConnectionDiagnosticOperations": "92f1d364a91c25b3",
         "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#PostgresCredentialValidationBudget": "9f370515221a1e80",
+        "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#PostgresCredentialValidationBudget": "88625d97bebdaa1d",
         "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#ValidationEventRow": "ba9f5aafeedf842c",
         "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStore": "7a54bd71b2a77142",
+        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStore": "5ce1c674da1c36b0",
+        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#DatabaseExecutor": "c41d157e495cbc92",
+        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStoreDependencies": "8f1cfc76c291bb1f",
+        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#SecurityConfigReader": "e7887bf4f0d923c4",
+        "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#isOperation": "47d716074b9e1014",
         "src/modules/messaging/infrastructure/repositories/postgres-message-delivery-reader.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/messaging/infrastructure/repositories/postgres-message-delivery-reader.ts#PostgresMessageDeliveryReader": "deb68c0281b01588",
         "src/modules/messaging/infrastructure/repositories/postgres-message-delivery-reader.ts#DeliveryRow": "6649090906b7e3f0",
         "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#PostgresMessageReconciliationRepository": "5b41dc4bb1be2658",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#PostgresMessageReconciliationRepository": "e90ba592d0c25135",
         "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#CurrentAttemptRow": "3a0a911e3bd020a9",
         "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#OriginalAttemptRow": "9c35311a84ab0eca",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#receiptReason": "a95beb0e692a5864",
         "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparation": "f756e703b4385fd3",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparation": "6a26c3f4e1793229",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparationDependencies": "04591ddad6df70c7",
+        "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#StatusDatabaseExecutor": "e4eb748ad9495354",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#PostgresMessagingAuthorizationReader": "fbb64ee48f9aa253",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#LeadershipRow": "fb229d8dfb5d620c",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#PostgresMessagingConfigurationReader": "41ba0777c17545ea",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#PostgresMessagingConfigurationReader": "586073de8f936ffe",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#ConnectionRow": "2de29d3982d53437",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#storedCredentialMode": "7a0860ba5a02a778",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#PostgresMessagingConnectionActivation": "ac7c82b7bf92ddaa",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#PostgresMessagingConnectionActivation": "0410435f7c8c722a",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#CapabilityRow": "d963612d712184ef",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#ConnectionRow": "3e89b3a67a4ca231",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#DiagnosticRow": "156a733c791f2707",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#VersionRow": "23f6b0d13e83172c",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#activationFailureCode": "7659cba4a4c2ce45",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#configuredChannelsOf": "10ca4f8b7eb53f2d",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#effectiveSelection": "8704af0ef08752d1",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#isExplicitlyConfirmed": "45a40a2c128ea27b",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#PostgresMessagingConnectionConfiguration": "3a0b4fbc672bce73",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#PostgresMessagingConnectionConfiguration": "6a935121f7b9ca67",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#CurrentConfiguration": "35221a4cccf9e099",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#configuredSenderId": "78535e66175826dd",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#requiredWhatsappTemplate": "e4c812821bf7dfa9",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts#PostgresMessagingConnectionDisconnection": "d3a1f8ca6e3f75e4",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts#PostgresMessagingConnectionDisconnection": "d07a020a620f181e",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#PostgresMessagingConnectionOperationReader": "406914fac9097883",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#ConnectionOperationRow": "ff54d483383ebad4",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#PostgresMessagingConnectionOperationReader": "b4ff97cac5e8bc0b",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#PostgresMessagingConnectionRepository": "420da48175adf93b",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#PostgresMessagingConnectionRepository": "43ffca40a893f0c1",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#assertUnchangedSecurityScope": "31bff8ed8bbc44c3",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#readOriginalResult": "eacbd30940ce261f",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts#PostgresMessagingConnectionSuspension": "38f0e236612740d3",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts#PostgresMessagingConnectionSuspension": "e98888f76982c88e",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#PostgresMessagingCredentialValidation": "f71961652574c707",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#PostgresMessagingCredentialValidation": "2bdd5a11344a494c",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialMode": "d8b10e1a60a3215e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialState": "c0594da47c977520",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#PostgresMessagingResourceExposureRecorder": "b23ef690dda1b54b",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#PostgresMessagingResourceExposureRecorder": "6d4c8a3d0c29b747",
         "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#appendMessagingAuthorizedExposure": "5eab3262e363f35c",
         "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#PostgresNotificationDeliveryCatalogReader": "0934c8382b434b52",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#CatalogRow": "8c528a8caf519999",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#PostgresNotificationDeliveryCatalogReader": "7f1601cdcaf02057",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#CatalogRow": "975e67fd14644934",
         "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#PostgresNotificationDeliveryRecoveryRepository": "c001f28b23747191",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#PostgresNotificationDeliveryRecoveryRepository": "7882db07a9f59ed5",
         "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#OriginalRow": "10a748b4b19e584b",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryDecision": "40f5dedc1c530dff",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryRows": "bc48c5570d8ef974",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetCapabilityRow": "cdb3ef68dcbd8c03",
         "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetRow": "a2302a7bf39a397c",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetVersionRow": "71b42052524946ae",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#StagedRecoveryGroup": "53abe0e4c97eb500",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#assertRecoverySecurityScope": "74ab19f078e735a5",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#isExplicitlyConfirmed": "45a40a2c128ea27b",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryDeadlineExpired": "cdc92638179bfed6",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTargetFacts": "942b24642af926ed",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTimestamps": "4733463f1d18861b",
         "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#PostgresNotificationRecoveryOperationReader": "db8b8a12349e17c0",
+        "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#PostgresNotificationRecoveryOperationReader": "866cbef5c404a05b",
         "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#RecoveryOperationRow": "99fe0ca52f9877eb",
         "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts#ReadMessageDeliveryUseCase": "0643380ffd4ebc42",
+        "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts#ReadMessageDeliveryUseCase": "fe5114951312c587",
         "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#ReadMessagingConfigurationUseCase": "37d07958c9eb4f71",
-        "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#audienceOf": "bbd4e8778abd516c",
+        "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#ReadMessagingConfigurationUseCase": "d2b0f6148ce8cee3",
+        "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#audienceOf": "983dd20189041876",
         "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts#ReadMessagingConnectionOperationUseCase": "6d0af7e74087fc48",
+        "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts#ReadMessagingConnectionOperationUseCase": "4bef7cbee2817b92",
         "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#ReadMessagingResourcesUseCase": "a873e2fc8817a74b",
+        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#ReadMessagingResourcesUseCase": "c90a562ec30f95bb",
+        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#abortedOrUnexpectedCode": "435c3cbb40fa20dc",
+        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#compareResourceIds": "5d0ff2cde04c0534",
+        "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#listResources": "d0f5f05af7c55532",
         "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#requireSameResource": "ec75845cdd626e76",
         "src/modules/messaging/application/use-cases/read-notification-delivery-catalog-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/use-cases/read-notification-delivery-catalog-use-case.ts#ReadNotificationDeliveryCatalogUseCase": "c43b63740249ca36",
         "src/modules/messaging/application/use-cases/read-notification-recovery-operation-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/use-cases/read-notification-recovery-operation-use-case.ts#ReadNotificationRecoveryOperationUseCase": "99c8a525fba97eb2",
         "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryUseCase": "ac1a9dc977fa6c6a",
+        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryUseCase": "bce1c1f5884132f8",
+        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#OriginalMessageContextResolver": "49d84b6c42c47636",
+        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryDependencies": "8e094e3b39cfa891",
+        "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#resolveOriginalReconciliationContext": "8581e1899d91440a",
         "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#RecoverNotificationDeliveryUseCase": "909ce56c13206843",
+        "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#RecoverNotificationDeliveryUseCase": "3b823a284a694717",
+        "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#proposedRecoveryFailureCode": "b5d1f797d9fb9caa",
         "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts#ReserveMessagingUsageUseCase": "79174e89082e0bc5",
-        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingContextUseCase": "c274d46903c0a613",
-        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#hasCurrentLeadership": "894568e7c9b72929",
+        "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts#ReserveMessagingUsageUseCase": "b9f4e389cc9b7167",
+        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingContextUseCase": "cbcdfe10e2c60f7b",
+        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#hasCurrentLeadership": "9404e1c412e30171",
         "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#ResolveMessagingTribeManagementUseCase": "606f1e286a872202",
-        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#isManagementLeader": "8ff04ce3aa65af05",
+        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#ResolveMessagingTribeManagementUseCase": "87d9d46e32a8afd1",
+        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#isManagementLeader": "70194c69f79f9e05",
+        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopeSensitiveOperation": "cbd056e2058398ba",
+        "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopedResourceId": "ac7e2c0de9c88acf",
         "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCase": "db6b8472dcf5512c",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCase": "587dca28d9de5176",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionInput": "59d5f6220e1a7fc3",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCaseDependencies": "ca2a6a5538303ccd",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#inspectCredentialOutcome": "980f0bb8f273018b",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#requireSameValidator": "4e85dd098e4c1187",
         "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#sameValidationScope": "10b7eb19f0ca94d9",
+        "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#validationFailure": "d13f7aa995858117",
         "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts#VerifyConnectionDiagnosticUseCase": "74acca33f1a59857",
+        "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts#VerifyConnectionDiagnosticUseCase": "838ef02f2858bd40",
         "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#ZavuMessageStatusLookup": "2d13b5a973bc68cb",
-        "pkg:@zavudev/sdk": "ebf29aab19515e90",
+        "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#ZavuMessageStatusLookup": "b8045e5348cef802",
+        "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#lookupMessage": "90cd2740bfe41ffc",
+        "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#providerAttemptState": "544d2febf856b7e6",
+        "src/modules/messaging/domain/errors/messaging-secret-access-error.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/domain/errors/messaging-secret-access-error.ts#MessagingSecretAccessError": "547e50fcc31bc05e",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#readCurrentFeatureSessionContext": "8bd268079dfc7647",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseContext": "efed4110bae1bd4f",
+        "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_CONNECTION_SLOT~frame": "1df8858e6ba39c8e",
+        "src/modules/messaging/constants/messaging-connection.ts#MESSAGING_CONNECTION_SLOT.selected": "ab35e892f4adeced",
+        "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#GetMessagingUsagePageUseCase": "fea67134241356f7",
+        "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#ManageMessagingUsageUseCases": "b1d4cea2f8cbed93",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#PostgresMessagingUsageOperationReader": "b72645b7d6b3228d",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PostgresMessagingUsageOperations": "61ac1c2cc46f52d3",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PolicyRow": "f6c637750701b324",
+        "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#ReadMessagingUsageOperationUseCase": "a81ab830ce8b77d6",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#PostgresMessagingOriginalOperationLookup": "a8184f5cc6c61c76",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#ledgerTypesOf": "ac2c8baf899c6546",
+        "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingWriteContextUseCase": "42029d2ffc93aa04",
         "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#createTransactionAccountProvider": "843658624f513774",
         "src/modules/messaging/application/results/messaging-errors.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/application/results/messaging-errors.ts#messagingFailure": "d0384b4e60d9f1f2",
-        "src/modules/messaging/application/results/messaging-errors.ts#MessagingFailure": "3d342ff23636dda4",
-        "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#GetMessagingUsagePageUseCase": "44aa9cd3f9dc1989",
-        "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#ManageMessagingUsageUseCases": "bf1f5cd1d82c4766",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#PostgresMessagingUsageOperationReader": "ac87f07ef82b9536",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#UsageOperationRow": "a08452b832f06e39",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PostgresMessagingUsageOperations": "572a892c67e5d742",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PolicyRow": "f6c637750701b324",
-        "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#ReadMessagingUsageOperationUseCase": "3615abbfc780e250",
+        "src/modules/messaging/application/results/messaging-errors.ts#MessagingFailure": "6adf71862e15a034",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#readMessagingPlatformSecurityFacts": "c154af0774e25fcc",
         "src/modules/auth/domain/repositories/auth-session-repository.ts#<module>": "2da3ec2294295eb1",
         "src/modules/auth/domain/repositories/auth-session-repository.ts#AuthSessionRepository": "ec009e1fd8498219",
         "src/modules/auth/domain/repositories/authenticated-account-provider.ts#<module>": "2da3ec2294295eb1",
@@ -351,6 +396,12 @@
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts#getAuthenticatedMember": "0e469f3e87753693",
         "src/modules/auth/application/use-cases/get-authenticated-member-use-case.ts#GetAuthenticatedMemberDependencies": "df09a8a09c3a70bd",
+        "src/modules/academy-admissions/constants/admission-operation.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-operation.ts#ADMISSION_OPERATION_MAC_KEY_PURPOSES": "fdcfaaea3d58aad4",
+        "src/modules/shared/domain/value-objects/platform-security-requirement.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/domain/value-objects/platform-security-requirement.ts#PlatformSecurityRequirement": "208a1b39fa4ef832",
+        "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#readMessagingPlatformSecurityRequirement": "64b6566beaebab0b",
         "src/modules/academy-admissions/constants/admission-sections.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_PAGES.review": "356af9daffbbfb07",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_SECTION~frame": "e6f3f337db925384",
@@ -392,27 +443,90 @@
         "components/loaders/route-skeleton/index.tsx#SkeletonField": "d1ce3464b143b551",
         "components/loaders/route-skeleton/index.tsx#RouteSkeleton": "223b4db7f24fd665",
         "components/academy-admissions/admission-page-skeleton/styles.module.scss#*": "8afe65bc39c4f234",
-        "src/modules/academy-admissions/constants/admission-ui.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed": "e40e9012cde9fe54",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
-        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
-        "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
-        "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
-        "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
-        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
-        "components/academy-admissions/admission-route-error/styles.module.scss#*": "06d52f5195bb701e",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_COPY~frame": "fdb915e3aa1bb6b8",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_COPY.related": "fca48c1d41c7d58d",
         "src/modules/academy-admissions/constants/admission-sections.ts#ADMISSION_WORKSPACE_COPY.eyebrow": "513ee08a77117d14",
         "components/academy-admissions/admission-settings-page/styles.module.scss#*": "833cfa2341b7fc1c",
+        "components/navigation/link/index.tsx#<module>": "2da3ec2294295eb1",
+        "pkg:@golfo/ui": "31416f2afd1eb184",
+        "components/academy-admissions/admission-route-error/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError": "7833fecdddb90830",
+        "src/modules/messaging/constants/messaging-route-error.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY~frame": "77cd6e48f0affddc",
+        "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY.reauthenticate": "d8bc5abf46b68fb1",
+        "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY.title": "a75695205a1fea65",
+        "lib/messaging/messaging-route-recovery.ts#<module>": "2da3ec2294295eb1",
+        "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery": "0e28a896f00b654c",
+        "components/auth/sign-in-with-google-button/index.tsx#<module>": "d414f6d3ee71f10d",
+        "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButton/handleGoogleSignIn": "ec4efcba044a76cb",
+        "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButton~shell": "70a45ea1346719bc",
+        "components/auth/sign-in-with-google-button/index.tsx#PAGE_SHOW_EVENT": "4a9fc6ef3ed16f39",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY~frame": "964f7113552585cd",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY.idle": "aab1c8556895efe7",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY.redirecting": "29191df42d3cceed",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON~frame": "bd69dda75d21823e",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.fullWidthSize": "2b1d65849d716543",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.inlineSize": "2f643ed4505ace28",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.type": "22b26b5e6f422738",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY~frame": "ea1b3ff76207998e",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY.idle": "ba2dfa9d91bfa803",
+        "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY.redirecting": "416c9e63b9e87563",
+        "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButtonProps": "a607b09ffc0342aa",
+        "pkg:next": "ef28293b49c7bae1",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionIncomplete": "4a723a88c2ae2b06",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.usagePolicyMissing": "973d84990435729e",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.missingCapability": "c87e9bf8ecae255d",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.invalidCredentials": "8ceb98899292be9b",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamRejected": "eecd44eaf8384c9c",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.providerRateLimited": "0f64b762d6a2f143",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.transportTimeout": "40c89df91b4a29c8",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.dependencyUnavailable": "86429de0046751c5",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.deliveryUnknown": "e5fed2b5c43672a6",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.operationUnresolved": "fb0dcd36263e917e",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamPayloadUnusable": "f06660b97ec46373",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.publicContractUnusable": "3407c360e5b831de",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.unexpectedFailure": "28ea53251c0f07a6",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.platformSecurityUnavailable": "0f2f3c4726c9d86c",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionRetirementBlocked": "a3c80f6fe8849d5f",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.originalDispatchUnresolved": "f82a75fd2e7b4038",
+        "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE~frame": "fa48930e6a10dba1",
         "src/modules/messaging/domain/errors/messaging-error-code.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode": "86386dfd6a97f4e1",
+        "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode": "0a3a2183f17e3a7c",
         "src/modules/messaging/constants/messaging-connections-page-state.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/constants/messaging-connections-page-state.ts#messagingConnectionsPageStateSchema": "c46f354fe0445191",
-        "src/modules/tribes/domain/value-objects/tribe-slug.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/tribes/domain/value-objects/tribe-slug.ts#TRIBE_SLUG_PATTERN": "678b360965ed6137",
+        "src/modules/messaging/constants/messaging-connections-page-state.ts#messagingConnectionsPageStateSchema": "000c827f257ffa5a",
+        "src/constants/http-status.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/http-status.ts#HTTP_STATUS~frame": "aec530ff5cbd1142",
+        "src/constants/http-status.ts#HTTP_STATUS.serverError": "0fbed1070c0e4d46",
+        "src/modules/messaging/infrastructure/api/messaging-error-status.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/infrastructure/api/messaging-error-status.ts#MESSAGING_ERROR_HTTP_STATUS": "0bce5d0faa568092",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#ServerPageDiagnostics": "576670f91c4ebf0e",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#createServerPageDiagnostics/fields": "86483098d25144a0",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#createServerPageDiagnostics~shell": "5bee103339a4a36f",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#findContractIssues": "52aa738b03460407",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#VALIDATION_CAUSE_MAX_DEPTH": "0356e194ced3123a",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.resourceUnavailable": "e0e65cfe4bfecf20",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.idempotencyConflict": "a4758a304905cafb",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usagePolicyConflict": "56240faca8660709",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.connectionConflict": "34091f5d89b7e37f",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.deliveryConflict": "33cf3d2cd9355cc2",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.recipientNotAllowed": "4c915a5db9aac8bb",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usageLimitReached": "f9e2f15745b921ec",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.credentialValidationLimitReached": "676ae6c5d02a88c3",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.verificationCodeIncorrect": "4e7e6d90d921528b",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeExpired": "6b4dff8cffa91a34",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeInvalidated": "54fbfe9052a71de6",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeAlreadySent": "5e62e8ff2618075e",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.verificationAttemptsExceeded": "407a491d0043760d",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.reauthenticationRequired": "f40cf6d56a884cc7",
+        "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#loadServerPageState": "175d6618387a477f",
+        "src/modules/messaging/constants/messaging-read-errors.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/constants/messaging-read-errors.ts#messagingReadErrorMessage": "99664512f2021f4c",
+        "src/modules/messaging/constants/messaging-read-errors.ts#MESSAGING_READ_ERROR_MESSAGE": "3cf0c50fb049450e",
+        "src/modules/messaging/infrastructure/api/messaging-request-schemas.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/infrastructure/api/messaging-request-schemas.ts#messagingTribeParamsSchema": "d8b13356794c9bd4",
         "src/modules/academy-admissions/constants/admission-navigation.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION~frame": "6cca21d2dd1d0366",
         "src/modules/academy-admissions/constants/admission-navigation.ts#ADMISSION_NAVIGATION.reviewSegment": "98def8a86337a92e",
@@ -442,21 +556,103 @@
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PATH~frame": "be275d3f3ed59c6a",
         "src/modules/academy-admissions/constants/admission-activity-browser.ts#ADMISSION_ACTIVITY_BROWSER_PATH.settings": "d224731834db699e",
         "components/loaders/route-skeleton/styles.module.scss#*": "aba42533e97ac72c",
+        "src/modules/academy-admissions/constants/admission-ui.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY~frame": "b43b1bd347ba2c95",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.home": "85367e5a8619d58b",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.initialView": "e6491b53b0721ede",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn": "64d70cb245bd5f5f",
+        "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.unavailableTitle": "e0283f6892b6a014",
+        "src/constants/page-read.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/page-read.ts#PAGE_READ_COPY~frame": "6cb934f78766749b",
+        "src/constants/page-read.ts#PAGE_READ_COPY.unavailable": "39c0071a24a81bd3",
+        "src/constants/routes.ts#<module>": "2da3ec2294295eb1",
+        "src/constants/routes.ts#ROUTES~frame": "0506fddc4c13fa99",
+        "src/constants/routes.ts#ROUTES.home": "417f8dff1ce6dd72",
+        "components/academy-admissions/admission-route-error/styles.module.scss#*": "06d52f5195bb701e",
+        "lib/academy-admissions/admission-route-recovery.ts#<module>": "2da3ec2294295eb1",
+        "lib/academy-admissions/admission-route-recovery.ts#AdmissionRouteRecovery": "bf2baf4b462013ba",
+        "src/constants/routes.ts#ROUTES.auth": "2f4afe04c75871a4",
+        "src/modules/auth/infrastructure/better-auth/client.ts#<module>": "f8e4c1d1821e33e5",
+        "pkg:better-auth": "e6d94d4511d23fb5",
+        "src/modules/auth/infrastructure/better-auth/client.ts#startGoogleSignIn": "95785c6480f47bc1",
+        "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR~frame": "d67495eb70deda1c",
+        "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR.googleRedirectUrlMissing": "d4ec78ed4f0cf775",
+        "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR.googleSignInRejected": "beb21e68fad8f76e",
+        "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_SOCIAL_PROVIDER": "94ae4737a259b836",
+        "src/modules/auth/infrastructure/better-auth/client.ts#authClient": "2d1e6329233ac47a",
+        "src/modules/auth/infrastructure/better-auth/client.ts#throwIfAuthClientFailed": "d6f508975e091712",
+        "src/modules/auth/infrastructure/better-auth/client.ts#withGoogleAccountChooser": "870e8790fd47e8d6",
+        "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_ACCOUNT_CHOOSER_PROMPT": "8354c921c88aa8c6",
+        "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_PROMPT_PARAM": "d90af14073698128",
+        "components/auth/sign-in-with-google-button/styles.module.scss#*": "873da73acb0481e1",
         "src/modules/tribes/constants/tribe-member-role.ts#<module>": "2da3ec2294295eb1",
         "src/modules/tribes/constants/tribe-member-role.ts#TRIBE_MEMBER_ROLE~frame": "b44899d1329180ee",
         "src/modules/tribes/constants/tribe-member-role.ts#TRIBE_MEMBER_ROLE.leader": "f5db39e093f3da3a",
         "src/modules/messaging/application/results/messaging-configuration-result.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationSchema": "aba8e72ffa4074a5",
-        "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema": "f8fe93883bd7b1df",
+        "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationSchema": "9765a44074ac82d7",
+        "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema": "4acaf2f3d3c6b823",
         "src/modules/messaging/application/results/messaging-configuration-result.ts#configurationCapabilitySchema": "2c7a6f85a0fca8c5",
         "src/modules/messaging/constants/messaging-provider-catalog.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-provider-catalog.ts#messagingProviderCatalogSchema": "e9bb8fe4cff7b48b",
         "src/modules/messaging/constants/messaging-provider-catalog.ts#messagingProviderCatalogEntrySchema": "61dc5ecb80bd1e0a",
         "src/modules/messaging/constants/notification-delivery-catalog.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/notification-delivery-catalog.ts#notificationDeliveryCatalogPageSchema": "05e2feb6db9d4982",
-        "src/modules/messaging/constants/notification-delivery-catalog.ts#notificationDeliveryCatalogSchema": "25f4d621a906a9a0",
+        "src/modules/messaging/constants/notification-delivery-catalog.ts#notificationDeliveryCatalogSchema": "a2a94023682336cb",
         "src/modules/messaging/constants/notification-delivery-catalog.ts#NOTIFICATION_DELIVERY_CATALOG_PAGE_SIZE": "6d28c69ece4ff6cf",
+        "src/modules/messaging/constants/notification-delivery-catalog.ts#UNRESOLVED_DELIVERY_STATES": "2ce3c4288251af8d",
         "src/modules/messaging/constants/notification-delivery-catalog.ts#notificationDeliveryCatalogCursorSchema": "c85780420291384b",
+        "src/constants/http-status.ts#HTTP_STATUS.accepted": "2ae8217e990c9b52",
+        "src/constants/http-status.ts#HTTP_STATUS.badGateway": "77bf396f6a43069f",
+        "src/constants/http-status.ts#HTTP_STATUS.badRequest": "9c9fbbe79257ca54",
+        "src/constants/http-status.ts#HTTP_STATUS.conflict": "a87220a4c91a5d39",
+        "src/constants/http-status.ts#HTTP_STATUS.forbidden": "a039a95fe8ed7443",
+        "src/constants/http-status.ts#HTTP_STATUS.notFound": "36cab050cbd08c54",
+        "src/constants/http-status.ts#HTTP_STATUS.serviceUnavailable": "23254618769cd988",
+        "src/constants/http-status.ts#HTTP_STATUS.tooManyRequests": "86475b76a30fb3bc",
+        "src/constants/http-status.ts#HTTP_STATUS.unauthorized": "df53736a73814ebb",
+        "src/constants/http-status.ts#HTTP_STATUS.unprocessableEntity": "89bd6ba8a7eebd9b",
+        "src/modules/shared/infrastructure/observability/request-context.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/observability/request-context.ts#RequestContext": "3c853e0cdccfd2b4",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#createServerLogger/buildEntry": "9b4fe6343e546e6d",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#ServerLogEntry": "d97ee00f435a8803",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#ServerLogLevel": "b4ce6609fff7641c",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#serializeError": "b4fe170e9ff7f4fb",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_ERROR_MESSAGE~frame": "05149e3ed5eb5369",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_ERROR_MESSAGE.unknownError": "3cc35bd162e95871",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_FIELD~frame": "6aa9604efeb506a0",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_FIELD.message": "0f3226ce0b11d0c1",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#describeNonErrorValue": "d0a6320805891028",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#createServerLogger~shell": "e08e4a9be1f60a6d",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL~frame": "6354e646933a7fd7",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL.error": "98cde5a54c85e03e",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL.info": "0c99f142304dd517",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#SERVER_LOG_LEVEL.warn": "6919e3b3b0bc1bd1",
+        "src/modules/shared/infrastructure/observability/server-logger.ts#writeLog": "cee65b6f912936e3",
+        "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#summarizeValidationIssues": "10b23b186e9a3fe7",
+        "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#ISSUE_PATH_SEPARATOR": "c922ff0b56e1b525",
+        "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#ValidationIssueSummary": "0b3f8b24a9d43aab",
+        "src/modules/shared/infrastructure/observability/private-request-context.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/observability/private-request-context.ts#resolvePrivateRequestContext": "614418acfe584292",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts#summarizeErrorCauses": "ba9489b06b1610b0",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts#ErrorCauseSummary": "4ad11f505b89b20d",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts#isClosedFailure": "de5f5a4c986fe62a",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts#readClosedCode": "fee39211519cfbfe",
+        "src/modules/shared/infrastructure/observability/error-cause-summary.ts#summarizeOne": "f75338b817a8285d",
+        "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_MESSAGE": "c501e7f72c7b5778",
+        "src/constants/page-read.ts#PAGE_READ_COPY.invalidAddress": "0a6183925ea27d60",
+        "src/constants/page-read.ts#PAGE_READ_COPY.notFound": "e1cb9dc8bb8ce2d7",
+        "src/constants/page-read.ts#PAGE_READ_COPY.permissionDenied": "709e4baed5939302",
+        "src/modules/tribes/domain/value-objects/tribe-slug.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/tribes/domain/value-objects/tribe-slug.ts#TRIBE_SLUG_PATTERN": "678b360965ed6137",
+        "lib/browser-navigation.ts#<module>": "2da3ec2294295eb1",
+        "lib/browser-navigation.ts#navigateToUrl": "fefde2a18331555e",
+        "src/modules/shared/constants/platform-security.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.unconfigured": "4afefe975e1376eb",
+        "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.recoveryLocked": "dbe866877f347412",
+        "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT~frame": "d43b1aca3e7e3485",
         "src/modules/academy-admissions/constants/admission-limits.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT~frame": "4fb1c4f3def84f86",
         "src/modules/academy-admissions/constants/admission-limits.ts#ADMISSION_LIMIT.displayNameCharacters": "5f264b49f1efc74b",
@@ -506,6 +702,19 @@
         "src/modules/messaging/constants/message-delivery.ts#MESSAGE_DELIVERY_STATE.suppressed": "8be52e9c5d0b64ee",
         "src/modules/messaging/constants/message-delivery.ts#MESSAGE_DELIVERY_STATE.cancelled": "aeffbbc8203493af",
         "src/modules/messaging/constants/message-delivery.ts#MESSAGE_DELIVERY_STATE~frame": "20e64ab623d1bf9d",
+        "src/modules/shared/constants/private-http.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/constants/private-http.ts#PRIVATE_HTTP_CORRELATION_ID_PATTERN": "bc06748fa43e5be5",
+        "src/modules/shared/infrastructure/observability/request-context.ts#REQUEST_ID_HEADER": "f424d3b14aaf34ae",
+        "src/modules/shared/infrastructure/observability/request-context.ts#TRACE_ID_HEADER": "53521ebe088784f4",
+        "src/modules/shared/infrastructure/observability/request-context.ts#resolveRequestContext": "e2676e3119582cbe",
+        "src/modules/shared/infrastructure/observability/request-context.ts#buildRequestId": "264e4321e679f159",
+        "src/modules/shared/infrastructure/observability/request-context.ts#readFirstHeaderValue": "17626511501da534",
+        "src/modules/shared/constants/error-cause-summary.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/constants/error-cause-summary.ts#ERROR_CAUSE_SUMMARY_MAX_ENTRIES": "9d5aaade93205b4e",
+        "src/modules/shared/constants/error-cause-summary.ts#ERROR_CAUSE_CODE_PATTERN": "052028b0c14fcf4a",
+        "src/modules/shared/constants/error-cause-summary.ts#CLOSED_FAILURE_CAUSE": "9de039fbfdb8fb14",
+        "src/modules/shared/constants/error-cause-summary.ts#ERROR_CAUSE_NAME_PATTERN": "a9d0dab5d08c5966",
+        "src/modules/shared/constants/error-cause-summary.ts#UNNAMED_ERROR_CAUSE": "55c8d60dac72ea2b",
         "src/modules/messaging/constants/messaging-limits.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-limits.ts#MESSAGING_USAGE_POLICY_STATE~frame": "f2c10447c8e88246",
         "src/modules/messaging/constants/messaging-limits.ts#MESSAGING_USAGE_POLICY_STATE.configured": "c39c79d72a690fba",
@@ -519,36 +728,69 @@
         "src/modules/messaging/domain/repositories/messaging-connection-configuration.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/domain/repositories/messaging-connection-configuration.ts#MessagingConnectionConfigurationInput": "7add60d8c50265ec"
       },
-      "uncommittedFiles": []
+      "uncommittedFiles": [
+        "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx",
+        "components/academy-admissions/admission-route-error/index.tsx",
+        "components/academy-admissions/messaging-route-error/index.tsx",
+        "components/auth/sign-in-with-google-button/index.tsx",
+        "components/auth/sign-in-with-google-button/styles.module.scss",
+        "lib/messaging/messaging-route-recovery.ts",
+        "src/modules/messaging/constants/messaging-errors.ts",
+        "src/modules/messaging/constants/messaging-route-error.ts"
+      ]
     },
     "evidence": [
       {
-        "command": "pnpm exec vitest run tests/unit/components/academy-admissions.test.tsx tests/unit/components/messaging-usage-container.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/components/academy-admissions-messaging-connections-container.test.tsx",
-        "durationMs": 152886,
+        "kind": "review",
+        "outcome": "pass",
+        "recordedAt": "2026-11-02T18:37:09.076Z",
+        "source": "attested",
+        "summary": "Checklist liviano sobre el fallo authentication_required: copy nuevo que pide volver a ingresar con Google, accion primaria Volver a ingresar con Google con callbackURL interno, Reintentar secundario cuando la lectura sigue disponible, titulo propio de mensajeria, aviso persistente con role=alert sin repetirlo en el toast, pending del boton (Redirigiendo a Google) sin doble envio, valores elegidos conservados."
+      },
+      {
+        "command": "pnpm vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx tests/unit/components/academy-admissions.test.tsx -t heading|Google",
+        "durationMs": 53,
+        "exitCode": 255,
+        "kind": "test",
+        "outcome": "fail",
+        "outputSha256": "c4d83c2a041b5976cd32f7909d05d3bfe7779542b9f41fb18b8bf89de7212b53",
+        "recordedAt": "2026-11-02T18:39:50.889Z",
+        "source": "witnessed",
+        "summary": "exit code 255"
+      },
+      {
+        "command": "pnpm vitest run tests/unit/components/academy-admissions.test.tsx",
+        "durationMs": 19416,
         "exitCode": 0,
         "kind": "test",
         "outcome": "pass",
-        "outputSha256": "b0de12338d00df62a56ac9608b2b2a2ced8dc5cdeb912ee258e9bcd6d68c901d",
-        "recordedAt": "2026-10-25T17:10:32.438Z",
+        "outputSha256": "5b5ac34a648ffcdb05c3c230e13d170afa25c15a841d94e879d3bf7f23ac2466",
+        "recordedAt": "2026-11-02T18:40:23.077Z",
         "source": "witnessed",
         "summary": "exit code 0"
       },
       {
-        "kind": "review",
+        "command": "pnpm vitest run tests/unit/components/academy-admissions-messaging-connections-container.test.tsx -t Google",
+        "durationMs": 28310,
+        "exitCode": 0,
+        "kind": "test",
         "outcome": "pass",
-        "recordedAt": "2026-10-25T17:10:32.976Z",
-        "source": "attested",
-        "summary": "Recuperación: AdmissionRouteError embebido dentro de la página (sin otro main ni h1), «Iniciar sesión» con vuelta a la misma ruta y query cuando falta la sesión, ningún reintento ante un permiso denegado, y salida al perder el acceso en Habilitados, Importación e Invitaciones. El reintento recarga el documento a propósito: la lectura falló o es de otra cuenta y no hay estado del cliente que conservar."
+        "outputSha256": "05349cfad49b4d45c07647c91f5004336fba4c32634e696b89feb7848f280eb1",
+        "recordedAt": "2026-11-02T18:40:51.909Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       }
     ],
     "limitations": [
-      "Solo se revisaron los estados de recuperación que cambia este PR; el resto de la unidad queda para su propia auditoría."
+      "Sin recorrido en navegador: no se levanto el dev server con portless ni hubo sesion Google real; los estados se validaron con Testing Library."
     ],
-    "mode": "full",
-    "pendingChecks": [],
-    "recordedAt": "2026-10-25T17:10:34.407Z",
+    "mode": "lightweight",
+    "pendingChecks": [
+      "Recorrer en https://dev.tutribu.app el rechazo authentication_required y el regreso desde Google."
+    ],
+    "recordedAt": "2026-11-02T18:41:17.425Z",
     "result": "partial",
-    "runId": "20261025T170758Z-5224b8",
+    "runId": "20261102T183647Z-6f8843",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -558,17 +800,1432 @@
       "relevantChangesAtBegin": [
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+          "key": "app/(platform)/[slug]/academia/admissions/messaging/connections/error.tsx#MessagingConnectionsError",
           "reason": "visible or interactive code changed"
         },
         {
           "change": "modified",
-          "key": "components/academy-admissions/admission-route-error/styles.module.scss#*",
+          "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
           "reason": "visible or interactive code changed"
         },
         {
           "change": "added",
-          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.signIn",
+          "key": "components/academy-admissions/messaging-route-error/index.tsx#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/academy-admissions/messaging-route-error/index.tsx#MessagingRouteError",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#PAGE_SHOW_EVENT",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY.idle",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY.redirecting",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_LABEL_KEY~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.fullWidthSize",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.inlineSize",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON.type",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_BUTTON~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY.idle",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY.redirecting",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SIGN_IN_WITH_GOOGLE_COPY~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButton/handleGoogleSignIn",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButton~shell",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/index.tsx#SignInWithGoogleButtonProps",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "components/auth/sign-in-with-google-button/styles.module.scss#*",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-route-recovery.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/academy-admissions/admission-route-recovery.ts#AdmissionRouteRecovery",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/browser-navigation.ts#navigateToUrl",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "lib/messaging/messaging-route-recovery.ts#MessagingRouteRecovery",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "pkg:@golfo/ui",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "pkg:@zavudev/sdk",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "pkg:better-auth",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "pkg:next",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.accepted",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.badGateway",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.badRequest",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.conflict",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.forbidden",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.notFound",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.serverError",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.serviceUnavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.tooManyRequests",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.unauthorized",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS.unprocessableEntity",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/http-status.ts#HTTP_STATUS~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/page-read.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/page-read.ts#PAGE_READ_COPY.invalidAddress",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/page-read.ts#PAGE_READ_COPY.notFound",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/page-read.ts#PAGE_READ_COPY.permissionDenied",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/page-read.ts#PAGE_READ_COPY.unavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/page-read.ts#PAGE_READ_COPY~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/constants/routes.ts#ROUTES.auth",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-operation.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-operation.ts#ADMISSION_OPERATION_MAC_KEY_PURPOSES",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.initialView",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#AdmissionPlatformSecurityReader",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#createAdmissionPlatformSecurityReader",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR.googleRedirectUrlMissing",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR.googleSignInRejected",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#AUTH_CLIENT_ERROR~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#authClient",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_ACCOUNT_CHOOSER_PROMPT",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_PROMPT_PARAM",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#GOOGLE_SOCIAL_PROVIDER",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#startGoogleSignIn",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#throwIfAuthClientFailed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/better-auth/client.ts#withGoogleAccountChooser",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationConnectionSchema",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/results/messaging-configuration-result.ts#messagingConfigurationSchema",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/results/messaging-errors.ts#MessagingFailure",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts#ActivateMessagingConnectionUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#abortedOrUnexpectedCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#configurationFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#ConfigureMessagingConnectionUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#missingResource",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetSenderRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetTemplateRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts#VerifyConnectionDiagnosticUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#GetMessagingConnectionsPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#isAuthorityFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#projectNotificationCatalog",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#GetMessagingUsagePageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts#IssueConnectionDiagnosticUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#ManageMessagingUsageUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts#ReadMessageDeliveryUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#audienceOf",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#ReadMessagingConfigurationUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts#ReadMessagingConnectionOperationUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#abortedOrUnexpectedCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#compareResourceIds",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#listResources",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#ReadMessagingResourcesUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#ReadMessagingUsageOperationUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#OriginalMessageContextResolver",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryDependencies",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#resolveOriginalReconciliationContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#proposedRecoveryFailureCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#RecoverNotificationDeliveryUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts#ReserveMessagingUsageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#hasCurrentLeadership",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingContextUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingWriteContextUseCase",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#isManagementLeader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#ResolveMessagingTribeManagementUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopedResourceId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopeSensitiveOperation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#inspectCredentialOutcome",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#requireSameValidator",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionInput",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCaseDependencies",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#validationFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/constants/messaging-connections-page-state.ts#messagingConnectionsPageStateSchema",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.challengeAlreadySent",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.connectionIncomplete",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.deliveryUnknown",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.dependencyUnavailable",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.invalidCredentials",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.missingCapability",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.operationUnresolved",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.providerRateLimited",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.publicContractUnusable",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.transportTimeout",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.unexpectedFailure",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.upstreamPayloadUnusable",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.upstreamRejected",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE.usagePolicyMissing",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE~frame",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_MESSAGE",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-read-errors.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-read-errors.ts#MESSAGING_READ_ERROR_MESSAGE",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-read-errors.ts#messagingReadErrorMessage",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-route-error.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY.reauthenticate",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY.title",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/messaging-route-error.ts#MESSAGING_ROUTE_ERROR_COPY~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/constants/notification-delivery-catalog.ts#notificationDeliveryCatalogSchema",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/constants/notification-delivery-catalog.ts#UNRESOLVED_DELIVERY_STATES",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/domain/errors/messaging-error-code.ts#MessagingErrorCode",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/api/messaging-error-status.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/api/messaging-error-status.ts#MESSAGING_ERROR_HTTP_STATUS",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState/failure",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#loadMessagingConnectionsPageState~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.contractRejected",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.loadFailed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.operation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC.readFailed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#MESSAGING_CONNECTIONS_PAGE_DIAGNOSTIC~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-connections-page.ts#pageInputSchema",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#createMessagingPageDiagnostics",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#loadMessagingPageRead",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#MESSAGING_PAGE_DIAGNOSTIC_FEATURE",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#messagingPageInputSchema",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#messagingPageUnavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#MessagingPageUnavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/composition/messaging-page-input.ts#readMessagingPageSlug",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#readMessagingPlatformSecurityFacts",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#readMessagingPlatformSecurityRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#knownFailureCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#PostgresConnectionDiagnosticIssuance",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts#PostgresConnectionDiagnosticOperations",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#PostgresCredentialValidationBudget",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#DatabaseExecutor",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#isOperation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStore",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStoreDependencies",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#SecurityConfigReader",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#PostgresMessageReconciliationRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#receiptReason",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparation",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparationDependencies",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#StatusDatabaseExecutor",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#PostgresMessagingAuthorizationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#PostgresMessagingResourceExposureRecorder",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#PostgresMessagingConfigurationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#storedCredentialMode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#activationFailureCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#configuredChannelsOf",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#effectiveSelection",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#isExplicitlyConfirmed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#PostgresMessagingConnectionActivation",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#configuredSenderId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#PostgresMessagingConnectionConfiguration",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#requiredWhatsappTemplate",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts#PostgresMessagingConnectionDisconnection",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#ConnectionOperationRow",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#PostgresMessagingConnectionOperationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#assertUnchangedSecurityScope",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#PostgresMessagingConnectionRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#readOriginalResult",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts#PostgresMessagingConnectionSuspension",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#PostgresMessagingCredentialValidation",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialMode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialState",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#ledgerTypesOf",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#PostgresMessagingOriginalOperationLookup",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#PostgresMessagingUsageOperationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#UsageOperationRow",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PostgresMessagingUsageOperations",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#CatalogRow",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#PostgresNotificationDeliveryCatalogReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#assertRecoverySecurityScope",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#isExplicitlyConfirmed",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#PostgresNotificationDeliveryRecoveryRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryDeadlineExpired",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryDecision",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryRows",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTargetFacts",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTimestamps",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#StagedRecoveryGroup",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetCapabilityRow",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetVersionRow",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#PostgresNotificationRecoveryOperationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#lookupMessage",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#providerAttemptState",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#ZavuMessageStatusLookup",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/setup.ts#buildMessagingModule",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/setup.ts#buildMessagingModule/createManagement",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/setup.ts#buildMessagingModule/createSensitiveContext",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/setup.ts#buildMessagingModule/createUsage",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/messaging/setup.ts#buildMessagingModule~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/setup.ts#createActorExecutor",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/setup.ts#createMessagingManagement/executeGuardedRead",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/setup.ts#createMessagingManagement~shell",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/setup.ts#createMessagingUsage",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/setup.ts#createSensitiveMessagingContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/error-cause-summary.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/error-cause-summary.ts#CLOSED_FAILURE_CAUSE",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/error-cause-summary.ts#ERROR_CAUSE_CODE_PATTERN",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/error-cause-summary.ts#ERROR_CAUSE_NAME_PATTERN",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/error-cause-summary.ts#ERROR_CAUSE_SUMMARY_MAX_ENTRIES",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/error-cause-summary.ts#UNNAMED_ERROR_CAUSE",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionIncomplete",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionRetirementBlocked",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.deliveryUnknown",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.dependencyUnavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.invalidCredentials",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.missingCapability",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.operationUnresolved",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.originalDispatchUnresolved",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.platformSecurityUnavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.providerRateLimited",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.publicContractUnusable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.transportTimeout",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.unexpectedFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamPayloadUnusable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamRejected",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.usagePolicyMissing",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.recoveryLocked",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.unconfigured",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/private-http.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/private-http.ts#PRIVATE_HTTP_CORRELATION_ID_PATTERN",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#PlatformSecurityRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/error-cause-summary.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/error-cause-summary.ts#ErrorCauseSummary",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/error-cause-summary.ts#isClosedFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/error-cause-summary.ts#readClosedCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/error-cause-summary.ts#summarizeErrorCauses",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/error-cause-summary.ts#summarizeOne",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/private-request-context.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/private-request-context.ts#resolvePrivateRequestContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-logger.ts#describeNonErrorValue",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/shared/infrastructure/observability/server-logger.ts#serializeError",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#createServerPageDiagnostics/fields",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#createServerPageDiagnostics~shell",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#findContractIssues",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#loadServerPageState",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#ServerPageDiagnostics",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/observability/server-page-diagnostics.ts#VALIDATION_CAUSE_MAX_DEPTH",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#ISSUE_PATH_SEPARATOR",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#summarizeValidationIssues",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/validation/validation-issue-summary.ts#ValidationIssueSummary",
           "reason": "new visible or interactive code"
         }
       ],
@@ -589,7 +2246,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261025T170758Z-5224b8.json"
+    "report": "runs/20261102T183647Z-6f8843.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",

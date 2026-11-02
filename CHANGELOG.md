@@ -4,6 +4,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En «Países y cupos» y «Conexión», si un guardado de la mensajería se rechaza porque tu sesión necesita volver a ingresar con Google, la pantalla ya no pide «Iniciá sesión» como si no hubieras entrado: explica que tenés que volver a ingresar con Google y ofrece «Volver a ingresar con Google», que te trae de vuelta a la misma pantalla. En «Países y cupos» los valores que elegiste quedan abiertos para guardarlos de nuevo.
+- Las pantallas de mensajería ya no muestran el título «No podemos mostrar esta admisión», propio del ingreso a la academia, cuando no pueden mostrar su contenido: ahora dicen «No podemos mostrar la mensajería de la academia».
+
 ## [1.13.1] - 2026-11-02
 
 ### Changed
