@@ -21,15 +21,17 @@ describe("notification settings browser transport", () => {
   });
 
   it.each(["security_unconfigured", "recovery_locked", null] as const)("should read the current tribe email with its closed platform requirement %s", async (platformRequirement) => {
-    const viewerId = randomUUID(), value = { settings: { enabled: false, version: 0, timeZone: "UTC" }, platformRequirement };
+    // The email capability decides something only while the platform can protect a change.
+    const viewerId = randomUUID(), value = { settings: { enabled: false, version: 0, timeZone: "UTC" }, platformRequirement, preparedEmailAvailable: platformRequirement === null ? false : null };
     const fetch = vi.fn<typeof globalThis.fetch>(async () => response(value, viewerId));
 
     expect(await createAdmissionNotificationSettingsApiClient({ fetch }).readEmail("test", new AbortController().signal)).toEqual({ status: "ready", value: { viewerId, data: value } });
     expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/test/admissions/email-settings", { credentials: "same-origin", cache: "no-store", signal: expect.any(AbortSignal) });
   });
 
-  it.each(["missing_viewer", "malformed_viewer", "invalid_body", "unknown_requirement"])("should close an own read with %s", async (scenario) => {
-    const value = { settings: { enabled: false, version: 0, timeZone: "UTC" }, platformRequirement: scenario === "unknown_requirement" ? "keys_rotated" : null };
+  it.each(["missing_viewer", "malformed_viewer", "invalid_body", "unknown_requirement", "capability_for_enabled_email"])("should close an own read with %s", async (scenario) => {
+    const capability = scenario === "capability_for_enabled_email";
+    const value = { settings: { enabled: capability, version: capability ? 1 : 0, timeZone: "UTC" }, platformRequirement: scenario === "unknown_requirement" ? "keys_rotated" : null, preparedEmailAvailable: capability ? true : null };
     const result = response(scenario === "invalid_body" ? { ...value, secretRef: randomUUID() } : value, scenario === "missing_viewer" ? null : randomUUID());
     if (scenario === "malformed_viewer") result.headers.set("x-tutribu-admission-viewer", "invalid-json");
     const client = createAdmissionNotificationSettingsApiClient({ fetch: async () => result });
