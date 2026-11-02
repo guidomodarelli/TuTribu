@@ -4,6 +4,17 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- La guía «Configurá las admisiones» muestra primero los pasos necesarios y al final los opcionales, con el mismo orden de siempre dentro de cada grupo. Un paso opcional que ya está listo sigue entre los opcionales.
+- En la guía «Configurá las admisiones», el botón de un paso que depende de otro abre primero lo que falta: «Conectá el envío de mensajes» lleva a «Elegir países y cupos» mientras no estén guardados, y «Elegí cómo recibir los avisos» lleva a «Preparar el correo» en Conexión mientras no haya un correo preparado.
+- En «Avisos», si el líder todavía no tiene un correo preparado en la conexión de mensajería, la pestaña muestra «Primero conectá el envío de mensajes» con «Ir a Conexión», en lugar de un formulario que fallaba al guardar.
+- En «Invitaciones», sin reglas de admisión guardadas, o con reglas que piden teléfono sin comprobarlo con un código, la pestaña explica qué falta y lleva a «Reglas» en lugar de mostrar los pasos para emitir bloqueados. Renombrar y revocar las invitaciones existentes sigue disponible.
+
+### Fixed
+
+- En «Avisos», después de que el servidor rechazara habilitar el correo de la tribu por falta de un correo preparado, la revisión quedaba bloqueada con «Consultá el estado actual antes de guardar otro cambio.» aunque volvieras atrás y corrigieras los pasos. Ahora podés volver, dejar el correo apagado y guardar tu frecuencia. Si consultás el estado actual y sigue sin haber un correo preparado, la pestaña muestra «Primero conectá el envío de mensajes».
+
 ## [1.13.2] - 2026-11-02
 
 ### Fixed
