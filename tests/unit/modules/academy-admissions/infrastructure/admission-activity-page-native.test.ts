@@ -15,6 +15,7 @@ import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/ad
 import { ADMISSION_ACTIVITY_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-activity-validation";
 import { admissionActivityReadyPageStateSchema } from "@/src/modules/academy-admissions/constants/admission-activity-page-schemas";
 import { ADMISSION_AUDIT_RESOURCE_TYPE } from "@/src/modules/academy-admissions/constants/admission-audit";
+import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 
 /** Each browser/viewport owns its branch, server and sessions; bounded concurrent scheduling cannot share mutations. */
 const scenarios = ([["chromium", chromium], ["webkit", webkit]] as const).flatMap(([engine, browserType]) => VALIDATION.widths.map((width) => ({ engine, browserType, width })));
@@ -131,12 +132,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   stage = `${engine}_${width}_activity_role_loss`;
                   await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).click();
-                  await page.getByRole("button", { name: "Reintentar", exact: true }).waitFor();
+                  // A lost role is a deterministic refusal: the private view closes with its explanation and offers no «Reintentar».
+                  await page.getByRole("heading", { name: ADMISSION_UI_COPY.unavailableTitle, exact: true }).waitFor();
+                  expect(await page.getByRole("button", { name: "Reintentar", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("region", { name: "Consumo del día", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("region", { name: "Historial de actividad" }).count()).toBe(0);
                   if (engine === "chromium" && width === 1280) await captureAdmissionReview(page, "admission-activity-permission-loss", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo e historial de admisión"]' });
                   await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
-                  await page.getByRole("button", { name: "Reintentar", exact: true }).click();
+                  // With the role back, opening the page again restores the private view.
+                  await runPrivateBrowserRequest("reopen_activity", () => page.reload({ waitUntil: "commit" }));
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).waitFor();
                   stage = `${engine}_${width}_increase_and_usage_role_loss`;
                   await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Países y cupos", exact: true }).click();
