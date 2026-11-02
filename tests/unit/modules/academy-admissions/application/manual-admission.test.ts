@@ -72,6 +72,18 @@ describe("manual admission lifecycle", () => {
     expect(proposeAdmissionDecision({ ...input, decision: "reject" })).toEqual({ allowed: false, code: "invalid_input" });
   });
 
+  it("should ask for the missing reason of an exception approval as a field to correct, and approve it once given", () => {
+    const facts = manualFacts();
+    facts.policy = { ...facts.policy!, mode: "allowlist", allowCommonExceptions: true };
+    facts.allowlistEntry = null;
+    const request = pending(facts), reviewer = { userId: randomUUID(), tribeId: facts.tribe.id, role: "leader" as const, status: "active" as const };
+    const review = { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer };
+    const input = { request, expectedVersion: 1, decisionId: randomUUID(), decision: "approve" as const, actor: reviewer, review, externalMessage: null, now: facts.now };
+    expect(evaluateAdmissionSubmission(facts)).toMatchObject({ outcome: "pending", requiresExceptionReason: true });
+    expect(proposeAdmissionDecision({ ...input, internalReason: "   " })).toEqual({ allowed: false, code: "invalid_input" });
+    expect(proposeAdmissionDecision({ ...input, internalReason: "Excepción revisada" })).toMatchObject({ allowed: true, request: { status: "approved" }, decision: { internalReason: "Excepción revisada" } });
+  });
+
   it("should deny self approval and pending access to privileged grants without inventing membership", () => {
     const facts = manualFacts(), request = pending(facts), reviewer = { userId: request.userId, tribeId: facts.tribe.id, role: "leader" as const, status: "active" as const };
     expect(proposeAdmissionDecision({ request, expectedVersion: 1, decisionId: randomUUID(), decision: "approve", actor: reviewer, review: { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer }, internalReason: "Mi ingreso", externalMessage: null, now: facts.now })).toMatchObject({ allowed: false, code: "permission_denied" });

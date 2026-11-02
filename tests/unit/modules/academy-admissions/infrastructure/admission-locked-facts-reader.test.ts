@@ -41,7 +41,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native locked admi
       const missingAccount = await database.withContext(fixture.own, (transaction) => readLockedAdmissionFacts(transaction, tribeId, randomUUID()));
       expect(missingAccount.account).toBeNull();
 
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,changed_by_user_id) values (${tribeId},${fixture.userId})`));
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,changed_by_user_id) values (${tribeId},false,${fixture.userId})`));
       await database.withContext(fixture.own, async (transaction) => {
         const state = await readLockedAdmissionFacts(transaction, tribeId, applicantId);
         expect(state.policy).toEqual(await readAdmissionPolicy(transaction, tribeId, false));

@@ -49,7 +49,9 @@ async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, co
       await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
       await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active')`);
       if (commercialMemberStatus) await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${applicantId},'tribemate',${commercialMemberStatus})`);
-      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},${contactType},true,${createdAt},${createdAt},${historicalSeed ? createdAt : sql`clock_timestamp()`})`);
+      // The phone stays optional, as before new policies required it; a migration-era snapshot predates the column, which later arrives optional.
+      if (historicalSeed) await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},${contactType},true,${createdAt},${createdAt},${createdAt})`);
+      else await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},false,${contactType},true,${createdAt},${createdAt},clock_timestamp())`);
       await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${createdAt} where id=${tribeId}`);
       if (commercialMemberStatus) await transaction.execute(sql`update public.tribe_members set status='removed',status_reason='subscription_inactive' where tribe_id=${tribeId} and user_id=${applicantId}`);
     });
@@ -509,7 +511,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
           const instant = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;
           await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
           await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.leaderId},'leader','active')`);
-          await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${tribeId},true,${instant})`);
+          await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,is_open,activated_at) values (${tribeId},false,true,${instant})`);
           await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${instant} where id=${tribeId}`);
         });
         const created = await fixture.repository.submit({ ...fixture.submission, tribeId, operationId: randomUUID() });

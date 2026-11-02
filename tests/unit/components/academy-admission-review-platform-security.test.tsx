@@ -1,4 +1,4 @@
-/** The reviewer inbox explains a platform that cannot protect decisions, offers none and never keeps a platform refusal as uncertain. @module academy-admission-review-platform-security-tests */
+/** The reviewer inbox explains a platform that cannot protect decisions in the screen's only notice, offers none and never keeps a platform refusal as uncertain. @module academy-admission-review-platform-security-tests */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdmissionReviewRouteContainer } from "@/app/(platform)/[slug]/academia/admissions/admission-review-route-container";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-review-browser-client";
-import type { AdmissionReviewPageState } from "@/src/modules/academy-admissions/application/results/admission-review-page-state";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { readAdmissionReviewIntent, writeAdmissionReviewIntent } from "@/lib/academy-admissions/admission-review-intent";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
@@ -15,6 +14,10 @@ import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admiss
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
 import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
+import { AdmissionSetupGuide } from "@/components/academy-admissions/admission-setup-guide";
+import { deriveAdmissionSetupProgress } from "@/src/modules/academy-admissions/application/queries/admission-setup-progress";
+import { reviewShowsPlatformNotice, type AdmissionReviewPageState } from "@/src/modules/academy-admissions/application/results/admission-review-page-state";
+import { admissionReadErrorMessage } from "@/src/modules/academy-admissions/constants/admission-read-errors";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
@@ -93,6 +96,41 @@ describe("reviewer inbox while the platform cannot protect decisions", () => {
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read }));
     await waitFor(() => expect(screen.queryByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeVisible();
+  });
+
+  it("should show a single platform notice for the setup guide and the inbox, and recheck it by reading the inbox again", async () => {
+    const data = fixture(PLATFORM_SECURITY_REQUIREMENT.unconfigured);
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: false, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: { connected: false, usage: null }, notifications: null, platformSecurity: PLATFORM_SECURITY_REQUIREMENT.unconfigured,
+    });
+    await act(async () => {
+      render(<><AdmissionSetupGuide slug={slug} progress={progress} omitsPlatformNotice={reviewShowsPlatformNotice(data.state)} />{data.node}</>, { wrapper: Providers });
+    });
+
+    const notices = screen.getAllByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toHaveTextContent(PLATFORM_SECURITY_REQUIREMENT_COPY.security_unconfigured);
+    expect(notices[0]).toHaveTextContent(ADMISSION_REVIEW_UI_COPY.platformConsequence);
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    await waitFor(() => expect(within(notices[0]).getByRole("button", { name: PLATFORM_SECURITY_NOTICE_COPY.recheck })).toBeEnabled());
+    const readsBefore = data.client.reviewList.mock.calls.length;
+
+    fireEvent.click(within(notices[0]).getByRole("button", { name: PLATFORM_SECURITY_NOTICE_COPY.recheck }));
+    await waitFor(() => expect(data.client.reviewList.mock.calls.length).toBe(readsBefore + 1));
+    expect(await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).toBeVisible();
+    expect(screen.getAllByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).toHaveLength(1);
+  });
+
+  it("should keep the setup guide notice when the inbox could not be read", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: null, notifications: null, platformSecurity: PLATFORM_SECURITY_REQUIREMENT.recoveryLocked,
+    });
+    const unavailable: AdmissionReviewPageState = { kind: "unavailable", code: ADMISSION_ERROR_CODE.resourceUnavailable, message: admissionReadErrorMessage(ADMISSION_ERROR_CODE.resourceUnavailable) };
+    render(<AdmissionSetupGuide slug={slug} progress={progress} omitsPlatformNotice={reviewShowsPlatformNotice(unavailable)} />, { wrapper: Providers });
+
+    expect(screen.getByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title })).toHaveTextContent(PLATFORM_SECURITY_REQUIREMENT_COPY.recovery_locked);
   });
 
   it("should release a refused individual decision instead of keeping it uncertain or offering to resend it", async () => {

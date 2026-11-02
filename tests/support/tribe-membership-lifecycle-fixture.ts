@@ -13,8 +13,11 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 
 /** @param database - Confirmed isolated test branch. @param withSuccessor - Seeds an existing active guardian before cutover for the actual leadership transfer flow. @param historyAgeDays - Initializes a coherent old tenant/account/pending snapshot without editing persisted dates or the database clock. @returns Synthetic native accounts, original memberships and real owner composition without external RPC. */
 export async function prepareTribeMembershipLifecycle(database: AcademyAdmissionTestDatabase, withSuccessor = false, historyAgeDays = 0) {
-  const keyring = (purpose: MessagingKeyPurpose) => ({ activeKeyId: `${purpose}-synthetic`, keys: [{ id: `${purpose}-synthetic`, material: randomBytes(32) }] });
+  const materials = new Map<MessagingKeyPurpose, Buffer>();
+  const keyring = (purpose: MessagingKeyPurpose) => { const material = randomBytes(32); materials.set(purpose, material); return { activeKeyId: `${purpose}-synthetic`, keys: [{ id: `${purpose}-synthetic`, material }] }; };
   const security = await createMessagingSecurityConfig({ environment: "synthetic-local", securityEpoch: "synthetic-membership", recoveryLocked: false, keyrings: { credential: keyring("credential"), otp_envelope: keyring("otp_envelope"), verification_mac: keyring("verification_mac"), invitation_token: keyring("invitation_token"), contact_fingerprint: keyring("contact_fingerprint"), operation_payload: keyring("operation_payload") } });
+  // A built server must run on these same enrolled keys: the ledger refuses writes whose MAC key continuity it cannot prove.
+  const messagingSecurity = { environment: security.environment, securityEpoch: security.securityEpoch, keyringsJson: JSON.stringify(Object.fromEntries([...materials].map(([purpose, material]) => [purpose, { activeKeyId: `${purpose}-synthetic`, keys: [{ id: `${purpose}-synthetic`, materialBase64: material.toString("base64") }] }]))) };
   await prepareContactVerificationDatabase(database, security);
   const tribeId = randomUUID(), slug = `membership-${tribeId}`;
   const leader = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "leader@example.test" };
@@ -50,5 +53,5 @@ export async function prepareTribeMembershipLifecycle(database: AcademyAdmission
     const writer = new PostgresTribeMembershipLifecycleRepository(execute, async () => security, createAdmissionMembershipLifecycleWriter);
     return { accounts, writer, useCases: new ManageTribeMembershipUseCases(accounts, writer) };
   }
-  return { tribeId, slug, leader, applicant, leaving, successor, historical, historicalRequestId, memberIds, requestId, security, owner };
+  return { tribeId, slug, leader, applicant, leaving, successor, historical, historicalRequestId, memberIds, requestId, security, messagingSecurity, owner };
 }

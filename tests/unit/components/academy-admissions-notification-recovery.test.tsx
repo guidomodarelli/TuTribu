@@ -7,7 +7,7 @@ import { MessagingNotificationRecovery, type MessagingNotificationRecoveryProps 
 
 /** @returns Safe own notification facts and separately controlled original observation callbacks. */
 function recoveryProps(): MessagingNotificationRecoveryProps {
-  const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null };
+  const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null, dispatchUnresolved: false };
   return { items: [item], selectedDeliveryId: item.id, targetName: "Conexión preparada", catalogAvailable: true, hasMore: false, busy: false, canRead: true, canRecover: true, confirmed: false, hasReference: false, originalCompleted: false, mayResume: false, canArchive: false, archiveConfirmed: false, historyCount: 0, historyFull: false, message: null, onSelect: vi.fn(), onConfirm: vi.fn(), onRefresh: vi.fn(), onMore: vi.fn(), onRecover: vi.fn(), onReadOriginal: vi.fn(), onResumeOriginal: vi.fn(), onClearCompleted: vi.fn(), onStopObserving: vi.fn(), onArchiveConfirm: vi.fn(), onArchive: vi.fn(), onRestoreHistory: vi.fn() };
 }
 
@@ -20,11 +20,14 @@ describe("notification recovery presenter", () => {
     view.rerender(<MessagingNotificationRecovery {...props} confirmed />);
     await user.click(screen.getByRole("button", { name: "Registrar recuperación" })); expect(props.onRecover).toHaveBeenCalledTimes(1);
   });
-  it("should keep uncertainty visible inside TuTribu while recovery is blocked", () => {
+  it("should keep an earlier send that may have left visible as pending confirmation, without consent or a recovery action", () => {
     const props = recoveryProps();
-    render(<MessagingNotificationRecovery {...props} items={[{ ...props.items[0], state: "unknown" }]} canRecover={false} confirmed />);
-    expect(screen.getByRole("alert")).toHaveTextContent(/No se habilita otro envío a ciegas/);
-    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
+    render(<MessagingNotificationRecovery {...props} items={[{ ...props.items[0], state: "failed", dispatchUnresolved: true }]} canRecover={false} confirmed />);
+    expect(screen.getByRole("status")).toHaveTextContent(/No se habilita otro envío a ciegas/);
+    expect(screen.getByText(/Estado actual: Envío anterior sin confirmar/)).toBeVisible();
+    expect(screen.queryByText(/Entrega fallida/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Revisé el aviso/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled();
   });
   it("should consult a retained original before another explicit resumption", async () => {

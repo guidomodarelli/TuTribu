@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { createAdmissionNotificationSettingsRequestModule, createAdmissionRequestModules, createMessagingConfigurationRequestModule } from "@/src/modules/setup";
 import { loadAdmissionReviewPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-review-page";
+import { reviewShowsPlatformNotice } from "@/src/modules/academy-admissions/application/results/admission-review-page-state";
 import { AdmissionReviewRouteContainer } from "./admission-review-route-container";
 import Loading from "./loading";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
@@ -20,10 +21,13 @@ function startSetupGuide(route: { slug: string }, requestHeaders: Pick<Headers, 
   }, requestHeaders);
 }
 
-/** @param props - The guide read already in flight. @returns The leader's setup checklist, or nothing for other viewers or a finished setup. */
-async function SetupGuideContent({ guide }: { guide: Promise<AdmissionSetupGuideState> }) {
+/**
+ * @param props - The guide read already in flight and whether the inbox below already explains the platform requirement.
+ * @returns The leader's setup checklist, or nothing for other viewers or a finished setup.
+ */
+async function SetupGuideContent({ guide, omitsPlatformNotice }: { guide: Promise<AdmissionSetupGuideState>; omitsPlatformNotice: boolean }) {
   const state = await guide;
-  return state ? <AdmissionSetupGuide slug={state.slug} progress={state.progress} /> : null;
+  return state ? <AdmissionSetupGuide slug={state.slug} progress={state.progress} omitsPlatformNotice={omitsPlatformNotice} /> : null;
 }
 
 /** @param props - Runtime route selection resolved inside the leaf boundary. @returns Only safe current authorized reviewer props. */
@@ -31,7 +35,7 @@ async function ReviewContent({ params, searchParams }: { params: Promise<{ slug:
   const [route, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
   const guide = startSetupGuide(route, requestHeaders);
   const state = await loadAdmissionReviewPageState({ params: route, query }, async () => { const modules = await createAdmissionRequestModules(); return modules.reviews.createPage(modules.queries.resolveTribe); }, requestHeaders);
-  return <AdmissionSettingsPage page="review"><Suspense fallback={<AdmissionSetupGuideFallback />}><SetupGuideContent guide={guide} /></Suspense><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="review"><Suspense fallback={<AdmissionSetupGuideFallback />}><SetupGuideContent guide={guide} omitsPlatformNotice={reviewShowsPlatformNotice(state)} /></Suspense><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns A deterministic own leaf skeleton and server loader. */
 export default function AdmissionReviewPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

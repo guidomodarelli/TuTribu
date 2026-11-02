@@ -128,9 +128,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
           expect(await admissions.preflight.execute({ tribeId: source.context.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { prepared: false } });
           await expectDenied(messaging.secrets.loadAuthorizedSecret(source.context), "connection_incomplete");
           await expectDenied(messaging.activation.activate(source.fixture.context, { ...source.fixture.input, operationId: randomUUID(), expectedVersion: source.activated.version }), "connection_incomplete");
-          await expectDenied(admissions.requests.decide({ ...approval, operationId: randomUUID() }), "resource_unavailable");
-          await expectDenied(admissions.requests.submit({ ...submission, operationId: randomUUID() }), "resource_unavailable");
-          await expectDenied(admissions.verification.verify({ ...prepared.queued.context, operationId: randomUUID(), challengeId: prepared.queued.original.challengeId, verificationCode: prepared.queuedVerificationCode }), "resource_unavailable");
+          // While recovery is locked the admission ledger refuses every write as a platform requirement, before reading any old proof or request.
+          await expectDenied(admissions.requests.decide({ ...approval, operationId: randomUUID() }), "platform_security_unavailable");
+          await expectDenied(admissions.requests.submit({ ...submission, operationId: randomUUID() }), "platform_security_unavailable");
+          await expectDenied(admissions.verification.verify({ ...prepared.queued.context, operationId: randomUUID(), challengeId: prepared.queued.original.challengeId, verificationCode: prepared.queuedVerificationCode }), "platform_security_unavailable");
           expect(await dispatcher.run()).toMatchObject({ authorized: 0, accepted: 0, delivered: 0, unknown: 0 });
           expect(decrypt).not.toHaveBeenCalled();
           expect(transport.receipts).toEqual([]); expect(transport.deniedRequests).toBe(0);

@@ -28,7 +28,7 @@ export type AdmissionReviewProps = {
   batch?: ReactNode;
   recovery?: ReactNode;
   batchSelection?: { ids: ReadonlySet<string>; disabled: boolean; onToggle: (id: string, checked: boolean) => void };
-  /** Why the platform cannot protect a decision now, as the last inbox read reported it; while present the inbox explains it and offers no decision. */
+  /** Why the platform cannot protect a decision now, as the last inbox read reported it; while present the inbox explains it, offers no decision and lets the reviewer read it again. */
   platformRequirement?: PlatformSecurityRequirement | null;
   historyHref?: string;
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
@@ -76,7 +76,7 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
   // A retry keeps its recovery controls mounted so the pressed retry shows progress instead of disappearing.
   const retrying = props.pendingAction === ADMISSION_REVIEW_PENDING_ACTION.retry, recovering = props.uncertain || retrying, reading = props.busy && !props.pendingAction;
   return <div className={styles.AdmissionReview}>
-    {props.platformRequirement && <PlatformSecurityNotice requirement={props.platformRequirement} consequence={ADMISSION_REVIEW_UI_COPY.platformConsequence} />}
+    {props.platformRequirement && <PlatformSecurityNotice requirement={props.platformRequirement} consequence={ADMISSION_REVIEW_UI_COPY.platformConsequence} onRecheck={props.onRead} rechecking={reading} busy={props.busy || props.uncertain} />}
     {!selected && props.filters}
     <div className={styles.AdmissionReview__toolbar}>
       {selected && <Button variant="ghost" size="sm" onClick={props.onClose} disabled={props.busy || props.uncertain}><ArrowLeftIcon className={styles.AdmissionReview__backIcon} aria-hidden="true" />{ADMISSION_REVIEW_UI_COPY.close}</Button>}

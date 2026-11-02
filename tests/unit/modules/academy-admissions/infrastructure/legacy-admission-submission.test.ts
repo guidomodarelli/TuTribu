@@ -14,7 +14,7 @@ import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-d
 import { LEGACY_ADMISSION_LIST_POLICY_VERSION, LEGACY_ADMISSION_MANUAL_POLICY_VERSION, LEGACY_ADMISSION_SQL_TEST_TIMEOUT_MS, LEGACY_ADMISSION_TOKEN_BYTE_LENGTH } from "@/tests/support/constants/legacy-admission-entry";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native historical invitation admission", () => {
-  it("should apply the common manual policy to a genuine historical invitation without granting membership or consuming its attribution", async () => {
+  it("should apply the common manual policy to a genuine historical invitation without granting membership, consuming its attribution or allowing its approval", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant, leader } = await prepareAllowlistAdmission(database);
       await database.applyMigration("20261011143000_read_locked_legacy_admission_arrival.sql");
@@ -45,9 +45,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native historical 
       expect(existingPending).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: ADMISSION_OUTCOME.pending, created: false, admissionRequestId, requestSnapshot: { source: ADMISSION_REQUEST_SOURCE.legacy, status: ADMISSION_REQUEST_STATUS.pending } } } });
       const replay = await recipient.commands.submit.execute(intent);
       expect(replay).toMatchObject({ ok: true, value: { state: "completed", replayed: true, result: { admissionRequestId } } });
-      const approved = await leader.decide.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId, expectedVersion: outcome.value.result.requestSnapshot!.version, confirmed: true, decision: "approve", internalReason: "Ingreso revisado por el responsable.", externalMessage: null });
-      expect(approved).toMatchObject({ ok: true, value: { state: "completed", result: { status: ADMISSION_REQUEST_STATUS.approved } } });
-      expect(await oldEntry.accept({ tribeSlug: slug, token: "unknown-arrival" })).toEqual({ status: TRIBE_INVITATION_STATUS.accepted });
+      // A request that arrived through a historical invitation can only be rejected: the decision writer refuses its approval.
+      const decision = { tribeId: fixture.tribeId, requestId: randomUUID(), admissionRequestId, expectedVersion: outcome.value.result.requestSnapshot!.version, confirmed: true as const, internalReason: "Ingreso revisado por el responsable.", externalMessage: null };
+      expect(await leader.decide.execute({ ...decision, operationId: randomUUID(), decision: "approve" })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });
+      expect(await leader.decide.execute({ ...decision, operationId: randomUUID(), decision: "reject" })).toMatchObject({ ok: true, value: { state: "completed", result: { status: ADMISSION_REQUEST_STATUS.rejected } } });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${recipient.userId}`)).rows)).toEqual([]);
     });
   }, LEGACY_ADMISSION_SQL_TEST_TIMEOUT_MS);
 

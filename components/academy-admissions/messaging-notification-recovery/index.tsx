@@ -3,7 +3,6 @@ import { useId } from "react";
 import { Button, Checkbox, Label, Select } from "@golfo/ui";
 import type { NotificationDeliveryCatalogItem } from "@/src/modules/messaging/application/results/notification-delivery-catalog-result";
 import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
-import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
 import { NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS, NOTIFICATION_RECOVERY_UI_COPY, NOTIFICATION_RECOVERY_WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import styles from "./styles.module.scss";
 
@@ -51,12 +50,17 @@ function recoveryTargetCopy(props: Pick<MessagingNotificationRecoveryProps, "has
   return props.targetName ? `La entrega nueva usará la conexión seleccionada: ${props.targetName}. El servidor vuelve a comprobar sus requisitos actuales.` : "Prepará y seleccioná otra conexión para recuperar este aviso.";
 }
 
+/** @param item - One catalog notice. @returns Its state for the leader: a possibly sent earlier attempt reads as pending confirmation, never as failed or recoverable. */
+function deliveryStateLabel(item: NotificationDeliveryCatalogItem): string {
+  return item.dispatchUnresolved ? NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolvedState : MESSAGING_DELIVERY_STATE_LABEL[item.state];
+}
+
 /** @param props - The read catalog (`recovery`), the chosen notice and its select control. @returns The notice picker, or why no notice can be picked yet. */
 function DeliveryPicker({ recovery, controlId }: { recovery: MessagingNotificationRecoveryProps; controlId: string }) {
   if (!recovery.catalogAvailable) return <p className={styles.MessagingNotificationRecovery__help}>Consultá los avisos para elegir una entrega. No se enviará ningún mensaje al consultar.</p>;
   if (recovery.items.length === 0) return <p className={styles.MessagingNotificationRecovery__help}>No hay avisos registrados en esta página.</p>;
   return <div className={styles.MessagingNotificationRecovery__field}>
-    <Select value={recovery.selectedDeliveryId} disabled={recovery.busy || recovery.hasReference || !recovery.canRead} onValueChange={recovery.onSelect} id={controlId} label="Aviso que querés recuperar" options={recovery.items.map((item, index) => ({ value: item.id, label: `Aviso ${index + 1} · ${MESSAGING_DELIVERY_STATE_LABEL[item.state]} · ${item.createdAt.slice(0, NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS)}` }))} placeholder="Elegí un aviso" />
+    <Select value={recovery.selectedDeliveryId} disabled={recovery.busy || recovery.hasReference || !recovery.canRead} onValueChange={recovery.onSelect} id={controlId} label="Aviso que querés recuperar" options={recovery.items.map((item, index) => ({ value: item.id, label: `Aviso ${index + 1} · ${deliveryStateLabel(item)} · ${item.createdAt.slice(0, NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS)}` }))} placeholder="Elegí un aviso" />
   </div>;
 }
 
@@ -64,7 +68,8 @@ function DeliveryPicker({ recovery, controlId }: { recovery: MessagingNotificati
 export function MessagingNotificationRecovery(props: MessagingNotificationRecoveryProps) {
   const instanceId = useId(), deliveryControlId = `${instanceId}-delivery`, consentControlId = `${instanceId}-consent`, archiveControlId = `${instanceId}-archive`;
   const selected = props.items.find((item) => item.id === props.selectedDeliveryId);
-  const unresolved = selected?.state === MESSAGE_DELIVERY_STATE.unknown || selected?.state === MESSAGE_DELIVERY_STATE.accepted;
+  // An earlier send that may have left offers no consent or action: only a later read can resolve it.
+  const unresolved = selected?.dispatchUnresolved === true, offersNewRecovery = Boolean(selected) && !props.expired && !unresolved;
   // Registering preserves the new original before sending it; the pressed control stays until the write ends.
   const registering = props.writeAction === NOTIFICATION_RECOVERY_WRITE_ACTION.register, resuming = props.writeAction === NOTIFICATION_RECOVERY_WRITE_ACTION.resume, archiving = props.writeAction === NOTIFICATION_RECOVERY_WRITE_ACTION.archive;
   const showsReference = props.hasReference && !registering;
@@ -77,12 +82,12 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
       {props.hasMore && <Button type="button" variant="secondary" disabled={props.busy || !props.canRead} onClick={props.onMore}>Ver avisos anteriores</Button>}
     </div>
     <DeliveryPicker recovery={props} controlId={deliveryControlId} />
-    {selected && <p className={styles.MessagingNotificationRecovery__help}>Estado actual: {MESSAGING_DELIVERY_STATE_LABEL[selected.state]}. Plazo del aviso: <time dateTime={selected.deadlineAt}>{selected.deadlineAt.slice(0, NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS)}</time>.</p>}
-    {unresolved && <p className={styles.MessagingNotificationRecovery__feedback} role="alert">El envío anterior puede haber sido aceptado. No se habilita otro envío a ciegas; consultá su estado antes de continuar.</p>}
+    {selected && <p className={styles.MessagingNotificationRecovery__help}>Estado actual: {deliveryStateLabel(selected)}. Plazo del aviso: <time dateTime={selected.deadlineAt}>{selected.deadlineAt.slice(0, NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS)}</time>.</p>}
+    {unresolved && !props.hasReference && <p className={styles.MessagingNotificationRecovery__feedback} role="status">{NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved}</p>}
     {props.expired && selected && !props.hasReference && <p className={styles.MessagingNotificationRecovery__help} role="status">{NOTIFICATION_RECOVERY_UI_COPY.expired}</p>}
     {selected?.recoveryDeliveryId && <p className={styles.MessagingNotificationRecovery__help}>Este aviso ya tiene una entrega de recuperación. Consultá el resultado original y su estado antes de otra acción.</p>}
     <p className={styles.MessagingNotificationRecovery__help}>{recoveryTargetCopy(props)}</p>
-    {(selected && !props.expired || props.hasReference) && <><div className={styles.MessagingNotificationRecovery__consent}>
+    {(offersNewRecovery || props.hasReference) && <><div className={styles.MessagingNotificationRecovery__consent}>
       <Checkbox id={consentControlId} checked={props.confirmed} disabled={props.busy || !props.canRead || props.originalCompleted} onCheckedChange={(checked) => props.onConfirm(checked === true)} />
       <Label htmlFor={consentControlId}>Revisé el aviso, la conexión y el impacto; quiero registrar esta recuperación.</Label>
     </div>

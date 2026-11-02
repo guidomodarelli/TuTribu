@@ -18,7 +18,12 @@ import { ADMISSION_SETUP_GUIDE_COPY as COPY, ADMISSION_SETUP_PLATFORM_COPY, ADMI
 import { admissionPolicyStepHref } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
 import styles from "./styles.module.scss";
 
-export type AdmissionSetupGuideProps = { slug: string; progress: AdmissionSetupProgress };
+export type AdmissionSetupGuideProps = {
+  slug: string;
+  progress: AdmissionSetupProgress;
+  /** True when another notice of the same screen already explains the platform requirement, so the guide does not repeat it. */
+  omitsPlatformNotice?: boolean;
+};
 
 /** Share of the bar that stays empty once every required step is done. */
 const PERCENT = 100;
@@ -93,12 +98,12 @@ function SetupStepItem({ step, slug, isNext, number, actionable }: { step: Setup
 
 /**
  * Shows the leader's setup as a short ordered checklist with one next action; while the platform cannot protect admission writes,
- * a single «Depende del equipo de TuTribu» notice replaces that action.
+ * a single «Depende del equipo de TuTribu» notice replaces that action, unless the screen already shows its own.
  *
- * @param props - Tribe slug for the links and the derived setup progress.
+ * @param props - Tribe slug for the links, the derived setup progress and whether the screen already explains the platform requirement.
  * @returns Nothing once every step is done; otherwise the checklist.
  */
-export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps) {
+export function AdmissionSetupGuide({ slug, progress, omitsPlatformNotice = false }: AdmissionSetupGuideProps) {
   if (progress.next === null) return null;
   const ratio = progress.required === 0 ? 1 : progress.completed / progress.required;
   const allRequiredDone = progress.completed === progress.required;
@@ -111,7 +116,7 @@ export function AdmissionSetupGuide({ slug, progress }: AdmissionSetupGuideProps
         <p className={styles.AdmissionSetupGuide__description}>{COPY.description}</p>
       </header>
 
-      {progress.platformSecurity && <div className={styles.AdmissionSetupGuide__platform}>
+      {progress.platformSecurity && !omitsPlatformNotice && <div className={styles.AdmissionSetupGuide__platform}>
         <PlatformSecurityNotice requirement={progress.platformSecurity.requirement} consequence={progress.platformSecurity.rulesSaved ? ADMISSION_SETUP_PLATFORM_COPY.saved : ADMISSION_SETUP_PLATFORM_COPY.unsaved} />
       </div>}
 

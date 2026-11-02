@@ -14,7 +14,7 @@ function originalRecovery() {
 describe("notification recovery browser transport", () => {
   it("should read a guarded notification page with its stable cursor without posting or exposing recipient data", async () => {
     const id = randomUUID(), connectionId = randomUUID(), createdAt = "2026-10-11T12:00:00Z";
-    const value = { items: [{ id, version: 3, state: "unknown", connectionId, createdAt, deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null }], nextCursor: { deliveryId: id, createdAt } };
+    const value = { items: [{ id, version: 3, state: "unknown", connectionId, createdAt, deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null, dispatchUnresolved: true }], nextCursor: { deliveryId: id, createdAt } };
     const transport = vi.fn<typeof fetch>(async () => Response.json(value));
     const outcome = await createNotificationRecoveryBrowserClient({ fetch: transport }).catalog({ slug: "synthetic", cursor: { deliveryId: id, createdAt } }, new AbortController().signal);
     expect(outcome).toEqual({ status: "ready", value });

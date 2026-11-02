@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createNotificationDeliveryCatalogHandler } from "@/src/modules/messaging/infrastructure/api/notification-delivery-catalog-handler";
 
 /** @returns Only the owned local metadata fixture, never provider or recipient data. */
-function catalogResult() { return { items: [{ id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null }], nextCursor: null }; }
+function catalogResult() { return { items: [{ id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null, dispatchUnresolved: false }], nextCursor: null }; }
 
 describe("notification catalog HTTP", () => {
   it("should return guarded no-store metadata and pass a complete cursor to the owned use case", async () => {

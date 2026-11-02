@@ -31,7 +31,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native membership 
         const afterLeave = await send(leave, fixture.leaving, true); expect(afterLeave.status).toBe(200); expect(await afterLeave.json()).toMatchObject({ original: { state: "completed", result: { outcome: "changed", deleted: true } } });
         const closure = await database.withContext({ userId: fixture.leader.userId, email: fixture.leader.email }, async (transaction) => (await transaction.execute<{status: string;cancel_reason: string;decisions: number;left_members: number}>(sql`select request.status,request.cancel_reason,(select count(*)::integer from public.academy_admission_decisions where request_id=request.id) as decisions,(select count(*)::integer from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.leaving.userId}) as left_members from public.academy_admission_requests request where id=${fixture.requestId}`)).rows[0]);
         expect(closure).toEqual({ status: "cancelled", cancel_reason: "nonrecoverable_membership", decisions: 1, left_members: 0 });
-      }));
+      }, { messagingSecurity: fixture.messagingSecurity }));
     });
   }, LEGACY_ADMISSION_SQL_TEST_TIMEOUT_MS);
 });

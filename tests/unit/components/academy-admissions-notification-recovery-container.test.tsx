@@ -11,7 +11,7 @@ import { NOTIFICATION_RECOVERY_UI_COPY } from "@/src/modules/messaging/constants
 
 /** @returns Own metadata and controlled boundary ports; libraries and UI remain real. */
 function prepareContainer() {
-  const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2099-10-11T13:00:00Z", recoveryDeliveryId: null };
+  const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2099-10-11T13:00:00Z", recoveryDeliveryId: null, dispatchUnresolved: false };
   const target = { id: randomUUID(), name: "Conexión nueva", version: 8, configurationVersion: 2, state: "active" as const, credentialState: "valid" as const, credentialMode: "production" as const, maskedCredential: "••••••••" as const, securityCurrent: true, capabilities: [{ channel: "email" as const, state: "prepared" as const, checkedAt: item.createdAt, testedAt: item.createdAt }] };
   const result = { originalDeliveryId: item.id, recoveryDeliveryId: randomUUID(), originalVersion: 3, targetConnectionId: target.id, targetConnectionVersion: 2 };
   let snapshot: NotificationRecoverySnapshot = { draft: { deliveryId: item.id, targetConnectionId: target.id }, reference: null };
@@ -30,11 +30,16 @@ function prepareContainer() {
 }
 
 describe("notification recovery container", () => {
-  it("should block blind recovery of an unknown original even with another prepared connection and renewed consent", async () => {
-    const fixture = prepareContainer(), user = userEvent.setup(); fixture.props.initialCatalog = { items: [{ ...fixture.item, state: "unknown" }], nextCursor: null };
+  it.each([["unknown", "unknown"], ["queued with an attempt that may have left", "queued"]] as const)("should show a %s original as pending confirmation and offer no recovery even with another prepared connection", async (_case, state) => {
+    const fixture = prepareContainer(); fixture.props.initialCatalog = { items: [{ ...fixture.item, state, dispatchUnresolved: true }], nextCursor: null };
     render(<NotificationRecoveryContainer {...fixture.props} />);
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled()); await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
-    expect(screen.getByRole("alert")).toHaveTextContent(/No se habilita otro envío a ciegas/); expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+    expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved)).toHaveAttribute("role", "status");
+    expect(screen.getByText(new RegExp(`Estado actual: ${NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolvedState}`))).toBeVisible();
+    expect(screen.queryByText(/Entrega fallida|En cola/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Revisé el aviso/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled();
+    expect(fixture.props.client!.recover).not.toHaveBeenCalled();
   });
   it("should block a fresh recovery when history is full and keep prior originals consultable", async () => {
     const fixture = prepareContainer(), user = userEvent.setup();
@@ -217,8 +222,18 @@ describe("notification recovery container", () => {
     render(<NotificationRecoveryContainer {...fixture.props} />);
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
     await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolvedRefused));
     expect(screen.queryByText(NOTIFICATION_RECOVERY_UI_COPY.pending)).not.toBeInTheDocument();
+    // The refused notice now reads as pending confirmation; nothing was registered, so nothing can be resumed or resent blindly.
+    expect(screen.getByText(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved)).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reanudar intento original" })).not.toBeInTheDocument();
+    expect(fixture.snapshot.reference).toBeNull(); expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole("button", { name: "Actualizar avisos" }));
+    await waitFor(() => expect(fixture.props.client!.catalog).toHaveBeenCalledOnce());
+    // A later read where the earlier send resolved as rejected offers the recovery again.
+    expect(screen.queryByText(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved)).not.toBeInTheDocument();
   });
   it("should forget a recovery the platform rejected before registering it, with its copy and nothing to resume", async () => {
     const fixture = prepareContainer(), user = userEvent.setup(), message = "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.";
