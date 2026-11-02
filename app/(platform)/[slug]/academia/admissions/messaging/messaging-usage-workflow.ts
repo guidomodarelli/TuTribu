@@ -28,6 +28,8 @@ export type MessagingUsageControls = {
   setPhase: Dispatch<SetStateAction<MessagingUsageBrowserPhase>>; setFresh: (value: boolean) => void; setConfirmed: (value: boolean) => void; setCanRetry: (value: boolean) => void;
   setRetryConfirmed: (value: boolean) => void; setPrivateVisible: (value: boolean) => void; setEditing: (value: boolean) => void; setStep: (value: number) => void;
   setWriteStep: (value: MessagingUsageWriteStep | null) => void; setPartialSave: (value: boolean) => void; setErrorMessage: (value: string | null) => void; setStatusMessage: (value: string | null) => void;
+  /** Explains the original that is still unresolved inside «Recuperar operación original», next to its consult and retry actions. */
+  setRecoveryMessage: (value: string | null) => void;
   /** Installs the platform requirement of the latest current read; its ref lets an asynchronous recovery see the newest value. */
   setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void; platformRequirement: RefObject<PlatformSecurityRequirement | null>;
   pending: RefObject<MessagingUsageBrowserIntent | null>; loaded: RefObject<boolean>; busy: RefObject<boolean>;
@@ -95,6 +97,22 @@ function forgetUsageIntent({ ready, controls }: MessagingUsageSession): void {
   writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null;
 }
 
+/**
+ * An unregistered original applied nothing, and sending it late can never overwrite a newer save: an update carries its
+ * `expectedVersion` (the server answers a version conflict) and an initialization only creates a configuration that does not exist.
+ * So it is forgotten instead of asking for a retry with its same data, and the editor reopens with the values the leader chose,
+ * to be confirmed and saved again as a new operation.
+ * @param session - Current route session. @param intent - Unregistered original. @returns Nothing after showing the informative notice.
+ */
+function forgetUnregisteredUsageOriginal(session: MessagingUsageSession, intent: MessagingUsageBrowserIntent): void {
+  const { controls } = session;
+  forgetUsageIntent(session);
+  const chosen = chosenValuesOf(intent);
+  if (chosen) reopenChosenValues(controls, chosen);
+  // While the platform cannot protect a save, the notice says saving waits for the TuTribu team instead of inviting a new save.
+  controls.setStatusMessage(controls.platformRequirement.current ? COPY.platformForgotten : COPY.unregistered);
+}
+
 /** @param session - Current route session. @param intent - Stored original command. @param signal - Current read. @returns Whether the read stops, recovered the original or continues to the current configuration. */
 async function recoverUsageOriginal(session: MessagingUsageSession, intent: MessagingUsageBrowserIntent, signal: AbortSignal): Promise<UsageRecoveryOutcome> {
   const { ready, client, checkViewer, controls } = session;
@@ -105,19 +123,15 @@ async function recoverUsageOriginal(session: MessagingUsageSession, intent: Mess
   if (original.status === "ready") {
     if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return "stop"; }
     // Registered but not finished (its effect rolled back or is still running): the current usage stays visible and the same original
-    // can be resent, which the ledger reclaims once nobody works on it.
-    if (original.value.state !== "completed") { controls.setCanRetry(true); controls.setErrorMessage(COPY.started); return "continue"; }
+    // can be resent, which the ledger reclaims once nobody works on it. Its explanation stays beside that retry.
+    if (original.value.state !== "completed") { controls.setCanRetry(true); controls.setRecoveryMessage(COPY.started); return "continue"; }
     forgetUsageIntent(session);
     if (intent.type === OPERATION.initialize) { settleRecoveredInitialization(controls, intent); return "recovered"; }
     controls.setStatusMessage(COPY.recovered);
     controls.setEditing(false); controls.setPartialSave(false); controls.setStep(FIRST_STEP_INDEX);
     return "recovered";
   }
-  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) {
-    // While the platform cannot protect a save, an unregistered original can never be retried: forget it instead.
-    if (controls.platformRequirement.current) { forgetUsageIntent(session); controls.setStatusMessage(COPY.platformForgotten); return "continue"; }
-    controls.setCanRetry(true); controls.setErrorMessage(COPY.retry); return "continue";
-  }
+  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredUsageOriginal(session, intent); return "continue"; }
   controls.setErrorMessage(original.message);
   return "stop";
 }
@@ -139,7 +153,7 @@ export async function readUsageCurrent(session: MessagingUsageSession, signal: A
   const controls = session.controls;
   if (signal.aborted) return;
   if (!initial) controls.setPrivateVisible(false);
-  controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false);
+  controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false); controls.setRecoveryMessage(null);
   let recovered = false;
   try {
     if (!await session.checkViewer(signal) || signal.aborted) return;
@@ -191,7 +205,7 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
   if (!await checkViewer(signal) || signal.aborted) return STOPPED;
   if (result.status === "failed") return usageWriteFailure(writer, result);
   if (result.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
-  if (result.value.state !== "completed") { controls.setErrorMessage(COPY.startedWrite); return UNRESOLVED; }
+  if (result.value.state !== "completed") { controls.setRecoveryMessage(COPY.startedWrite); return UNRESOLVED; }
   if (result.value.replayed) { await writer.readCurrent(signal); return STOPPED; }
   const projected = messagingUsagePolicyStateSchema.parse({ state: MESSAGING_USAGE_POLICY_STATE.configured, policy: result.value.result });
   if (!projected.policy) return STOPPED;
@@ -205,7 +219,7 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
 async function runUsageWriteSession({ checkViewer, controls }: MessagingUsageSession, work: (signal: AbortSignal) => Promise<void>): Promise<void> {
   if (controls.busy.current) return;
   controls.busy.current = true; controls.readController.current?.abort(); const controller = new AbortController(); controls.writeController.current = controller;
-  controls.setPhase(PHASE.writing); controls.setFresh(false); controls.setCanRetry(false); controls.setRetryConfirmed(false); controls.setErrorMessage(null); controls.setStatusMessage(null);
+  controls.setPhase(PHASE.writing); controls.setFresh(false); controls.setCanRetry(false); controls.setRetryConfirmed(false); controls.setErrorMessage(null); controls.setStatusMessage(null); controls.setRecoveryMessage(null);
   try {
     if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
     await work(controller.signal);

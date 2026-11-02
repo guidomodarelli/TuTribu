@@ -35,7 +35,10 @@ export const ADMISSION_NOTIFICATION_SETTINGS_COPY = {
   changedViewer: "La cuenta cambió. Volvé a cargar la página antes de continuar.",
   storageFailed: "No pudimos conservar el cambio en este navegador. Consultá el estado antes de continuar.",
   uncertain: "Todavía no confirmamos el resultado. Consultá el cambio original antes de iniciar otro.",
-  originalAbsent: "El cambio original todavía no aparece registrado. Podés volver a consultarlo o reintentarlo con la misma referencia y una nueva confirmación.",
+  /** An unregistered original applied nothing: its values reopen on the review for a new save. */
+  originalUnregistered: "El cambio anterior del correo de la tribu no llegó a registrarse. Revisá los valores y guardá de nuevo.",
+  /** The same, while the platform cannot protect a tribe email change: nothing is left to retry and saving waits for the TuTribu team. */
+  originalUnregisteredPlatform: "El cambio anterior del correo de la tribu no llegó a registrarse y no hace falta reintentarlo. Vas a poder cambiarlo cuando el equipo de TuTribu resuelva la seguridad de la plataforma.",
   originalStarted: "El cambio sigue pendiente. Podés consultarlo o reintentar el original con una confirmación nueva.",
   recovered: "Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.",
   preferenceConflict: "Tu preferencia cambió en otra ventana. Consultá el estado actual y confirmá tu elección nuevamente.",

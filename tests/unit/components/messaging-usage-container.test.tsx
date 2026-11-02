@@ -18,6 +18,7 @@ import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.s
 
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const savedText = "Los países y cupos quedaron guardados.", partialText = "La configuración se creó con los valores iniciales, pero todavía falta guardar lo que elegiste.";
+const unregisteredText = "El guardado anterior no llegó a registrarse. Revisá los valores y guardá de nuevo.";
 const router = { back: vi.fn(), bfcacheId: "usage-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 type InitializeResult = Awaited<ReturnType<MessagingUsageBrowserClient["initialize"]>>;
 type UpdateResult = Awaited<ReturnType<MessagingUsageBrowserClient["update"]>>;
@@ -124,7 +125,7 @@ describe("guided usage route workflow", () => {
     expect(data.client.update.mock.calls[1][1].operationId).not.toBe(data.client.update.mock.calls[0][1].operationId);
   });
 
-  it("should keep an uncertain second write as the original operation and retry it only with its own identity", async () => {
+  it("should keep an uncertain second write as the original operation and, once it proves unregistered, save the chosen values again as a new operation", async () => {
     const data = fixture(false); data.client.update.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar el guardado.", uncertain: true });
     render(data.node, { wrapper: Providers });
     await reviewWith({ verification: "40" }); await confirm(); save();
@@ -135,10 +136,18 @@ describe("guided usage route workflow", () => {
     const original = readMessagingUsageIntent(viewerId, slug); expect(original?.type).toBe("update_messaging_usage");
     data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 1, allowedCountries: [] } }, platformRequirement: null } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: /Confirmo reintentar el guardado/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(screen.getByText(unregisteredText)).toHaveAttribute("role", "status");
+    // The created configuration still lacks the chosen values, so only that partial save stays as an alert.
+    expect(screen.getByRole("alert")).toHaveTextContent(partialText); expect(screen.getByRole("alert")).not.toHaveTextContent(/reintento|registrada/);
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Recuperar operación original" })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    await confirm(); save();
     await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
-    expect(data.client.update).toHaveBeenCalledTimes(2); expect(data.client.update.mock.calls[1][1]).toEqual(original!.input);
+    expect(data.client.update).toHaveBeenCalledTimes(2);
+    expect(data.client.update.mock.calls[1][1]).toMatchObject({ expectedVersion: 1, verificationDailyLimit: 40 });
+    expect(data.client.update.mock.calls[1][1].operationId).not.toBe(original!.input.operationId);
     expect(data.client.initialize).toHaveBeenCalledOnce();
   });
 
@@ -432,10 +441,32 @@ describe("guided usage route workflow", () => {
     await waitFor(() => expect(data.client.update).toHaveBeenCalledOnce()); expect(data.client.update.mock.calls[0][1].expectedVersion).toBe(9);
   });
 
-  it("should reopen the review of a restored unfinished update above the original-operation recovery", async () => {
+  it("should forget a restored original that was never registered, reopen the values chosen with it and save them as a new operation", async () => {
     const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
     render(data.node, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(screen.getByText("De 100 a 0")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Revisá los países y los límites diarios/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    await confirm();
+    expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeEnabled();
+    save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 });
+    expect(data.client.update.mock.calls[0][1].operationId).not.toBe(operationId);
+  });
+
+  it("should reopen the review of a restored unfinished update above the original-operation recovery, with its explanation beside the retry", async () => {
+    const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    const recovery = await screen.findByRole("region", { name: "Recuperar operación original" });
+    await waitFor(() => expect(within(recovery).getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).toBeInTheDocument());
+    expect(within(recovery).getByRole("status")).toHaveTextContent("La operación original todavía no terminó.");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("De 100 a 0")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeDisabled();
     expect(data.client.update).not.toHaveBeenCalled();
@@ -460,12 +491,13 @@ describe("guided usage route workflow", () => {
     expect(readMessagingUsageIntent(viewerId, slug)).not.toBeNull(); expect(data.client.update).toHaveBeenCalledOnce(); expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("should retain an uncertain original write and only offer an identical retry after original absence and current read", async () => {
+  it("should retain an uncertain original write and only offer an identical retry after the original proves started and a current read", async () => {
     const data = fixture(); data.client.update.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar el guardado.", uncertain: true });
     render(data.node, { wrapper: Providers }); await saveVerificationChange("120");
     await waitFor(() => expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeInTheDocument());
     const original = readMessagingUsageIntent(viewerId, slug); expect(original).not.toBeNull();
     expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeDisabled();
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId: original!.input.operationId } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Reintentar operación original" })).toBeDisabled();
@@ -492,6 +524,7 @@ describe("guided usage route workflow", () => {
 
   it("should withhold retry when current read fails and abort the active private read on unmount", async () => {
     const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "initialize_messaging_usage", input: { operationId, confirmed: true } });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "initialize_messaging_usage", state: "started", operationId } });
     data.client.read.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el uso actual.", uncertain: false });
     const view = render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos consultar"));

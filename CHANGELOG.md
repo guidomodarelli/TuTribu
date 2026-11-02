@@ -4,6 +4,17 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- En la guía «Configurá las admisiones», el paso «Conectá el envío de mensajes» explica qué lo hace necesario: los códigos de verificación de tus reglas, los avisos por correo que recibís o ambos.
+
+### Fixed
+
+- La guía «Configurá las admisiones» ya no marca como necesarios la conexión de mensajería ni «Países y cupos» cuando no se envía nada: con el correo de la tribu apagado, o con contacto por teléfono sin comprobación con código, esos pasos quedan como «Opcional».
+- En «Países y cupos», si un guardado anterior nunca llegó a registrarse, la pantalla ya no queda trabada pidiendo reintentarlo con los mismos datos: avisa que no se registró, deja abiertos los valores que habías elegido y te deja guardarlos de nuevo.
+- En «Países y cupos», el aviso de un guardado anterior que todavía no terminó aparece junto a la acción para reintentarlo, en «Recuperar operación original».
+- En «Avisos», si un cambio anterior del correo de la tribu nunca llegó a registrarse, la pantalla ya no muestra un error ni obliga a reintentarlo con la misma referencia: avisa que no se registró y deja los valores elegidos listos para guardarlos de nuevo.
+
 ## [1.13.0] - 2026-11-02
 
 ### Added
