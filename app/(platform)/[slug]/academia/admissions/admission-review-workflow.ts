@@ -301,12 +301,10 @@ export async function sendReviewIntent(session: ReviewSession, focus: ReviewDeci
   }
 }
 
-/** @param items - Loaded window. @param selection - Selected batch rows. @returns Which batch decisions the selection allows and whether approving needs the shared reason. */
+/** @param items - Loaded window. @param selection - Selected batch rows. @returns Which batch decisions the selection allows; the shared internal reason is always optional. */
 export function batchAvailabilityFor(items: AdmissionReviewDto[], selection: readonly AdmissionBatchReviewSelection[]) {
   const visible = new Map(items.map((item) => [item.id, item]));
-  return { approve: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.approve)), reject: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.reject)),
-    /** One selected exception makes the shared reason necessary for approving the batch. */
-    approveRequiresReason: selection.some((selected) => visible.get(selected.requestId)?.restrictions.requiresExceptionReason === true) };
+  return { approve: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.approve)), reject: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.reject)) };
 }
 
 /** @param items - Loaded window. @param selection - Batch manifest. @param decision - Requested decision. @returns Whether every row is still pending at its selected version and at least one allows the decision. */

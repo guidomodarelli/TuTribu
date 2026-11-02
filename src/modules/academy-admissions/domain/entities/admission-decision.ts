@@ -1,7 +1,7 @@
 /** Proposes current reviewer decisions without writing membership or external effects. @module admission-decision */
 import type { AdmissionRequest } from "./admission-request";
 import { type AdmissionActorFacts, type PendingAdmissionReviewFacts, canPerformAdmissionAction, evaluatePendingAdmissionReview  } from "../policies/admission-eligibility";
-import { ADMISSION_ACTION, ADMISSION_DENIAL_REASON, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_ACTION, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_DECISION_ACTOR_KIND, ADMISSION_DECISION_RULE } from "@/src/modules/academy-admissions/constants/admission-decision";
@@ -36,14 +36,13 @@ export function proposeAdmissionDecision(input: {
   if (request.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== input.expectedVersion) return deny(ADMISSION_ERROR_CODE.requestConflict);
   if (!canPerformAdmissionAction(actor, input.decision === ADMISSION_DECISION.approve ? ADMISSION_ACTION.decideRequest : ADMISSION_ACTION.rejectRequest, { tribeId: request.tribeId, applicantUserId: request.userId })) return deny(ADMISSION_ERROR_CODE.permissionDenied);
   const reason = input.internalReason.trim(), external = input.externalMessage?.trim() || null;
-  // Rejection always needs a reason (FR-101); an approval needs one only as an exception, checked by the review evaluation (FR-099).
-  if (!approved && !reason || reason.length > ADMISSION_LIMIT.internalMessageCharacters || external && external.length > ADMISSION_LIMIT.externalMessageCharacters) return deny(ADMISSION_ERROR_CODE.invalidInput);
+  // The internal reason is always optional, also for rejections and exceptions; an empty one is stored as none.
+  if (reason.length > ADMISSION_LIMIT.internalMessageCharacters || external && external.length > ADMISSION_LIMIT.externalMessageCharacters) return deny(ADMISSION_ERROR_CODE.invalidInput);
   if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   if (review.tribe.id !== request.tribeId || review.request.id !== request.id || review.request.userId !== request.userId || review.request.expiresAt.getTime() !== request.expiresAt.getTime() || approved && !reviewMatchesRequest(request, review)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
   // Legacy and unbound personal requests stay closed for approval, with the same rule as the inbox's `approvalSupported`; rejection remains available.
   if (approved && !isAdmissionApprovalSupported({ request, source: review.request.source, policy: review.policy })) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
-  const approvalDenial = approved ? currentApprovalDenial(review, actor, input.now, reason) : null;
-  if (approvalDenial) return deny(approvalDenial);
+  if (approved && !evaluatePendingAdmissionReview({ ...review, reviewer: actor, now: input.now }).eligible) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   const status = approved ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
   const decision: AdmissionDecision = {
     id: input.decisionId, requestId: request.id, tribeId: request.tribeId, userId: request.userId, requestVersion: request.version,
@@ -55,17 +54,6 @@ export function proposeAdmissionDecision(input: {
     allowed: true as const, request: { ...request, status, version: request.version + 1, decisionId: decision.id, resolvedAt: new Date(input.now) }, decision,
     membershipEffect: approved ? { role: TRIBE_MEMBER_ROLE.tribemate, status: review.membership?.commercialRecoveryStatus ?? TRIBE_MEMBERSHIP_STATUS.active } : null,
   };
-}
-
-/**
- * @param review - Current own review facts. @param actor - Current reviewer. @param now - Post-lock clock. @param reason - Trimmed internal reason.
- * @returns Why the current evaluation refuses this approval, or null when it may proceed; an exception approval without its reason
- * is a field to correct (FR-099), not an unmet requirement of the request.
- */
-function currentApprovalDenial(review: PendingAdmissionReviewFacts, actor: AdmissionActorFacts, now: Date, reason: string): typeof ADMISSION_ERROR_CODE.invalidInput | typeof ADMISSION_ERROR_CODE.admissionIneligible | null {
-  const evaluation = evaluatePendingAdmissionReview({ ...review, reviewer: actor, now, exceptionReason: reason });
-  if (evaluation.eligible) return null;
-  return evaluation.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired ? ADMISSION_ERROR_CODE.invalidInput : ADMISSION_ERROR_CODE.admissionIneligible;
 }
 
 /** @param request - Locked original request. @param review - Current own review facts. @returns Whether contact, source, attached proof and declared group number still match the request. */

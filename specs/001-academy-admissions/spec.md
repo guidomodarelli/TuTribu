@@ -695,11 +695,11 @@ La gestión de una conexión no da permiso para enviar texto arbitrario a cualqu
 
 - **FR-098**: Antes de aprobar se DEBEN revalidar permisos actuales, vigencia, cuenta, evidencia aplicable, política actual, restricciones nominativas y elegibilidad de membresía. Se aplica la matriz de revisión.
 
-- **FR-099**: Toda aprobación sin coincidencia de lista que dependa de una excepción DEBE registrar motivo interno. Un lote NO DEBE omitir ese requisito ni dispensar una lista exigida por invitación.
+- **FR-099**: Toda aprobación sin coincidencia de lista que dependa de una excepción DEBE seguir siendo una decisión explícita de quien revisa; el motivo interno es opcional (decisión de producto del 2026-11-02). Un lote NO DEBE dispensar una lista exigida por invitación.
 
 - **FR-100**: Aprobar DEBE persistir decisión, creación/recuperación permitida de membresía y obligación de notificar de forma indivisible. No puede quedar aprobada sin efecto de admisión por un fallo parcial.
 
-- **FR-101**: Rechazar DEBE exigir motivo interno, permitir mensaje externo separado y mostrar cuándo puede reintentarse. Rechazo NO equivale a bloqueo permanente.
+- **FR-101**: Rechazar DEBE permitir un motivo interno opcional (decisión de producto del 2026-11-02) y un mensaje externo separado y mostrar cuándo puede reintentarse. Rechazo NO equivale a bloqueo permanente.
 
 - **FR-102**: El solicitante DEBE poder cancelar su pendiente y el líder cancelarla por gestión con motivo. Las terminales no se reescriben; una evaluación posterior requiere otra solicitud.
 

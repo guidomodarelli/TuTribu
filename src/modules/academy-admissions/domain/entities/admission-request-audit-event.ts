@@ -30,7 +30,7 @@ export function createAdmissionRequestAuditEvent(input:AdmissionRequestAuditInpu
  * @param input - Authorized owner proposal and the original terminal request after current CAS checks.
  * @returns A dedicated private retry fact, retaining original presentation policy and decision lineage.
  */
-export function createAdmissionRetryAuditEvent(input:{actorUserId:string;operationId:string;request:AdmissionRequest;previous:AdmissionRequest;internalReason:string;retryAllowedAt:Date}){
+export function createAdmissionRetryAuditEvent(input:{actorUserId:string;operationId:string;request:AdmissionRequest;previous:AdmissionRequest;internalReason:string|null;retryAllowedAt:Date}){
   const {request,previous}=input;
   return createAdmissionResourceAuditEvent({
     tribeId:request.tribeId,actorUserId:input.actorUserId,operationId:input.operationId,

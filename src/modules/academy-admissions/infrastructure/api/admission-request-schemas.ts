@@ -20,6 +20,8 @@ const operationFields = {
 /** Original UUID identity is canonical before its textual representation enters the immutable ledger fingerprint. */
 const canonicalOperationIdSchema = operationFields.operationId.transform((operationId) => operationId.toLowerCase());
 const expectedVersionSchema = z.int({ error: ADMISSION_INPUT_CATEGORY.version }).positive({ error: ADMISSION_INPUT_CATEGORY.version });
+/** A reviewer's internal reason is always optional: a blank one trims to empty and the owner stores it as none. */
+const optionalInternalReasonSchema = z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters);
 const editableNameSchema = z.string({ error: ADMISSION_INPUT_CATEGORY.name }).trim().max(ADMISSION_LIMIT.displayNameCharacters, { error: ADMISSION_INPUT_CATEGORY.name });
 const countrySchema = z.string().trim().toUpperCase().refine((country) => isSupportedCountry(country as CountryCode), { error: ADMISSION_INPUT_CATEGORY.country });
 
@@ -74,15 +76,14 @@ export const admissionAllowlistQuerySchema = z.strictObject({ ...pageQueryFields
 export const admissionSubmissionSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, expectedPolicyVersion: expectedVersionSchema, invitationToken: z.string().min(1).optional(), legacyInvitationToken: z.string().min(1).optional(), phone: z.string().trim().min(1).optional(), country: countrySchema.optional(), whatsappNumber: z.string().trim().min(1).optional(), proofId: z.uuid().transform((proofId) => proofId.toLowerCase()).optional(), message: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters).optional() }).refine((command) => !(command.invitationToken && command.legacyInvitationToken));
 /** Proof attachment cannot create another request or replace the contact owned by that request. */
 export const admissionProofAttachmentSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, proofId: z.uuid() }).transform((command) => ({ ...command, operationId: command.operationId.toLowerCase(), proofId: command.proofId.toLowerCase() }));
-export const admissionCancellationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, internalReason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters).optional() });
-/** @param command - Parsed decision fields. @returns Whether a rejection carries its required internal reason; approvals may leave it empty unless they are exceptions, which the domain checks. */
-const hasRequiredDecisionReason = (command: { decision: "approve" | "reject"; internalReason: string }) => command.decision !== ADMISSION_DECISION.reject || command.internalReason.length > 0;
-/** A rejection requires a meaningful internal reason; an approval may omit it. Its external message stays separate. */
-export const admissionDecisionSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, decision: z.enum(ADMISSION_DECISION), internalReason: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters), externalMessage: z.string().trim().max(ADMISSION_LIMIT.externalMessageCharacters).optional() }).refine(hasRequiredDecisionReason);
+/** The internal reason of a cancellation is optional; an empty or blank one is stored as none. */
+export const admissionCancellationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, internalReason: optionalInternalReasonSchema.optional() });
+/** The internal reason is always optional, for approvals, rejections and exceptions alike; its external message stays separate. */
+export const admissionDecisionSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, decision: z.enum(ADMISSION_DECISION), internalReason: optionalInternalReasonSchema, externalMessage: z.string().trim().max(ADMISSION_LIMIT.externalMessageCharacters).optional() });
 /** Explicit selections are deduped case-insensitively before any writer effects. */
-export const admissionBatchDecisionSchema = z.strictObject({ ...operationFields, decision: z.enum(ADMISSION_DECISION), internalReason: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters), externalMessage: z.string().trim().max(ADMISSION_LIMIT.externalMessageCharacters).optional(), items: z.array(z.strictObject({ requestId: z.uuid().transform((id) => id.toLowerCase()), expectedVersion: expectedVersionSchema })).min(1).max(ADMISSION_LIMIT.batchRequestCount) }).refine((command) => new Set(command.items.map((item) => item.requestId)).size === command.items.length).refine(hasRequiredDecisionReason);
-/** Retry changes cadence only; role, suspension and memberships cannot be rewritten here. */
-export const admissionRetryEligibilitySchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, internalReason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters) });
+export const admissionBatchDecisionSchema = z.strictObject({ ...operationFields, decision: z.enum(ADMISSION_DECISION), internalReason: optionalInternalReasonSchema, externalMessage: z.string().trim().max(ADMISSION_LIMIT.externalMessageCharacters).optional(), items: z.array(z.strictObject({ requestId: z.uuid().transform((id) => id.toLowerCase()), expectedVersion: expectedVersionSchema })).min(1).max(ADMISSION_LIMIT.batchRequestCount) }).refine((command) => new Set(command.items.map((item) => item.requestId)).size === command.items.length);
+/** Retry changes cadence only; role, suspension and memberships cannot be rewritten here. Its internal reason is optional. */
+export const admissionRetryEligibilitySchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, internalReason: optionalInternalReasonSchema.optional() });
 
 /** Policy input excludes epoch/activation, countries, counters and the messaging reference; only the owner derives those facts. */
 export const admissionPolicyInitializationSchema = z.strictObject({ ...operationFields });

@@ -64,15 +64,16 @@ describe("manual admission lifecycle", () => {
     if (proposal.allowed) expect(proposal.membershipEffect).toEqual({ role: "tribemate", status: "active" });
   });
 
-  it("should approve without an internal reason but deny a rejection that omits it", () => {
+  it("should approve and reject without an internal reason, storing a blank one as none", () => {
     const facts = manualFacts(), request = pending(facts), reviewer = { userId: randomUUID(), tribeId: facts.tribe.id, role: "leader" as const, status: "active" as const };
     const review = { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer };
     const input = { request, expectedVersion: 1, decisionId: randomUUID(), actor: reviewer, review, internalReason: "   ", externalMessage: null, now: facts.now };
     expect(proposeAdmissionDecision({ ...input, decision: "approve" })).toMatchObject({ allowed: true, request: { status: "approved" }, decision: { internalReason: null } });
-    expect(proposeAdmissionDecision({ ...input, decision: "reject" })).toEqual({ allowed: false, code: "invalid_input" });
+    expect(proposeAdmissionDecision({ ...input, decision: "reject" })).toMatchObject({ allowed: true, request: { status: "rejected" }, decision: { internalReason: null }, membershipEffect: null });
+    expect(proposeAdmissionDecision({ ...input, decision: "reject", internalReason: "x".repeat(ADMISSION_LIMIT.internalMessageCharacters + 1) })).toEqual({ allowed: false, code: "invalid_input" });
   });
 
-  it("should ask for the missing reason of an exception approval as a field to correct, and approve it once given", () => {
+  it("should approve an exception without an internal reason and keep a given one", () => {
     const facts = manualFacts();
     facts.policy = { ...facts.policy!, mode: "allowlist", allowCommonExceptions: true };
     facts.allowlistEntry = null;
@@ -80,7 +81,7 @@ describe("manual admission lifecycle", () => {
     const review = { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer };
     const input = { request, expectedVersion: 1, decisionId: randomUUID(), decision: "approve" as const, actor: reviewer, review, externalMessage: null, now: facts.now };
     expect(evaluateAdmissionSubmission(facts)).toMatchObject({ outcome: "pending", requiresExceptionReason: true });
-    expect(proposeAdmissionDecision({ ...input, internalReason: "   " })).toEqual({ allowed: false, code: "invalid_input" });
+    expect(proposeAdmissionDecision({ ...input, internalReason: "   " })).toMatchObject({ allowed: true, request: { status: "approved" }, decision: { internalReason: null } });
     expect(proposeAdmissionDecision({ ...input, internalReason: "Excepción revisada" })).toMatchObject({ allowed: true, request: { status: "approved" }, decision: { internalReason: "Excepción revisada" } });
   });
 
@@ -153,10 +154,11 @@ describe("manual admission lifecycle", () => {
     expect(proposeAdmissionDecision({ ...input, request: { ...original, proofId, evidence: { kind: "local", proofId, verifiedAt: facts.now } } })).toMatchObject({ allowed: true, request: { status: "rejected", proofId }, membershipEffect: null });
   });
 
-  it("should require a management reason and keep every terminal state immutable", () => {
+  it("should cancel by management without a reason and keep every terminal state immutable", () => {
     const request = pending(), actor = { userId: randomUUID(), tribeId: request.tribeId, role: "leader" as const, status: "active" as const };
     const input = { request, expectedVersion: 1, decisionId: randomUUID(), actor, internalReason: null, now: request.submittedAt };
-    expect(proposeAdmissionCancellation(input)).toMatchObject({ allowed: false, code: "invalid_input" });
+    expect(proposeAdmissionCancellation(input)).toMatchObject({ allowed: true, internalReason: null, request: { status: "cancelled", cancelReason: null } });
+    expect(proposeAdmissionCancellation({ ...input, internalReason: "   " })).toMatchObject({ allowed: true, internalReason: null });
     const cancelled = proposeAdmissionCancellation({ ...input, internalReason: "Corrección solicitada" });
     if (!cancelled.allowed) throw new Error("Synthetic cancellation was not proposed");
     expect(proposeAdmissionCancellation({ ...input, request: cancelled.request, expectedVersion: 2, internalReason: "Nueva corrección" })).toMatchObject({ allowed: false, code: "request_conflict" });

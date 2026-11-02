@@ -121,18 +121,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
     }, { concurrentTransactions: 4 });
   }, 1_200_000);
 
-  it("should approve without an internal reason and store it as absent, while a reasonless rejection stays denied", async () => {
+  it.each([["approve", "approved"], ["reject", "rejected"]] as const)("should %s without an internal reason and store it as absent", async (decided, status) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareManualAdmission(database);
       const submitted = await fixture.repository.submit(fixture.submission);
       if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Reasonless approval did not produce its original pending request");
       const requestId = submitted.result.admissionRequestId;
       const decision = { ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, type: "decide_admission_request" as const, admissionRequestId: requestId, expectedVersion: 1, internalReason: "", externalMessage: null };
-      await expect(fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: "reject" })).rejects.toMatchObject({ code: "invalid_input" });
-      const outcome = await fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: "approve" });
-      expect(outcome).toMatchObject({ state: "completed", result: { status: "approved", version: 2 } });
+      const outcome = await fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: decided });
+      expect(outcome).toMatchObject({ state: "completed", result: { status, version: 2 } });
       await database.withContext(fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select outcome,internal_reason from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ outcome: "approved", internal_reason: null }]);
+        expect((await transaction.execute(sql`select outcome,internal_reason from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ outcome: status, internal_reason: null }]);
       });
     });
   }, 1_200_000);

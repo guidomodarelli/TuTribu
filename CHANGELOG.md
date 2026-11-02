@@ -4,6 +4,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- El motivo interno al aprobar o rechazar una solicitud de ingreso ahora es opcional, en la revisión individual y en lote, también en las excepciones a la lista y cuando la persona se agregó a la lista después de pedir entrar. Un motivo vacío o con espacios se guarda sin motivo.
+- En la bandeja de solicitudes, el filtro «Motivo de excepción» pasa a llamarse «Excepción a la lista», con las opciones «Excepciones a la lista» y «Sin excepción».
+
 ## [1.13.0] - 2026-11-02
 
 ### Added

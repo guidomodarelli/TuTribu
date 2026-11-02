@@ -1,5 +1,5 @@
-/** Exercises when the shared decision form lets a reviewer approve or reject without an internal reason. @module admission-decision-form-tests */
-import { render, screen } from "@testing-library/react";
+/** Exercises that the shared decision form never requires an internal reason to approve or reject. @module admission-decision-form-tests */
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdmissionDecisionForm, type AdmissionDecisionFormProps } from "@/components/academy-admissions/admission-decision-form";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
@@ -11,27 +11,27 @@ function renderForm(overrides: Partial<AdmissionDecisionFormProps> = {}) {
 }
 
 describe("AdmissionDecisionForm", () => {
-  it("should let a confirmed reviewer approve without an internal reason while rejecting still needs one", () => {
-    renderForm();
+  it("should let a confirmed reviewer approve or reject without an internal reason and label the field as optional", () => {
+    const onDecision = vi.fn();
+    renderForm({ onDecision });
 
-    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).not.toBeRequired();
-    expect(screen.getByText(new RegExp(ADMISSION_REVIEW_UI_COPY.internalOptionalHelp))).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeEnabled();
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeDisabled();
+    expect(screen.getByLabelText(/^Motivo interno \(opcional\)$/u)).not.toBeRequired();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve }));
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject }));
+    expect(onDecision.mock.calls).toEqual([["approve"], ["reject"]]);
   });
 
-  it("should require the internal reason before approving an exception", () => {
-    renderForm({ approveRequiresReason: true });
-
-    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReasonRequired)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeDisabled();
-  });
-
-  it("should enable both decisions once a reason is written for an exception", () => {
-    renderForm({ approveRequiresReason: true, internalReason: "Excepción acordada con el equipo" });
+  it("should keep both decisions available when the internal reason holds only spaces", () => {
+    renderForm({ internalReason: "   " });
 
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeEnabled();
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeEnabled();
+  });
+
+  it("should keep both decisions disabled until the reviewer confirms, regardless of the internal reason", () => {
+    renderForm({ confirmed: false, internalReason: "Revisión registrada" });
+
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeDisabled();
   });
 });

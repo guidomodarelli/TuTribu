@@ -68,13 +68,13 @@ describe("admission flow contracts", () => {
     expect((await boundary({ ...command, items: Array.from({ length: 51 }, () => ({ requestId: randomUUID(), expectedVersion: 1 })) }).readBody(admissionBatchDecisionSchema)).usable).toBe(false);
   });
 
-  it("should accept an approval without an internal reason but reject a rejection that omits it", async () => {
+  it("should accept an approval or a rejection without an internal reason, individually and in a batch", async () => {
     const individual = { operationId: randomUUID(), confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "  " };
     expect((await boundary(individual).readBody(admissionDecisionSchema)).usable).toBe(true);
-    expect((await boundary({ ...individual, decision: "reject" }).readBody(admissionDecisionSchema)).usable).toBe(false);
+    expect((await boundary({ ...individual, decision: "reject" }).readBody(admissionDecisionSchema)).usable).toBe(true);
     const batch = { operationId: randomUUID(), confirmed: true, decision: "approve", internalReason: "", items: [{ requestId: randomUUID(), expectedVersion: 1 }] };
     expect((await boundary(batch).readBody(admissionBatchDecisionSchema)).usable).toBe(true);
-    expect((await boundary({ ...batch, decision: "reject" }).readBody(admissionBatchDecisionSchema)).usable).toBe(false);
+    expect((await boundary({ ...batch, decision: "reject" }).readBody(admissionBatchDecisionSchema)).usable).toBe(true);
   });
 
   it("should reject a batch that claims unconfirmed progress while preserving mixed confirmed results", async () => {

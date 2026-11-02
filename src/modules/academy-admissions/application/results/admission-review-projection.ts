@@ -39,7 +39,7 @@ export function projectAdmissionReview(record: AdmissionReviewRecord, platformRe
     ...optionalReviewTexts(record, retryAt),
     applicant: { id: request.userId, name: record.applicantName }, evidence, eligibleActions,
     whatsappNumber: request.whatsappNumber ?? null, requiresWhatsappNumber: review.policy?.requiresWhatsappNumber ?? false,
-    restrictions: { requiresAllowlist: request.requiresAllowlist, requiresExceptionReason: evaluation?.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired,
+    restrictions: { requiresAllowlist: request.requiresAllowlist, requiresExceptionReason: evaluation?.eligible === true && evaluation.requiresExceptionReason === true,
       invitation: invitation ? projectReviewInvitation(invitation, contact) : null },
   });
 }
@@ -82,8 +82,7 @@ function projectReviewInvitation(invitation: ReviewInvitation, contact: Admissio
 /** Personal invitation facts carried by a personal review source. */
 type ReviewInvitation = Extract<AdmissionReviewRecord["review"]["request"]["source"], { kind: typeof ADMISSION_SOURCE_KIND.personal }>["invitation"];
 
-/** @param evaluation - Current pending evaluation, if any. @param approvalSupported - Whether this writer can approve. @returns Rejection, plus approval when the request is eligible or only needs an exception reason; the caller offers none while the platform cannot protect a decision. */
+/** @param evaluation - Current pending evaluation, if any. @param approvalSupported - Whether this writer can approve. @returns Rejection, plus approval when the request is eligible (an exception included, with or without an internal reason); the caller offers none while the platform cannot protect a decision. */
 function reviewDecisions(evaluation: ReturnType<typeof evaluatePendingAdmissionReview> | null, approvalSupported: boolean) {
-  const canPrepareApproval = evaluation !== null && (evaluation.eligible || evaluation.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired);
-  return [ADMISSION_DECISION.reject, ...(canPrepareApproval && approvalSupported ? [ADMISSION_DECISION.approve] : [])];
+  return [ADMISSION_DECISION.reject, ...(evaluation?.eligible && approvalSupported ? [ADMISSION_DECISION.approve] : [])];
 }
