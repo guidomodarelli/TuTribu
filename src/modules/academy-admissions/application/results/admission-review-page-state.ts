@@ -14,3 +14,11 @@ export const admissionReviewPageStateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("unavailable"), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === admissionReadErrorMessage(state.code)),
 ]);
 export type AdmissionReviewPageState = z.infer<typeof admissionReviewPageStateSchema>;
+
+/**
+ * @param state - Reviewer server snapshot.
+ * @returns Whether the inbox opens with the platform notice, so the rest of the screen (the setup guide) does not repeat it.
+ */
+export function reviewShowsPlatformNotice(state: AdmissionReviewPageState): boolean {
+  return state.kind === "ready" && state.page.platformRequirement !== null;
+}

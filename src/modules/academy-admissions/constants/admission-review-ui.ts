@@ -54,6 +54,6 @@ export const ADMISSION_REVIEW_UI_COPY = {
   reload: "Recargar con la cuenta actual", declared: "Contacto declarado: no acredita verificación", none: "Solicitud sin contacto verificado",
   base: "Correo acreditado por Google para la cuenta", local: "Contacto verificado para esta solicitud de la academia",
   pendingAgeHighlight: "Pendiente hace tres días o más",
-  /** What stays unavailable in the inbox while the platform cannot protect a decision. */
-  platformConsequence: "Esto no es algo que puedas resolver desde tu academia. Mientras tanto podés revisar las solicitudes, pero no aprobarlas ni rechazarlas.",
+  /** What stays unavailable while the platform cannot protect admission writes; it is the only notice of the screen, so it also covers the setup guide. */
+  platformConsequence: "Esto no es algo que puedas resolver desde tu academia. Mientras tanto podés revisar las solicitudes, pero no aprobarlas ni rechazarlas, ni configurar o guardar las reglas, la mensajería o los cupos. Lo que ya hayas guardado se conserva.",
 } as const;
