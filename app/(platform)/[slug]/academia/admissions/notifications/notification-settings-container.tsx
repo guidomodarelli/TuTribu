@@ -4,6 +4,9 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import { useViewerTimeZone } from "@golfo/ui/hooks";
 import { AdmissionNotificationSettings } from "@/components/academy-admissions/admission-notification-settings";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
+import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import type { AdmissionNotificationSettingsPageState } from "@/src/modules/notifications/application/results/admission-notification-settings-page-state";
 import type { AdmissionNotificationSettingsBrowserClient } from "@/src/modules/notifications/application/ports/admission-notification-settings-browser-client";
 import type { AdmissionNotificationEmailSettingsCommand } from "@/src/modules/notifications/domain/repositories/admission-notification-email-settings-repository";
@@ -13,7 +16,6 @@ import { admissionNotificationSettingsApiClient } from "@/lib/academy-admissions
 import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 import { ADMISSION_NOTIFICATION_SETTINGS_PAGE_KIND as PAGE_KIND } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_RECOMMENDED_MODE } from "@/src/modules/notifications/constants/admission-notification-settings-options";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
 import { draftFromEmail, draftModeFor, emailPlanFor, hasPreferenceChange, isSettled, isUnconfiguredEmail, usableTimeZone } from "./notification-settings-plan";
 import { readSettingsCurrent, resetSettingsEmailDraft, REVIEW_STEP_INDEX, saveNotificationSettings, type ReadOptions, type SettingsControls, type SettingsPhase } from "./notification-settings-workflow";
@@ -24,7 +26,7 @@ type ContainerProps = { initialState: AdmissionNotificationSettingsPageState; cl
 /** @param props - Current guarded SSR snapshot and optional own interaction ports. @returns Account-scoped settings with cancellable reads, one chained save and no automatic mutation or full-route refresh. */
 export function AdmissionNotificationSettingsContainer({ initialState, client = admissionNotificationSettingsApiClient }: ContainerProps) {
   const ready = initialState.kind === PAGE_KIND.ready ? initialState : null;
-  const viewerTimeZone = useViewerTimeZone();
+  const viewerTimeZone = useViewerTimeZone(), location = useAdmissionRouteLocation();
   const [preference, setPreference] = useState(ready?.preference ?? null), [email, setEmail] = useState(ready?.email ?? null);
   /** Why the platform cannot protect a tribe email change right now, as the last read reported it. */
   const [platformRequirement, setPlatformRequirement] = useState(ready?.platformRequirement ?? null);
@@ -75,7 +77,7 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
     return () => { isActive = false; controller.abort(); slot.current?.abort(); loaded.current = false; busy.current = false; window.removeEventListener("pageshow", restored); };
   }, [readCurrent]);
 
-  if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (!ready || !preference) return <AdmissionRouteError embedded message={initialState.kind === PAGE_KIND.unavailable ? initialState.message : COPY.storageFailed} {...resolveAdmissionRouteRecovery(initialState.kind === PAGE_KIND.unavailable ? initialState.code : null, location)} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible) return <SettingsWithheld checking={phase === PHASE.reading || phase === PHASE.checking} error={error} retry={launchRead} />;
   const isBusy = phase === PHASE.checking || phase === PHASE.reading || phase === PHASE.writing;
@@ -108,5 +110,5 @@ export function AdmissionNotificationSettingsContainer({ initialState, client = 
 /** @param props - Whether a read is still checking, its safe error and the retry. @returns Progress while checking, otherwise the recovery for withheld settings. */
 function SettingsWithheld({ checking, error, retry }: { checking: boolean; error: string | null; retry: () => void }) {
   if (checking) return <p role="status">{COPY.checking}</p>;
-  return <AdmissionRouteError embedded message={error ?? ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable]} retry={retry} />;
+  return <AdmissionRouteError embedded message={error ?? BROWSER_REQUEST_TRANSPORT_MESSAGE} retry={retry} />;
 }

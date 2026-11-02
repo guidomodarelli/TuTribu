@@ -110,6 +110,16 @@ describe("manual admission lifecycle", () => {
     expect(proposeAdmissionDecision({ request, expectedVersion: 1, decisionId: randomUUID(), decision: "reject", actor, review: { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer: actor }, internalReason: "Revisión histórica", externalMessage: null, now: facts.now })).toMatchObject({ allowed: true, request: { source: "legacy", legacyInvitationId: request.legacyInvitationId, status: "rejected" }, membershipEffect: null });
   });
 
+  it("should deny approving a legacy request with admission_ineligible even when every current common requirement holds", () => {
+    const facts = manualFacts(), common = pending(facts), request = { ...common, source: "legacy" as const, legacyInvitationId: randomUUID() };
+    const actor = { userId: randomUUID(), tribeId: request.tribeId, role: "leader" as const, status: "active" as const };
+    const review = { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer: actor };
+    const input = { request, expectedVersion: 1, decisionId: randomUUID(), actor, review, internalReason: "Revisión histórica", externalMessage: null, now: facts.now };
+    expect(proposeAdmissionDecision({ ...input, request: common, decision: "approve" })).toMatchObject({ allowed: true, request: { status: "approved" } });
+    expect(proposeAdmissionDecision({ ...input, decision: "approve" })).toEqual({ allowed: false, code: "admission_ineligible" });
+    expect(proposeAdmissionDecision({ ...input, decision: "reject" })).toMatchObject({ allowed: true, request: { status: "rejected", source: "legacy" } });
+  });
+
   it("should require the exact applied proof already referenced by the request instead of silently downgrading its evidence", () => {
     const facts = manualFacts(), original = pending(facts), proofId = randomUUID();
     const request = { ...original, proofId, evidence: { kind: "local" as const, proofId, verifiedAt: facts.now } };

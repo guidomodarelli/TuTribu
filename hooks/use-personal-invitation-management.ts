@@ -19,6 +19,7 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import { requireReadyValue } from "@/hooks/require-ready-value";
 import { closeManagementScope, createManagementFailure, interruptedManagementMessage, managementIssueRejectionMessage, readManagementOutcome, referenceForManagementIntent, settleManagementRun, type PersonalInvitationManagementPhase } from "@/hooks/use-personal-invitation-management-support";
 
@@ -58,13 +59,24 @@ function useManagementCore(workflow: ManagementState) {
   const { initial, client, live, closedRef, pendingRef, stateRef, loadedPagesRef, setPrivateVisible, setReady, setConfirmed, setInvitationUrl, setPhase, setErrorMessage, setPending, setState, setNeedsCurrent } = workflow;
   /** A changed viewer permanently closes this mounted scope and removes transient private material. */
   const close = useCallback(() => { closedRef.current = true; setPrivateVisible(false); setReady(false); setConfirmed(false); setInvitationUrl(null); setPhase(PHASE.closed); setErrorMessage(COPY.account); }, [closedRef, setConfirmed, setErrorMessage, setInvitationUrl, setPhase, setPrivateVisible, setReady]);
-  /** @param signal - This observation's lifetime. @param scope - Mounted generation. @returns Whether the actual native viewer still owns this page. */
-  const authorize = useCallback(async (signal: AbortSignal, scope: number) => {
+  /**
+   * @param signal - This observation's lifetime. @param scope - Mounted generation.
+   * @param options - `boundResult`: the reply was already bound by the server to the initial viewer, so a session that could not be read
+   * does not discard it (a one-time link would be lost); `silent`: a background check keeps the page as it was.
+   * @returns Whether the actual native viewer still owns this page. Only another account closes it; a session that could not be read
+   * keeps the private view and explains it.
+   */
+  const authorize = useCallback(async (signal: AbortSignal, scope: number, options: { boundResult?: boolean; silent?: boolean } = {}) => {
     if (!initial || closedRef.current) return false;
     const check = await verifyInitialViewer({ client, viewerId: initial.viewerId, live }, signal, scope);
     if (check === INITIAL_VIEWER_CHECK.changed) { close(); return false; }
+    if (check === INITIAL_VIEWER_CHECK.unavailable) {
+      if (options.boundResult) return true;
+      if (!options.silent) setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE);
+      return false;
+    }
     return check === INITIAL_VIEWER_CHECK.current;
-  }, [client, close, closedRef, initial, live]);
+  }, [client, close, closedRef, initial, live, setErrorMessage]);
   /** @param reference - Original progress or confirmed absence. @returns Whether storage accepted the reference before dispatch. */
   const persist = useCallback((reference: PersonalInvitationManagementReference | null) => {
     if (!initial) return false;
@@ -156,9 +168,10 @@ function useManagementLifecycle(workflow: ManagementState, core: ManagementCore,
     mountedRef.current = true; generationRef.current += 1; const scope = generationRef.current, hydration = new AbortController();
     const timeout = window.setTimeout(() => hydration.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
     queueMicrotask(() => { void (async () => {
-      if (!await authorize(hydration.signal, scope)) return;
+      // A session that could not be read leaves the page idle with its explanation; «Consultar estado actual» checks it again.
+      if (!await authorize(hydration.signal, scope)) { if (live(hydration.signal, scope) && !closedRef.current) setPhase(PHASE.idle); return; }
       observeReference(); if (!live(hydration.signal, scope)) return; setReady(true); setConfirmed(false); setPhase(pendingRef.current ? PHASE.uncertain : PHASE.idle);
-    })().catch(() => { if (live(hydration.signal, scope)) { setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }).finally(() => { window.clearTimeout(timeout); if (hydration.signal.aborted && mountedRef.current && generationRef.current === scope) { setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } }); });
+    })().catch(() => { if (live(hydration.signal, scope)) { setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }).finally(() => { window.clearTimeout(timeout); if (hydration.signal.aborted && mountedRef.current && generationRef.current === scope) { setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE); setPhase(PHASE.idle); } }); });
     /** Restoring a document rereads identity/progress and never restarts its original mutation. */
     const restored = (event: PageTransitionEvent) => { if (!event.persisted || !mountedRef.current || closedRef.current || busyRef.current) return; setPrivateVisible(false); setConfirmed(false); setInvitationUrl(null); void run(async (signal, observedScope) => { observeReference(); if (await refresh(requireReadyValue(stateRef.current, CURRENT_STATE).query, signal, observedScope) && !closedRef.current) setPrivateVisible(true); }); };
     /**
@@ -171,7 +184,7 @@ function useManagementLifecycle(workflow: ManagementState, core: ManagementCore,
       const check = new AbortController(), checkScope = generationRef.current, revision = operationRevisionRef.current, checkTimeout = window.setTimeout(() => check.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
       focusCheckRef.current = check;
       void (async () => {
-        if (!await authorize(check.signal, checkScope)) return;
+        if (!await authorize(check.signal, checkScope, { silent: true })) return;
         const readyScope = requireReadyValue(initial, SCOPE);
         const result = await client.page(readyScope.slug, requireReadyValue(stateRef.current, CURRENT_STATE).query, check.signal);
         // An explicit read or write started meanwhile owns the page state: this older answer must not overwrite it.
@@ -214,7 +227,7 @@ function useManagementWrites(workflow: ManagementState, core: ManagementCore, wr
       if (!persist(reference)) return;
       const readyScope = requireReadyValue(initial, SCOPE);
       const result = await client.write(readyScope.slug, intent, signal);
-      if (!live(signal, scope) || !await authorize(signal, scope)) return;
+      if (!live(signal, scope) || !await authorize(signal, scope, { boundResult: result.status === "ready" && result.value.viewerId === readyScope.viewerId })) return;
       if (result.status === "ready") { if (result.value.viewerId !== readyScope.viewerId) { close(); return; } await consume(reference, result.value.outcome, signal, scope); }
       else if (result.status === "failed" && !result.uncertain) rejectSave(result);
       else setErrorMessage(COPY.uncertain);
@@ -225,7 +238,7 @@ function useManagementWrites(workflow: ManagementState, core: ManagementCore, wr
     setOriginalAbsent(false); setOriginalStarted(false);
     const readyScope = requireReadyValue(initial, SCOPE);
     const result = await client.operation(readyScope.slug, reference.operationId, signal);
-    if (!live(signal, scope) || !await authorize(signal, scope)) return;
+    if (!live(signal, scope) || !await authorize(signal, scope, { boundResult: result.status === "ready" && result.value.viewerId === readyScope.viewerId })) return;
     if (result.status === "ready" && result.value.viewerId !== readyScope.viewerId) { close(); return; }
     if (result.status === "ready" && result.value.original.type === reference.type) await consume(reference, result.value.original, signal, scope);
     else if (result.status === "failed") {

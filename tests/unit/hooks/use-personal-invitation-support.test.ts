@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { settlePersonalInitialization } from "@/hooks/use-personal-invitation-support";
 import type { PersonalInvitationSubmissionIntent } from "@/lib/academy-admissions/personal-invitation-submission-intent";
 import { PERSONAL_INVITATION_UI_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
-import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 
 /** @param pending - Original still unresolved, if any. @returns Refs of an initialization that timed out while it owned the workflow. */
 function timedOutInitialization(pending: PersonalInvitationSubmissionIntent | null) {
@@ -17,7 +17,7 @@ describe("personal invitation initialization timeout", () => {
     const data = timedOutInitialization(null);
     settlePersonalInitialization(data.refs, data.initialization, data.setters);
     expect(data.setters.setPhase).toHaveBeenCalledWith("idle");
-    expect(data.setters.setErrorMessage).toHaveBeenCalledWith(ADMISSION_ERROR_MESSAGE.dependency_unavailable);
+    expect(data.setters.setErrorMessage).toHaveBeenCalledWith(BROWSER_REQUEST_TRANSPORT_MESSAGE);
     expect(data.refs.busyRef.current).toBe(false);
   });
 

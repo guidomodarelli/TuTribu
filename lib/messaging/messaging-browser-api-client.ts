@@ -8,9 +8,10 @@ import {messagingPublicErrorSchema} from "@/src/modules/messaging/application/re
 import {MESSAGING_ERROR_CODE,MESSAGING_ERROR_MESSAGE} from "@/src/modules/messaging/constants/messaging-errors";
 import {HTTP_STATUS} from "@/src/constants/http-status";
 import {boundBrowserRequest} from "@/lib/browser-request-deadline";
+import {BROWSER_REQUEST_TRANSPORT_MESSAGE} from "@/src/constants/browser-request";
 
 /** @param code - Own semantic outcome. @param uncertain - Whether a write may have committed. @returns Safe localized facts with no body, transport cause or provider error. */
-export function messagingBrowserFailure(code:MessagingErrorCode,uncertain=false):MessagingUsageBrowserResult<never>{return{status:"failed",code,message:MESSAGING_ERROR_MESSAGE[code],uncertain};}
+export function messagingBrowserFailure(code:MessagingErrorCode,uncertain=false,message:string=MESSAGING_ERROR_MESSAGE[code]):MessagingUsageBrowserResult<never>{return{status:"failed",code,message,uncertain};}
 
 /**
  * A failure bound to its original decides by that original: a completed one is its final answer (a stored denial, or a
@@ -44,6 +45,6 @@ export function createMessagingBrowserRequest(transport:typeof fetch=globalThis.
       if(publicFailure.success)return messagingBrowserFailure(publicFailure.data.code,writing&&isUncertainWriteFailure(publicFailure.data,response.status));
       if(!response.ok)return messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);
       const parsed=schema.safeParse(body);return parsed.success?{status:"ready",value:parsed.data}:messagingBrowserFailure(MESSAGING_ERROR_CODE.publicContractUnusable,writing);
-    }catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.dependencyUnavailable,writing);}
+    }catch{return signal.aborted?{status:"aborted"}:messagingBrowserFailure(MESSAGING_ERROR_CODE.dependencyUnavailable,writing,BROWSER_REQUEST_TRANSPORT_MESSAGE);}
   }
 }

@@ -7,9 +7,8 @@ import { LEGACY_ADMISSION_ARRIVAL } from "@/src/modules/academy-admissions/const
 import { buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
 import { type AdmissionPageState, admissionPageStateSchema  } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import { admissionTribeParamsSchema } from "../api/admission-request-schemas";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { createAdmissionPageDiagnostics, loadAdmissionPageRead, unavailableAdmissionPage } from "./admission-page-diagnostics";
 
 /**
  * Only a public slug selects the tribe; an exact request id never selects another account.
@@ -27,41 +26,50 @@ type PageModule = { page: Pick<GetAdmissionPageUseCase, "execute" | "resolveOwnR
 type AdmissionPageInput = z.infer<typeof admissionPageInputSchema>;
 /** Validated page input whose request mode already names its tribe. */
 type ResolvedAdmissionPageInput = Exclude<AdmissionPageInput, { mode: "request" }> | (Extract<AdmissionPageInput, { mode: "request" }> & { query: { tribe: string } });
+/** Fixed diagnostics of the admission page loader; never the slug, token or request id values beyond the safe request id. */
+const ADMISSION_PAGE_DIAGNOSTIC = { operation: "load_admission_page", readFailed: "Admission page application read failed", contractRejected: "Admission page returned an unusable own state", loadFailed: "Admission page could not load safe state" } as const;
 
 /**
  * @param input - Validated input. @param pageModule - Native read-only composition. @param requestId - Safe correlation.
  * @returns The input with the tribe of an own request link that lacked it, or the safe failure (signed out, or not this account request)
  * with that same link as the return path, which resolves its tribe once the account is known.
  */
-async function resolveRequestTribe(input: AdmissionPageInput, pageModule: PageModule, requestId: string): Promise<ResolvedAdmissionPageInput | { code: (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE]; returnPath: string }> {
+async function resolveRequestTribe(input: AdmissionPageInput, pageModule: PageModule, requestId: string): Promise<ResolvedAdmissionPageInput | { failure: { code: (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE]; cause?: unknown }; returnPath: string }> {
   if (input.mode !== "request") return input;
   const tribe = input.query.tribe;
   if (tribe) return { ...input, query: { ...input.query, tribe } };
   const resolved = await pageModule.page.resolveOwnRequestTribe({ requestId, admissionRequestId: input.params.requestId });
-  return resolved.ok ? { ...input, query: { ...input.query, tribe: resolved.value } } : { code: resolved.failure.code, returnPath: `${ADMISSION_NAVIGATION.publicPrefix}/${ADMISSION_NAVIGATION.requestSegment}/${encodeURIComponent(input.params.requestId)}` };
+  return resolved.ok ? { ...input, query: { ...input.query, tribe: resolved.value } } : { failure: resolved.failure, returnPath: `${ADMISSION_NAVIGATION.publicPrefix}/${ADMISSION_NAVIGATION.requestSegment}/${encodeURIComponent(input.params.requestId)}` };
 }
-/** @param input - Untrusted resolved route params/query and fixed server page kind. @param open - Native read-only framework composition. @returns Safe SSR state, with no internal diagnostics or membership prerequisite. */
-export async function loadAdmissionPageState(input: unknown, open: () => Promise<PageModule>): Promise<AdmissionPageState> {
-  const failed = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE]): Extract<AdmissionPageState, { kind: "unavailable" }> => ({ kind: "unavailable", code, message: ADMISSION_ERROR_MESSAGE[code] });
+
+/** @param input - Validated input whose tribe is known. @returns The way back to that tribe entry or to that own request. */
+function readReturnPath(input: ResolvedAdmissionPageInput): string {
+  return input.mode !== "request" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(input.params.slug)}` : buildOwnAdmissionRequestRoute(input.query.tribe, input.params.requestId);
+}
+
+/**
+ * @param input - Untrusted resolved route params/query and fixed server page kind.
+ * @param open - Native read-only framework composition.
+ * @param requestHeaders - Incoming request headers, for native correlation.
+ * @returns Safe SSR state, with no internal diagnostics or membership prerequisite; every failure is logged with its cause chain.
+ */
+export async function loadAdmissionPageState(input: unknown, open: () => Promise<PageModule>, requestHeaders?: Pick<Headers, "get">): Promise<AdmissionPageState> {
   const parsed = admissionPageInputSchema.safeParse(input);
-  if (!parsed.success) return failed(ADMISSION_ERROR_CODE.invalidInput);
-  const context = resolveRequestContext(new Headers());
-  try {
-    const pageModule = await open();
-    const pageInput = await resolveRequestTribe(parsed.data, pageModule, context.requestId);
-    if ("code" in pageInput) return { ...failed(pageInput.code), returnPath: pageInput.returnPath };
-    const returnPath = pageInput.mode !== "request" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(pageInput.params.slug)}` : buildOwnAdmissionRequestRoute(pageInput.query.tribe, pageInput.params.requestId);
-    const query = pageInput.mode !== "request" ? { slug: pageInput.params.slug, requestId: context.requestId, ...(pageInput.mode === "legacy" ? { legacyInvitationToken: pageInput.params.token } : {}) } : { slug: pageInput.query.tribe, admissionRequestId: pageInput.params.requestId, requestId: context.requestId };
-    const loaded = await pageModule.page.execute(query);
-    if (!loaded.ok) {
-      if (loaded.failure.code === ADMISSION_ERROR_CODE.unexpectedFailure || loaded.failure.code === ADMISSION_ERROR_CODE.publicContractUnusable) createServerLogger({ feature: "academy-admissions", operation: "load_admission_page", ...context }).error({ message: "Admission page application read failed", metadata: { code: loaded.failure.code } });
-      return { ...failed(loaded.failure.code), returnPath };
-    }
-    const result = admissionPageStateSchema.safeParse(loaded.value);
-    if (result.success) return result.data;
-    throw new Error("Admission page returned an unusable own state");
-  } catch {
-    createServerLogger({ feature: "academy-admissions", operation: "load_admission_page", ...context }).error({ message: "Admission page could not load safe state", metadata: { code: ADMISSION_ERROR_CODE.unexpectedFailure } });
-    return failed(ADMISSION_ERROR_CODE.unexpectedFailure);
-  }
+  if (!parsed.success) return unavailableAdmissionPage(ADMISSION_ERROR_CODE.invalidInput);
+  const diagnostics = createAdmissionPageDiagnostics(ADMISSION_PAGE_DIAGNOSTIC.operation, requestHeaders, { metadata: { mode: parsed.data.mode } });
+  const requestId = diagnostics.context.requestId;
+  /** Set once the address names its tribe (or the own request link that resolves it), so a failure keeps the way back. */
+  const way: { returnPath: string | null } = { returnPath: null };
+  const state = await loadAdmissionPageRead({
+    diagnostics, stateSchema: admissionPageStateSchema, messages: ADMISSION_PAGE_DIAGNOSTIC,
+    read: async () => {
+      const pageModule = await open();
+      const pageInput = await resolveRequestTribe(parsed.data, pageModule, requestId);
+      if ("failure" in pageInput) { way.returnPath = pageInput.returnPath; return { ok: false as const, failure: pageInput.failure }; }
+      way.returnPath = readReturnPath(pageInput);
+      const query = pageInput.mode !== "request" ? { slug: pageInput.params.slug, requestId, ...(pageInput.mode === "legacy" ? { legacyInvitationToken: pageInput.params.token } : {}) } : { slug: pageInput.query.tribe, admissionRequestId: pageInput.params.requestId, requestId };
+      return pageModule.page.execute(query);
+    },
+  });
+  return state.kind === "unavailable" && way.returnPath !== null ? { ...state, returnPath: way.returnPath } : state;
 }

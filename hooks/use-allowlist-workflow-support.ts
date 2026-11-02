@@ -1,5 +1,6 @@
 /** Pure decisions of the allowlist workflow, kept apart so each hook step stays readable. @module use-allowlist-workflow-support */
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
 import type { WriteToast } from "@/lib/toasts/write-toast";
 import type { AllowlistPageState, AllowlistBrowserQuery } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
 import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
@@ -10,7 +11,7 @@ import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/doma
 import { normalizeAllowlistDisplayName } from "@/src/modules/academy-admissions/domain/value-objects/allowlist-display-name";
 import { ALLOWLIST_BROWSER_PHASE as PHASE, ALLOWLIST_BROWSER_COPY as COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { allowlistMutationResultSchema } from "@/src/modules/academy-admissions/application/results/allowlist-mutation-schemas";
 
@@ -97,7 +98,7 @@ export type AllowlistSettledRun = { next: AbortController; scope: number; notice
 function reportSettledAllowlistRun(refs: AllowlistRunRefs, settled: AllowlistSettledRun): void {
   const { next, fail, setErrorMessage, setPhase } = settled;
   if (next.signal.aborted && refs.currentPendingRef.current) { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); }
-  else if (next.signal.aborted) { fail(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); }
+  else if (next.signal.aborted) { fail(BROWSER_REQUEST_TIMEOUT_MESSAGE); setPhase(PHASE.idle); }
   else setPhase((current) => current === PHASE.changedViewer || current === PHASE.uncertain ? current : PHASE.idle);
 }
 

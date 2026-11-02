@@ -11,6 +11,7 @@ import { ADMISSION_ACTIVITY_PAGE_KIND } from "../../constants/admission-activity
 import { ADMISSION_ACTIVITY_QUERY } from "../../constants/admission-activity";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { admissionFailure } from "../results/admission-errors";
+import { ownAdmissionSnapshot } from "../results/own-admission-snapshot";
 
 /** The same native account is shared by each independently authorized existing owner. */
 export class GetAdmissionActivityPageUseCase {
@@ -31,6 +32,7 @@ export class GetAdmissionActivityPageUseCase {
       const currentUsage = await this.readers.usage.read(scope);
       if (!currentUsage.ok) {
         const code = Object.values(ADMISSION_ERROR_CODE).find((candidate) => candidate === currentUsage.failure.code) ?? ADMISSION_ERROR_CODE.unexpectedFailure;
+        // The usage failure is a plain result: its code and its own cause chain are what diagnostics can summarize.
         return { ok: false as const, failure: admissionFailure(code, { cause: currentUsage.failure }) };
       }
       const metrics = await this.readers.observations.metrics(scope);
@@ -39,7 +41,7 @@ export class GetAdmissionActivityPageUseCase {
       if (!activity.ok) return activity;
       const { current, now } = await confirmSameAdmissionAccount(this.accounts, first, this.clock);
       const cursor = query.filters.cursor;
-      return { ok: true as const, value: admissionActivityReadyPageStateSchema.parse({
+      return ownAdmissionSnapshot(admissionActivityReadyPageStateSchema, {
         kind: ADMISSION_ACTIVITY_PAGE_KIND.ready, slug: query.slug, tribeId: scope.tribeId, viewerId: current.userId, renderedAt: now.toISOString(),
         selection: { limit: query.filters.limit,
           ...(query.filters.resourceType ? { resourceType: query.filters.resourceType } : {}),
@@ -47,7 +49,7 @@ export class GetAdmissionActivityPageUseCase {
           ...(cursor ? { cursor: `${cursor.at}${ADMISSION_ACTIVITY_QUERY.cursorSeparator}${cursor.id}` } : {}),
         },
         activity: activity.value, metrics: metrics.value, currentUsage: currentUsage.value,
-      }) };
+      });
     });
   }
 }

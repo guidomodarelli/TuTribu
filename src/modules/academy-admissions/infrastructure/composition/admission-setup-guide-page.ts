@@ -35,15 +35,16 @@ export type AdmissionSetupGuideState = { slug: string; progress: AdmissionSetupP
  *
  * @param input - Unvalidated route params and query, validated by each loader.
  * @param open - Openers of the rules, notifications and messaging page use cases.
+ * @param requestHeaders - Incoming request headers, so each loader logs with the native correlation.
  * @returns The derived guide, or `null` for any viewer that is not the current leader.
  */
-export async function loadAdmissionSetupGuideState(input: unknown, open: AdmissionSetupGuideOpeners): Promise<AdmissionSetupGuideState> {
+export async function loadAdmissionSetupGuideState(input: unknown, open: AdmissionSetupGuideOpeners, requestHeaders?: Pick<Headers, "get">): Promise<AdmissionSetupGuideState> {
   const routeInput = readRouteInput(input);
   const [policyState, notificationState, messagingState, preflight] = await Promise.all([
-    loadAdmissionPolicyPageState(input, open.policy),
-    loadAdmissionNotificationSettingsPageState(input, open.notifications),
-    loadMessagingConnectionsPageState(input, open.messaging),
-    open.preflight && routeInput ? loadAdmissionPreflightState(routeInput, open.preflight) : Promise.resolve(null),
+    loadAdmissionPolicyPageState(input, open.policy, requestHeaders),
+    loadAdmissionNotificationSettingsPageState(input, open.notifications, requestHeaders),
+    loadMessagingConnectionsPageState(input, open.messaging, requestHeaders),
+    open.preflight && routeInput ? loadAdmissionPreflightState(routeInput, open.preflight, requestHeaders) : Promise.resolve(null),
   ]);
   if (policyState.kind !== "ready") return null;
   const messaging = readMessagingFacts(messagingState);

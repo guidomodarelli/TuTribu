@@ -3,14 +3,16 @@
 import { usePersonalInvitationManagement } from "@/hooks/use-personal-invitation-management";
 import { InvitationManagement } from "@/components/academy-admissions/invitation-management";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import type { PersonalInvitationManagementPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_PHASE as PHASE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 
 /** @param props - Safe current SSR snapshot and optional owned browser edges. @returns A viewer-scoped workflow without automatic writes or ordinary route refresh. */
 export function InvitationsContainer({ initialState, client }: { initialState: PersonalInvitationManagementPageState; client?: PersonalInvitationManagementBrowserClient }) {
-  const workflow = usePersonalInvitationManagement({ initialState, client });
-  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+  const workflow = usePersonalInvitationManagement({ initialState, client }), location = useAdmissionRouteLocation();
+  if (initialState.kind === "unavailable") return <AdmissionRouteError embedded message={initialState.message} {...resolveAdmissionRouteRecovery(initialState.code, location)} />;
   // Losing the account or the tribe authority closes the private view; a fresh document is the way back.
   if (workflow.phase === PHASE.closed) return <AdmissionRouteError embedded message={workflow.errorMessage ?? COPY.account} retry={() => window.location.reload()} />;
   if (!workflow.state || !workflow.draft) return null;

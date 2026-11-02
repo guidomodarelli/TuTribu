@@ -22,10 +22,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native block ledge
       const schema = z.strictObject({ confirmedRows: z.int().nonnegative() }), authorize = async (transaction: Parameters<Parameters<typeof database.withContext>[1]>[0]) => { await authorizeAdmissionLeader(transaction, context, { action: "manage_allowlist", resourceId: importId, operation: REAUTHENTICATION_OPERATION.confirmAllowlistImport }); return true; };
       const repository = new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), authorize, async () => fixture.config);
       let failSecond = true;
-      const work = async (transaction: Parameters<typeof authorize>[0]) => {
+      // Each confirmed row names the original operation that committed it, as the native import writer does.
+      const work = async (transaction: Parameters<typeof authorize>[0], ledgerId: string) => {
         const next = (await transaction.execute<{ row_number: number }>(sql`select row_number from public.academy_allowlist_import_rows where import_id=${importId} and outcome is null order by row_number limit 1 for update`)).rows[0];
         if (!next) return { completed: true as const, result: { confirmedRows: 3 } };
-        await transaction.execute(sql`update public.academy_allowlist_import_rows set outcome='skipped',committed_at=clock_timestamp() where import_id=${importId} and row_number=${next.row_number}`);
+        await transaction.execute(sql`update public.academy_allowlist_import_rows set outcome='skipped',confirmed_operation_id=${ledgerId},committed_at=clock_timestamp() where import_id=${importId} and row_number=${next.row_number}`);
         if (next.row_number === 2 && failSecond) { failSecond = false; throw new Error("Controlled second block rollback"); }
         return { completed: false as const };
       };

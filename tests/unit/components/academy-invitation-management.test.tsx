@@ -13,6 +13,7 @@ import { PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } fro
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { readPersonalInvitationManagementReference } from "@/lib/academy-admissions/personal-invitation-management-intent";
 import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 
 const CONFIRMATION = "Confirmo esta acción sobre la invitación personal.";
 
@@ -182,6 +183,25 @@ describe("personal invitation management controls", () => {
     expect(await screen.findByLabelText("Correo destinatario")).toHaveValue("");
     await user.click(screen.getByRole("button", { name: "Ocultar enlace" }));
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
+  });
+
+  it("should show a one-time link the server bound to this leader even when the session check after the write cannot be read", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "ready", value: { id: data.initial.viewerId } }).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar tu sesión.", uncertain: false });
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.account)).not.toBeInTheDocument();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+  });
+
+  it("should keep the private view and explain a session that cannot be read before an action, without closing it", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar tu sesión.", uncertain: false });
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByText(BROWSER_SESSION_CHECK_MESSAGE)).toBeVisible();
+    expect(data.client.write).not.toHaveBeenCalled();
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.account)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir invitación" })).toBeInTheDocument();
   });
 
   it("should keep the one-time link and its feedback when the leader returns to the window with the same account", async () => {

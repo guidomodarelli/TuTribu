@@ -1,4 +1,5 @@
 /** Loads early usage through one native server entrypoint inside this leaf's runtime boundary. @module admission-messaging-settings-page */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { createMessagingUsageRequestModule } from "@/src/modules/setup";
 import { loadMessagingUsagePageState } from "@/src/modules/messaging/infrastructure/composition/messaging-usage-page";
@@ -11,9 +12,9 @@ import { ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/co
 
 /** @param props - Runtime params/query resolved only below the leaf Suspense. @returns Current own usage and deterministic localized choices, without a loopback read or initialization. */
 async function MessagingContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [route, rawQuery] = await Promise.all([params, searchParams]);
+  const [route, rawQuery, requestHeaders] = await Promise.all([params, searchParams, headers()]);
   const { navigation, query } = readAdmissionSettingsNavigation(rawQuery);
-  const state = await loadMessagingUsagePageState({ params: route, query }, async () => (await createMessagingUsageRequestModule()).createPage());
+  const state = await loadMessagingUsagePageState({ params: route, query }, async () => (await createMessagingUsageRequestModule()).createPage(), requestHeaders);
   const key = state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code;
   /** Only the allowlisted return from the rules review adds the way back; it never carries a free URL. */
   const links = navigation.returnTo && state.kind === "ready" ? [{ href: admissionPolicyStepHref(state.slug, ADMISSION_POLICY_ENTRY_STEP.review), label: ADMISSION_POLICY_DRAFT_COPY.returnToRules }] : [];

@@ -41,8 +41,8 @@ export const ADMISSION_METRIC_PHASE_LABELS = {
 export const ADMISSION_METRIC_RUN_LABELS = { messaging_dispatch: "Despacho de mensajes", admission_expiration: "Vencimiento de solicitudes", admission_retention: "Conservación de admisión", notification_materialization: "Preparación de avisos internos" } as const satisfies Record<AdmissionMetricRunOperation, string>;
 /** Native selects require a nonempty value for the explicit unfiltered option. */
 export const ADMISSION_ACTIVITY_FILTER_ALL = "all";
-/** Standard private-history display values retain explicit absence and system actors. */
-export const ADMISSION_OBSERVATION_COPY = { noData: "Sin datos registrados", noVersion: "Sin versión registrada", systemActor: "Sistema", yes: "Sí", no: "No", absent: "No registrado" } as const;
+/** Standard private-history display values retain explicit absence. */
+export const ADMISSION_OBSERVATION_COPY = { noData: "Sin datos registrados", noVersion: "Sin versión registrada", yes: "Sí", no: "No", absent: "No registrado" } as const;
 
 /** Detail labels cover only the existing own activity contract, preserving technical reference values. */
 export const ADMISSION_ACTIVITY_CHANGE_LABELS = {

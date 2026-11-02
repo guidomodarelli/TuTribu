@@ -27,6 +27,7 @@ import { isSelectableAllowlistImportRow, listSelectableAllowlistImportRows } fro
 import { closeAllowlistImportScope, hasImportOriginals, interruptedActionMessage, isBlockingImportFailure, isUnusableImportConfirmation, readDiscardablePreviewId, readRetryableOriginal, readUsableWriteResult, releaseAllowlistImportRun, requireReadyScope, unusableImportMessage } from "@/hooks/use-allowlist-import-workflow-support";
 import { readAdmissionPlatformRequirement } from "@/src/modules/academy-admissions/application/results/admission-platform-requirement";
 import { PLATFORM_SECURITY_NOTICE_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 
 type AllowlistImportWorkflowOptions = { initialState: AllowlistImportPageState; client?: AllowlistImportBrowserClient; drafts?: AllowlistImportDraftStore };
 type OriginalValue = { operationId: string; state: "started" | "completed"; result?: unknown };
@@ -82,7 +83,7 @@ function useAllowlistImportReads(state: AllowlistImportState) {
     setErrorMessage(null); writeToastRef.current.announce({ kind: "error", message });
   }, [setErrorMessage, writeToastRef]);
   /** @param signal - Current cancellable action. @param scope - Render generation. @returns Current native identity; stale data can never replace a new account's view. */
-  const authorize = useCallback((signal: AbortSignal, scope: number) => authorizeInitialViewer({ client, initial, live, onViewerChanged: () => { authorityLostRef.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); } }, signal, scope), [authorityLostRef, client, initial, live, setAccessLost, setConfirmed, setErrorMessage, setPrivateVisible, setReady]);
+  const authorize = useCallback((signal: AbortSignal, scope: number) => authorizeInitialViewer({ client, initial, live, onViewerChanged: () => { authorityLostRef.current = true; setAccessLost(true); setPrivateVisible(false); setReady(false); setConfirmed(false); setErrorMessage(COPY.account); }, onViewerUnavailable: () => setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE) }, signal, scope), [authorityLostRef, client, initial, live, setAccessLost, setConfirmed, setErrorMessage, setPrivateVisible, setReady]);
   /** Drops the saved resource the server no longer has, unless an original still needs it: then the leader may close the import explicitly. */
   const forgetUnavailableImport = useCallback(() => {
     snapshotRef.current = null; setSnapshot(null);
@@ -278,18 +279,27 @@ function useAllowlistImportRecovery(state: AllowlistImportState, reads: Allowlis
   return { readOriginal, readCurrent, recheckPlatform, discardOriginal, retryOriginal, closeUnusableImport };
 }
 
+/**
+ * @param state - Liveness, authority lock and the initialization flag. @param signal - Hydration lifetime. @param scope - Render generation.
+ * A session that could not be read keeps the import closed but retryable; a changed account already locked it, so it stays locked.
+ */
+function markRetryableInitialization(state: Pick<AllowlistImportState, "live" | "authorityLostRef" | "setInitializationFailed">, signal: AbortSignal, scope: number): void {
+  if (state.live(signal, scope) && !state.authorityLostRef.current) state.setInitializationFailed(true);
+}
+
 /** @param state - Workflow state. @param reads - Identity and current reads. Restores the stored draft once per scope without dispatching any write. */
 function useAllowlistImportHydration(state: AllowlistImportState, reads: AllowlistImportReads) {
   const { initial, drafts, initializationRevision, activeRef, generationRef, downloadCleanupRef, controllerRef, occupiedRef, currentRef, authorityLostRef, live, setStored, setStep, setInitializationFailed, setReady, setErrorMessage, setConfirmed, setStatusMessage } = state;
   const { authorize, fetchCurrent } = reads;
   useEffect(() => {
     activeRef.current = true; generationRef.current += 1; const scope = generationRef.current, hydration = new AbortController(), cleanupDownloads = downloadCleanupRef.current;
-    const timeout = window.setTimeout(() => { hydration.abort(); if (activeRef.current && generationRef.current === scope) { setInitializationFailed(true); setReady(false); setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); } }, ALLOWLIST_BROWSER_TIMEOUT_MS);
+    const timeout = window.setTimeout(() => { hydration.abort(); if (activeRef.current && generationRef.current === scope) { setInitializationFailed(true); setReady(false); setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE); } }, ALLOWLIST_BROWSER_TIMEOUT_MS);
     queueMicrotask(() => { void (async () => {
       setInitializationFailed(false); setReady(false); setErrorMessage(null);
-      if (!initial || !await authorize(hydration.signal, scope)) return;
+      // A session that could not be read, before or after restoring the draft, keeps the view closed but retryable; a changed account already locked it.
+      if (!initial || !await authorize(hydration.signal, scope)) { markRetryableInitialization({ live, authorityLostRef, setInitializationFailed }, hydration.signal, scope); return; }
       const restored = await readAllowlistImport(initial.viewerId, initial.slug, { storage: window.sessionStorage, files: drafts, signal: hydration.signal });
-      if (!live(hydration.signal, scope) || !await authorize(hydration.signal, scope)) return;
+      if (!live(hydration.signal, scope) || !await authorize(hydration.signal, scope)) { markRetryableInitialization({ live, authorityLostRef, setInitializationFailed }, hydration.signal, scope); return; }
       if (restored) { currentRef.current = restored; setStored(restored); if (restored.importId && await fetchCurrent(restored.importId, hydration.signal, scope)) setStep(currentRef.current.selection.length ? ALLOWLIST_IMPORT_STEP.confirm : ALLOWLIST_IMPORT_STEP.review); }
       if (live(hydration.signal, scope) && !authorityLostRef.current) { setReady(true); setConfirmed(false); if (restored?.pending) setErrorMessage(COPY.uncertain); else if (restored && !restored.draft) setStatusMessage(COPY.missingDraft); }
     })().catch(() => { if (live(hydration.signal, scope)) { setInitializationFailed(true); setErrorMessage(COPY.storage); } }).finally(() => window.clearTimeout(timeout)); });

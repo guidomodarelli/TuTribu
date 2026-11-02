@@ -1,6 +1,7 @@
 "use client";
 /** Owns account-bound personal confirmation and original reference recovery without automatic writes. @module use-personal-invitation */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import { personalInvitationApiClient } from "@/lib/academy-admissions/personal-invitation-api-client";
@@ -136,7 +137,7 @@ function usePersonalInvitationRecovery(workflow: PersonalInvitationState, core: 
       if (await authorize(request.signal) && live(request.signal)) setReady(true);
       if (!pendingRef.current && live(request.signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
     }
-    catch { if (live(request.signal)) setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); }
+    catch { if (live(request.signal)) setErrorMessage(BROWSER_REQUEST_TRANSPORT_MESSAGE); }
     finally { window.clearTimeout(deadline); settlePersonalRequest({ controllerRef, busyRef, activeRef, pendingRef }, { request, runningPhase: PERSONAL_INVITATION_UI_PHASE.reading, abortedMessage: interruptedObservationMessage, setPhase, setErrorMessage }); }
   }, [activeRef, authorize, busyRef, controllerRef, currentRef, live, pendingRef, recover, refresh, restoreReference, scopeRef, setConfirmed, setErrorMessage, setFeedback, setPhase, setReady]);
   return { recover, observe };
@@ -232,8 +233,8 @@ function usePersonalInvitationActions(workflow: PersonalInvitationState, core: P
       const result = await client.changeAccount(request.signal);
       if (!live(request.signal)) return false;
       if (result.status === "ready") { setReady(false); return true; }
-      setErrorMessage(result.status === "failed" ? result.message : ADMISSION_ERROR_MESSAGE.dependency_unavailable); return false;
-    } catch { if (live(request.signal)) setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); return false; }
+      setErrorMessage(result.status === "failed" ? result.message : BROWSER_REQUEST_TRANSPORT_MESSAGE); return false;
+    } catch { if (live(request.signal)) setErrorMessage(BROWSER_REQUEST_TRANSPORT_MESSAGE); return false; }
     finally { window.clearTimeout(deadline); if (controllerRef.current === request) { busyRef.current = false; controllerRef.current = null; if (activeRef.current) setPhase(PERSONAL_INVITATION_UI_PHASE.idle); } }
   }, [activeRef, busyRef, client, controllerRef, live, setConfirmed, setErrorMessage, setPhase, setReady]);
   const changeConfirmation = useCallback((value: boolean) => { setConfirmed(value); setErrorMessage(null); setFeedback(null); }, [setConfirmed, setErrorMessage, setFeedback]);

@@ -7,7 +7,8 @@ import { loadAdmissionPageState } from "@/src/modules/academy-admissions/infrast
 import { admissionNotificationPath } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-path";
 import type { AdmissionOverviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { admissionReadErrorMessage } from "@/src/modules/academy-admissions/constants/admission-read-errors";
 
 /** Supplies explicit account/query ports without database or SDK replacement. */
 function pageFixture() {
@@ -83,7 +84,7 @@ describe("admission page state", () => {
     expect(open).not.toHaveBeenCalled();
     const requestId = randomUUID();
     const state = await loadAdmissionPageState({ params: { requestId }, query: { tribe: "synthetic-academy" }, mode: "request" }, async () => ({ page: { execute: async () => ({ ok: false, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic private auth payload") } }), resolveOwnRequestTribe: unusedTribeResolution } }));
-    expect(state).toEqual({ kind: "unavailable", code: "authentication_required", message: ADMISSION_ERROR_MESSAGE.authentication_required, returnPath: `/admissions/requests/${requestId}?tribe=synthetic-academy` });
+    expect(state).toEqual({ kind: "unavailable", code: "authentication_required", message: admissionReadErrorMessage(ADMISSION_ERROR_CODE.authenticationRequired), returnPath: `/admissions/requests/${requestId}?tribe=synthetic-academy` });
     expect(JSON.stringify(state)).not.toContain("Synthetic private auth payload");
   });
 
@@ -102,7 +103,7 @@ describe("admission page state", () => {
     expect(await loadAdmissionPageState({ params: { requestId }, query: {}, mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe } }))).toMatchObject({ returnPath: `/admissions/requests/${requestId}?tribe=resolved-academy` });
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ slug: "resolved-academy", admissionRequestId: requestId }));
     const signedOut = vi.fn(async () => ({ ok: false as const, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired, cause: new Error("Synthetic") } }));
-    expect(await loadAdmissionPageState({ params: { requestId }, query: {}, mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe: signedOut } }))).toEqual({ kind: "unavailable", code: "authentication_required", message: ADMISSION_ERROR_MESSAGE.authentication_required, returnPath: `/admissions/requests/${requestId}` });
+    expect(await loadAdmissionPageState({ params: { requestId }, query: {}, mode: "request" }, async () => ({ page: { execute, resolveOwnRequestTribe: signedOut } }))).toEqual({ kind: "unavailable", code: "authentication_required", message: admissionReadErrorMessage(ADMISSION_ERROR_CODE.authenticationRequired), returnPath: `/admissions/requests/${requestId}` });
     expect(execute).toHaveBeenCalledOnce();
   });
 

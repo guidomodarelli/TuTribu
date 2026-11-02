@@ -18,6 +18,7 @@ export type AdmissionMetricsResult = z.infer<typeof admissionMetricsResultSchema
  */
 export function parseAdmissionMetricsResult(value: unknown, expectedTribeId: string): AdmissionMetricsResult {
   const parsed = admissionMetricsResultSchema.safeParse(value);
-  if (!parsed.success || parsed.data.tribeId !== expectedTribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: parsed.error });
+  if (parsed.data.tribeId !== expectedTribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   return parsed.data;
 }

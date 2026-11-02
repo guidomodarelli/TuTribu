@@ -1,5 +1,6 @@
 "use client";
 /** Uses native global auth and same-origin own usage DTOs without hidden retries. @module messaging-usage-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE, BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import type { z } from "zod";
 import { createAuthClient } from "better-auth/client";
 import type { MessagingUsageBrowserClient, MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
@@ -18,8 +19,9 @@ type SessionRead = { data: { user: { id: string } } | null; error: { status: num
 /** Optional write of an own usage request: the original input and its method (POST by default). */
 type UsageWrite = { input?: object; method?: "POST" | "PUT" };
 
-function failure(code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false): MessagingUsageBrowserResult<never> {
-  return { status: "failed", code, message: MESSAGING_ERROR_MESSAGE[code], uncertain };
+/** @param message - Browser-owned copy for a failure that never reached an own route (session, network); the catalogue copy otherwise. */
+function failure(code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false, message: string = MESSAGING_ERROR_MESSAGE[code]): MessagingUsageBrowserResult<never> {
+  return { status: "failed", code, message, uncertain };
 }
 
 /**
@@ -34,9 +36,9 @@ export function createSessionViewer(getSession: (signal: AbortSignal) => Promise
       try {
         const result = await getSession(signal);
         if (signal.aborted) return { status: "aborted" };
-        if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable);
+        if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, false, BROWSER_SESSION_CHECK_MESSAGE);
         return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
-      } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable); }
+      } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, false, BROWSER_SESSION_CHECK_MESSAGE); }
     }, () => failure(MESSAGING_ERROR_CODE.transportTimeout));
   };
 }
@@ -62,14 +64,16 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
     const writing = input !== undefined;
     try {
       const response = await transport(path, { method: writing ? method : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(input) } : {}) });
-      const value: unknown = await response.json();
+      let value: unknown;
+      // A reply without own JSON (an edge HTML 502/504) is not the route's contract: a write may still have committed behind it.
+      try { value = await response.json(); } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.publicContractUnusable, writing); }
       if (signal.aborted) return { status: "aborted" };
       const publicFailure = messagingPublicErrorSchema.safeParse(value);
       if (publicFailure.success) return failure(publicFailure.data.code, writing && (response.status >= HTTP_STATUS.serverError || publicFailure.data.operation !== undefined));
       if (!response.ok) return failure(MESSAGING_ERROR_CODE.publicContractUnusable, writing);
       const parsed = schema.safeParse(value);
       return parsed.success ? { status: "ready", value: parsed.data } : failure(MESSAGING_ERROR_CODE.publicContractUnusable, writing);
-    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, writing); }
+    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, writing, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
   }
   /** Current version is not inferred from an original replay; only its own UUID/counter relationship is confirmed. */
   async function write(slug: string, input: { operationId: string; confirmed: true; expectedVersion?: number }, signal: AbortSignal, method: "POST" | "PUT") {

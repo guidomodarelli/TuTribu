@@ -1,5 +1,6 @@
 "use client";
 /** Consumes guarded own import resources without implicit writes. @module allowlist-import-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-import-browser-client";
 import { allowlistImportSchema } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { admissionPolicyStateResultSchema } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
@@ -46,7 +47,7 @@ export function createAllowlistImportApiClient(options: { fetch?: typeof fetch; 
         if (response.headers.get("content-type") !== "text/csv; charset=utf-8" || response.headers.get("x-content-type-options") !== "nosniff" || response.headers.get("cache-control") !== "no-store" || !response.headers.get("content-disposition")?.startsWith("attachment;")) return failure(ADMISSION_ERROR_CODE.publicContractUnusable);
         const blob = await response.blob();
         return signal.aborted ? { status: "aborted" } : { status: "ready", value: { blob, fileName: ALLOWLIST_IMPORT_FILE_NAME[kind] } };
-      } catch { return signal.aborted ? { status: "aborted" } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+      } catch { return signal.aborted ? { status: "aborted" } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, false, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
     },
   };
 }

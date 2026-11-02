@@ -7,10 +7,14 @@ import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode 
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
-import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE, BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 
-/** @param code - Own catalog code. @param uncertain - A write reply does not prove its final effect. @returns Safe Spanish feedback only. */
-export function admissionManagementBrowserFailure(code: AdmissionErrorCode, uncertain = false): ManagementBrowserResult<never> { return { status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain }; }
+/**
+ * @param code - Own catalog code. @param uncertain - A write reply does not prove its final effect.
+ * @param message - Browser-owned copy for a failure that never reached an own route; the catalogue copy otherwise.
+ * @returns Safe Spanish feedback only.
+ */
+export function admissionManagementBrowserFailure(code: AdmissionErrorCode, uncertain = false, message: string = ADMISSION_ERROR_MESSAGE[code]): ManagementBrowserResult<never> { return { status: "failed", code, message, uncertain }; }
 /**
  * A response without the own JSON contract was answered by the hosting edge, not by the route. A client error there (a body over the
  * platform limit, a malformed request) proves the route never ran, so even a write is definitive; a request timeout or a server error
@@ -54,7 +58,7 @@ export function createAdmissionManagementBrowserTransport(transport: typeof fetc
       if (signal.aborted) return { status: "aborted" };
       const parsed = schema.safeParse(value);
       return parsed.success ? { status: "ready", value: parsed.data } : admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
-    } catch { return signal.aborted ? { status: "aborted" } : admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.dependencyUnavailable, writing); }
+    } catch { return signal.aborted ? { status: "aborted" } : admissionManagementBrowserFailure(ADMISSION_ERROR_CODE.dependencyUnavailable, writing, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
   }
   return { json, rejected, timedOut };
 }

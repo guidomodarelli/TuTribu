@@ -1,4 +1,5 @@
 /** Composes a historical arrival through the same read-only common admission owner. @module legacy-admission-page */
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { createAdmissionRequestModules } from "@/src/modules/setup";
@@ -11,8 +12,8 @@ export const metadata: Metadata = { title: "Solicitud de ingreso", referrer: "no
 
 /** @param props - Native unresolved route input. @returns Current account/policy state; GET creates no request, code, payment or membership. */
 async function LegacyAdmissionContent({ params, searchParams }: { params: Promise<{ slug: string; token: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [resolvedParams, query] = await Promise.all([params, searchParams]);
-  const state = await loadAdmissionPageState({ params: resolvedParams, query, mode: "legacy" }, async () => ({ page: (await createAdmissionRequestModules()).queries.page }));
+  const [resolvedParams, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadAdmissionPageState({ params: resolvedParams, query, mode: "legacy" }, async () => ({ page: (await createAdmissionRequestModules()).queries.page }), requestHeaders);
   return <LegacyAdmissionContainer initialState={state} />;
 }
 

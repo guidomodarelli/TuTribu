@@ -2,9 +2,10 @@
 import { z } from "zod";
 import type { AdmissionReviewHistoryPageState } from "../application/results/admission-review-history-page-state";
 import type { AdmissionReviewHistoryActorKind, AdmissionReviewHistoryEventKind } from "../domain/entities/admission-review-history-event";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "./admission-errors";
+import { ADMISSION_ERROR_CODE } from "./admission-errors";
 import { admissionReviewHistoryPageSchema } from "./admission-review-history-schemas";
 import { admissionReviewSelectionSchema } from "./admission-review-selection";
+import { admissionReadErrorMessage } from "@/src/modules/academy-admissions/constants/admission-read-errors";
 
 /** History continuation is independent of the inbox selection retained only for return navigation. */
 export const ADMISSION_REVIEW_HISTORY_NAVIGATION = { segment: "history", cursorQuery: "historyCursor" } as const;
@@ -28,5 +29,5 @@ export const ADMISSION_REVIEW_HISTORY_EVENT_LABEL = {
 /** Strict own props reject private additions even when an inward adapter returns an otherwise valid page. */
 export const admissionReviewHistoryPageStateSchema: z.ZodType<AdmissionReviewHistoryPageState> = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ready"), slug: z.string().min(1), viewerId: z.string().min(1), renderedAt: z.iso.datetime({ precision: 3 }), filters: admissionReviewSelectionSchema, page: admissionReviewHistoryPageSchema, hasPrevious: z.boolean() }),
-  z.strictObject({ kind: z.literal("unavailable"), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === ADMISSION_ERROR_MESSAGE[state.code]),
+  z.strictObject({ kind: z.literal("unavailable"), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === admissionReadErrorMessage(state.code)),
 ]);

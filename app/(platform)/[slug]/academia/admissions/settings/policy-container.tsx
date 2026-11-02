@@ -8,6 +8,8 @@ import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/a
 import { createAdmissionPolicyDraft, validateAdmissionPolicyBrowserDraft, type AdmissionPolicyBrowserIntent } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
 import { AdmissionPolicyForm, type AdmissionPolicyActivationBlock, type AdmissionPolicyFailure, admissionPolicyStepIds  } from "@/components/academy-admissions/admission-policy-form";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import { admissionApiClient } from "@/lib/academy-admissions/admission-api-client";
 import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY, ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_STEP, isAdmissionPolicyPlatformReason, type AdmissionPolicyEntryStep  } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
@@ -93,9 +95,9 @@ function initialPolicyStep(savedDraft: boolean, entryStep: AdmissionPolicyEntryS
 /** @param props - Safe SSR state and an optional own transport port. @returns A current account-scoped guided flow that retains draft/UUID through conflict and uncertainty. */
 export function AdmissionPolicyContainer({ client = admissionApiClient, ...props }: PolicyContainerProps) {
   const { initialState } = props, { ready, ...initial } = policyInitialView(props);
-  const flow = usePolicyFlowState({ ready, client, ...initial, initialPreflight: props.initialPreflight });
+  const flow = usePolicyFlowState({ ready, client, ...initial, initialPreflight: props.initialPreflight }), location = useAdmissionRouteLocation();
   const { state, draft, phase, editing, publishing, setPublishing, confirmed, errorMessage, failure, fresh, canRetry, privateVisible, launchRead, controls } = flow;
-  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} {...resolveAdmissionRouteRecovery(initialState.kind === "unavailable" ? initialState.code : null, location)} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible && (phase === PHASE.checking || phase === PHASE.reading)) return <p role="status">{COPY.reading}</p>;
   if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} retry={launchRead} />;

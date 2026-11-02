@@ -21,12 +21,12 @@ function fixture() {
 }
 
 describe("current reviewer SSR snapshot", () => {
-  it("should consume the canonical reviewer notification link and select that exact request", async () => {
+  it("should consume the canonical reviewer notification link and keep the inbox when that request does not exist", async () => {
     const data = fixture(), admissionRequestId = randomUUID();
     const link = new URL(buildAdmissionReviewRoute(data.query.slug, admissionRequestId), "https://tutribu.example.invalid");
     const open = vi.fn(async () => data.page);
     const result = await loadAdmissionReviewPageState({ params: { slug: data.query.slug }, query: Object.fromEntries(link.searchParams) }, open);
-    expect(result).toMatchObject({ kind: "unavailable", code: "resource_unavailable" });
+    expect(result).toMatchObject({ kind: "ready", selected: null, selectionUnavailable: true, page: { items: [] } });
     expect(data.review.detail).toHaveBeenCalledWith(expect.objectContaining({ admissionRequestId }));
   });
 
@@ -44,7 +44,9 @@ describe("current reviewer SSR snapshot", () => {
     const data = fixture();
     data.accounts.getAuthenticatedAccount.mockResolvedValueOnce(data.account).mockResolvedValueOnce({ ...data.account, session: { ...data.account.session, id: randomUUID() } });
     expect(await data.page.execute(data.query)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
-    expect(await data.page.execute({ ...data.query, admissionRequestId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "resource_unavailable" } });
+    expect(await data.page.execute({ ...data.query, admissionRequestId: randomUUID() })).toMatchObject({ ok: true, value: { kind: "ready", selected: null, selectionUnavailable: true } });
+    data.review.detail.mockResolvedValueOnce({ ok: false, failure: { code: "permission_denied" } });
+    expect(await data.page.execute({ ...data.query, admissionRequestId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
   });
 
   it("should reject role/account flags before opening native page composition and map private failure to Spanish", async () => {

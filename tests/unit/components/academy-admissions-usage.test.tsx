@@ -87,11 +87,52 @@ describe("admission usage and historical presentation", () => {
     expect(summary.parentElement).toHaveAttribute("open");
     expect(screen.getByText("Versión histórica").closest("div")).toHaveTextContent("2");
     expect(screen.getByText("Actor").closest("div")).toHaveTextContent(state.viewerId);
-    expect(screen.getByText("Regla aplicada").closest("div")).toHaveTextContent("update_messaging_usage");
+    expect(screen.getByText("Regla aplicada").closest("div")).toHaveTextContent("La operación de este hecho");
     expect(screen.getByText("Cupo diario de códigos").closest("div")).toHaveTextContent("50");
     fireEvent.click(screen.getByRole("button", { name: "Ver actividad anterior" }));
     expect(older).toHaveBeenCalledOnce();
     expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("should label closed historical values in Spanish and attribute a fact without account only when its rule is automatic", () => {
+    const state = createAdmissionActivityPageFixture(), base = state.activity.items[0];
+    const policy = { mode: "manual_review", contactType: "phone", isOpen: true, allowCommonExceptions: false, requiresAdditionalVerification: true, phoneChannel: "whatsapp", allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null } as const;
+    state.activity.items = [
+      { ...base, id: randomUUID(), actorUserId: null, resourceType: "admission_request", eventType: "approved", rule: "manual_review", changes: { fromStatus: "pending", toStatus: "approved", channel: "whatsapp" } },
+      { ...base, id: randomUUID(), actorUserId: null, resourceType: "admission_request", eventType: "expired", rule: "expired", changes: { fromStatus: "pending", toStatus: "expired" } },
+      { ...base, id: randomUUID(), resourceType: "authorized_exposure", eventType: "authorized_resource_exposure", rule: "read_admission_activity", changes: { surface: "activity", resourceKind: "aggregate", itemCount: 3 } },
+      { ...base, id: randomUUID(), actorUserId: null, resourceType: "message_delivery", eventType: "delivery_failed", rule: "rejected", cause: "provider_rejected", changes: { fromState: "queued", toState: "failed", credentialMode: "test" } },
+      { ...base, id: randomUUID(), resourceType: "admission_policy", eventType: "update_admission_policy", rule: "update_admission_policy", changes: { toPolicy: policy } },
+    ];
+    const view = render(<AdmissionActivity page={state.activity} selection={state.selection} draft={createAdmissionActivityFilterDraft(state.selection)} busy={false} validationMessage={null} onChange={vi.fn()} onApply={vi.fn()} onOlder={vi.fn()} />, { wrapper: Providers });
+    const fact = (summary: string) => { const item = screen.getByText(summary, { selector: "span" }).closest("li"); if (!item) throw new Error(`No activity fact for ${summary}`); return item; };
+    const row = (item: HTMLElement, label: string) => within(item).getByText(label, { selector: "dt" }).closest("div");
+
+    const approved = fact("Solicitud aprobada");
+    expect(row(approved, "Actor")).toHaveTextContent("Sin atribución disponible");
+    expect(row(approved, "Regla aplicada")).toHaveTextContent("Revisión manual");
+    expect(row(approved, "Estado anterior")).toHaveTextContent("Pendiente");
+    expect(row(approved, "Estado nuevo")).toHaveTextContent("Aprobada");
+    expect(row(approved, "Canal")).toHaveTextContent("WhatsApp");
+    const expired = fact("Solicitud vencida");
+    expect(row(expired, "Actor")).toHaveTextContent("Sistema");
+    expect(row(expired, "Regla aplicada")).toHaveTextContent("La operación de este hecho");
+    const exposure = fact("Consulta privada autorizada");
+    expect(row(exposure, "Regla aplicada")).toHaveTextContent("Consulta de actividad");
+    expect(row(exposure, "Superficie consultada")).toHaveTextContent("Actividad");
+    expect(row(exposure, "Clase de recurso")).toHaveTextContent("Resumen agregado");
+    expect(row(exposure, "Cantidad de elementos")).toHaveTextContent("3");
+    const delivery = fact("Entrega fallida");
+    expect(row(delivery, "Actor")).toHaveTextContent("Sin atribución disponible");
+    expect(row(delivery, "Regla aplicada")).toHaveTextContent("Rechazo");
+    expect(row(delivery, "Causa registrada")).toHaveTextContent("Rechazada por el proveedor");
+    expect(row(delivery, "Estado nuevo")).toHaveTextContent("Fallida");
+    expect(row(delivery, "Modo de credencial")).toHaveTextContent("Prueba");
+    const policyChange = fact("Cambio de la política de admisión");
+    expect(row(policyChange, "Política nueva · Modo")).toHaveTextContent("Revisión manual");
+    expect(row(policyChange, "Política nueva · Tipo de contacto")).toHaveTextContent("Teléfono");
+    expect(row(policyChange, "Política nueva · Canal telefónico")).toHaveTextContent("WhatsApp");
+    for (const raw of ["manual_review", "provider_rejected", "aggregate", "whatsapp", "pending", "read_admission_activity"]) expect(view.container.textContent.includes(raw)).toBe(false);
   });
 
   it("should render only a guardian operational alert even if leader-only form props are present", () => {

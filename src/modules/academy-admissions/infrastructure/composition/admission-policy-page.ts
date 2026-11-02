@@ -8,11 +8,11 @@ import { loadAdmissionLeaderPageState } from "./admission-page-loading";
 
 /** Browser input cannot supply actor, role, operational readiness or an alternative country owner. */
 const pageInputSchema = z.strictObject({ params: admissionTribeParamsSchema, query: admissionEmptyQuerySchema });
-/** @param input - Untrusted resolved framework input. @param open - Server-selected inward use case. @returns Safe current leader state or a contained Spanish failure. */
-export async function loadAdmissionPolicyPageState(input: unknown, open: () => Promise<Pick<GetAdmissionPolicyPageUseCase, "execute">>): Promise<AdmissionPolicyPageState> {
+/** @param input - Untrusted resolved framework input. @param open - Server-selected inward use case. @param requestHeaders - Incoming request headers, for native correlation. @returns Safe current leader state or a contained Spanish failure. */
+export async function loadAdmissionPolicyPageState(input: unknown, open: () => Promise<Pick<GetAdmissionPolicyPageUseCase, "execute">>, requestHeaders?: Pick<Headers, "get">): Promise<AdmissionPolicyPageState> {
   return loadAdmissionLeaderPageState({
-    input, inputSchema: pageInputSchema, open, stateSchema: admissionPolicyPageStateSchema,
+    input, inputSchema: pageInputSchema, open, stateSchema: admissionPolicyPageStateSchema, requestHeaders,
     read: (page, { params }, requestId) => page.execute({ slug: params.slug, requestId }),
-    diagnostic: { operation: "load_admission_policy_page", readFailed: "Admission policy page read failed", loadFailed: "Admission policy page could not load safe state" },
+    diagnostic: { operation: "load_admission_policy_page", readFailed: "Admission policy page read failed", contractRejected: "Admission policy page returned an unusable own state", loadFailed: "Admission policy page could not load safe state" },
   });
 }

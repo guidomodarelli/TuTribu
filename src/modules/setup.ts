@@ -32,7 +32,6 @@ import { buildMessagingModule, buildMessagingWorkModule, buildAdmissionMessaging
 import { AdmissionMessagingMaintenanceError } from "./messaging/domain/errors/admission-messaging-maintenance-error";
 import type { AdmissionMessagingMaintenanceRuntime } from "./messaging/domain/repositories/admission-messaging-maintenance";
 import { ADMISSION_MESSAGING_MAINTENANCE_LOG, ADMISSION_MESSAGING_MAINTENANCE_REASON } from "./messaging/constants/admission-messaging-maintenance";
-import { MessagingCryptographyError } from "./messaging/infrastructure/encryption/messaging-cryptography-error";
 import {createRegisteredMessagingAdapters} from "./messaging/infrastructure/composition/messaging-provider-adapters";
 import {createAdmissionNotificationResourceAuthority} from "./notifications/infrastructure/messaging/admission-notification-resource-authority";
 import {MESSAGING_AUTHORIZATION_PURPOSE} from "./messaging/constants/messaging-connection";
@@ -45,7 +44,7 @@ import {after} from "next/server";
 import type {RequestContext} from "./shared/infrastructure/observability/request-context";
 import { getMessagingUsageCountryChoices } from "./messaging/infrastructure/composition/messaging-usage-country-choices";
 import { createRequestMessagingMaintenanceAuthorizer } from "./messaging/infrastructure/auth/request-maintenance-authorizer";
-import { createMessagingDispatchReporter } from "./messaging/infrastructure/messaging-observability";
+import { createAdmissionMaintenanceFailureReporter, createMessagingDispatchReporter } from "./messaging/infrastructure/messaging-observability";
 import type { AuthenticatedFeatureDependencies } from "./auth/infrastructure/composition/transaction-account-provider";
 import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
 import { buildProductAccessModule } from "./product-access/setup";
@@ -882,13 +881,6 @@ export async function createMessagingConnectionOperationRequestModule(){
   return{operation:buildMessagingModule(dependencies).createConnectionOperationReadModule().useCases,resolveTribe:routing.resolveTribe};
 }
 
-/** @param error - Failure reported by the maintenance workflow. @returns Closed reason logged for it, never the raw error text. */
-function resolveMaintenanceFailureReason(error: unknown) {
-  if (error instanceof AdmissionMessagingMaintenanceError) return error.reason;
-  if (error instanceof MessagingCryptographyError) return ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable;
-  return ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
-}
-
 /** @param request - Actual native request, never a browser principal or authority flag. @param context - Bounded private correlation selected by the HTTP boundary. @returns The complete workflow after current bearer authorization, with no global provider credential or pre-composition database read. */
 export async function createAdmissionMessagingMaintenanceRequestModule(request: Request, context: RequestContext) {
   const authorize = createRequestMessagingMaintenanceAuthorizer(request);
@@ -899,10 +891,7 @@ export async function createAdmissionMessagingMaintenanceRequestModule(request: 
     now: Date.now,
     createId: () => crypto.randomUUID(),
     defer: (work) => { after(() => work); },
-    report: (error, diagnostic) => {
-      const reason = resolveMaintenanceFailureReason(error);
-      logger.error({ message: ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage, metadata: { operation: diagnostic.operation, reason, ...(diagnostic.runId ? { runId: diagnostic.runId } : {}), ...(diagnostic.phase ? { phase: diagnostic.phase } : {}) } });
-    },
+    report: createAdmissionMaintenanceFailureReporter(logger, ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage),
   };
   return buildAdmissionMessagingMaintenanceModule({
     execute: (actorUserId, work) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, work),

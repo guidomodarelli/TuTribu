@@ -2,12 +2,13 @@
 import { z } from "zod";
 import type { AdmissionPolicyPageState } from "./admission-policy-page-state";
 import { ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "../../constants/admission-errors";
+import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { admissionPlatformRequirementSchema, readAdmissionPlatformRequirement } from "./admission-platform-requirement";
+import { admissionReadErrorMessage } from "@/src/modules/academy-admissions/constants/admission-read-errors";
 
 export const allowlistImportPageStateSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ready"), slug: z.string().min(1), tribeId: z.uuid(), viewerId: z.string().min(1), renderedAt: z.iso.datetime({ offset: true }), contactType: z.enum(ADMISSION_CONTACT_TYPE).nullable(), policyVersion: z.int().positive().nullable(), platformRequirement: admissionPlatformRequirementSchema }).refine((state) => (state.contactType === null) === (state.policyVersion === null)),
-  z.strictObject({ kind: z.literal("unavailable"), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === ADMISSION_ERROR_MESSAGE[state.code]),
+  z.strictObject({ kind: z.literal("unavailable"), code: z.enum(ADMISSION_ERROR_CODE), message: z.string() }).refine((state) => state.message === admissionReadErrorMessage(state.code)),
 ]);
 export type AllowlistImportPageState = z.infer<typeof allowlistImportPageStateSchema>;
 /** @param state - Already authorized and guarded current policy SSR state. @returns Minimum own import props, including the platform requirement that blocks its writes, without native session, connection or usage data. */

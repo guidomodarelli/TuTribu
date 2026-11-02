@@ -28,16 +28,19 @@ export const ADMISSION_UI_COPY = {
   outcomePending: "La solicitud quedó pendiente de revisión.", outcomeMember: "Ya tenés acceso básico a la academia.", openAcademy: "Abrir academia",
   changeAccount: "Cambiar de cuenta", changingAccount: "Cerrando la sesión…",
   retryUnavailable: "Reintentar",
+  /** Leaves a page whose address (filters, selection, extra parameters) caused a deterministic refusal, opening it without its query. */
+  initialView: "Volver a la vista inicial",
 } as const;
 
 /**
- * Page-read failures that can pass on their own (a dependency or the server was briefly unavailable), so reading the
- * page again may show it. A missing session, a permission denial, an invalid link or a missing resource fail the same
- * way on every read and never offer a retry.
+ * Page-read failures that can pass on their own (a dependency or the server was briefly unavailable, or a change landed between
+ * the statements of one read), so reading the page again may show it. A missing session, a permission denial, an invalid link
+ * or a missing resource fail the same way on every read and never offer a retry.
  */
 export const ADMISSION_TRANSIENT_PAGE_ERROR_CODES: readonly AdmissionErrorCode[] = [
   ADMISSION_ERROR_CODE.unexpectedFailure, ADMISSION_ERROR_CODE.publicContractUnusable, ADMISSION_ERROR_CODE.dependencyUnavailable,
   ADMISSION_ERROR_CODE.transportTimeout, ADMISSION_ERROR_CODE.upstreamPayloadUnusable, ADMISSION_ERROR_CODE.providerRateLimited,
+  ADMISSION_ERROR_CODE.policyConflict, ADMISSION_ERROR_CODE.requestConflict,
 ];
 
 /** Where the applicant page shows an error: next to the step, action or field that produced it, or on the page itself. */
