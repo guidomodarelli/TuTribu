@@ -56,7 +56,7 @@ function fixture(platformRequirement: PlatformSecurityRequirement | null, select
 /** Fills the reasons and confirms the open request once the current read made it interactive. */
 async function confirmDecision() {
   await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
-  fireEvent.change(screen.getByLabelText(new RegExp(`^${ADMISSION_REVIEW_UI_COPY.internalReasonRequired}`)), { target: { value: "Revisión manual registrada" } });
+  fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason), { target: { value: "Revisión manual registrada" } });
   fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
 }
 

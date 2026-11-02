@@ -25,11 +25,13 @@ describe("reasoned admission early retry", () => {
     expect(fixture.request.retryAllowedAt).toBeNull();
   });
 
-  it("should deny a guardian, a stale request, missing reason and an already approved request", () => {
+  it("should deny a guardian, a stale request, an overlong reason and an already approved request while a blank reason is allowed", () => {
     const fixture = rejectedRequest(), input = { ...fixture, expectedVersion: 2, internalReason: "Corrección" };
     expect(proposeAdmissionRetry({ ...input, actor: { ...fixture.actor, role: "guardian" } })).toMatchObject({ allowed: false, code: "permission_denied" });
     expect(proposeAdmissionRetry({ ...input, expectedVersion: 1 })).toMatchObject({ allowed: false, code: "request_conflict" });
-    expect(proposeAdmissionRetry({ ...input, internalReason: " " })).toMatchObject({ allowed: false, code: "invalid_input" });
+    expect(proposeAdmissionRetry({ ...input, internalReason: " " })).toMatchObject({ allowed: true, internalReason: null });
+    expect(proposeAdmissionRetry({ ...input, internalReason: null })).toMatchObject({ allowed: true, internalReason: null });
+    expect(proposeAdmissionRetry({ ...input, internalReason: "x".repeat(ADMISSION_LIMIT.internalMessageCharacters + 1) })).toMatchObject({ allowed: false, code: "invalid_input" });
     expect(proposeAdmissionRetry({ ...input, request: { ...fixture.request, status: "approved" } })).toMatchObject({ allowed: false, code: "request_conflict" });
   });
 

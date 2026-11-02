@@ -9,17 +9,18 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 
 /**
  * Changes only the metadata needed for a corrective presentation; abuse controls remain with their owners.
- * @param input - Locked request/current leader, explicit expected version/reason and post-lock clock.
+ * @param input - Locked request/current leader, explicit expected version, optional reason and post-lock clock.
  * @returns A retry proposal, current no-op or safe denial without rewriting source/decision/deadline.
  * @remarks The adapter independently verifies the live leader session before every ledger phase.
  */
-export function proposeAdmissionRetry(input: { request: AdmissionRequest; actor: AdmissionActorFacts; expectedVersion: number; internalReason: string; now: Date }) {
+export function proposeAdmissionRetry(input: { request: AdmissionRequest; actor: AdmissionActorFacts; expectedVersion: number; internalReason: string | null; now: Date }) {
   const deny = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE]) => ({ allowed: false as const, code });
   if (!canPerformAdmissionAction(input.actor, ADMISSION_ACTION.allowEarlyRetry, { tribeId: input.request.tribeId })) return deny(ADMISSION_ERROR_CODE.permissionDenied);
   const request = input.request;
   if (request.version !== input.expectedVersion || request.status !== ADMISSION_REQUEST_STATUS.rejected && request.status !== ADMISSION_REQUEST_STATUS.cancelled && request.status !== ADMISSION_REQUEST_STATUS.expired) return deny(ADMISSION_ERROR_CODE.requestConflict);
-  const reason = input.internalReason.trim();
-  if (!reason || reason.length > ADMISSION_LIMIT.internalMessageCharacters || !Number.isFinite(input.now.getTime()) || input.now < request.submittedAt) return deny(ADMISSION_ERROR_CODE.invalidInput);
+  // The internal reason is optional; an empty or blank one is recorded as none.
+  const reason = input.internalReason?.trim() || null;
+  if (reason && reason.length > ADMISSION_LIMIT.internalMessageCharacters || !Number.isFinite(input.now.getTime()) || input.now < request.submittedAt) return deny(ADMISSION_ERROR_CODE.invalidInput);
   let allowedAt: Date;
   try { allowedAt = getAdmissionRetryAllowedAt(request); }
   catch (error) { if (error instanceof AdmissionOperationError) return deny(error.code); throw error; }

@@ -60,6 +60,7 @@ type DenialReason = (typeof ADMISSION_DENIAL_REASON)[keyof typeof ADMISSION_DENI
 /** Closed reason of a denied evaluation, shared with the copy that explains it. */
 export type AdmissionDenialReason = DenialReason;
 type EvidenceKind = (typeof ADMISSION_EVIDENCE_KIND)[keyof typeof ADMISSION_EVIDENCE_KIND];
+/** A pending `requiresExceptionReason` marks an exception to the list: the applicant explains it in their message (FR-099), while the reviewer's internal reason stays optional. */
 export type AdmissionEligibilityResult =
   | { outcome: "denied"; reason: DenialReason }
   | { outcome: "verification_required"; reason: DenialReason }
@@ -293,23 +294,22 @@ export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, act
 export type PendingAdmissionReviewFacts = AdmissionSubmissionFacts & {
   request: { id: string; userId: string; expiresAt: Date; source: AdmissionSourceFacts; attachedEvidence: AdmissionLocalProofFacts | null };
   reviewer: AdmissionActorFacts | null;
-  exceptionReason?: string;
 };
 
 /**
  * Evaluates a pending request against the current policy without approving it.
  *
  * @param facts - Current request scope, evidence, policy, and reviewer facts.
- * @returns Eligibility/reason while always requiring an explicit reviewer decision.
+ * @returns Eligibility/reason while always requiring an explicit reviewer decision; an eligible exception to the list only
+ *   reports `requiresExceptionReason`, because the reviewer's internal reason is always optional.
  */
-export function evaluatePendingAdmissionReview(facts: PendingAdmissionReviewFacts): { eligible: boolean; requiresExplicitDecision: true; reason?: DenialReason } {
+export function evaluatePendingAdmissionReview(facts: PendingAdmissionReviewFacts): { eligible: boolean; requiresExplicitDecision: true; reason?: DenialReason; requiresExceptionReason?: boolean } {
   const failure = (reason: DenialReason) => ({ eligible: false, requiresExplicitDecision: true as const, reason });
   if (facts.account?.userId !== facts.request.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
   if (!canPerformAdmissionAction(facts.reviewer, ADMISSION_ACTION.decideRequest, { tribeId: facts.tribe.id, applicantUserId: facts.request.userId })) return failure(ADMISSION_DENIAL_REASON.reviewerUnauthorized);
   const evaluation = evaluatePendingAdmissionEligibility(facts);
   if (!evaluation.eligible) return failure(evaluation.reason);
-  if (evaluation.requiresExceptionReason && !facts.exceptionReason?.trim()) return failure(ADMISSION_DENIAL_REASON.exceptionReasonRequired);
-  return { eligible: true, requiresExplicitDecision: true };
+  return { eligible: true, requiresExplicitDecision: true, requiresExceptionReason: evaluation.requiresExceptionReason };
 }
 
 /**
@@ -317,7 +317,7 @@ export function evaluatePendingAdmissionReview(facts: PendingAdmissionReviewFact
  * @param facts - Actual own request and current server facts, independently scoped by its reader.
  * @returns Current business restriction or eligibility that still requires an explicit reviewer decision.
  */
-export function evaluatePendingAdmissionEligibility(facts: Omit<PendingAdmissionReviewFacts, "reviewer" | "exceptionReason">):
+export function evaluatePendingAdmissionEligibility(facts: Omit<PendingAdmissionReviewFacts, "reviewer">):
   | { eligible: false; reason: DenialReason }
   | { eligible: true; requiresExceptionReason: boolean } {
   const failure = (reason: DenialReason) => ({ eligible: false as const, reason });
@@ -336,7 +336,7 @@ export function evaluatePendingAdmissionEligibility(facts: Omit<PendingAdmission
  * @param facts - Original request and current policy/evidence/clock, with no reviewer permission.
  * @returns Whether the live pending requires a fresh contact check; expiry always takes precedence.
  */
-export function needsPendingAdmissionVerification(facts: Omit<PendingAdmissionReviewFacts, "reviewer" | "exceptionReason">): boolean {
+export function needsPendingAdmissionVerification(facts: Omit<PendingAdmissionReviewFacts, "reviewer">): boolean {
   if (facts.now >= facts.request.expiresAt) return false;
   if (facts.request.attachedEvidence?.status === ADMISSION_PROOF_STATUS.invalid) return true;
   return facts.policy?.requiresAdditionalVerification === true && !hasUsableAppliedProof(facts, facts.request.attachedEvidence, facts.request.id);

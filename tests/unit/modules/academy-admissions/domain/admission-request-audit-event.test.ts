@@ -35,4 +35,11 @@ describe("effective request audit provenance", () => {
     expect(event).toMatchObject({eventType:"retry_allowed",rule:"leader_corrective_retry",resourceVersion:3,createdAt:retryAllowedAt,metadata:{fromStatus:"rejected",toStatus:"rejected",previousVersion:2,decisionId:original.decisionId,previousRetryAllowedAt:null,retryAllowedAt:retryAllowedAt.toISOString(),internalReason:"Corrección privada autorizada"}});
     expect(JSON.stringify(event)).not.toMatch(/private@example\.test|private-applicant-message/);
   });
+
+  it("should record a retry allowed without an internal reason as an absent reason", () => {
+    const original={...requestFixture(),status:"rejected" as const,version:2,decisionId:randomUUID(),resolvedAt:new Date("2026-10-13T18:01:00Z")};
+    const retryAllowedAt=new Date("2026-10-13T18:03:00Z"),request={...original,version:3,retryAllowedAt};
+    const event=createAdmissionRetryAuditEvent({actorUserId:randomUUID(),operationId:randomUUID(),request,previous:original,internalReason:null,retryAllowedAt});
+    expect(event).toMatchObject({eventType:"retry_allowed",metadata:{internalReason:null,retryAllowedAt:retryAllowedAt.toISOString()}});
+  });
 });

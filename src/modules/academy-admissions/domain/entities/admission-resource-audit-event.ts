@@ -21,7 +21,7 @@ type RequestAuditDetails={resourceType:"admission_request";eventType:AdmissionRe
 /** Records a declared-field correction without its former or current value. */
 type WhatsappNumberAuditDetails={resourceType:"admission_request";eventType:"whatsapp_number_changed";metadata:RequestAuditMetadata};
 /** Preserves the existing private corrective reason only for its dedicated retry fact, not general request messages. */
-type RetryAuditDetails={resourceType:"admission_request";eventType:"retry_allowed";metadata:RequestAuditMetadata&{internalReason:string;previousRetryAllowedAt:string|null;retryAllowedAt:string}};
+type RetryAuditDetails={resourceType:"admission_request";eventType:"retry_allowed";metadata:RequestAuditMetadata&{internalReason:string|null;previousRetryAllowedAt:string|null;retryAllowedAt:string}};
 /** Stores list configuration lineage without descriptive names or contact identity. */
 type AllowlistAuditDetails={resourceType:"allowlist_entry";eventType:"create_allowlist_entry"|"update_allowlist_entry"|"confirm_allowlist_import";metadata:{fromStatus:"enabled"|"disabled"|null;toStatus:"enabled"|"disabled";previousVersion:number|null;importId:string|null;contactType:"email"|"phone"}};
 /** Preserves single-use lifecycle and the scoped presentation supported by redemption. */

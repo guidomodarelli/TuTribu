@@ -119,6 +119,27 @@ describe("explicit reviewer batch decisions", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("should approve a selection that includes an exception without any internal reason", async () => {
+    // Given a visible selection where one request entered as an exception to the list.
+    const data = fixture();
+    data.items[1].restrictions.requiresExceptionReason = true;
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    for (const name of ["Persona 1", "Persona 2"]) {
+      const checkbox = await screen.findByRole("checkbox", { name: `Seleccionar solicitud de ${name}` });
+      await waitFor(() => expect(checkbox).toBeEnabled());
+      fireEvent.click(checkbox);
+    }
+    const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" });
+    fireEvent.click(within(form).getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" }));
+    // When the reviewer confirms and approves leaving the optional reason empty.
+    expect(within(form).getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Rechazar seleccionadas" })).toBeEnabled();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Aprobar seleccionadas" })));
+    // Then the original carries an empty reason instead of being blocked.
+    expect(data.client.decideBatch).toHaveBeenCalledTimes(1);
+    expect(data.client.decideBatch.mock.calls[0][1]).toMatchObject({ confirmed: true, decision: "approve", internalReason: "", items: data.items.map((item) => ({ requestId: item.id, expectedVersion: 1 })) });
+  });
+
   it("should keep the pressed batch decision busy while its write is pending and disable every other write", async () => {
     const data = fixture(); let resolveWrite!: (value: AdmissionBrowserResult<AdmissionBatchResultDto>) => void;
     data.client.decideBatch.mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));

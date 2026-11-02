@@ -15,6 +15,7 @@ import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/ad
 import { ADMISSION_ACTIVITY_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-activity-validation";
 import { admissionActivityReadyPageStateSchema } from "@/src/modules/academy-admissions/constants/admission-activity-page-schemas";
 import { ADMISSION_AUDIT_RESOURCE_TYPE } from "@/src/modules/academy-admissions/constants/admission-audit";
+import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 
 /** Each browser/viewport owns its branch, server and sessions; bounded concurrent scheduling cannot share mutations. */
 const scenarios = ([["chromium", chromium], ["webkit", webkit]] as const).flatMap(([engine, browserType]) => VALIDATION.widths.map((width) => ({ engine, browserType, width })));
@@ -105,9 +106,23 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   expect(await page.getByRole("region", { name: "Consumo del día", exact: true }).innerText()).toContain(`versión ${oldVersion}`);
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).click();
                   await page.getByText(`Versión de uso observada: ${version}. Configuración actual: versión ${version}.`, { exact: true }).waitFor();
-                  await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
-                  expect(await history.innerText()).toMatch(/Versión histórica\s+1/u);
-                  await history.locator("summary").filter({ hasText: "Inicio de países y cupos" }).click();
+                  // Refreshing returns the history to its first page: with limit=1 it holds only the change just saved, at its own version.
+                  await expect.poll(() => history.locator("details").count(), { timeout: VALIDATION.browserTimeoutMs }).toBe(1);
+                  expect(await history.getByText("Inicio de países y cupos", { exact: true }).count()).toBe(0);
+                  const newest = history.locator("details").first();
+                  await newest.locator("summary").filter({ hasText: "Cambio de países y cupos" }).click();
+                  expect(await newest.innerText()).toMatch(new RegExp(`Versión histórica\\s+${version}(?!\\d)`, "u"));
+                  await newest.locator("summary").click();
+                  // The new configuration does not rewrite history: walking back with «Ver actividad anterior» reaches the original start, still at version 1.
+                  for (let loaded = 1; loaded < version && await history.getByText("Inicio de países y cupos", { exact: true }).count() === 0; loaded += 1) {
+                    await page.getByRole("button", { name: "Ver actividad anterior" }).click();
+                    await expect.poll(() => history.locator("details").count(), { timeout: VALIDATION.browserTimeoutMs }).toBe(loaded + 1);
+                  }
+                  const original = history.locator("details").filter({ has: page.locator("summary", { hasText: "Inicio de países y cupos" }) });
+                  expect(await original.count()).toBe(1);
+                  await original.locator("summary").click();
+                  expect(await original.innerText()).toMatch(/Versión histórica\s+1(?!\d)/u);
+                  await original.locator("summary").click();
                   if (engine === "chromium" && width === 1280) {
                     await captureAdmissionReview(page, "admission-consumption-current", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo del día"]' });
                     await captureAdmissionReview(page, "admission-activity-history", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[class*="AdmissionActivity"]', omit: "details dl" });
@@ -117,12 +132,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                   stage = `${engine}_${width}_activity_role_loss`;
                   await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).click();
-                  await page.getByRole("button", { name: "Reintentar", exact: true }).waitFor();
+                  // A lost role is a deterministic refusal: the private view closes with its explanation and offers no «Reintentar».
+                  await page.getByRole("heading", { name: ADMISSION_UI_COPY.unavailableTitle, exact: true }).waitFor();
+                  expect(await page.getByRole("button", { name: "Reintentar", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("region", { name: "Consumo del día", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("region", { name: "Historial de actividad" }).count()).toBe(0);
                   if (engine === "chromium" && width === 1280) await captureAdmissionReview(page, "admission-activity-permission-loss", [fixture.userId, fixture.sessionId, fixture.sessionToken, secret], VALIDATION.captureFile, { selector: 'section[aria-label="Consumo e historial de admisión"]' });
                   await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
-                  await page.getByRole("button", { name: "Reintentar", exact: true }).click();
+                  // With the role back, opening the page again restores the private view.
+                  await runPrivateBrowserRequest("reopen_activity", () => page.reload({ waitUntil: "commit" }));
                   await page.getByRole("button", { name: "Actualizar consumo e historial" }).waitFor();
                   stage = `${engine}_${width}_increase_and_usage_role_loss`;
                   await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Países y cupos", exact: true }).click();

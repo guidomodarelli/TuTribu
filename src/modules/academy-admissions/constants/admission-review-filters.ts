@@ -23,10 +23,10 @@ export const ADMISSION_REVIEW_FILTER_GROUPS = [
     { value: ADMISSION_PUBLIC_SOURCE.personal, label: ADMISSION_REVIEW_SOURCE_LABEL.personal },
     { value: ADMISSION_PUBLIC_SOURCE.legacy, label: ADMISSION_REVIEW_SOURCE_LABEL.legacy },
   ] },
-  { field: "requiresExceptionReason", label: "Motivo de excepción", options: [
-    { value: ADMISSION_REVIEW_FILTER_ANY, label: "Cualquier requisito" },
-    { value: ADMISSION_REVIEW_BOOLEAN_QUERY.yes, label: "Requiere motivo ahora" },
-    { value: ADMISSION_REVIEW_BOOLEAN_QUERY.no, label: "Sin ese requisito actual" },
+  { field: "requiresExceptionReason", label: "Excepción a la lista", options: [
+    { value: ADMISSION_REVIEW_FILTER_ANY, label: "Cualquier solicitud" },
+    { value: ADMISSION_REVIEW_BOOLEAN_QUERY.yes, label: "Excepciones a la lista" },
+    { value: ADMISSION_REVIEW_BOOLEAN_QUERY.no, label: "Sin excepción" },
   ] },
   { field: "needsVerification", label: "Comprobación de contacto", options: [
     { value: ADMISSION_REVIEW_FILTER_ANY, label: "Cualquier requisito" },

@@ -27,7 +27,6 @@ export const ADMISSION_DENIAL_REASON = {
   reviewerUnauthorized: "reviewer_unauthorized",
   requestExpired: "request_expired",
   evidenceRevoked: "evidence_revoked",
-  exceptionReasonRequired: "exception_reason_required",
 } as const;
 export const ADMISSION_SOURCE_KIND = { common: "common", personal: "personal" } as const;
 export const ADMISSION_INVITATION_STATUS = { active: "active", redeemed: "redeemed", revoked: "revoked", expired: "expired" } as const;

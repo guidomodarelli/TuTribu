@@ -7,16 +7,16 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 
 /** Input never contains a leader/session/evidence permission token from the browser. */
-export type AllowAdmissionRetryInput = { tribeId: string; admissionRequestId: string; operationId: string; requestId: string; expectedVersion: number; confirmed: true; internalReason: string };
+export type AllowAdmissionRetryInput = { tribeId: string; admissionRequestId: string; operationId: string; requestId: string; expectedVersion: number; confirmed: true; internalReason?: string };
 export class AllowAdmissionRetryUseCase {
   /** @param resolver - Actual current account/leader/resource. @param writer - Own atomic metadata/audit/ledger owner. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly writer: AdmissionRetryWriter) {}
-  /** @param input - Boundary-validated explicit reason/version/confirmation. @returns Original retry snapshot or closed denial, without membership or notification effects. */
+  /** @param input - Boundary-validated explicit version/confirmation and optional internal reason. @returns Original retry snapshot or closed denial, without membership or notification effects. */
   async execute(input: AllowAdmissionRetryInput) {
     try {
       const authorization = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.allowEarlyRetry, sensitiveOperation: REAUTHENTICATION_OPERATION.advanceAdmissionRetry, resource: { kind: ADMISSION_RESOURCE_KIND.request, id: input.admissionRequestId } });
       if (!authorization.allowed) return { ok: false as const, failure: authorization.failure };
-      return { ok: true as const, value: await this.writer.allowRetry({ ...input, userId: authorization.context.userId, sessionId: authorization.context.sessionId, internalReason: input.internalReason.trim() }) };
+      return { ok: true as const, value: await this.writer.allowRetry({ ...input, userId: authorization.context.userId, sessionId: authorization.context.sessionId, internalReason: input.internalReason?.trim() || null }) };
     } catch (error) { return admissionOperationFailure(error); }
   }
 }

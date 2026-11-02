@@ -44,7 +44,7 @@ function fixture(selected = true) {
 /** Enables only after the native viewer/current detail reads have settled. */
 async function confirmDecision() {
   await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
-  fireEvent.change(screen.getByLabelText(new RegExp(`^${ADMISSION_REVIEW_UI_COPY.internalReasonRequired}`)), { target: { value: "Revisión manual registrada" } });
+  fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason), { target: { value: "Revisión manual registrada" } });
   fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.externalMessage), { target: { value: "Tu ingreso fue aprobado." } });
   fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
 }
@@ -321,7 +321,7 @@ describe("native reviewer container", () => {
     data.state.filters = { limit: 25, [field]: true };
     data.request.needsVerification = field === "needsVerification";
     data.request.restrictions.requiresExceptionReason = field === "requiresExceptionReason";
-    data.request.eligibilityReasons = [field === "needsVerification" ? "local_proof_required" : "exception_reason_required"];
+    data.request.eligibilityReasons = field === "needsVerification" ? ["local_proof_required"] : [];
     data.request.eligibleActions = field === "needsVerification" ? ["reject"] : ["reject", "approve"];
     data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: "rejected", version: 2 } });
     render(data.node, { wrapper: Providers }); await confirmDecision();
@@ -589,14 +589,21 @@ describe("native reviewer container", () => {
     expect(await screen.findByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })).toBeEnabled();
   });
 
-  it("should require explicit confirmation for any decision and a reason only to reject before calling the writer", async () => {
-    const data = fixture(); render(data.node, { wrapper: Providers });
+  it("should require explicit confirmation for any decision but never an internal reason, also for an exception", async () => {
+    const data = fixture();
+    data.request.restrictions.requiresExceptionReason = true;
+    data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: "rejected", version: 2 } });
+    render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeEnabled();
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject })).toBeEnabled();
     expect(data.client.decide).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject }));
+    await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
+    expect(data.client.decide).toHaveBeenCalledWith(slug, requestId, expect.objectContaining({ confirmed: true, decision: "reject", internalReason: "" }), expect.any(AbortSignal));
   });
 
   it("should reconcile a lost decision response by the original GET without sending another POST", async () => {

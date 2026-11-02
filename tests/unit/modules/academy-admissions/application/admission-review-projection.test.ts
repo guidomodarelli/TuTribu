@@ -55,10 +55,10 @@ describe("admission reviewer projection", () => {
     expect(projectAdmissionReview(record)).toMatchObject({ pendingAgeThresholdReached: false, eligibleActions: [], eligibilityReasons: ["request_expired"] });
   });
 
-  it("should offer an explicit exception approval when only its editable internal reason is missing", () => {
+  it("should offer an explicit exception approval without an internal reason and mark it as an exception", () => {
     const record = reviewRecord();
     record.review.policy!.mode = "allowlist"; record.review.policy!.allowCommonExceptions = true;
-    expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: ["exception_reason_required"], restrictions: { requiresExceptionReason: true }, eligibleActions: ["reject", "approve"] });
+    expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: [], restrictions: { requiresExceptionReason: true }, eligibleActions: ["reject", "approve"] });
     record.review.policy!.requiresAdditionalVerification = true;
     expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: ["local_proof_required"], needsVerification: true, restrictions: { requiresExceptionReason: false }, eligibleActions: ["reject"] });
   });
