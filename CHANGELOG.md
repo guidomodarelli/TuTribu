@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.13.3] - 2026-11-02
+
 ### Changed
 
 - La guía «Configurá las admisiones» muestra primero los pasos necesarios y al final los opcionales, con el mismo orden de siempre dentro de cada grupo. Un paso opcional que ya está listo sigue entre los opcionales.
