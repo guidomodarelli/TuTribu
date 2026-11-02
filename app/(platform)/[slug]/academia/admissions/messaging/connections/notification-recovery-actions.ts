@@ -54,7 +54,7 @@ export function isRecoveryTargetPrepared(target: MessagingConfigurationConnectio
 export function isRecoveryEligible({ selected, target, targetPrepared }: Pick<NotificationRecoveryContext, "selected" | "target" | "targetPrepared">, now: Date): boolean {
   if (!selected || !target || !targetPrepared) return false;
   if (selected.connectionId === target.id || selected.recoveryDeliveryId) return false;
-  if (selected.state === MESSAGE_DELIVERY_STATE.unknown || selected.state === MESSAGE_DELIVERY_STATE.accepted || selected.state === MESSAGE_DELIVERY_STATE.delivered) return false;
+  if (selected.dispatchUnresolved || selected.state === MESSAGE_DELIVERY_STATE.delivered) return false;
   return new Date(selected.deadlineAt) > now;
 }
 
@@ -133,7 +133,16 @@ async function submitRecovery(context: NotificationRecoveryContext, original: No
   clearOriginalFollowUp(context);
   if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed && isBoundResult(outcome.value.result, original)) { context.setOriginalCompleted(true); context.setMessage({ kind: "status", text: COPY.completed }); }
   else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) forgetUnregisteredOriginal(context, { kind: "alert", text: outcome.message });
+  else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.originalDispatchUnresolved) { markDispatchUnresolved(context, original.deliveryId); forgetUnregisteredOriginal(context, { kind: "alert", text: COPY.dispatchUnresolvedRefused }); }
   else context.setMessage({ kind: "alert", text: outcome.status === "failed" && !outcome.uncertain ? recoveryRejectionText(outcome.code, outcome.message) : COPY.pending });
+}
+
+/**
+ * @param context - Current render facts. @param deliveryId - Notice whose earlier send the server still sees as possibly sent.
+ * @returns Nothing after showing that notice as pending confirmation until a later catalog read says otherwise.
+ */
+function markDispatchUnresolved(context: NotificationRecoveryContext, deliveryId: string): void {
+  context.setCatalog((previous) => previous && { ...previous, items: previous.items.map((item) => item.id.toLowerCase() === deliveryId.toLowerCase() ? { ...item, dispatchUnresolved: true } : item) });
 }
 
 /** Recovery copy of the shared codes a recovery rejection reuses, whose catalogue text describes another flow (a test code, a connection being prepared). */
