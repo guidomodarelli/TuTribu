@@ -343,6 +343,7 @@ describe("guided usage route workflow", () => {
 
   it("should forget a stored original that was never registered while the platform cannot protect a save, instead of offering its retry", async () => {
     const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: data.policy }, platformRequirement: "recovery_locked" } });
     writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
     render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByText(/El guardado anterior no quedó registrado y no hace falta reintentarlo/)).toBeInTheDocument());
@@ -457,6 +458,31 @@ describe("guided usage route workflow", () => {
     expect(data.client.update).toHaveBeenCalledOnce();
     expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 });
     expect(data.client.update.mock.calls[0][1].operationId).not.toBe(operationId);
+  });
+
+  it("should read the current configuration after forgetting a restored unregistered original and save its values against the current version", async () => {
+    const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 7, verificationDailyLimit: 50 } }, platformRequirement: null } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(data.client.read).toHaveBeenCalledOnce();
+    expect(data.client.operation.mock.invocationCallOrder[0]).toBeLessThan(data.client.read.mock.invocationCallOrder[0]);
+    expect(screen.getByText("De 50 a 0")).toBeInTheDocument();
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 7, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 });
+  });
+
+  it("should forget a restored unregistered original with the saving notice once the current read reports the platform problem resolved", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(screen.queryByText(/El guardado anterior no quedó registrado y no hace falta reintentarlo/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
+    await confirm();
+    expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeEnabled();
   });
 
   it("should reopen the review of a restored unfinished update above the original-operation recovery, with its explanation beside the retry", async () => {

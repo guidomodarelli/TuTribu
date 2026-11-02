@@ -19,8 +19,8 @@ export type MessagingUsageReady = Extract<MessagingUsagePageState, { kind: "read
 export type MessagingUsageValues = { allowedCountries: string[]; verificationDailyLimit: number; notificationDailyLimit: number };
 /** Outcome of one stored write: the confirmed policy, a reported failure, or a stop whose feedback is already shown. */
 type MessagingUsageWriteOutcome = { status: "completed"; policy: MessagingUsagePolicyDto } | { status: "failed"; code: MessagingErrorCode; uncertain: boolean } | { status: "stopped" };
-/** Whether a recovery consultation stops the read, recovered the original or lets the read continue. */
-type UsageRecoveryOutcome = "stop" | "recovered" | "continue";
+/** Whether a recovery consultation stops the read, recovered the original, forgot an unregistered one or lets the read continue. */
+type UsageRecoveryOutcome = "stop" | "recovered" | "forgotten" | "continue";
 
 /** Stable setters and refs of the usage container; their identity never changes between renders. */
 export type MessagingUsageControls = {
@@ -101,14 +101,17 @@ function forgetUsageIntent({ ready, controls }: MessagingUsageSession): void {
  * An unregistered original applied nothing, and sending it late can never overwrite a newer save: an update carries its
  * `expectedVersion` (the server answers a version conflict) and an initialization only creates a configuration that does not exist.
  * So it is forgotten instead of asking for a retry with its same data, and the editor reopens with the values the leader chose,
- * to be confirmed and saved again as a new operation.
- * @param session - Current route session. @param intent - Unregistered original. @returns Nothing after showing the informative notice.
+ * to be confirmed and saved again as a new operation. Its notice waits for the current read (see `announceForgottenUsageOriginal`).
+ * @param session - Current route session. @param intent - Unregistered original. @returns Nothing after reopening the chosen values.
  */
 function forgetUnregisteredUsageOriginal(session: MessagingUsageSession, intent: MessagingUsageBrowserIntent): void {
-  const { controls } = session;
   forgetUsageIntent(session);
   const chosen = chosenValuesOf(intent);
-  if (chosen) reopenChosenValues(controls, chosen);
+  if (chosen) reopenChosenValues(session.controls, chosen);
+}
+
+/** @param controls - Stable controls, holding the platform requirement of the current read. @returns Nothing after showing the informative notice of a forgotten original. */
+function announceForgottenUsageOriginal(controls: MessagingUsageControls): void {
   // While the platform cannot protect a save, the notice says saving waits for the TuTribu team instead of inviting a new save.
   controls.setStatusMessage(controls.platformRequirement.current ? COPY.platformForgotten : COPY.unregistered);
 }
@@ -131,7 +134,7 @@ async function recoverUsageOriginal(session: MessagingUsageSession, intent: Mess
     controls.setEditing(false); controls.setPartialSave(false); controls.setStep(FIRST_STEP_INDEX);
     return "recovered";
   }
-  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredUsageOriginal(session, intent); return "continue"; }
+  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredUsageOriginal(session, intent); return "forgotten"; }
   controls.setErrorMessage(original.message);
   return "stop";
 }
@@ -154,16 +157,17 @@ export async function readUsageCurrent(session: MessagingUsageSession, signal: A
   if (signal.aborted) return;
   if (!initial) controls.setPrivateVisible(false);
   controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false); controls.setRecoveryMessage(null);
-  let recovered = false;
+  let recovery: UsageRecoveryOutcome = "continue";
   try {
     if (!await session.checkViewer(signal) || signal.aborted) return;
     restoreStoredUsageIntent(session);
     if (controls.pending.current) {
-      const recovery = await recoverUsageOriginal(session, controls.pending.current, signal);
+      recovery = await recoverUsageOriginal(session, controls.pending.current, signal);
       if (recovery === "stop") return;
-      recovered = recovery === "recovered";
     }
-    if ((!initial || recovered || controls.pending.current) && !await readUsageConfiguration(session, signal)) return;
+    // A recovered or forgotten original may predate the server snapshot, so the reopened values are saved against the current version and limits.
+    if ((!initial || recovery !== "continue" || controls.pending.current) && !await readUsageConfiguration(session, signal)) return;
+    if (recovery === "forgotten") announceForgottenUsageOriginal(controls);
     controls.setFresh(true); controls.setPrivateVisible(true);
   } catch { if (!signal.aborted) controls.setErrorMessage(COPY.storageFailed); }
   finally { if (!signal.aborted) controls.setPhase((current) => settledUsagePhase(current, controls.pending.current)); }
