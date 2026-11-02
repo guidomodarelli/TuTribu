@@ -21,8 +21,8 @@ const SUBSCRIPTION_START_FAILURES = {
 const SUBSCRIPTION_IDEMPOTENCY = { header: "x-idempotency-key", hashAlgorithm: "sha256", hashEncoding: "hex", separator: ":" } as const;
 /** Names the fixed operation owning safe HTTP failures. */
 const SUBSCRIPTION_START_OPERATION = { feature: "subscriptions", operation: "start-tribe-subscription-checkout" } as const;
-/** Maps known operation failures to own public responses. */
-type SubscriptionStartFailure = { code: keyof typeof SUBSCRIPTION_START_FAILURES };
+/** Maps known operation failures to own public responses; `cause` keeps the private origin of an unexpected one for the log. */
+type SubscriptionStartFailure = { code: keyof typeof SUBSCRIPTION_START_FAILURES; cause?: unknown };
 /** Accepts only application collaborators needed by this inbound adapter. */
 export type SubscriptionStartModules = {
   auth: { useCases: { getAuthenticatedMember: () => Promise<{ id: string } | null> } };
@@ -50,13 +50,13 @@ export function createSubscriptionStartRouteHandler(createModules: (input: { req
   return async (request: Request, context: { params: Promise<{ slug: string }> }): Promise<Response> => {
     const boundary = createOwnJsonRouteBoundary<SubscriptionStartFailure, { message: string; requestId: string }>({
       request, ...SUBSCRIPTION_START_OPERATION, errorSchema: subscriptionStartErrorSchema,
-      projectFailure: (failure: { code: keyof typeof SUBSCRIPTION_START_FAILURES }, requestId) => ({
+      projectFailure: (failure, requestId) => ({
         status: SUBSCRIPTION_START_FAILURES[failure.code].status,
         body: { message: SUBSCRIPTION_START_FAILURES[failure.code].message, requestId },
       }),
       invalidInput: () => ({ code: "invalid_input" as const }),
       unusableContract: () => ({ code: "payment_blocked" as const }),
-      unexpectedFailure: () => ({ code: "payment_blocked" as const }),
+      unexpectedFailure: (cause) => ({ code: "payment_blocked" as const, cause }),
     });
     try {
       const params = boundary.input("params", subscriptionStartParamsSchema, await context.params);
