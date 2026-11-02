@@ -12,6 +12,7 @@ import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draf
 import { NOTIFICATION_RECOVERY_UI_COPY as COPY, NOTIFICATION_RECOVERY_WRITE_ACTION as WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import { NOTIFICATION_DELIVERY_RECOVERY_AUDIT } from "@/src/modules/messaging/constants/notification-delivery-recovery";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
+import { isMessagingSignInRequired } from "@/lib/messaging/messaging-route-recovery";
 import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_PUBLIC_CHANNEL, MESSAGING_CAPABILITY_PUBLIC_STATE } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
@@ -26,6 +27,8 @@ export type NotificationRecoveryContext = {
   slug: string; viewerId: string; target: MessagingConfigurationConnection | null;
   client: NotificationRecoveryBrowserClient; store: NotificationRecoveryIntentStore;
   verifyViewer: (signal: AbortSignal) => Promise<boolean>; onBusyChange: (busy: boolean) => void;
+  /** Tells the page that an answer asks to sign in again with Google, so it offers that action above the steps. */
+  onSignInRequired: () => void;
   catalog: NotificationDeliveryCatalogResult | null; selected: NotificationDeliveryCatalogItem | undefined; selectedDeliveryId: string;
   reference: NotificationRecoveryReference | null; history: NotificationRecoveryReference[]; historyFull: boolean;
   canRead: boolean; confirmed: boolean; mayResume: boolean; canArchive: boolean; archiveConfirmed: boolean; originalCompleted: boolean; busy: boolean; targetPrepared: boolean;
@@ -39,6 +42,11 @@ export type NotificationRecoveryContext = {
   setCanArchive: (value: boolean) => void; setArchiveConsent: (value: { checked: boolean; operationId: string } | null) => void; setClockMs: (value: number) => void;
   setConfirmed: (value: boolean) => void; setMessage: (value: RecoveryMessage | null) => void;
 };
+
+/** @param context - Current render facts. @param outcome - Any own answer of this recovery. @returns Nothing after telling the page when the answer asks to sign in again. */
+function noteRecoverySignIn(context: NotificationRecoveryContext, outcome: MessagingUsageBrowserResult<unknown>): void {
+  if (outcome.status === "failed" && isMessagingSignInRequired(outcome.code)) context.onSignInRequired();
+}
 
 /** Reads the clock when the user acts; React's purity rule only allows `Date.now()` outside render, and this runs in a handler. @returns Current time in milliseconds. */
 function readCurrentTimeMs(): number {
@@ -110,6 +118,7 @@ export async function readRecoveryCatalog(context: NotificationRecoveryContext, 
     context.setMessage({ kind: "status", text: COPY.reading });
     const outcome = await context.client.catalog({ slug: context.slug, cursor: more ? context.catalog?.nextCursor ?? null : null }, signal);
     if (!await isViewerCurrent(context, signal)) return;
+    noteRecoverySignIn(context, outcome);
     if (outcome.status === "ready") { context.setClockMs(Date.now()); context.setCatalog((previous) => mergeCatalogPage(previous, outcome.value, more)); context.setConfirmed(false); if (!context.reference && !more) context.setSelectedDeliveryId(""); context.setMessage(null); }
     else if (outcome.status === "failed") context.setMessage({ kind: "alert", text: outcome.message });
   });
@@ -130,7 +139,7 @@ function forgetUnregisteredOriginal(context: NotificationRecoveryContext, messag
 async function submitRecovery(context: NotificationRecoveryContext, original: NotificationRecoveryReference, signal: AbortSignal): Promise<void> {
   const outcome = await context.client.recover({ slug: context.slug, deliveryId: original.deliveryId }, { operationId: original.operationId, expectedVersion: original.expectedVersion, targetConnectionId: original.targetConnectionId, expectedTargetVersion: original.expectedTargetVersion, confirmed: true, reason: NOTIFICATION_DELIVERY_RECOVERY_AUDIT.cause }, signal);
   if (!await isViewerCurrent(context, signal)) return;
-  clearOriginalFollowUp(context);
+  clearOriginalFollowUp(context); noteRecoverySignIn(context, outcome);
   if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed && isBoundResult(outcome.value.result, original)) { context.setOriginalCompleted(true); context.setMessage({ kind: "status", text: COPY.completed }); }
   else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) forgetUnregisteredOriginal(context, { kind: "alert", text: outcome.message });
   else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.originalDispatchUnresolved) { markDispatchUnresolved(context, original.deliveryId); forgetUnregisteredOriginal(context, { kind: "alert", text: COPY.dispatchUnresolvedRefused }); }
@@ -207,7 +216,7 @@ export async function readRecoveryOriginal(context: NotificationRecoveryContext)
     context.setMessage({ kind: "status", text: COPY.originalReading });
     const outcome = await context.client.operation({ slug: context.slug, operationId: original.operationId }, signal);
     if (!await isViewerCurrent(context, signal)) return;
-    clearOriginalFollowUp(context);
+    clearOriginalFollowUp(context); noteRecoverySignIn(context, outcome);
     // While the platform cannot protect a recovery, an unregistered original can never be resumed: forget it instead.
     if (context.platformBlocked && outcome.status === "failed" && outcome.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredOriginal(context, { kind: "status", text: COPY.platformForgotten }); return; }
     const consultation = classifyOriginalConsultation(outcome, original);

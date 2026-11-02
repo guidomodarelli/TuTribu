@@ -8,6 +8,7 @@ import type { NotificationRecoverySnapshot } from "@/src/modules/messaging/appli
 import type { NotificationRecoveryBrowserClient } from "@/src/modules/messaging/application/ports/notification-recovery-browser-client";
 import { NOTIFICATION_RECOVERY_HISTORY_LIMIT } from "@/src/modules/messaging/constants/notification-recovery-intent";
 import { NOTIFICATION_RECOVERY_UI_COPY } from "@/src/modules/messaging/constants/notification-recovery-ui";
+import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 
 /** @returns Own metadata and controlled boundary ports; libraries and UI remain real. */
 function prepareContainer() {
@@ -245,6 +246,16 @@ describe("notification recovery container", () => {
     expect(fixture.snapshot.reference).toBeNull();
     expect(screen.queryByRole("button", { name: "Consultar recuperación original" })).not.toBeInTheDocument();
     expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+  });
+  it("should ask the page to offer signing in again with Google when the session cannot register a recovery, keeping the original to consult", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), onSignInRequired = vi.fn(), message = MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.authenticationRequired];
+    vi.mocked(fixture.props.client!.recover).mockResolvedValue({ status: "failed", code: "authentication_required", message, uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} onSignInRequired={onSignInRequired} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    expect(onSignInRequired).toHaveBeenCalledOnce();
+    expect(fixture.snapshot.reference).not.toBeNull(); expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
   });
   it("should keep reading notices but withhold recoveries while the platform cannot protect them, and forget an unregistered original", async () => {
     const fixture = prepareContainer(), user = userEvent.setup(), original = { operationId: randomUUID(), deliveryId: fixture.item.id, expectedVersion: 2, targetConnectionId: fixture.target.id, expectedTargetVersion: 8 };

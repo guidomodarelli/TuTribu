@@ -12,6 +12,7 @@ import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draf
 import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES, MESSAGING_USAGE_INTENT_KEEPING_FAILURES, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, MESSAGING_USAGE_WRITE_STEP as WRITE_STEP, type MessagingUsageBrowserPhase, type MessagingUsageWriteStep } from "@/src/modules/messaging/constants/messaging-usage";
 import { MESSAGING_USAGE_POLICY_STATE } from "@/src/modules/messaging/constants/messaging-limits";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
+import { isMessagingSignInRequired } from "@/lib/messaging/messaging-route-recovery";
 
 /** Server snapshot of a usage route the viewer may manage. */
 export type MessagingUsageReady = Extract<MessagingUsagePageState, { kind: "ready" }>;
@@ -28,6 +29,8 @@ export type MessagingUsageControls = {
   setPhase: Dispatch<SetStateAction<MessagingUsageBrowserPhase>>; setFresh: (value: boolean) => void; setConfirmed: (value: boolean) => void; setCanRetry: (value: boolean) => void;
   setRetryConfirmed: (value: boolean) => void; setPrivateVisible: (value: boolean) => void; setEditing: (value: boolean) => void; setStep: (value: number) => void;
   setWriteStep: (value: MessagingUsageWriteStep | null) => void; setPartialSave: (value: boolean) => void; setErrorMessage: (value: string | null) => void; setStatusMessage: (value: string | null) => void;
+  /** Whether the last failure asks to sign in again with Google, so its message comes with that action. */
+  setSignInRequired: (value: boolean) => void;
   /** Explains the original that is still unresolved inside «Recuperar operación original», next to its consult and retry actions. */
   setRecoveryMessage: (value: string | null) => void;
   /** Installs the platform requirement of the latest current read; its ref lets an asynchronous recovery see the newest value. */
@@ -72,6 +75,14 @@ function chosenValuesOf(intent: MessagingUsageBrowserIntent): MessagingUsageValu
 /** @param controls - Stable controls. @param values - Values chosen before the response was lost. @returns Nothing after reopening the review step with them. */
 function reopenChosenValues(controls: MessagingUsageControls, values: MessagingUsageValues): void {
   controls.setDraft(draftOf(values)); controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
+}
+
+/**
+ * @param controls - Stable controls. @param failure - Closed failure of a read or write.
+ * @returns Nothing after showing its safe copy and whether it is resolved by signing in again with Google.
+ */
+function reportUsageFailure(controls: MessagingUsageControls, failure: { code: MessagingErrorCode; message: string }): void {
+  controls.setErrorMessage(failure.message); controls.setSignInRequired(isMessagingSignInRequired(failure.code));
 }
 
 /** @param session - Current route session. @returns Nothing after loading the stored original once and reopening the review step with the values chosen with it. */
@@ -135,7 +146,7 @@ async function recoverUsageOriginal(session: MessagingUsageSession, intent: Mess
     return "recovered";
   }
   if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredUsageOriginal(session, intent); return "forgotten"; }
-  controls.setErrorMessage(original.message);
+  reportUsageFailure(controls, original);
   return "stop";
 }
 
@@ -144,7 +155,7 @@ async function readUsageConfiguration({ ready, client, checkViewer, controls }: 
   const current = await client.read(ready.slug, signal);
   if (signal.aborted || current.status === "aborted") return false;
   if (!await checkViewer(signal) || signal.aborted) return false;
-  if (current.status === "failed") { controls.setErrorMessage(current.message); return false; }
+  if (current.status === "failed") { reportUsageFailure(controls, current); return false; }
   // The same read lifts or imposes the platform block, so a resolved requirement re-enables saving without reloading the page.
   controls.setState(current.value.usage); controls.setPlatformRequirement(current.value.platformRequirement);
   if (!current.value.usage.policy) controls.setEditing(true);
@@ -156,7 +167,7 @@ export async function readUsageCurrent(session: MessagingUsageSession, signal: A
   const controls = session.controls;
   if (signal.aborted) return;
   if (!initial) controls.setPrivateVisible(false);
-  controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false); controls.setRecoveryMessage(null);
+  controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false); controls.setRecoveryMessage(null); controls.setSignInRequired(false);
   let recovery: UsageRecoveryOutcome = "continue";
   try {
     if (!await session.checkViewer(signal) || signal.aborted) return;
@@ -177,11 +188,12 @@ export async function readUsageCurrent(session: MessagingUsageSession, signal: A
  * @param session - Current route session.
  * @param result - Failed write answer.
  * @returns The failure, or a stop when private authority was lost. A definitive rejection registered nothing, so its stored
- * original is forgotten before any other outcome; only a session answer keeps it so signing in again can still recover it.
+ * original is forgotten before any other outcome; only a session answer keeps it so signing in again with Google can still recover it
+ * and reopen the values chosen with it.
  */
 function usageWriteFailure(session: MessagingUsageSession, result: Extract<MessagingUsageBrowserResult<unknown>, { status: "failed" }>): MessagingUsageWriteOutcome {
   const { controls } = session;
-  controls.setErrorMessage(result.message);
+  reportUsageFailure(controls, result);
   if (!result.uncertain && !MESSAGING_USAGE_INTENT_KEEPING_FAILURES.includes(result.code)) forgetUsageIntent(session);
   if (MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES.includes(result.code)) { controls.setPrivateVisible(false); controls.setCanRetry(false); return STOPPED; }
   return { status: "failed", code: result.code, uncertain: controls.pending.current !== null };
@@ -223,7 +235,7 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
 async function runUsageWriteSession({ checkViewer, controls }: MessagingUsageSession, work: (signal: AbortSignal) => Promise<void>): Promise<void> {
   if (controls.busy.current) return;
   controls.busy.current = true; controls.readController.current?.abort(); const controller = new AbortController(); controls.writeController.current = controller;
-  controls.setPhase(PHASE.writing); controls.setFresh(false); controls.setCanRetry(false); controls.setRetryConfirmed(false); controls.setErrorMessage(null); controls.setStatusMessage(null); controls.setRecoveryMessage(null);
+  controls.setPhase(PHASE.writing); controls.setFresh(false); controls.setCanRetry(false); controls.setRetryConfirmed(false); controls.setErrorMessage(null); controls.setSignInRequired(false); controls.setStatusMessage(null); controls.setRecoveryMessage(null);
   try {
     if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
     await work(controller.signal);

@@ -15,20 +15,12 @@ import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
 import { readFirstSearchParamValue } from "@/app/search-params";
 import { SIGN_IN_ACCOUNT_CHOOSER_VALUE } from "@/lib/auth/sign-in-redirect";
+import { resolveSafeCallbackUrl } from "@/lib/auth/safe-callback-url";
 
 export type SignInSearchParams = {
   [key: string]: string | string[] | undefined;
 };
 
-const AUTH_SIGN_IN_PREFIX = {
-  slash: "/",
-} as const;
-/**
- * Placeholder origin used only to resolve a callback path the way a browser
- * would. A callback is accepted when it stays on this origin, which rejects
- * protocol-relative tricks such as `//host`, `/\host` or `/<tab>/host`.
- */
-const CALLBACK_URL_RESOLUTION_ORIGIN = "https://callback.invalid";
 const AUTH_SIGN_IN_UI = {
   ariaHidden: "true",
 } as const;
@@ -47,53 +39,6 @@ const SIGN_IN_URL_TOKEN = {
   querySeparator: "?",
 } as const;
 const USER_AGENT_HEADER = "user-agent";
-
-/**
- * Keeps only same-origin callback paths. The candidate is resolved with the
- * WHATWG URL parser, the same one browsers apply to `Location` and meta
- * refresh targets, so backslashes and stripped control characters cannot turn
- * a path into a protocol-relative URL that leaves the app.
- *
- * @param rawCallbackUrl - Untrusted `callbackUrl` search param value.
- * @param fallbackPath - Internal path used when the candidate is missing or unsafe.
- * @returns The normalized internal path (with search and hash) or the fallback.
- */
-function resolveSafeCallbackUrl(
-  rawCallbackUrl: string | null,
-  fallbackPath: string
-): string {
-  if (!rawCallbackUrl) {
-    return fallbackPath;
-  }
-
-  const trimmedCallbackUrl = rawCallbackUrl.trim();
-
-  if (!trimmedCallbackUrl.startsWith(AUTH_SIGN_IN_PREFIX.slash)) {
-    return fallbackPath;
-  }
-
-  let resolvedCallbackUrl: URL;
-
-  try {
-    resolvedCallbackUrl = new URL(
-      trimmedCallbackUrl,
-      CALLBACK_URL_RESOLUTION_ORIGIN
-    );
-  } catch {
-    // Unparseable input is untrusted: fall back to the internal default path.
-    return fallbackPath;
-  }
-
-  if (resolvedCallbackUrl.origin !== CALLBACK_URL_RESOLUTION_ORIGIN) {
-    return fallbackPath;
-  }
-
-  return (
-    resolvedCallbackUrl.pathname +
-    resolvedCallbackUrl.search +
-    resolvedCallbackUrl.hash
-  );
-}
 
 type SignInShellProps = {
   children: React.ReactNode;

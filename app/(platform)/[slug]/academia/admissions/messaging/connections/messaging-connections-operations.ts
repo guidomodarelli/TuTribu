@@ -41,6 +41,7 @@ import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draf
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { MESSAGING_ERROR_MESSAGE, MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
+import { isMessagingSignInRequired } from "@/lib/messaging/messaging-route-recovery";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 
@@ -81,6 +82,8 @@ export type ConnectionsContext = {
   setHistory: ConnectionsSetter<MessagingConnectionsPendingIntent[]>; setPending: (value: MessagingConnectionsPendingIntent | null) => void; setFieldErrors: (value: CredentialFieldErrors) => void;
   setValidationAttempt: ConnectionsSetter<number>; setDiagnosticReferences: ConnectionsSetter<MessagingDiagnosticObservationReference[]>; setReplacementScope: (value: string) => void;
   setFocusKey: (value: boolean) => void; setCurrentStepId: (value: string) => void;
+  /** Whether the last answer asks to sign in again with Google; the page keeps that action above the steps until another operation starts. */
+  setSignInRequired: (value: boolean) => void;
   resourceController: ReturnType<typeof useMessagingResourceController>; diagnosticController: ReturnType<typeof useMessagingDiagnosticController>;
   activationController: ReturnType<typeof useMessagingActivationController>; lifecycleController: ReturnType<typeof useMessagingLifecycleController>;
   /** Accepts a recovered issuance once the configuration just read is rendered, so the diagnostic controller compares it with that configuration instead of the one of this render. */
@@ -145,6 +148,24 @@ function issuedOriginalResult(original: MessagingUsageBrowserResult<MessagingCon
 /** @param context - Current render facts. @param next - Operation outcome to announce when the current operation settles. @returns Nothing. */
 function emitFeedback(context: ConnectionsContext, next: MessagingConnectionsFeedback): void { context.report.current = next; }
 
+/** Failed answer of any own messaging request. */
+type FailedOutcome = Extract<MessagingUsageBrowserResult<unknown>, { status: "failed" }>;
+
+/** @param context - Current render facts. @param outcome - Any own answer. @returns Nothing after keeping the Google sign-in action when the answer needs it. */
+function noteSignInRequired(context: ConnectionsContext, outcome: MessagingUsageBrowserResult<unknown>): void {
+  if (outcome.status === "failed" && isMessagingSignInRequired(outcome.code)) context.setSignInRequired(true);
+}
+
+/**
+ * @param context - Current render facts. @param outcome - Definitive failure. @param text - Leader copy of the failure; its catalogue copy by default.
+ * @returns Nothing after announcing it once. A failure that asks to sign in again stays above the steps with its Google action,
+ * so the toast does not repeat it.
+ */
+function emitFailure(context: ConnectionsContext, outcome: FailedOutcome, text: string = outcome.message): void {
+  if (isMessagingSignInRequired(outcome.code)) { context.setSignInRequired(true); return; }
+  emitFeedback(context, { kind: "alert", text });
+}
+
 /** @param context - Current render facts. @param text - Persistent explanation of an unconfirmed original, kept above the steps. @returns Nothing after also announcing the short failure once. */
 function holdPending(context: ConnectionsContext, text: string): void { context.setNotice(text); emitFeedback(context, { kind: "alert", text: COPY.unconfirmed }); }
 
@@ -199,7 +220,7 @@ function rememberDiagnostic(context: ConnectionsContext, operationId: string, re
 
 /** @param context - Current render facts. @returns The controller of a new serialized observation. */
 function beginObservation(context: ConnectionsContext): AbortController {
-  context.busy.current = true; const controller = new AbortController(); context.observation.current = controller;
+  context.busy.current = true; const controller = new AbortController(); context.observation.current = controller; context.setSignInRequired(false);
   return controller;
 }
 
@@ -224,7 +245,7 @@ async function readFreshConfiguration(context: ConnectionsContext, { ready, cont
 function settleWriteFailure(context: ConnectionsContext, outcome: MessagingUsageBrowserResult<unknown>, pendingText: string, failureCopy: Partial<Record<MessagingErrorCode, string>> = {}): void {
   if (outcome.status === "failed" && !outcome.uncertain) {
     if (outcome.code === MESSAGING_ERROR_CODE.connectionConflict) context.setNeedsCurrent(true);
-    if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: failureCopy[outcome.code] ?? outcome.message });
+    if (retainIntent(context, null)) emitFailure(context, outcome, failureCopy[outcome.code] ?? outcome.message);
     return;
   }
   holdPending(context, pendingText);
@@ -249,7 +270,7 @@ export async function observeResource<Value>(context: ConnectionsContext, reques
     if (!await checkConnectionsViewer(context, controller.signal)) return;
     const outcome = await request(controller.signal);
     if (!await stillCurrent(context, controller)) return;
-    settle(outcome);
+    noteSignInRequired(context, outcome); settle(outcome);
   } finally { endObservation(context); }
 }
 
@@ -427,6 +448,7 @@ async function runRecovery(context: ConnectionsContext, { ready, controller }: O
   if (!await checkConnectionsViewer(context, controller.signal)) return;
   const result = await context.client.operation(ready.slug, pending.operationId, controller.signal);
   if (!await stillCurrent(context, controller)) return;
+  noteSignInRequired(context, result);
   if (result.status === "ready" && result.value.type === pending.type && result.value.state === OPERATION_STATE.completed) { await reconcileRecoveredOriginal(context, { ready, controller }, pending, result.value); return; }
   if (result.status === "ready" && result.value.type === pending.type && result.value.state === OPERATION_STATE.started || result.status === "failed" && result.code === MESSAGING_ERROR_CODE.resourceUnavailable) { await followUnresolvedOriginal(context, { ready, controller }, pending, result.status === "failed"); return; }
   context.setCanResume(false); holdPending(context, pendingCopyFor(pending));
@@ -592,7 +614,7 @@ async function runValidation(context: ConnectionsContext, { ready, controller }:
   if (outcome.status !== "failed" || outcome.uncertain) { holdPending(context, CHECK_COPY.pending); return; }
   if (outcome.code === MESSAGING_ERROR_CODE.connectionConflict) context.setNeedsCurrent(true);
   else if (!await refreshAfterRejectedValidation(context, { ready, controller })) return;
-  if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message });
+  if (retainIntent(context, null)) emitFailure(context, outcome);
 }
 
 /** @param context - Current render facts. @returns Nothing after one explicit candidate CAS check and current lifecycle reconciliation; it cannot activate a channel. */
@@ -708,7 +730,7 @@ async function runVerification(context: ConnectionsContext, { ready, controller 
   context.diagnosticController.clearPrivate();
   if (!await stillCurrent(context, controller)) return;
   if (outcome.status !== "ready" || outcome.value.state !== OPERATION_STATE.completed) {
-    if (outcome.status === "failed" && !outcome.uncertain) { if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message }); }
+    if (outcome.status === "failed" && !outcome.uncertain) { if (retainIntent(context, null)) emitFailure(context, outcome); }
     else holdPending(context, DIAGNOSTIC_COPY.pending);
     return;
   }
@@ -743,7 +765,7 @@ export async function readDiagnosticDelivery(context: ConnectionsContext, diagno
   if (!ready || !candidate || context.pending || !testsCandidate(candidate, diagnostic)) return;
   toastMessagingRead(await collectFeedback(context, () => observeResource(context, (signal) => context.diagnosticClient.delivery({ slug: ready.slug, deliveryId: diagnostic.deliveryId, channel: diagnostic.channel }, signal), (outcome) => {
     if (outcome.status === "ready") context.diagnosticController.acceptDelivery(outcome.value);
-    else if (outcome.status === "failed") emitFeedback(context, { kind: "alert", text: outcome.message });
+    else if (outcome.status === "failed") emitFailure(context, outcome);
   })));
 }
 
@@ -769,9 +791,9 @@ async function runResume(context: ConnectionsContext, { ready, controller }: Ope
   // Observe the original separately; a successful replay is never substituted for the current view.
   if (outcome.status === "ready" && outcome.value.state === OPERATION_STATE.completed) { context.setNotice(RECOVERY_COPY.consultAgain); emitFeedback(context, { kind: "status", text: RECOVERY_COPY.resumed }); }
   // The platform rejected the replay before registering it: nothing is left to resume, so the original is released.
-  else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) { if (retainIntent(context, null)) emitFeedback(context, { kind: "alert", text: outcome.message }); }
+  else if (outcome.status === "failed" && !outcome.uncertain && outcome.code === MESSAGING_ERROR_CODE.platformSecurityUnavailable) { if (retainIntent(context, null)) emitFailure(context, outcome); }
   // A definitive rejection of the replay keeps the original to consult, since an earlier attempt may have completed it.
-  else if (outcome.status === "failed" && !outcome.uncertain) emitFeedback(context, { kind: "alert", text: outcome.message });
+  else if (outcome.status === "failed" && !outcome.uncertain) emitFailure(context, outcome);
   // A lost, timed-out or still started replay proves nothing: the original stays pending and is never announced as resumed.
   else holdResumeUnconfirmed(context, pending);
 }
