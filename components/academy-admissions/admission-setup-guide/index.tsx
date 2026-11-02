@@ -57,6 +57,7 @@ function setupStepDetail(step: SetupStep): string {
   const openDetail = openStepDetail(step);
   if (openDetail !== null) return openDetail;
   if (step.emailOmitted) return STEP_COPY.notifications.omitted;
+  if (step.status === STATUS.pending && step.messagingNeed && "pendingByNeed" in copy) return copy.pendingByNeed[step.messagingNeed];
   return step.status === STATUS.optional && "optional" in copy ? copy.optional : copy.pending;
 }
 
