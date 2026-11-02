@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-11-02
+
 ### Changed
 
 - El motivo interno al aprobar o rechazar una solicitud de ingreso ahora es opcional, en la revisión individual y en lote, también en las excepciones a la lista y cuando la persona se agregó a la lista después de pedir entrar. Un motivo vacío o con espacios se guarda sin motivo.
