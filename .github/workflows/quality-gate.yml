@@ -26,7 +26,7 @@ env:
 jobs:
   static-checks-and-build:
     name: Static checks and build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
@@ -50,7 +50,7 @@ jobs:
 
   tests:
     name: Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -73,7 +73,7 @@ jobs:
 
   golfo-lint:
     name: golfo-lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       GITLEAKS_VERSION: 8.30.1
@@ -113,7 +113,7 @@ jobs:
     name: Quality gate
     needs: [static-checks-and-build, tests, golfo-lint]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Require every quality gate job to succeed
