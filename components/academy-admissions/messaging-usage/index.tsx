@@ -32,6 +32,8 @@ export type MessagingUsageProps = {
   canRetrySave?: boolean;
   impact?: MessagingUsageChangeImpact | null;
   uncertain?: boolean; canRetry?: boolean; retryConfirmed?: boolean;
+  /** What the unresolved original needs, shown inside its recovery, next to the consult and retry actions; null keeps the default. */
+  recoveryMessage?: string | null;
   /** What only the TuTribu team can resolve before a save can be protected; the container also withholds every write while it is set. */
   platformRequirement?: PlatformSecurityRequirement | null;
   onChange: (draft: MessagingUsageDraft) => void; onConfirm: (confirmed: boolean) => void; onStepChange: (step: number) => void;
@@ -130,7 +132,7 @@ function SavedUsageSummary({ policy, countryChoices, savedNoticeWarning }: { pol
 /** @param props - Retry consent and the original operation actions. @param instanceId - Prefix of the field ids. @returns The recovery of a save whose result is unknown. */
 function UsageOriginalRecovery({ props, instanceId }: { props: MessagingUsageProps; instanceId: string }) {
   return <section className={styles.MessagingUsage__recovery} aria-label="Recuperar operación original">
-    <p role="status" className={styles.MessagingUsage__recoveryText}>Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.</p>
+    <p role="status" className={styles.MessagingUsage__recoveryText}>{props.recoveryMessage ?? "Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir."}</p>
     <Button variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>
     {props.canRetry && <>
       <Checkbox id={`${instanceId}-retry`} checked={props.retryConfirmed ?? false} disabled={props.busy} onCheckedChange={(checked) => props.onRetryConfirm?.(checked === true)} label="Confirmo reintentar el guardado con sus datos originales." />

@@ -35,6 +35,39 @@ describe("AdmissionSetupGuide", () => {
     expect(screen.getByText("1 de 2 pasos necesarios listos")).toBeInTheDocument();
   });
 
+  it("keeps the connection and the countries and quotas optional while the tribe email is off, even with a personal frequency", () => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes: false, verifiesPhone: false },
+      messaging: { connected: false, usage: null },
+      notifications: { emailEnabled: false, receivesEmail: true },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+
+    const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
+    expect(within(items[1]).getByText("Opcional")).toBeInTheDocument();
+    expect(items[1]).toHaveTextContent("Hace falta solo si vas a enviar códigos o avisos por correo.");
+    expect(within(items[2]).getByText("Opcional")).toBeInTheDocument();
+    expect(screen.queryByText(/conectá Zavu y activá la conexión/)).not.toBeInTheDocument();
+    expect(screen.getByText("1 de 2 pasos necesarios listos")).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ sendsCodes: true, receivesEmail: false }, "Tus reglas envían códigos de verificación: conectá Zavu y activá la conexión."],
+    [{ sendsCodes: false, receivesEmail: true }, "Recibís avisos de las solicitudes por correo: conectá Zavu y activá la conexión."],
+    [{ sendsCodes: true, receivesEmail: true }, "Tus reglas envían códigos de verificación y recibís avisos por correo: conectá Zavu y activá la conexión."],
+  ])("says why the pending connection is needed (%o)", ({ sendsCodes, receivesEmail }, detail) => {
+    const progress = deriveAdmissionSetupProgress({
+      policy: { exists: true, open: false, paused: false, sendsCodes, verifiesPhone: false },
+      messaging: { connected: false, usage: null },
+      notifications: { emailEnabled: true, receivesEmail },
+    });
+    render(<AppUIProvider><AdmissionSetupGuide slug="tribu" progress={progress} /></AppUIProvider>);
+
+    const items = within(screen.getByRole("list", { name: "Pasos de la configuración" })).getAllByRole("listitem");
+    expect(items[1]).toHaveTextContent(detail);
+    expect(screen.getByRole("link", { name: "Conectar mensajería" })).toBeInTheDocument();
+  });
+
   it("explains that paused admissions do not accept applicants", () => {
     const paused = deriveAdmissionSetupProgress({
       policy: { exists: true, open: false, paused: true, sendsCodes: false, verifiesPhone: false },

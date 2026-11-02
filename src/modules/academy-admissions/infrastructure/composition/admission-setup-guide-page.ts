@@ -78,13 +78,14 @@ function readPlatformSecurityFacts(state: Extract<AdmissionPolicyPageState, { ki
 /** Maps the rules page state to the guide's policy facts. */
 function readPolicyFacts(state: Extract<AdmissionPolicyPageState, { kind: "ready" }>): AdmissionSetupFacts["policy"] {
   const { policy } = state.policy;
-  const sendsCodes = policy !== null && (policy.requiresAdditionalVerification || policy.contactType === ADMISSION_CONTACT_TYPE.phone);
+  // Only the additional verification sends codes: a phone contact without it is declared, so it needs no connection, quota or country.
+  const sendsCodes = policy?.requiresAdditionalVerification ?? false;
   return {
     exists: policy !== null,
     open: state.policy.state === ADMISSION_POLICY_PUBLIC_STATE.active,
     paused: state.policy.state === ADMISSION_POLICY_PUBLIC_STATE.paused,
     sendsCodes,
-    verifiesPhone: policy?.contactType === ADMISSION_CONTACT_TYPE.phone,
+    verifiesPhone: sendsCodes && policy?.contactType === ADMISSION_CONTACT_TYPE.phone,
   };
 }
 
@@ -100,7 +101,7 @@ function readMessagingFacts(state: MessagingConnectionsPageState): { leader: boo
   return { leader: true, facts: { connected: configuration.selected?.state === MESSAGING_CONNECTION_STATE.active, candidatePending, usage } };
 }
 
-/** Email notices need both the tribe's email switch and a personal frequency other than "omitted". */
+/** Reports the tribe's email switch and whether the personal frequency is not "omitted"; the guide combines both, since email notices need both. */
 function readNotificationFacts(state: AdmissionNotificationSettingsPageState): AdmissionSetupFacts["notifications"] {
   if (state.kind !== "ready") return null;
   return { emailEnabled: state.email?.enabled ?? false, receivesEmail: state.preference.mode !== ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted };

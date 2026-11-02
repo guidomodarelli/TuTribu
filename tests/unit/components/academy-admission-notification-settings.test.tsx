@@ -61,6 +61,7 @@ afterEach(() => { vi.unstubAllEnvs(); });
 describe("admission notification settings guided workflow", () => {
   it("should keep server and first client markup consistent before resuming a stored original on the review step", async () => {
     const data = fixture(); writeAdmissionNotificationSettingsIntent(viewerId, slug, original("Asia/Kolkata"));
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { viewerId, data: { state: "started", operationId: originalId } } });
     const tree = <Providers>{data.node()}</Providers>, container = document.createElement("div"), recoverable: unknown[] = [];
     container.innerHTML = renderToString(tree); document.body.append(container);
     expect(within(container).getByRole("checkbox", { name: "Habilitar correo de admisión" })).not.toBeChecked();
@@ -415,13 +416,30 @@ describe("admission notification settings guided workflow", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("should retry an absent original with its exact body only after fresh consent", async () => {
+  it("should forget an original that was never registered, reopen its values on the review and save them as a new change after fresh consent", async () => {
     const data = fixture(); writeAdmissionNotificationSettingsIntent(viewerId, slug, original());
     render(data.node(), { wrapper: Providers }); await ready();
-    expect(screen.getByRole("alert")).toHaveTextContent("El cambio original todavía no aparece registrado.");
-    expect(screen.getByRole("button", { name: "Guardar avisos" })).toBeDisabled(); expect(data.client.changeEmail).not.toHaveBeenCalled();
+    expect(screen.getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.originalUnregistered)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull();
+    expect(screen.getByText("Revisá y guardá", { selector: "legend" })).toBeInTheDocument();
+    expect(reviewRow("Correo de la tribu")).toHaveTextContent("Habilitado, zona UTC");
+    expect(screen.queryByText("Se reintenta el cambio pendiente")).not.toBeInTheDocument();
+    expect(data.client.changeEmail).not.toHaveBeenCalled();
     await confirm(); save();
-    await waitFor(() => expect(data.client.changeEmail).toHaveBeenCalledWith(slug, original(), expect.any(AbortSignal)));
+    await waitFor(() => expect(screen.getByText("Tus avisos quedaron guardados.")).toBeInTheDocument());
+    expect(data.client.changeEmail).toHaveBeenCalledOnce();
+    expect(data.client.changeEmail.mock.calls[0][1]).toMatchObject({ confirmed: true, expectedVersion: 0, enabled: true, timeZone: "UTC" });
+    expect(data.client.changeEmail.mock.calls[0][1].operationId).not.toBe(originalId);
+  });
+
+  it("should forget an unregistered original without reopening it while the platform cannot protect a tribe email change", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked"; writeAdmissionNotificationSettingsIntent(viewerId, slug, original());
+    render(data.node(), { wrapper: Providers }); await ready();
+    expect(screen.getByText(ADMISSION_NOTIFICATION_SETTINGS_COPY.originalUnregisteredPlatform)).toBeInTheDocument();
+    expect(readAdmissionNotificationSettingsIntent(viewerId, slug)).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Habilitar correo de admisión" })).not.toBeChecked();
+    expect(data.client.changeEmail).not.toHaveBeenCalled();
   });
 
   it("should announce recovered current settings only after that independent current read completes", async () => {

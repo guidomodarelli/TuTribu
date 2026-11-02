@@ -137,8 +137,11 @@ async function readCurrentPreference(session: SettingsSession, signal: AbortSign
   return currentPreference.value.data.canConfigureEmail;
 }
 
-/** Outcome of consulting a stored original: the read stops, or continues knowing whether it was recovered. */
-type EmailRecoveryOutcome = { stop: true } | { stop: false; recovered: boolean; succeeded: boolean };
+/**
+ * Outcome of consulting a stored original: the read stops, or continues knowing whether it was recovered; `unregistered` is a
+ * forgotten original whose values the current read reopens.
+ */
+type EmailRecoveryOutcome = { stop: true } | { stop: false; recovered: boolean; succeeded: boolean; unregistered?: AdmissionNotificationEmailSettingsCommand };
 
 /** @param session - Current route session. @param original - Stored original command. @param signal - Current read. @returns Whether the read stops, and whether the original was recovered and saved. */
 async function recoverEmailOriginal(session: SettingsSession, original: AdmissionNotificationEmailSettingsCommand, signal: AbortSignal): Promise<EmailRecoveryOutcome> {
@@ -149,8 +152,10 @@ async function recoverEmailOriginal(session: SettingsSession, original: Admissio
     // A registered original the platform cannot verify yet stays pending, like a started one; it never hides the personal preference.
     if (result.code === ADMISSION_ERROR_CODE.operationUnresolved) { controls.setCanRetry(true); controls.setError(COPY.originalStarted); return { stop: false, recovered: false, succeeded: false }; }
     if (result.code !== ADMISSION_ERROR_CODE.resourceUnavailable) { controls.setPrivateVisible(false); controls.setError(result.message); return { stop: true }; }
-    controls.setCanRetry(true); controls.setError(COPY.originalAbsent);
-    return { stop: false, recovered: false, succeeded: false };
+    // An unregistered original applied nothing, and sent late it can never overwrite a newer save: its expectedVersion makes the
+    // server reject it as a version conflict. So it is forgotten instead of retried with its same data, and its values reopen.
+    writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); rememberSettingsIntent(controls, null); controls.setError(null);
+    return { stop: false, recovered: false, succeeded: false, unregistered: original };
   }
   if (!await acceptSettingsResult(session, result.value, signal) || !isSlotCurrent(controls, signal)) return { stop: true };
   if (result.value.data.state === OPERATION_STATE.started) { controls.setCanRetry(true); controls.setError(COPY.originalStarted); return { stop: false, recovered: false, succeeded: false }; }
@@ -175,8 +180,24 @@ function finishSettingsRead(controls: SettingsControls, recovered: boolean): voi
   if (recovered) controls.setStatus(COPY.recovered);
 }
 
-/** @param session - Current route session. @param signal - Current read. @param resetDraft - Whether the fields follow the read email. @returns Whether the current email was read and applied. */
-async function readCurrentEmail(session: SettingsSession, signal: AbortSignal, resetDraft: boolean): Promise<boolean> {
+/**
+ * Reopens the values of a forgotten unregistered original on the review, to be confirmed and saved as a new change; while the platform
+ * cannot protect a change the fields follow what is saved instead, and the notice says saving waits for the TuTribu team.
+ * @param controls - Stable controls. @param original - Forgotten original. @param settings - Current email. @param platformBlocked - Whether the platform blocks a change.
+ * @returns Nothing after showing the informative notice.
+ */
+function reopenUnregisteredEmail(controls: SettingsControls, original: AdmissionNotificationEmailSettingsCommand, settings: AdmissionNotificationEmailSettingsView, platformBlocked: boolean): void {
+  if (platformBlocked) { resetSettingsEmailDraft(controls, settings); controls.setStatus(COPY.originalUnregisteredPlatform); return; }
+  controls.setDraft({ enabled: original.enabled, timeZone: original.timeZone }); controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
+  controls.setStatus(COPY.originalUnregistered);
+}
+
+/**
+ * @param session - Current route session. @param signal - Current read. @param resetDraft - Whether the fields follow the read email.
+ * @param unregistered - Forgotten unregistered original whose values reopen, if any.
+ * @returns Whether the current email was read and applied.
+ */
+async function readCurrentEmail(session: SettingsSession, signal: AbortSignal, resetDraft: boolean, unregistered: AdmissionNotificationEmailSettingsCommand | null = null): Promise<boolean> {
   const { ready, client, controls } = session;
   const currentEmail = await client.readEmail(ready.slug, signal);
   if (currentEmail.status === STATUS.aborted || !await isReplyCurrent(session, signal)) return false;
@@ -185,7 +206,8 @@ async function readCurrentEmail(session: SettingsSession, signal: AbortSignal, r
   const { settings, platformRequirement } = currentEmail.value.data;
   const initializeDraft = !controls.hasEmailView.current; controls.hasEmailView.current = true; controls.setEmail(settings); controls.setPlatformRequirement(platformRequirement);
   // While the platform cannot protect a change the fields cannot be edited, so they follow what is saved (a retained original keeps its own values).
-  if (resetDraft || (initializeDraft || platformRequirement !== null) && !controls.pending.current) resetSettingsEmailDraft(controls, settings);
+  if (unregistered) reopenUnregisteredEmail(controls, unregistered, settings, platformRequirement !== null);
+  else if (resetDraft || (initializeDraft || platformRequirement !== null) && !controls.pending.current) resetSettingsEmailDraft(controls, settings);
   return true;
 }
 
@@ -211,7 +233,7 @@ export async function readSettingsCurrent(session: SettingsSession, signal: Abor
     restoreSettingsEmailIntent(session);
     const recovery = await recoverStoredEmail(session, signal);
     if (recovery.stop) return false;
-    if ((needsCurrent || controls.pending.current || recovery.recovered) && !await readCurrentEmail(session, signal, recovery.recovered || resetDraft)) return false;
+    if ((needsCurrent || controls.pending.current || recovery.recovered || recovery.unregistered) && !await readCurrentEmail(session, signal, recovery.recovered || resetDraft, recovery.unregistered ?? null)) return false;
     finishSettingsRead(controls, recovery.succeeded || resetDraft);
     return true;
   } catch { if (isSlotCurrent(controls, signal)) { controls.loaded.current = false; controls.setError(COPY.storageFailed); } return false; }

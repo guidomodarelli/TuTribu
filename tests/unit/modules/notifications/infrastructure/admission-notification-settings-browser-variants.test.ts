@@ -167,15 +167,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 2, enabled: false, timeZone: "Asia/Kolkata" });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull(); await capture("notification-settings-resumed");
 
-              await mark("absent_original_requires_new_consent");
-              const absent = fixture.command(2, false, "UTC"); forbidden.push(absent.operationId);
+              await mark("absent_original_reopens_values_for_a_new_save");
+              const absent = fixture.command(2, true, "UTC"); forbidden.push(absent.operationId);
               await page.evaluate(({ key, value }) => sessionStorage.setItem(key, value), { key: storedKey, value: JSON.stringify({ viewerId: fixture.own.userId, slug, input: absent }) });
               await page.reload({ waitUntil: "domcontentloaded" }); await ready();
-              await page.getByRole("alert").filter({ hasText: "El cambio original todavía no aparece registrado." }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("El cambio anterior del correo de la tribu no llegó a registrarse. Revisá los valores y guardá de nuevo.", { exact: true }).waitFor();
+              expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull();
               expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); await capture("notification-settings-original-absent");
               await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
-              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 3, timeZone: "UTC" });
+              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 3, enabled: true, timeZone: "UTC" });
 
               await mark("owned_read_failure_and_explicit_retry");
               await page.route("**/admissions/notification-preferences", async (request) => {

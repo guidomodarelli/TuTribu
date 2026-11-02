@@ -1,6 +1,6 @@
 /** Derives the leader's admission setup steps from current configuration facts. @module admission-setup-progress */
 
-import { ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_ORDER, ADMISSION_SETUP_STEP_STATUS, type AdmissionSetupStepId, type AdmissionSetupStepStatus } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
+import { ADMISSION_SETUP_MESSAGING_NEED, ADMISSION_SETUP_STEP, ADMISSION_SETUP_STEP_ORDER, ADMISSION_SETUP_STEP_STATUS, type AdmissionSetupMessagingNeed, type AdmissionSetupStepId, type AdmissionSetupStepStatus } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT } from "@/src/modules/messaging/constants/messaging-usage";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
@@ -12,9 +12,9 @@ export type AdmissionSetupFacts = {
     open: boolean;
     /** The control was activated once and is now paused. */
     paused: boolean;
-    /** The rules send verification codes, so messaging is required. */
+    /** The rules send verification codes (additional contact verification), so messaging is required. */
     sendsCodes: boolean;
-    /** The rules verify a phone number, so countries and a code quota are required. */
+    /** The rules verify a phone number with a code, so countries and a code quota are required. */
     verifiesPhone: boolean;
   };
   messaging: {
@@ -23,6 +23,7 @@ export type AdmissionSetupFacts = {
     candidatePending?: boolean;
     usage: { countryCount: number; verificationDailyLimit: number; notificationDailyLimit: number } | null;
   } | null;
+  /** `emailEnabled` is the tribe email switch; `receivesEmail` only says the leader's frequency is not «omitted». */
   notifications: { emailEnabled: boolean; receivesEmail: boolean } | null;
   /**
    * Informational activation check: a platform block means only the TuTribu team can let the leader open admissions;
@@ -48,6 +49,8 @@ export type AdmissionSetupStep = {
   lowNoticeQuota?: boolean;
   /** The tribe sends admission email, but the leader's own frequency omits it, so the leader receives none. */
   emailOmitted?: boolean;
+  /** Why a pending connection step is needed: codes from the rules, email notices to the leader, or both. */
+  messagingNeed?: AdmissionSetupMessagingNeed;
 };
 export type AdmissionSetupProgress = {
   steps: AdmissionSetupStep[];
@@ -69,12 +72,16 @@ export type AdmissionSetupProgress = {
  */
 export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): AdmissionSetupProgress {
   const { policy, messaging, notifications } = facts;
-  const emailNotices = notifications?.receivesEmail ?? false;
-  const needsMessaging = policy.sendsCodes || emailNotices;
+  /** The tribe sends admission email to someone (the leader or other reviewers) only while its email switch is on. */
+  const tribeSendsEmail = notifications?.emailEnabled ?? false;
+  /** The leader receives email notices only with the tribe switch on and a personal frequency other than «omitted». */
+  const emailNotices = tribeSendsEmail && (notifications?.receivesEmail ?? false);
+  const messagingNeed = readMessagingNeed(policy.sendsCodes, emailNotices);
+  const needsMessaging = messagingNeed !== null;
   const usage = messaging?.usage ?? null;
   const usageReady = isUsageReady(usage, policy, emailNotices);
   /** A saved notice quota under the threshold matters whenever the tribe sends admission email, to the leader or to other reviewers. */
-  const lowNoticeQuota = usage !== null && (emailNotices || (notifications?.emailEnabled ?? false)) && usage.notificationDailyLimit < MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT;
+  const lowNoticeQuota = usage !== null && tribeSendsEmail && usage.notificationDailyLimit < MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT;
   const activated = policy.open || policy.paused;
   const draftRules = policy.exists && !activated;
   const connected = messaging?.connected ?? false;
@@ -83,16 +90,26 @@ export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): Admiss
   const activation = platformSecurity ? null : facts.activation ?? null;
   const byId: Record<AdmissionSetupStepId, AdmissionSetupStep | null> = {
     rules: { id: ADMISSION_SETUP_STEP.rules, status: stepStatus(policy.exists, true), ...(draftRules ? { draft: true } : {}) },
-    connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}) },
+    connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}), ...(!connected && messagingNeed ? { messagingNeed } : {}) },
     usage: { id: ADMISSION_SETUP_STEP.usage, status: stepStatus(usageReady, needsMessaging), ...(lowNoticeQuota ? { lowNoticeQuota: true } : {}) },
     open: { id: ADMISSION_SETUP_STEP.open, status: stepStatus(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...activationFlags(activated, activation) },
-    notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(notifications !== null && notifications.emailEnabled && notifications.receivesEmail, false), ...(notifications?.emailEnabled && !notifications.receivesEmail ? { emailOmitted: true } : {}) },
+    notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(emailNotices, false), ...(tribeSendsEmail && !emailNotices ? { emailOmitted: true } : {}) },
   };
   const steps = ADMISSION_SETUP_STEP_ORDER.map((id) => byId[id]).filter((step): step is AdmissionSetupStep => step !== null);
   const requiredSteps = steps.filter((step) => isRequired(step.id, needsMessaging));
   const next = steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.pending) ?? steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.optional) ?? null;
   return { steps, completed: requiredSteps.filter((step) => step.status === ADMISSION_SETUP_STEP_STATUS.done).length, required: requiredSteps.length, next: next?.id ?? null,
     platformSecurity: platformSecurity ? { requirement: platformSecurity, rulesSaved: policy.exists } : null };
+}
+
+/**
+ * @param sendsCodes - Whether the rules send verification codes. @param emailNotices - Whether the leader receives email notices.
+ * @returns What makes messaging necessary, or `null` when nothing is sent and the messaging steps stay optional.
+ */
+function readMessagingNeed(sendsCodes: boolean, emailNotices: boolean): AdmissionSetupMessagingNeed | null {
+  if (sendsCodes && emailNotices) return ADMISSION_SETUP_MESSAGING_NEED.codesAndNotices;
+  if (sendsCodes) return ADMISSION_SETUP_MESSAGING_NEED.codes;
+  return emailNotices ? ADMISSION_SETUP_MESSAGING_NEED.notices : null;
 }
 
 /** @returns Whether the saved usage covers every quota the rules and notices need. */
@@ -116,7 +133,7 @@ function activationFlags(activated: boolean, activation: NonNullable<AdmissionSe
   return activation.admissionsClosed ? { admissionsClosed: true } : {};
 }
 
-/** Rules and opening are always required; messaging steps only when the rules or notices send messages. */
+/** Rules and opening are always required; messaging steps only when the rules send codes or the leader receives email notices. */
 function isRequired(id: AdmissionSetupStepId, needsMessaging: boolean): boolean {
   if (id === ADMISSION_SETUP_STEP.rules || id === ADMISSION_SETUP_STEP.open) return true;
   if (id === ADMISSION_SETUP_STEP.notifications) return false;
