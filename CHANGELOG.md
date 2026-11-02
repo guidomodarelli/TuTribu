@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-02
+
 ### Added
 
 - En la academia, una suscripción que todavía espera el pago muestra «Continuar el pago» para retomar el mismo pago en Mercado Pago, sin generar otro.
