@@ -51,6 +51,18 @@ describe("SignInWithGoogleButton", () => {
     expect(startGoogleSignInMock).toHaveBeenCalledWith("/admissions/matematica-pro", { selectAccount: true });
   });
 
+  it("names the action a page asks for and starts the same Google sign-in back to that page", async () => {
+    const user = userEvent.setup();
+
+    render(<SignInWithGoogleButton callbackUrl="/tribu/academia/admissions/messaging" label="Volver a ingresar con Google" fullWidth={false} />);
+
+    expect(screen.queryByRole("button", { name: /iniciar sesión con google/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Volver a ingresar con Google" }));
+
+    expect(startGoogleSignInMock).toHaveBeenCalledWith("/tribu/academia/admissions/messaging", { selectAccount: false });
+    expect(screen.getByRole("button", { name: /redirigiendo a google/i })).toBeDisabled();
+  });
+
   it("redirects to the auth error page when Better Auth rejects the OAuth start", async () => {
     const user = userEvent.setup();
     startGoogleSignInMock.mockRejectedValue(new Error("origin_mismatch"));

@@ -28,7 +28,12 @@ import {createMessagingDiagnosticBrowserClient} from "@/lib/messaging/messaging-
 import {createMessagingConnectionsBrowserClient} from "@/lib/messaging/messaging-connections-api-client";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {ADMISSION_CONTACT_ABSENT_DISCARD_AFTER_MS} from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import {AppRouterContext,type AppRouterInstance} from "next/dist/shared/lib/app-router-context.shared-runtime";
+import {PathnameContext,SearchParamsContext} from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import {MESSAGING_ROUTE_ERROR_COPY} from "@/src/modules/messaging/constants/messaging-route-error";
 
+/** Better Auth keeps the `fetch` it finds when its module loads, so the Google sign-in edge is installed before the imports. */
+const googleSignIn = await vi.hoisted(async () => (await import("@/tests/support/google-sign-in-request")).installGoogleSignInTransport());
 /** @param ui - The container under test. @returns Its render next to the app's real toaster, where operation results are announced. */
 const renderWithToasts=(ui:ReactElement)=>render(<><ThemedToaster />{ui}</>);
 /** @param name - Visible guided step, "Seguridad", or an alias: "Conexión" is the key step without a candidate and the credential step with one; "Pruebas" is the first channel test. @returns After moving through the flow the way a person does, with Atrás and Siguiente; moving never sends, saves or activates. */
@@ -54,6 +59,10 @@ async function openTab(name:string){
   }
   throw new Error(`Could not reach step ${name}`);
 }
+/** Native router contexts of the connections page, so its Google sign-in action knows where to return. */
+const CONNECTIONS_PATHNAME="/synthetic/academia/admissions/messaging/connections",router={back:vi.fn(),bfcacheId:"connections-container-test",forward:vi.fn(),prefetch:vi.fn(),push:vi.fn(),refresh:vi.fn(),replace:vi.fn()} satisfies AppRouterInstance;
+/** @param ui - The container under test. @param search - Query of the page. @returns Its render inside the framework's own route contexts, next to the real toaster. */
+const renderOnRoute=(ui:ReactElement,search="")=>renderWithToasts(<AppRouterContext.Provider value={router}><PathnameContext.Provider value={CONNECTIONS_PATHNAME}><SearchParamsContext.Provider value={new URLSearchParams(search)}>{ui}</SearchParamsContext.Provider></PathnameContext.Provider></AppRouterContext.Provider>);
 /** Países y cupos saved with the default row: quotas exist, no phone country is allowed yet. */
 const savedUsageWithoutCountries={state:"configured" as const,policy:{version:1,allowedCountries:[] as string[],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
 /** @returns Guarded own SSR state and readonly/writing ports without auth/platform mocks. */
@@ -74,7 +83,7 @@ function selectedCandidateFixture(){
 
 describe("connection wizard first container step",()=>{
   // Sonner keeps toasts in a module-level store and replays active ones to a new toaster; each test starts without them.
-  afterEach(()=>{toast.dismiss();});
+  afterEach(()=>{toast.dismiss();googleSignIn.reset();});
   it("should read the current state once when the page was restored from an older snapshot, so Países y cupos saved elsewhere unblocks the test",async()=>{
     const fixture=selectedCandidateFixture(),notConfigured={state:"not_configured" as const,policy:null},untested={...fixture.candidate,capabilities:[{...fixture.candidate.capabilities[0],state:MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared,testedAt:null}]};
     const restored={...fixture.initialState,renderedAt:new Date(Date.now()-60_000).toISOString(),configuration:{...fixture.configuration,selected:null,candidate:untested,usage:notConfigured}} as MessagingConnectionsPageState;
@@ -286,6 +295,24 @@ describe("connection wizard first container step",()=>{
     const fixture=containerFixture(),user=userEvent.setup(),credential=randomUUID(),message="Tu sesión cambió. Recargá la página e intentá de nuevo.";fixture.create.mockResolvedValueOnce({status:"failed",code:"reauthentication_required",message,uncertain:false});
     renderWithToasts(<MessagingConnectionsContainer {...fixture} />);await openTab("Conexión");await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toBeEnabled());await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.type(screen.getByLabelText(/Clave de Zavu/i),credential);await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:/Guardar conexión/i}));
     expect(await screen.findByText(message)).toBeVisible();expect(screen.queryByRole("button",{name:/Google/})).not.toBeInTheDocument();expect(screen.queryByRole("link",{name:/Google/})).not.toBeInTheDocument();expect(fixture.create).toHaveBeenCalledTimes(1);expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain(credential);
+  });
+  it("should keep signing in again with Google above the steps when the session cannot save the key, and return to this page",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),credential=randomUUID(),requests=googleSignIn.requests,message=MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.authenticationRequired];
+    fixture.create.mockResolvedValueOnce({status:"failed",code:"authentication_required",message,uncertain:false});
+    renderOnRoute(<MessagingConnectionsContainer {...fixture} />,"return=policy-review");await openTab("Conexión");await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toBeEnabled());
+    await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.type(screen.getByLabelText(/Clave de Zavu/i),credential);await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:/Guardar conexión/i}));
+    const attention=await screen.findByRole("region",{name:"Acciones pendientes"});
+    expect(within(attention).getByRole("alert")).toHaveTextContent("Volvé a ingresar con Google para gestionar la mensajería de la academia.");
+    // The page keeps the explanation with its action, so the toast does not repeat it.
+    await waitFor(()=>expect(screen.getAllByText(message)).toHaveLength(1));
+    expect(fixture.create).toHaveBeenCalledTimes(1);expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain(credential);
+    await user.click(within(attention).getByRole("button",{name:MESSAGING_ROUTE_ERROR_COPY.reauthenticate}));
+    await waitFor(()=>expect(requests).toHaveLength(1));expect(requests[0]).toMatchObject({provider:"google",callbackURL:`${CONNECTIONS_PATHNAME}?return=policy-review`});
+  });
+  it("should title the connections page as messaging and offer Google sign-in when it was read without a usable session",()=>{
+    const code=MESSAGING_ERROR_CODE.authenticationRequired;renderOnRoute(<MessagingConnectionsContainer {...containerFixture()} initialState={{kind:"unavailable",code,message:MESSAGING_ERROR_MESSAGE[code]}} />);
+    expect(screen.getByRole("heading",{name:MESSAGING_ROUTE_ERROR_COPY.title})).toBeVisible();expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[code]);
+    expect(screen.getByRole("button",{name:MESSAGING_ROUTE_ERROR_COPY.reauthenticate})).toBeEnabled();expect(screen.queryByRole("link",{name:"Iniciar sesión"})).not.toBeInTheDocument();
   });
   it("should preserve the original UUID after a lost write and recover before another mutation, without retaining the key",async()=>{
     const fixture=containerFixture(),user=userEvent.setup(),credential=randomUUID();fixture.create.mockResolvedValueOnce({status:"failed",code:"dependency_unavailable",message:"No pudimos confirmar el guardado.",uncertain:true});

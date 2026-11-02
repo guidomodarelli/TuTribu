@@ -3,7 +3,7 @@
 /** Covers the exit each admission or messaging page offers for every closed read failure. */
 import { describe, expect, it, vi } from "vitest";
 import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
-import { resolveMessagingRouteRecovery } from "@/lib/messaging/messaging-route-recovery";
+import { messagingSignInCallbackUrl, resolveMessagingRouteRecovery } from "@/lib/messaging/messaging-route-recovery";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 
@@ -34,6 +34,19 @@ describe("admission route recovery", () => {
       expect(resolveAdmissionRouteRecovery(code, ACTIVITY, retry)).toEqual({ retry });
     }
     expect(resolveAdmissionRouteRecovery(null, ACTIVITY, retry)).toEqual({ retry });
+  });
+
+  it("should offer Google sign-in back to the same messaging page for a missing or unusable session, and keep a retry only when the page passes one", () => {
+    const usage = { pathname: "/synthetic-academy/academia/admissions/messaging", search: "return=policy-review" }, retry = vi.fn();
+    expect(resolveMessagingRouteRecovery(MESSAGING_ERROR_CODE.authenticationRequired, usage)).toEqual({ googleSignInCallbackUrl: `${usage.pathname}?${usage.search}` });
+    expect(resolveMessagingRouteRecovery(MESSAGING_ERROR_CODE.authenticationRequired, usage, retry)).toEqual({ googleSignInCallbackUrl: `${usage.pathname}?${usage.search}`, retry });
+  });
+
+  it("should never return Google sign-in to an address outside the app", () => {
+    for (const pathname of ["//evil.example/academia", "/\\evil.example", "https://evil.example/academia"]) {
+      expect(messagingSignInCallbackUrl({ pathname, search: "" })).toBe("/");
+    }
+    expect(messagingSignInCallbackUrl({ pathname: "/synthetic-academy/academia/admissions/messaging/connections", search: "" })).toBe("/synthetic-academy/academia/admissions/messaging/connections");
   });
 
   it("should apply the same rule to messaging pages, without retrying invalid input or a missing resource", () => {

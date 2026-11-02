@@ -13,9 +13,11 @@ import { AdmissionSettingsPage } from "@/components/academy-admissions/admission
 import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
-import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { MESSAGING_ROUTE_ERROR_COPY } from "@/src/modules/messaging/constants/messaging-route-error";
 
+/** Better Auth keeps the `fetch` it finds when its module loads, so the Google sign-in edge is installed before the imports. */
+const googleSignIn = await vi.hoisted(async () => (await import("@/tests/support/google-sign-in-request")).installGoogleSignInTransport());
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const savedText = "Los países y cupos quedaron guardados.", partialText = "La configuración se creó con los valores iniciales, pero todavía falta guardar lo que elegiste.";
 const unregisteredText = "El guardado anterior no llegó a registrarse. Revisá los valores y guardá de nuevo.";
@@ -69,7 +71,7 @@ function save() { fireEvent.click(screen.getByRole("button", { name: /Guardar pa
 async function saveVerificationChange(verification: string) { await openSteps(); await reviewWith({ verification }); await confirm(); save(); }
 /** @returns A promise and its resolver, to observe in-flight states. */
 function deferred<Value>() { let resolve!: (value: Value) => void; const promise = new Promise<Value>((complete) => { resolve = complete; }); return { promise, resolve }; }
-beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
+beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); googleSignIn.reset(); });
 
 describe("guided usage route workflow", () => {
   it("should create the configuration and then save the chosen values, announcing each sub-step and success only at the end", async () => {
@@ -595,13 +597,46 @@ describe("guided usage route workflow", () => {
     await act(async () => { complete({ status: "ready", value: { id: viewerId } }); });
   });
 
-  it("should offer signing in, and come back to this page with its way back to the rules, when the usage page was read without a session", () => {
-    const pathname = "/tribu/academia/admissions/messaging", search = "return=policy-review", code = MESSAGING_ERROR_CODE.authenticationRequired;
+  it("should offer signing in again with Google, back to this page with its way back to the rules, when the usage page was read without a usable session", async () => {
+    const pathname = "/tribu/academia/admissions/messaging", search = "return=policy-review", code = MESSAGING_ERROR_CODE.authenticationRequired, requests = googleSignIn.requests;
     render(<SearchParamsContext.Provider value={new URLSearchParams(search)}><AdmissionWorkspaceRoute pathname={pathname} slug="tribu"><AdmissionSettingsPage page="usage"><MessagingUsageContainer initialState={{ kind: "unavailable", code, message: MESSAGING_ERROR_MESSAGE[code] }} client={fixture().client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute></SearchParamsContext.Provider>, { wrapper: Providers });
 
-    expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[code]);
-    expect(screen.getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", buildSignInRedirectUrl(`${pathname}?${search}`));
+    expect(screen.getByRole("heading", { name: MESSAGING_ROUTE_ERROR_COPY.title })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "No podemos mostrar esta admisión" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Volvé a ingresar con Google para gestionar la mensajería de la academia.");
+    expect(screen.queryByRole("link", { name: "Iniciar sesión" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: MESSAGING_ROUTE_ERROR_COPY.reauthenticate }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({ provider: "google", callbackURL: `${pathname}?${search}`, errorCallbackURL: "/auth/error" });
+  });
+
+  it("should ask to sign in again with Google when a save is rejected for the session, and reopen the chosen values to save them after the return", async () => {
+    const pathname = "/synthetic-academy/academia/admissions/messaging", requests = googleSignIn.requests, data = fixture(false);
+    data.client.initialize.mockResolvedValueOnce({ status: "failed", code: "authentication_required", message: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.authenticationRequired], uncertain: false });
+    data.client.read.mockResolvedValue({ status: "ready", value: { usage: { state: "not_configured", policy: null }, platformRequirement: null } });
+    const route = (node: ReactNode) => <PathnameContext.Provider value={pathname}>{node}</PathnameContext.Provider>;
+    const first = render(route(data.node), { wrapper: Providers });
+    await reviewWith({ verification: "40", notification: "90" }); await confirm(); save();
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: MESSAGING_ROUTE_ERROR_COPY.title })).toBeInTheDocument());
+    expect(screen.getByRole("alert")).toHaveTextContent("Volvé a ingresar con Google para gestionar la mensajería de la academia.");
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toMatchObject({ type: "initialize_messaging_usage", chosen: { verificationDailyLimit: 40, notificationDailyLimit: 90 } });
+    fireEvent.click(screen.getByRole("button", { name: MESSAGING_ROUTE_ERROR_COPY.reauthenticate }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({ provider: "google", callbackURL: pathname });
+
+    // Back from Google the page mounts again: the save never registered, so the chosen values reopen to be confirmed as a new operation.
+    first.unmount();
+    render(route(<MessagingUsageContainer initialState={data.state} client={data.client} />), { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.initialize).toHaveBeenCalledTimes(2);
+    expect(data.client.initialize.mock.calls[1][1].operationId).not.toBe(data.client.initialize.mock.calls[0][1].operationId);
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 1, verificationDailyLimit: 40, notificationDailyLimit: 90 });
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
   });
 
   it("should not offer a retry that cannot grant a denied permission", () => {

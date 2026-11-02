@@ -27,7 +27,7 @@ export const MESSAGING_ERROR_CODE = {
 /** Only catalogue copy can cross the public error boundary. */
 export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.invalidInput]: "Revisá los datos de la operación antes de confirmar.",
-  [MESSAGING_ERROR_CODE.authenticationRequired]: "Iniciá sesión para gestionar la mensajería de la academia.",
+  [MESSAGING_ERROR_CODE.authenticationRequired]: "Volvé a ingresar con Google para gestionar la mensajería de la academia.",
   [MESSAGING_ERROR_CODE.permissionDenied]: "No tenés permiso para realizar esta operación.",
   [MESSAGING_ERROR_CODE.resourceUnavailable]: "El recurso solicitado no está disponible.",
   [MESSAGING_ERROR_CODE.idempotencyConflict]: "Esta operación ya tiene otro contenido. Consultá su estado antes de repetir.",
