@@ -90,6 +90,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Recuperar un aviso vencido, ya entregado o que dejó de corresponder muestra un mensaje de avisos, en lugar del texto del código de una prueba o de una conexión sin preparar; si su envío anterior puede haber salido, lo dice como respuesta definitiva.
 - Si la creación inicial de Países y cupos se confirmó pero su respuesta se perdió, al consultarla los pasos siguen abiertos con los países y cupos que elegiste para guardarlos, en lugar de cerrarse con los valores iniciales.
 
+### Security
+
+- Una solicitud de ingreso que llegó por un enlace de invitación anterior a la admisión solo se puede rechazar: aprobarla ya no se acepta aunque se envíe por fuera de la bandeja de Revisión.
+
 ## [1.12.0] - 2026-10-31
 
 ### Fixed

@@ -10,6 +10,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { snapshotAdmissionDecisionEvidence, type AdmissionDecisionEvidence } from "../value-objects/admission-decision-evidence";
+import { isAdmissionApprovalSupported } from "../policies/admission-approval-support";
 
 /** A terminal decision keeps internal reasoning separate from the applicant's safe external message. */
 export type AdmissionDecision = {
@@ -39,7 +40,8 @@ export function proposeAdmissionDecision(input: {
   if (!approved && !reason || reason.length > ADMISSION_LIMIT.internalMessageCharacters || external && external.length > ADMISSION_LIMIT.externalMessageCharacters) return deny(ADMISSION_ERROR_CODE.invalidInput);
   if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   if (review.tribe.id !== request.tribeId || review.request.id !== request.id || review.request.userId !== request.userId || review.request.expiresAt.getTime() !== request.expiresAt.getTime() || approved && !reviewMatchesRequest(request, review)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
-  if (approved && request.source === ADMISSION_REQUEST_SOURCE.personal && !request.bindingId) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
+  // Legacy and unbound personal requests stay closed for approval, with the same rule as the inbox's `approvalSupported`; rejection remains available.
+  if (approved && !isAdmissionApprovalSupported({ request, source: review.request.source, policy: review.policy })) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   if (input.decision === ADMISSION_DECISION.approve && !evaluatePendingAdmissionReview({ ...review, reviewer: actor, now: input.now, exceptionReason: reason }).eligible) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   const status = approved ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
   const decision: AdmissionDecision = {

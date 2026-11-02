@@ -25,6 +25,8 @@ import { PostgresAdmissionOperationRepository } from "./postgres-admission-opera
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { AdmissionRetryWaitError } from "@/src/modules/academy-admissions/domain/errors/admission-retry-wait-error";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
+import { AdmissionApprovalUnsupportedError } from "@/src/modules/academy-admissions/domain/errors/admission-approval-unsupported-error";
+import { isAdmissionRequestApprovable } from "@/src/modules/academy-admissions/domain/policies/admission-approval-support";
 import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema, type AdmissionSubmissionResult, admissionWhatsappNumberResultSchema  } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { PostgresOwnAdmissionRequestReader } from "./postgres-own-admission-request-reader";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -67,8 +69,6 @@ import { createAdmissionWhatsappNumberAuditEvent } from "../../domain/entities/a
 import { ADMISSION_WHATSAPP_OPERATION, ADMISSION_WHATSAPP_CHANGE_OUTCOME } from "../../constants/admission-whatsapp-number";
 import { admissionRequestSchema } from "../../application/results/admission-flow-result-schemas";
 
-/** Sources that can be approved; the request row's persisted source is checked at runtime against this allowlist. */
-const APPROVABLE_ADMISSION_REQUEST_SOURCES: ReadonlySet<string> = new Set([ADMISSION_REQUEST_SOURCE.common, ADMISSION_REQUEST_SOURCE.personal, ADMISSION_REQUEST_SOURCE.legacy]);
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Related owners are composed onto the same original transaction, with no provider work. */
@@ -454,7 +454,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** @param database - Current business transaction. @param input - Native reviewer and explicit decision. @param target - Original single or batch ledger (`ledgerId`), locked original `request`, and actual locked batch facts with its transaction-local effects (`prepared`; individual decisions resolve their facts normally). @returns A confirmed proposal staged together with membership, audit and notice; the caller owns commit. */
   private async decideInTransaction(database: RequestDatabase, input: AdmissionDecisionIntent, { ledgerId, request, prepared }: { ledgerId: string; request: AdmissionRequest; prepared?: AdmissionPreparedDecision }) {
-      if (input.decision === ADMISSION_DECISION.approve && !APPROVABLE_ADMISSION_REQUEST_SOURCES.has(request.source)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+      if (input.decision === ADMISSION_DECISION.approve && !isAdmissionRequestApprovable(request)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionApprovalUnsupportedError(request.source) });
       const facts = { ...(prepared?.facts ?? await this.facts(database, input, request.contact, request.userId)), whatsappNumber: request.whatsappNumber ?? null };
       const actor = prepared?.actor ?? await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.decideRequest).getCurrentActor(input.tribeId, input.userId);
       if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
