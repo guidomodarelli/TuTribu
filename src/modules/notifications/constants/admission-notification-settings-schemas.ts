@@ -30,8 +30,12 @@ export const admissionNotificationPreferenceChangeResultSchema = z.union([
 export const admissionNotificationEmailSettingsViewSchema = z.strictObject({ enabled: z.boolean(), version: z.int().nonnegative(), timeZone }).refine((value) => !value.enabled || value.version > 0) satisfies z.ZodType<AdmissionNotificationEmailSettingsView>;
 /** Closed platform requirement shared with every admission read; never a key, epoch or environment detail. */
 export const admissionNotificationPlatformRequirementSchema = z.enum(PLATFORM_SECURITY_REQUIREMENT).nullable();
-/** A current read also says whether the platform can protect a change, so the leader learns it before writing. */
-export const admissionNotificationEmailSettingsReadResultSchema = z.strictObject({ settings: admissionNotificationEmailSettingsViewSchema, platformRequirement: admissionNotificationPlatformRequirementSchema }) satisfies z.ZodType<AdmissionNotificationEmailSettingsReadResult>;
+/**
+ * A current read also says whether the platform can protect a change and, while the email is off, whether enabling it would find a
+ * prepared email, so the leader learns both before writing.
+ */
+export const admissionNotificationEmailSettingsReadResultSchema = z.strictObject({ settings: admissionNotificationEmailSettingsViewSchema, platformRequirement: admissionNotificationPlatformRequirementSchema, preparedEmailAvailable: z.boolean().nullable() })
+  .refine((read) => read.preparedEmailAvailable === null || !read.settings.enabled && read.platformRequirement === null) satisfies z.ZodType<AdmissionNotificationEmailSettingsReadResult>;
 /** Publishes only the original operation's safe confirmed result or registered progress. */
 export const admissionNotificationEmailSettingsChangeResultSchema = z.union([
   z.strictObject({ status: z.enum([ADMISSION_EMAIL_SETTINGS_STATUS.changed, ADMISSION_EMAIL_SETTINGS_STATUS.unchanged]), settings: admissionNotificationEmailSettingsViewSchema }),

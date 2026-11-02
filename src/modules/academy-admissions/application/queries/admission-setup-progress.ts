@@ -23,8 +23,12 @@ export type AdmissionSetupFacts = {
     candidatePending?: boolean;
     usage: { countryCount: number; verificationDailyLimit: number; notificationDailyLimit: number } | null;
   } | null;
-  /** `emailEnabled` is the tribe email switch; `receivesEmail` only says the leader's frequency is not «omitted». */
-  notifications: { emailEnabled: boolean; receivesEmail: boolean } | null;
+  /**
+   * `emailEnabled` is the tribe email switch; `receivesEmail` only says the leader's frequency is not «omitted».
+   * `preparedEmailAvailable` is the tested email capability the email write requires to enable the switch, as the notices page reads
+   * it; absent or `null` while it decides nothing (the switch is on, the platform blocks every change) or could not be read.
+   */
+  notifications: { emailEnabled: boolean; receivesEmail: boolean; preparedEmailAvailable?: boolean | null } | null;
   /**
    * Informational activation check: a platform block means only the TuTribu team can let the leader open admissions;
    * closed academy admissions mean the leader has to switch them on in academy management first.
@@ -51,13 +55,22 @@ export type AdmissionSetupStep = {
   emailOmitted?: boolean;
   /** Why a pending connection step is needed: codes from the rules, email notices to the leader, or both. */
   messagingNeed?: AdmissionSetupMessagingNeed;
+  /**
+   * Another step whose configuration the server requires before this one can be completed: testing and activating a connection
+   * need saved countries and quotas, and enabling the tribe email needs a prepared email in the connection. The guide's action
+   * opens that step instead of a screen whose save would be rejected.
+   */
+  blockedBy?: AdmissionSetupStepId;
 };
 export type AdmissionSetupProgress = {
   steps: AdmissionSetupStep[];
   /** Required steps that are done, out of the required total. */
   completed: number;
   required: number;
-  /** First required step still pending, else the first optional one; `null` when nothing is left. */
+  /**
+   * First required step still pending, else the first optional one; `null` when nothing is left. Required steps come first, so this
+   * is also the first unfinished step of the list.
+   */
   next: AdmissionSetupStepId | null;
   /**
    * One notice replaces every step action while the platform cannot protect admission writes; `rulesSaved` tells whether a
@@ -68,7 +81,8 @@ export type AdmissionSetupProgress = {
 
 /**
  * @param facts - Current configuration of rules, messaging, notifications and activation check.
- * @returns Ordered steps with their status, the required progress and the next step to take.
+ * @returns The steps grouped by requirement (required first, then optional; base order inside each group, whatever their status),
+ * the required progress and the next step to take.
  */
 export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): AdmissionSetupProgress {
   const { policy, messaging, notifications } = facts;
@@ -88,15 +102,16 @@ export function deriveAdmissionSetupProgress(facts: AdmissionSetupFacts): Admiss
   const platformSecurity = facts.platformSecurity ?? null;
   /** The single platform notice already explains why nothing can be opened; the opening step repeats no other block. */
   const activation = platformSecurity ? null : facts.activation ?? null;
+  const prerequisites = readStepPrerequisites(facts, tribeSendsEmail);
   const byId: Record<AdmissionSetupStepId, AdmissionSetupStep | null> = {
     rules: { id: ADMISSION_SETUP_STEP.rules, status: stepStatus(policy.exists, true), ...(draftRules ? { draft: true } : {}) },
-    connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}), ...(!connected && messagingNeed ? { messagingNeed } : {}) },
+    connection: { id: ADMISSION_SETUP_STEP.connection, status: stepStatus(connected, needsMessaging), ...(!connected && messaging?.candidatePending ? { draft: true } : {}), ...(!connected && messagingNeed ? { messagingNeed } : {}), ...blockedByFlag(prerequisites.connection) },
     usage: { id: ADMISSION_SETUP_STEP.usage, status: stepStatus(usageReady, needsMessaging), ...(lowNoticeQuota ? { lowNoticeQuota: true } : {}) },
     open: { id: ADMISSION_SETUP_STEP.open, status: stepStatus(policy.open, true), ...(policy.paused ? { paused: true } : {}), ...(draftRules ? { draft: true } : {}), ...activationFlags(activated, activation) },
-    notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(emailNotices, false), ...(tribeSendsEmail && !emailNotices ? { emailOmitted: true } : {}) },
+    notifications: { id: ADMISSION_SETUP_STEP.notifications, status: stepStatus(emailNotices, false), ...(tribeSendsEmail && !emailNotices ? { emailOmitted: true } : {}), ...blockedByFlag(prerequisites.notifications) },
   };
-  const steps = ADMISSION_SETUP_STEP_ORDER.map((id) => byId[id]).filter((step): step is AdmissionSetupStep => step !== null);
-  const requiredSteps = steps.filter((step) => isRequired(step.id, needsMessaging));
+  const baseOrder = ADMISSION_SETUP_STEP_ORDER.map((id) => byId[id]).filter((step): step is AdmissionSetupStep => step !== null);
+  const { steps, requiredSteps } = groupByRequirement(baseOrder, needsMessaging);
   const next = steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.pending) ?? steps.find((step) => step.status === ADMISSION_SETUP_STEP_STATUS.optional) ?? null;
   return { steps, completed: requiredSteps.filter((step) => step.status === ADMISSION_SETUP_STEP_STATUS.done).length, required: requiredSteps.length, next: next?.id ?? null,
     platformSecurity: platformSecurity ? { requirement: platformSecurity, rulesSaved: policy.exists } : null };
@@ -118,6 +133,40 @@ function isUsageReady(usage: NonNullable<AdmissionSetupFacts["messaging"]>["usag
     && (!emailNotices || usage.notificationDailyLimit > 0)
     && (!policy.verifiesPhone || (usage.countryCount > 0 && usage.verificationDailyLimit > 0))
     && (!policy.sendsCodes || usage.verificationDailyLimit > 0);
+}
+
+/**
+ * Reads the step each step waits for, from read facts only: an unread area never blocks a step, and while the platform cannot protect
+ * admission writes its single notice already explains every block.
+ *
+ * @param facts - Current configuration facts. @param tribeSendsEmail - Whether the tribe email switch is on.
+ * @returns The prerequisite step of each blocked step.
+ */
+function readStepPrerequisites(facts: AdmissionSetupFacts, tribeSendsEmail: boolean): Partial<Record<AdmissionSetupStepId, AdmissionSetupStepId>> {
+  if (facts.platformSecurity) return {};
+  const { messaging, notifications } = facts;
+  return {
+    // Testing and activating a connection need saved countries and quotas: the code issuer rejects a test without them (`usage_policy_missing`).
+    ...(messaging && !messaging.connected && messaging.usage === null ? { connection: ADMISSION_SETUP_STEP.usage } : {}),
+    // Enabling the tribe email needs a prepared email in the connection: the email write rejects it otherwise (`email_capability_unavailable`).
+    ...(!tribeSendsEmail && notifications?.preparedEmailAvailable === false ? { notifications: ADMISSION_SETUP_STEP.connection } : {}),
+  };
+}
+
+/** @param prerequisite - The step a step waits for, if any. @returns Its `blockedBy` flag, or nothing. */
+function blockedByFlag(prerequisite: AdmissionSetupStepId | undefined): Pick<AdmissionSetupStep, "blockedBy"> {
+  return prerequisite ? { blockedBy: prerequisite } : {};
+}
+
+/**
+ * Groups by requirement, not by status: an optional step that is already done stays with the optional ones.
+ *
+ * @param baseOrder - Steps in their base completion order. @param needsMessaging - Whether the messaging steps are required.
+ * @returns Required steps first and optional ones last, keeping the base order inside each group, and the required ones alone.
+ */
+function groupByRequirement(baseOrder: AdmissionSetupStep[], needsMessaging: boolean): { steps: AdmissionSetupStep[]; requiredSteps: AdmissionSetupStep[] } {
+  const requiredSteps = baseOrder.filter((step) => isRequired(step.id, needsMessaging));
+  return { steps: [...requiredSteps, ...baseOrder.filter((step) => !isRequired(step.id, needsMessaging))], requiredSteps };
 }
 
 /** @returns Done when finished, else pending for required steps and optional for the rest. */

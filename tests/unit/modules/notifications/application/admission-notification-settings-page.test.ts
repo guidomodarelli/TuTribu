@@ -13,6 +13,7 @@ import type { AdmissionNotificationPreferenceRepository } from "@/src/modules/no
 import type { AdmissionNotificationEmailSettingsRepository } from "@/src/modules/notifications/domain/repositories/admission-notification-email-settings-repository";
 import { resolveAdmissionNotificationPreference } from "@/src/modules/notifications/domain/policies/admission-notification-preference";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
+import { readAdmissionNotificationEmailPrerequisite } from "@/src/modules/notifications/application/queries/admission-notification-settings-prerequisite";
 
 /** @returns Real authority/use-case composition with doubles only at owned storage ports, without provider or auth SDK mocks. */
 function fixture() {
@@ -23,7 +24,7 @@ function fixture() {
   const resolver = new ResolveAdmissionContextUseCase(accounts, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const preference: AdmissionNotificationPreferenceRepository = { getOwn: vi.fn(async () => resolveAdmissionNotificationPreference({ tribeId, recipientUserId: userId, currentRole: actor.role, membershipStatus: actor.status }, null)), changeOwn: vi.fn(async () => { throw new Error("Read-only page cannot write preferences"); }) };
   const settings = { tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" };
-  const current = { settings, platformRequirement: null as PlatformSecurityRequirement | null };
+  const current = { settings, platformRequirement: null as PlatformSecurityRequirement | null, preparedEmailAvailable: true as boolean | null };
   const email: AdmissionNotificationEmailSettingsRepository = { get: vi.fn(async () => current), change: vi.fn(async () => { throw new Error("Read-only page cannot write email settings"); }) };
   const resolveTribe = new ResolveAdmissionTribeUseCase({ readIdentity: async () => ({ id: tribeId, slug: "test" }) });
   const preferences = new AdmissionNotificationPreferencesUseCases(resolver, preference), emailSettings = new AdmissionNotificationEmailSettingsUseCases(resolver, email);
@@ -37,7 +38,7 @@ describe("current admission notification settings page", () => {
 
     const result = await data.page.execute(data.query);
 
-    expect(result).toEqual({ ok: true, value: { kind: "ready", slug: "test", tribeId: data.tribeId, viewerId: data.userId, preference: { mode: "grouped", version: 0, source: "implicit" }, canConfigureEmail: true, email: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null } });
+    expect(result).toEqual({ ok: true, value: { kind: "ready", slug: "test", tribeId: data.tribeId, viewerId: data.userId, preference: { mode: "grouped", version: 0, source: "implicit" }, canConfigureEmail: true, email: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null, preparedEmailAvailable: true } });
     expect(data.preference.changeOwn).not.toHaveBeenCalled();
     expect(data.email.change).not.toHaveBeenCalled();
   });
@@ -50,14 +51,14 @@ describe("current admission notification settings page", () => {
   });
 
   it.each(["security_unconfigured", "recovery_locked"] as const)("should tell a leader before any write that the platform cannot protect a tribe email change (%s)", async (requirement) => {
-    const data = fixture(); data.current.platformRequirement = requirement;
+    const data = fixture(); Object.assign(data.current, { platformRequirement: requirement, preparedEmailAvailable: null });
 
     expect(await data.page.execute(data.query)).toMatchObject({ ok: true, value: { canConfigureEmail: true, email: { enabled: false, version: 0 }, platformRequirement: requirement } });
     expect(data.email.change).not.toHaveBeenCalled();
   });
 
   it("should not hand a platform requirement to a reviewer who cannot configure the tribe email", async () => {
-    const data = fixture(); data.current.platformRequirement = "security_unconfigured";
+    const data = fixture(); Object.assign(data.current, { platformRequirement: "security_unconfigured", preparedEmailAvailable: null });
     const reviewer: AdmissionActorFacts = { ...data.actor, role: "guardian" };
     const preferenceResolver = new ResolveAdmissionContextUseCase(data.accounts, { getCurrentActor: async () => reviewer, getResource: async () => null }, () => new Date("2026-10-15T20:00:00Z"));
     vi.mocked(data.preference.getOwn).mockImplementationOnce(async () => resolveAdmissionNotificationPreference({ tribeId: data.tribeId, recipientUserId: data.userId, currentRole: reviewer.role, membershipStatus: reviewer.status }, null));
@@ -116,7 +117,7 @@ describe("current admission notification settings page", () => {
   });
 
   it("should close a foreign email scope before projecting it as current settings", async () => {
-    const data = fixture(); vi.mocked(data.email.get).mockResolvedValue({ settings: { ...data.settings, tribeId: randomUUID() }, platformRequirement: null });
+    const data = fixture(); vi.mocked(data.email.get).mockResolvedValue({ settings: { ...data.settings, tribeId: randomUUID() }, platformRequirement: null, preparedEmailAvailable: true });
     expect(await data.page.execute(data.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
   });
 
@@ -124,5 +125,24 @@ describe("current admission notification settings page", () => {
     const data = fixture(); data.setAccount(null);
     expect(await data.page.execute(data.query)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
     expect(data.preference.getOwn).not.toHaveBeenCalled(); expect(data.email.get).not.toHaveBeenCalled();
+  });
+
+  it("should hand the leader the email capability the write requires, so the page asks for the connection first", async () => {
+    const data = fixture(); data.current.preparedEmailAvailable = false;
+
+    const result = await data.page.execute(data.query);
+
+    expect(result).toMatchObject({ ok: true, value: { canConfigureEmail: true, email: { enabled: false }, preparedEmailAvailable: false } });
+    expect(result.ok && result.value.kind === "ready" && readAdmissionNotificationEmailPrerequisite(result.value)).toBe("notification_prepared_email");
+    expect(data.email.change).not.toHaveBeenCalled();
+  });
+
+  it("should not hand the email capability or its prerequisite to a reviewer who cannot configure the tribe email", async () => {
+    const data = fixture(); data.current.preparedEmailAvailable = false; data.actor.role = "guardian";
+
+    const result = await data.page.execute(data.query);
+
+    expect(result).toMatchObject({ ok: true, value: { canConfigureEmail: false, email: null, preparedEmailAvailable: null } });
+    expect(result.ok && result.value.kind === "ready" && readAdmissionNotificationEmailPrerequisite(result.value)).toBeNull();
   });
 });

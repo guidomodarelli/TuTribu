@@ -10,7 +10,7 @@ import type { AdmissionNotificationEmailSettingsOperationResult, AdmissionNotifi
 import { readAdmissionNotificationSettingsIntent, writeAdmissionNotificationSettingsIntent } from "@/lib/academy-admissions/admission-notification-settings-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionNotificationEmailSettingsCommandSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
-import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_LEADER_STEP_ORDER, ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
+import { ADMISSION_NOTIFICATION_SETTINGS_PHASE as PHASE, ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_LEADER_STEP_ORDER, ADMISSION_NOTIFICATION_SETTINGS_REJECTIONS_KEEPING_VIEW, ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_PREFERENCE_STATUS as PREFERENCE_STATUS } from "@/src/modules/notifications/constants/admission-notification-preference";
@@ -33,6 +33,8 @@ export const REVIEW_STEP_INDEX = ADMISSION_NOTIFICATION_SETTINGS_LEADER_STEP_ORD
 export type SettingsControls = {
   setPreference: (value: AdmissionNotificationPreferenceView) => void; setEmail: (value: AdmissionNotificationEmailSettingsView | null) => void;
   setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void;
+  /** Whether enabling the tribe email would pass the write's capability rule, as the last read reported it. */
+  setPreparedEmailAvailable: (value: boolean | null) => void;
   setMode: (value: AdmissionNotificationPreferenceMode) => void; setDraft: (value: AdmissionNotificationEmailSettingsDraft) => void;
   setPhase: Dispatch<SetStateAction<SettingsPhase>>; setFresh: (value: boolean) => void; setPrivateVisible: (value: boolean) => void; setConfirmed: (value: boolean) => void;
   setHasPending: (value: boolean) => void; setCanRetry: (value: boolean) => void; setError: (value: string | null) => void; setStatus: (value: string | null) => void;
@@ -203,8 +205,9 @@ async function readCurrentEmail(session: SettingsSession, signal: AbortSignal, r
   if (currentEmail.status === STATUS.aborted || !await isReplyCurrent(session, signal)) return false;
   if (currentEmail.status === STATUS.failed) { controls.setPrivateVisible(false); controls.setError(currentEmail.message); return false; }
   if (!await acceptSettingsResult(session, currentEmail.value, signal) || !isSlotCurrent(controls, signal)) return false;
-  const { settings, platformRequirement } = currentEmail.value.data;
+  const { settings, platformRequirement, preparedEmailAvailable } = currentEmail.value.data;
   const initializeDraft = !controls.hasEmailView.current; controls.hasEmailView.current = true; controls.setEmail(settings); controls.setPlatformRequirement(platformRequirement);
+  controls.setPreparedEmailAvailable(preparedEmailAvailable);
   // While the platform cannot protect a change the fields cannot be edited, so they follow what is saved (a retained original keeps its own values).
   if (unregistered) reopenUnregisteredEmail(controls, unregistered, settings, platformRequirement !== null);
   else if (resetDraft || (initializeDraft || platformRequirement !== null) && !controls.pending.current) resetSettingsEmailDraft(controls, settings);
@@ -213,7 +216,7 @@ async function readCurrentEmail(session: SettingsSession, signal: AbortSignal, r
 
 /** Retains inaccessible privileged storage for its original account; personal preferences remain independent. @param controls - Stable controls. @returns Nothing after showing only the personal preference. */
 function showPreferenceOnly(controls: SettingsControls): void {
-  rememberSettingsIntent(controls, null); controls.loaded.current = false; controls.hasEmailView.current = false; controls.setEmail(null); controls.setPlatformRequirement(null);
+  rememberSettingsIntent(controls, null); controls.loaded.current = false; controls.hasEmailView.current = false; controls.setEmail(null); controls.setPlatformRequirement(null); controls.setPreparedEmailAvailable(null);
   controls.setPrivateVisible(true); controls.setFresh(true);
 }
 
@@ -259,7 +262,13 @@ function failEmailWrite({ ready, controls }: SettingsSession, result: { code: Ad
 async function applyEmailTerminal(writer: SettingsWriter, operation: Extract<AdmissionNotificationEmailSettingsOperationResult, { state: "completed" }>, signal: AbortSignal): Promise<SettingsWriteOutcome> {
   const { ready, controls } = writer, terminal = operation.result;
   writeAdmissionNotificationSettingsIntent(ready.viewerId, ready.slug, null); rememberSettingsIntent(controls, null);
-  if (terminal.status === EMAIL_STATUS.rejected) { const message = ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY[terminal.reason]; controls.setError(message); toast.error(message); return rejectedWrite(null); }
+  if (terminal.status === EMAIL_STATUS.rejected) {
+    const message = ADMISSION_NOTIFICATION_SETTINGS_REJECTION_COPY[terminal.reason]; controls.setError(message); toast.error(message);
+    // The save marked the view stale before writing; a rejection that changed nothing gives it back, so the leader can go back,
+    // correct the draft and save again. Without this, every later save stayed blocked until an explicit read.
+    if (ADMISSION_NOTIFICATION_SETTINGS_REJECTIONS_KEEPING_VIEW.includes(terminal.reason)) controls.setFresh(true);
+    return rejectedWrite(null);
+  }
   // A replay answers with historical settings; only an independent current read may update the fields.
   if (operation.replayed) return await writer.readCurrent(signal, { resetEmailDraft: true }) && isSlotCurrent(controls, signal) ? WRITE_SAVED : WRITE_STOPPED;
   controls.setEmail(terminal.settings); resetSettingsEmailDraft(controls, terminal.settings);

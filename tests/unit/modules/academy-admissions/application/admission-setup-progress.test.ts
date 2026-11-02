@@ -70,7 +70,8 @@ describe("deriveAdmissionSetupProgress", () => {
 
     expect(statuses(facts)).toEqual({ rules: "done", connection: "optional", usage: "optional", open: "pending", notifications: "optional" });
     expect(progress).toMatchObject({ next: "open", completed: 1, required: 2 });
-    expect(progress.steps.find((step) => step.id === "connection")).toEqual({ id: "connection", status: "optional" });
+    // Without saved countries and quotas the connection cannot be tested, so the optional step points to them first.
+    expect(progress.steps.find((step) => step.id === "connection")).toEqual({ id: "connection", status: "optional", blockedBy: "usage" });
   });
 
   it("names what makes the pending connection necessary: codes, email notices to the leader, or both", () => {
@@ -78,9 +79,9 @@ describe("deriveAdmissionSetupProgress", () => {
     const codes: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true, sendsCodes: true } };
     const notices: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, notifications: { emailEnabled: true, receivesEmail: true } };
 
-    expect(connection(codes)).toEqual({ id: "connection", status: "pending", messagingNeed: "codes" });
-    expect(connection(notices)).toEqual({ id: "connection", status: "pending", messagingNeed: "notices" });
-    expect(connection({ ...codes, notifications: notices.notifications })).toEqual({ id: "connection", status: "pending", messagingNeed: "codes_and_notices" });
+    expect(connection(codes)).toEqual({ id: "connection", status: "pending", messagingNeed: "codes", blockedBy: "usage" });
+    expect(connection(notices)).toEqual({ id: "connection", status: "pending", messagingNeed: "notices", blockedBy: "usage" });
+    expect(connection({ ...codes, notifications: notices.notifications })).toEqual({ id: "connection", status: "pending", messagingNeed: "codes_and_notices", blockedBy: "usage" });
     expect(connection({ ...codes, messaging: { connected: true, usage: null } })).toEqual({ id: "connection", status: "done" });
   });
 
@@ -92,7 +93,7 @@ describe("deriveAdmissionSetupProgress", () => {
 
   it("never asks to review memberships blocked by payment: the activation converts them", () => {
     const draft: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true } };
-    expect(deriveAdmissionSetupProgress(draft).steps.map((step) => step.id)).toEqual(["rules", "connection", "usage", "open", "notifications"]);
+    expect(deriveAdmissionSetupProgress(draft).steps.map((step) => step.id)).toEqual(["rules", "open", "connection", "usage", "notifications"]);
     expect(deriveAdmissionSetupProgress(draft)).toMatchObject({ next: "open", completed: 1, required: 2 });
   });
 
@@ -100,7 +101,7 @@ describe("deriveAdmissionSetupProgress", () => {
     const facts: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, messaging: { connected: false, candidatePending: true, usage: null }, activation: { platformBlocked: true } };
     const steps = Object.fromEntries(deriveAdmissionSetupProgress(facts).steps.map((step) => [step.id, step]));
     expect(steps.rules).toEqual({ id: "rules", status: "done", draft: true });
-    expect(steps.connection).toEqual({ id: "connection", status: "optional", draft: true });
+    expect(steps.connection).toEqual({ id: "connection", status: "optional", draft: true, blockedBy: "usage" });
     expect(steps.open).toEqual({ id: "open", status: "pending", draft: true, platformBlocked: true });
     const closed: AdmissionSetupFacts = { ...facts, activation: { platformBlocked: false, admissionsClosed: true } };
     expect(Object.fromEntries(deriveAdmissionSetupProgress(closed).steps.map((step) => [step.id, step])).open).toEqual({ id: "open", status: "pending", draft: true, admissionsClosed: true });
@@ -141,5 +142,52 @@ describe("deriveAdmissionSetupProgress", () => {
 
     expect(usage(facts)).toEqual({ id: "usage", status: "done" });
     expect(usage({ ...facts, messaging: { connected: true, usage: { countryCount: 1, verificationDailyLimit: 10, notificationDailyLimit: 1 } }, notifications: { emailEnabled: false, receivesEmail: false } })).toEqual({ id: "usage", status: "done" });
+  });
+  it("lists the required steps first and the optional ones last, keeping the base order inside each group", () => {
+    const ids = (facts: AdmissionSetupFacts) => deriveAdmissionSetupProgress(facts).steps.map((step) => step.id);
+    const codes: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true, sendsCodes: true } };
+
+    expect(ids(empty)).toEqual(["rules", "open", "connection", "usage", "notifications"]);
+    expect(ids(codes)).toEqual(["rules", "connection", "usage", "open", "notifications"]);
+  });
+
+  it("keeps an optional step that is already done in the optional group, after every required step", () => {
+    const facts: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true }, messaging: { connected: true, usage: null } };
+    const progress = deriveAdmissionSetupProgress(facts);
+
+    expect(progress.steps.map((step) => [step.id, step.status])).toEqual([["rules", "done"], ["open", "pending"], ["connection", "done"], ["usage", "optional"], ["notifications", "optional"]]);
+    expect(progress).toMatchObject({ next: "open", completed: 1, required: 2 });
+  });
+
+  it("points to the first optional step once the required group is done, and counts only required steps", () => {
+    const open: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true, open: true }, messaging: { connected: false, usage: { countryCount: 0, verificationDailyLimit: 0, notificationDailyLimit: 0 } } };
+    const progress = deriveAdmissionSetupProgress(open);
+
+    expect(progress.steps.slice(0, progress.required).map((step) => step.status)).toEqual(["done", "done"]);
+    expect(progress).toMatchObject({ next: "connection", completed: 2, required: 2 });
+  });
+
+  it("sends the connection to countries and quotas first only when they were read and are missing", () => {
+    const connection = (facts: AdmissionSetupFacts) => deriveAdmissionSetupProgress(facts).steps.find((step) => step.id === "connection");
+    const codes: AdmissionSetupFacts = { ...empty, policy: { ...empty.policy, exists: true, sendsCodes: true } };
+    const saved = { countryCount: 1, verificationDailyLimit: 10, notificationDailyLimit: 20 };
+
+    expect(connection(codes)).toMatchObject({ status: "pending", blockedBy: "usage" });
+    expect(connection({ ...codes, messaging: { connected: false, usage: saved } })).not.toHaveProperty("blockedBy");
+    // An unread messaging area never blocks: the guide shows the step as before.
+    expect(connection({ ...codes, messaging: null })).not.toHaveProperty("blockedBy");
+    expect(connection({ ...codes, messaging: { connected: true, usage: null } })).toEqual({ id: "connection", status: "done" });
+    expect(connection({ ...codes, platformSecurity: "security_unconfigured" })).not.toHaveProperty("blockedBy");
+  });
+
+  it("sends the notices to the connection while enabling the tribe email would lack a prepared email", () => {
+    const notices = (notifications: AdmissionSetupFacts["notifications"], extra: Partial<AdmissionSetupFacts> = {}) => deriveAdmissionSetupProgress({ ...empty, policy: { ...empty.policy, exists: true, open: true }, messaging: { connected: true, usage: { countryCount: 0, verificationDailyLimit: 0, notificationDailyLimit: 0 } }, notifications, ...extra });
+
+    expect(notices({ emailEnabled: false, receivesEmail: true, preparedEmailAvailable: false })).toMatchObject({ next: "notifications", steps: expect.arrayContaining([{ id: "notifications", status: "optional", blockedBy: "connection" }]) });
+    expect(notices({ emailEnabled: false, receivesEmail: true, preparedEmailAvailable: true }).steps.at(-1)).toEqual({ id: "notifications", status: "optional" });
+    expect(notices({ emailEnabled: false, receivesEmail: true, preparedEmailAvailable: null }).steps.at(-1)).toEqual({ id: "notifications", status: "optional" });
+    expect(notices({ emailEnabled: false, receivesEmail: true }).steps.at(-1)).toEqual({ id: "notifications", status: "optional" });
+    expect(notices(null).steps.at(-1)).toEqual({ id: "notifications", status: "optional" });
+    expect(notices({ emailEnabled: false, receivesEmail: true, preparedEmailAvailable: false }, { platformSecurity: "recovery_locked" }).steps.at(-1)).toEqual({ id: "notifications", status: "optional" });
   });
 });

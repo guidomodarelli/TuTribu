@@ -22,6 +22,13 @@ export const ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN = { unchanged: "unchange
  */
 export const ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ: readonly AdmissionErrorCode[] = [ADMISSION_ERROR_CODE.permissionDenied, ADMISSION_ERROR_CODE.resourceUnavailable, ADMISSION_ERROR_CODE.platformSecurityUnavailable];
 
+/**
+ * Terminal email rejections that leave the read view current: the server changed nothing and the observed version still holds, so the
+ * leader may correct the draft (for example, keep the tribe email off and save only the frequency) without another read. A version
+ * conflict or a crossed scope still needs a fresh read before another save.
+ */
+export const ADMISSION_NOTIFICATION_SETTINGS_REJECTIONS_KEEPING_VIEW: readonly AdmissionNotificationEmailSettingsRejectionReason[] = [ADMISSION_EMAIL_SETTINGS_REJECTION.capabilityUnavailable];
+
 /** Stable keys of the leader's guided steps. */
 export type AdmissionNotificationSettingsGuidedStep = "tribe-email" | "frequency" | "review";
 /** Names each guided step of the leader. */

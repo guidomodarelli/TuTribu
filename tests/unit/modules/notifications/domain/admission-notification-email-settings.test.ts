@@ -1,6 +1,6 @@
 /** Exercises independent email epochs without provider, OTP or storage side effects. @module admission-notification-email-settings-test */
 import { describe, expect, it } from "vitest";
-import { planAdmissionNotificationEmailSettingsChange, resolveAdmissionNotificationEmailSettings } from "@/src/modules/notifications/domain/policies/admission-notification-email-settings";
+import { isAdmissionNotificationPreparedEmailAvailable, planAdmissionNotificationEmailSettingsChange, resolveAdmissionNotificationEmailSettings } from "@/src/modules/notifications/domain/policies/admission-notification-email-settings";
 import type { AdmissionNotificationEmailSettings } from "@/src/modules/notifications/domain/entities/admission-notification";
 
 /** @returns Existing settings with an exact native enablement cut. */
@@ -89,5 +89,15 @@ describe("independent admission email settings", () => {
   it("should reject crossed stored settings instead of overwriting another tribe", () => {
     const proposal = input({ ...settings(), tribeId: "other" });
     expect(planAdmissionNotificationEmailSettingsChange(proposal)).toEqual({ status: "rejected", reason: "notification_scope_mismatch" });
+  });
+
+  it("should share one capability rule between the enabling write and the read that gates the notices form", () => {
+    const off = { ...settings(), enabled: false, enabledAtMicroseconds: null };
+    for (const preparedEmail of [{ tribeId: "tribe", available: false }, { tribeId: "other", available: true }]) {
+      expect(isAdmissionNotificationPreparedEmailAvailable("tribe", preparedEmail)).toBe(false);
+      expect(planAdmissionNotificationEmailSettingsChange({ ...input(off), preparedEmail })).toEqual({ status: "rejected", reason: "email_capability_unavailable" });
+    }
+    expect(isAdmissionNotificationPreparedEmailAvailable("tribe", { tribeId: "tribe", available: true })).toBe(true);
+    expect(planAdmissionNotificationEmailSettingsChange(input(off))).toMatchObject({ status: "changed", settings: { enabled: true } });
   });
 });

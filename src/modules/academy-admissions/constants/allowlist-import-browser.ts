@@ -1,4 +1,5 @@
 /** Owns upload, explicit selection, recovery and private download UI behavior. @module allowlist-import-browser-constants */
+import { ADMISSION_SETUP_PREREQUISITE_COPY } from "./admission-setup-prerequisite";
 export const ALLOWLIST_IMPORT_SETTINGS_SEGMENT = "academia/admissions/allowlist/imports";
 export const ALLOWLIST_IMPORT_STORAGE_PREFIX = "tutribu-allowlist-import";
 export const ALLOWLIST_IMPORT_FILE_NAME_CHARACTERS = 255;
@@ -22,7 +23,7 @@ export const ALLOWLIST_IMPORT_BROWSER_COPY = {
   pendingPreviewBlocked: "Hay una vista previa anterior sin resultado. Consultá la operación original antes de seguir.",
   conflict: "La importación cambió. Conservamos tu selección: consultá el progreso actual y confirmá nuevamente las filas pendientes.", policyConflict: "La configuración cambió. Conservamos el archivo: consultá la configuración actual antes de crear otra vista previa.",
   storage: "No pudimos conservar este borrador en el navegador. Revisá el espacio disponible antes de continuar.", account: "La cuenta o el acceso cambió. Volvé a cargar esta página para continuar.",
-  noPolicy: "La importación usa el tipo de contacto de las reglas de admisión. Guardalas primero y después importá el CSV.", noPolicyTitle: "Primero guardá las reglas de admisión", noPolicyAction: "Ir a Reglas", expired: "La vista previa venció. Elegí nuevamente el archivo para preparar otra importación.", previewUnavailable: "Esta vista previa ya no se puede confirmar. Creá una vista previa nueva con el mismo archivo para continuar.",
+  noPolicy: ADMISSION_SETUP_PREREQUISITE_COPY.allowlist_import_rules.reason, noPolicyTitle: ADMISSION_SETUP_PREREQUISITE_COPY.allowlist_import_rules.title, noPolicyAction: ADMISSION_SETUP_PREREQUISITE_COPY.allowlist_import_rules.action, expired: "La vista previa venció. Elegí nuevamente el archivo para preparar otra importación.", previewUnavailable: "Esta vista previa ya no se puede confirmar. Creá una vista previa nueva con el mismo archivo para continuar.",
   downloaded: "Se preparó la descarga privada.", empty: "El archivo no contiene filas de datos. Elegí otro CSV para importar.",
   historical: "La operación original quedó confirmada. Sus filas temporales ya no están disponibles; podés elegir otro archivo sin repetir esa escritura.",
   currentReadFailed: "La operación original quedó confirmada. No pudimos consultar el progreso actual; volvé a consultarlo antes de confirmar otro cambio.",

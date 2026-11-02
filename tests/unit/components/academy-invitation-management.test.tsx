@@ -326,11 +326,34 @@ describe("personal invitation management controls", () => {
     expect(screen.getByRole("checkbox", { name: CONFIRMATION })).not.toBeChecked();
   });
 
-  it("should keep phone OFF disabled without sending a hidden verification or creation", async () => {
-    const data = fixture(true); data.initial.requiresAdditionalVerification = false;
+  it("should show the phone code prerequisite instead of the issue steps, without a hidden creation, and keep renaming available", async () => {
+    const data = fixture(true), user = userEvent.setup(); data.initial.requiresAdditionalVerification = false; data.initial.page.items = [data.metadata];
     render(<InvitationsContainer initialState={data.initial} client={data.client} />);
-    expect(await screen.findByText(/código apagado no se emiten/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled(); expect(data.client.write).not.toHaveBeenCalled();
+
+    const prerequisite = await screen.findByRole("region", { name: "Primero activá la comprobación del teléfono con un código" });
+    expect(prerequisite).toHaveTextContent("Tus reglas piden un teléfono sin comprobarlo con un código, y así no se emiten invitaciones personales.");
+    expect(within(prerequisite).getByRole("link", { name: "Ir a Reglas" })).toHaveAttribute("href", "/synthetic/academia/admissions/settings");
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Nombre interno")).not.toBeInTheDocument();
+    // Existing invitations stay manageable: renaming needs no new issue.
+    const rename = screen.getByRole("button", { name: "Renombrar Grupo inicial" });
+    await waitFor(() => expect(rename).toBeEnabled());
+    await user.click(rename);
+    expect(screen.queryByRole("region", { name: "Primero activá la comprobación del teléfono con un código" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeInTheDocument();
+    expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should show the saved-rules prerequisite with its link to Reglas instead of an issue form that would be rejected", async () => {
+    const data = fixture(); data.initial.contactType = null; data.initial.requiresAdditionalVerification = false;
+    render(<InvitationsContainer initialState={data.initial} client={data.client} />);
+
+    const prerequisite = await screen.findByRole("region", { name: "Primero guardá las reglas de admisión" });
+    expect(prerequisite).toHaveTextContent("Cada invitación usa el tipo de contacto de las reglas de admisión. Guardalas primero y después emití invitaciones.");
+    expect(within(prerequisite).getByRole("link", { name: "Ir a Reglas" })).toHaveAttribute("href", "/synthetic/academia/admissions/settings");
+    expect(screen.queryByLabelText("Nombre interno")).not.toBeInTheDocument();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    expect(data.client.write).not.toHaveBeenCalled();
   });
 
   it("should require a separate redeemed-authorization acknowledgement before the exact withdrawal", async () => {

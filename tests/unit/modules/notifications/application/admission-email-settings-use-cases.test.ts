@@ -15,7 +15,7 @@ function fixture() {
   const actor: AdmissionActorFacts = { tribeId, userId, role: "leader", status: "active" };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   const repository: AdmissionNotificationEmailSettingsRepository = {
-    get: vi.fn(async () => ({ settings: { tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null })),
+    get: vi.fn(async () => ({ settings: { tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null, preparedEmailAvailable: true })),
     change: vi.fn(async (_context, command) => ({ state: "started" as const, operationId: command.operationId })),
   };
   return { actor, account, repository, useCases: new AdmissionNotificationEmailSettingsUseCases(resolver, repository), query: { tribeId, requestId: randomUUID() }, command: { operationId: randomUUID(), confirmed: true as const, expectedVersion: 0, enabled: true, timeZone: "America/Argentina/Buenos_Aires" } };
@@ -52,7 +52,7 @@ describe("independent admission email authority", () => {
 
   it("should keep a platform requirement inside its current read and reject a platform-blocked change definitely, without an operation", async () => {
     const data = fixture();
-    vi.mocked(data.repository.get).mockResolvedValueOnce({ settings: { tribeId: data.query.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "UTC" }, platformRequirement: "recovery_locked" });
+    vi.mocked(data.repository.get).mockResolvedValueOnce({ settings: { tribeId: data.query.tribeId, enabled: false, version: 0, enabledAtMicroseconds: null, timeZone: "UTC" }, platformRequirement: "recovery_locked", preparedEmailAvailable: null });
     expect(await data.useCases.read(data.query)).toMatchObject({ ok: true, value: { platformRequirement: "recovery_locked" } });
     const cause = new Error("Synthetic platform security failure");
     vi.mocked(data.repository.change).mockRejectedValueOnce(new AdmissionOperationError("platform_security_unavailable", { cause }));
