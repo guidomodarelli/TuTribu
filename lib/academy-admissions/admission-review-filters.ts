@@ -1,10 +1,10 @@
 /** Maps only own reviewer form fields to bounded route selections and navigation. @module admission-review-filters */
 import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/application/results/admission-review-selection";
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
-import { ADMISSION_REVIEW_FILTER_ANY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
+import { ADMISSION_REVIEW_FILTER_ANY, ADMISSION_REVIEW_FILTER_DATES, ADMISSION_REVIEW_FILTER_GROUPS, ADMISSION_REVIEW_FILTER_MINUTE_KEY_PATTERN } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
-import { ADMISSION_REVIEW_ALL_STATUSES } from "@/src/modules/academy-admissions/constants/admission-review-selection";
+import { ADMISSION_REVIEW_ALL_STATUSES, DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { admissionReviewPageInputSchema } from "@/src/modules/academy-admissions/constants/admission-review-page-input";
 import { omitKeys } from "@/lib/object-omit";
 import { admissionReviewSelectionQuery } from "./admission-review-selection";
@@ -25,6 +25,53 @@ export function createAdmissionReviewFilterDraft(filters: AdmissionReviewSelecti
     submittedFrom: filters.submittedFrom ? toBuenosAiresMinuteKey(new Date(filters.submittedFrom)) : "",
     submittedUntil: filters.submittedUntil ? toBuenosAiresMinuteKey(new Date(filters.submittedUntil)) : "",
   };
+}
+
+/** A field the filter dialog edits; the search stays in the toolbar, next to the button that opens the dialog. */
+export type AdmissionReviewDialogField = Exclude<keyof AdmissionReviewFilterDraft, "search">;
+/** One applied dialog filter, in the words its chip shows. */
+export type AdmissionReviewAppliedFilter = { id: AdmissionReviewDialogField; label: string; value: string };
+
+/**
+ * @param minuteKey - Argentina minute of a date filter, as the datetime-local control holds it.
+ * @returns The same minute as DD/MM/AAAA HH:mm, built from the key alone so server and browser render the same text.
+ */
+function chipMinute(minuteKey: string): string {
+  const parts = ADMISSION_REVIEW_FILTER_MINUTE_KEY_PATTERN.exec(minuteKey);
+  return parts ? `${parts[3]}/${parts[2]}/${parts[1]} ${parts[4]}` : minuteKey;
+}
+
+/**
+ * @param filters - Applied server selection.
+ * @returns One chip per dialog field that differs from the initial pending selection, in the dialog's order.
+ */
+export function describeAdmissionReviewDialogFilters(filters: AdmissionReviewSelection): AdmissionReviewAppliedFilter[] {
+  const applied = createAdmissionReviewFilterDraft(filters), initial = createAdmissionReviewFilterDraft(DEFAULT_ADMISSION_REVIEW_SELECTION);
+  const groups = ADMISSION_REVIEW_FILTER_GROUPS.filter((group) => applied[group.field] !== initial[group.field]).map((group): AdmissionReviewAppliedFilter => {
+    const options: ReadonlyArray<{ value: string; label: string }> = group.options;
+    return { id: group.field, label: group.label, value: options.find((option) => option.value === applied[group.field])?.label ?? applied[group.field] };
+  });
+  const dates = ADMISSION_REVIEW_FILTER_DATES.filter((date) => applied[date.field] !== initial[date.field]).map((date): AdmissionReviewAppliedFilter => ({ id: date.field, label: date.chipLabel, value: chipMinute(applied[date.field]) }));
+  return [...groups, ...dates];
+}
+
+/**
+ * @param draft - Current editable strings.
+ * @param filters - Applied server selection.
+ * @param field - Dialog filter whose chip was removed.
+ * @returns The applied selection with that field back on the initial pending value and the toolbar search untouched.
+ */
+export function removeAdmissionReviewDialogFilter(draft: AdmissionReviewFilterDraft, filters: AdmissionReviewSelection, field: AdmissionReviewDialogField): AdmissionReviewFilterDraft {
+  return { ...discardAdmissionReviewDialogEdits(draft, filters), [field]: createAdmissionReviewFilterDraft(DEFAULT_ADMISSION_REVIEW_SELECTION)[field] };
+}
+
+/**
+ * @param draft - Current editable strings.
+ * @param filters - Applied server selection.
+ * @returns The draft with every dialog field back on the applied selection and the toolbar search untouched.
+ */
+export function discardAdmissionReviewDialogEdits(draft: AdmissionReviewFilterDraft, filters: AdmissionReviewSelection): AdmissionReviewFilterDraft {
+  return { ...createAdmissionReviewFilterDraft(filters), search: draft.search };
 }
 
 /** Milliseconds the HTTP contract never needs: a filter cut is a minute or a second. */

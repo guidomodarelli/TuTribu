@@ -36,13 +36,17 @@ export const ADMISSION_REVIEW_FILTER_GROUPS = [
 ] as const;
 /** Dates are picked in Argentina time, the product's single time zone; the HTTP contract still carries UTC instants. */
 export const ADMISSION_REVIEW_FILTER_DATES = [
-  { field: "submittedFrom", label: "Desde (hora de Argentina)" },
-  { field: "submittedUntil", label: "Hasta (hora de Argentina)" },
+  { field: "submittedFrom", label: "Desde (hora de Argentina)", chipLabel: "Desde" },
+  { field: "submittedUntil", label: "Hasta (hora de Argentina)", chipLabel: "Hasta" },
 ] as const;
+/** Parts of a datetime-local minute key (AAAA-MM-DDTHH:mm), so a chip shows the cut as DD/MM/AAAA HH:mm. */
+export const ADMISSION_REVIEW_FILTER_MINUTE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/u;
 /** Filter validation is separate from decision confirmation and operation feedback. */
 export const ADMISSION_REVIEW_FILTER_COPY = {
   title: "Filtrar solicitudes", search: "Búsqueda", apply: "Aplicar filtros", reset: "Mostrar pendientes",
   description: "Buscá y filtrá las solicitudes. Abrir un detalle conserva esta selección.",
+  searchPlaceholder: "Buscá por nombre, correo o teléfono", open: "Filtros",
+  dialogTitle: "Filtros", dialogDescription: "Elegí qué solicitudes ver. La lista cambia cuando aplicás los filtros; la búsqueda se mantiene.",
   dateHelp: "Indicá fecha y hora de Argentina. Si no aparece un selector, usá AAAA-MM-DDTHH:mm.", datePlaceholder: "AAAA-MM-DDTHH:mm",
   invalid: "Revisá la búsqueda y las fechas: el inicio debe ser anterior o igual al final.",
   blocked: "Terminá la consulta o recuperá la decisión original antes de cambiar los filtros.",

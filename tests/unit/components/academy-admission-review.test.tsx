@@ -41,6 +41,16 @@ function fixture(selected = true) {
   return { request, state, client, node: <AdmissionReviewRouteContainer initialState={state} client={client} /> };
 }
 
+/** @returns The button that opens the filter dialog; its applied count is only part of the accessible name. */
+function filtersButton() { return screen.getByRole("button", { name: new RegExp(`^${ADMISSION_REVIEW_FILTER_COPY.open}`) }); }
+
+/** @returns The filter dialog, opened once the native viewer check enables its button. */
+async function openFilters() {
+  await waitFor(() => expect(filtersButton()).toBeEnabled());
+  fireEvent.click(filtersButton());
+  return screen.findByRole("dialog", { name: ADMISSION_REVIEW_FILTER_COPY.dialogTitle });
+}
+
 /** Enables only after the native viewer/current detail reads have settled. */
 async function confirmDecision() {
   await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
@@ -275,14 +285,72 @@ describe("native reviewer container", () => {
   it("should clear unapplied filter edits when restoring the already active pending selection", async () => {
     const data = fixture(false);
     render(data.node, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset })).toBeEnabled());
-    fireEvent.change(screen.getByLabelText("Búsqueda"), { target: { value: "Todavía sin aplicar" } });
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
+    fireEvent.change(screen.getByRole("searchbox", { name: "Búsqueda" }), { target: { value: "Todavía sin aplicar" } });
+    await openFilters();
     fireEvent.change(screen.getByLabelText("Desde (hora de Argentina)"), { target: { value: "2026-10-01T10:00" } });
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset }));
-    expect(screen.getByLabelText("Búsqueda")).toHaveValue("");
-    expect(screen.getByLabelText("Desde (hora de Argentina)")).toHaveValue("");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("searchbox", { name: "Búsqueda" })).toHaveValue("");
     expect(router.push).toHaveBeenCalledExactlyOnceWith(`/${slug}/academia/admissions?limit=25&status=pending`);
+    await openFilters();
+    expect(screen.getByLabelText("Desde (hora de Argentina)")).toHaveValue("");
     expect(data.client.decide).not.toHaveBeenCalled();
+  });
+
+  it("should search from the toolbar with the applied dialog filters and say how many apply while the dialog is closed", async () => {
+    const data = fixture(false);
+    data.state.filters = { limit: 25, status: "pending", source: "common" };
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
+    expect(filtersButton()).toHaveAccessibleName("Filtros (1 aplicado)");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Búsqueda" }), { target: { value: "Ana" } });
+    fireEvent.submit(screen.getByRole("search", { name: ADMISSION_REVIEW_FILTER_COPY.search }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(router.push).toHaveBeenCalledOnce();
+    const route = new URL(router.push.mock.calls[0][0], "https://tutribu.example.invalid");
+    expect(Object.fromEntries(route.searchParams)).toEqual({ limit: "25", status: "pending", source: "common", search: "Ana" });
+  });
+
+  it("should list each applied dialog filter as a chip and apply the selection without the one removed", async () => {
+    const data = fixture(false);
+    data.state.filters = { limit: 25, status: "pending", source: "common", submittedFrom: "2026-10-01T13:00:00.123456Z" };
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
+    const chips = screen.getByRole("list", { name: "Filtros aplicados" });
+    // The date reads in Argentina time, the same minute the dialog control shows.
+    expect(Array.from(chips.querySelectorAll("li"), (chip) => chip.textContent)).toEqual(["Origen: Solicitud común", "Desde: 01/10/2026 10:00"]);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Búsqueda" }), { target: { value: "Ana" } });
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Origen: Solicitud común" }));
+    expect(router.push).toHaveBeenCalledOnce();
+    const route = new URL(router.push.mock.calls[0][0], "https://tutribu.example.invalid");
+    // The untouched date keeps its original sub-millisecond instant.
+    expect(Object.fromEntries(route.searchParams)).toEqual({ limit: "25", status: "pending", search: "Ana", submittedFrom: data.state.filters.submittedFrom });
+  });
+
+  it("should drop unapplied dialog edits when the dialog closes without applying and keep the typed search", async () => {
+    const data = fixture(false);
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
+    expect(filtersButton()).toHaveAccessibleName(ADMISSION_REVIEW_FILTER_COPY.open);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Búsqueda" }), { target: { value: "Sin aplicar" } });
+    await openFilters();
+    fireEvent.change(screen.getByLabelText("Desde (hora de Argentina)"), { target: { value: "2026-10-01T10:00" } });
+    fireEvent.change(screen.getByLabelText("Hasta (hora de Argentina)"), { target: { value: "2026-09-01T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply }));
+    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_REVIEW_FILTER_COPY.invalid);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar diálogo" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    // The stale range error leaves with the edits it described.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.getByRole("searchbox", { name: "Búsqueda" })).toHaveValue("Sin aplicar");
+    await openFilters();
+    expect(screen.getByLabelText("Desde (hora de Argentina)")).toHaveValue("");
+    expect(screen.getByLabelText("Hasta (hora de Argentina)")).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply }));
+    expect(router.push).toHaveBeenCalledExactlyOnceWith(`/${slug}/academia/admissions?limit=25&status=pending&search=Sin+aplicar`);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("should retain a decided row that still matches all statuses and show its current terminal status", async () => {
@@ -343,9 +411,9 @@ describe("native reviewer container", () => {
     // Content → empty → content is gone: the server snapshot stays while its actions wait for the check.
     expect(screen.getByText(data.request.applicant.name)).toBeInTheDocument();
     expect(screen.queryByText(ADMISSION_REVIEW_UI_COPY.empty)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeDisabled();
+    expect(filtersButton()).toBeDisabled();
     await act(async () => { finish({ status: "ready", value: { id: viewerId } }); });
-    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
     expect(screen.getByText(data.request.applicant.name)).toBeInTheDocument();
     expect(data.client.reviewList).not.toHaveBeenCalled();
   });
@@ -353,7 +421,7 @@ describe("native reviewer container", () => {
   it("should recheck a consumed SSR snapshot after Activity restores without an original operation", async () => {
     const data = fixture(false);
     const view = render(<Activity mode="visible">{data.node}</Activity>, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
     expect(data.client.reviewList).not.toHaveBeenCalled();
     view.rerender(<Activity mode="hidden">{data.node}</Activity>);
     data.client.reviewList.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "Ya no podés revisar solicitudes.", uncertain: false });
@@ -369,8 +437,10 @@ describe("native reviewer container", () => {
     const data = fixture(false);
     data.state.filters = { limit: 25, source: "common", needsVerification: false, requiresExceptionReason: false };
     render(data.node, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
     expect(screen.getByText(data.request.applicant.name)).toBeVisible();
+    expect(filtersButton()).toHaveAccessibleName("Filtros (4 aplicados)");
+    await openFilters();
     expect(screen.getByLabelText("Estado")).toHaveTextContent("Todos los estados");
     expect(screen.getByLabelText("Comprobación de contacto")).toHaveTextContent("Sin ese requisito actual");
     expect(data.client.reviewList).not.toHaveBeenCalled();
@@ -383,18 +453,21 @@ describe("native reviewer container", () => {
     const data = fixture(false);
     data.state.filters = { limit: 25, source: "common", needsVerification: false, requiresExceptionReason: true };
     render(data.node, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    await waitFor(() => expect(filtersButton()).toBeEnabled());
+    fireEvent.change(screen.getByRole("searchbox", { name: "Búsqueda" }), { target: { value: "  Ana + García  " } });
+    await openFilters();
     const apply = screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply });
-    fireEvent.change(screen.getByLabelText("Búsqueda"), { target: { value: "  Ana + García  " } });
     fireEvent.change(screen.getByLabelText("Desde (hora de Argentina)"), { target: { value: "2026-10-08T12:30" } });
     fireEvent.change(screen.getByLabelText("Hasta (hora de Argentina)"), { target: { value: "2026-10-01T12:30" } });
     fireEvent.click(apply);
     expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_REVIEW_FILTER_COPY.invalid);
+    expect(screen.getByRole("dialog", { name: ADMISSION_REVIEW_FILTER_COPY.dialogTitle })).toBeVisible();
     expect(router.push).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Hasta (hora de Argentina)"), { target: { value: "2026-10-09T12:30" } });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.click(apply);
     expect(router.push).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     const route = new URL(router.push.mock.calls[0][0], "https://tutribu.example.invalid");
     expect(route.pathname).toBe(`/${slug}/academia/admissions`);
     expect(Object.fromEntries(route.searchParams)).toEqual({ limit: "25", status: "all", source: "common", search: "Ana + García", needsVerification: "false", requiresExceptionReason: "true", submittedFrom: "2026-10-08T15:30:00Z", submittedUntil: "2026-10-09T15:30:00Z" });
@@ -415,7 +488,7 @@ describe("native reviewer container", () => {
     fireEvent.click(screen.getByRole("button", { name: `${ADMISSION_REVIEW_UI_COPY.detail}: ${data.request.applicant.name}` }));
     await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
-    expect(screen.getByLabelText("Búsqueda")).toHaveValue("Solicitante");
+    expect(screen.getByRole("searchbox", { name: "Búsqueda" })).toHaveValue("Solicitante");
     for (const call of data.client.reviewList.mock.calls) expect(call[3]).toEqual(data.state.filters);
     expect(router.refresh).not.toHaveBeenCalled();
   });

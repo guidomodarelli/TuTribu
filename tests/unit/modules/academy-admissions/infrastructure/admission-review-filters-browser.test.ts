@@ -89,14 +89,20 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               const recordFrames = scenario.name === "chromium" && scenario.width === 1280;
               stage = reportStage("bounded_empty_initial_page");
               await page.goto(`${origin}/${slug}/academia/admissions?limit=1&requiresExceptionReason=false`, { waitUntil: "domcontentloaded" });
-              const apply = page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true });
-              await expectBrowser(apply).toBeEnabled();
+              /* The search stays in the toolbar; every other filter lives in the dialog that this button opens. */
+              const filtersButton = page.getByRole("button", { name: new RegExp(`^${ADMISSION_REVIEW_FILTER_COPY.open}`) });
+              const filtersDialog = page.getByRole("dialog", { name: ADMISSION_REVIEW_FILTER_COPY.dialogTitle, exact: true });
+              const openFilters = async () => { await filtersButton.click(); await expectBrowser(filtersDialog).toBeVisible(); };
+              await expectBrowser(filtersButton).toBeEnabled();
+              /* The route already excludes list exceptions: the closed dialog says so with its count and a chip. */
+              await expectBrowser(filtersButton).toHaveAccessibleName(`${ADMISSION_REVIEW_FILTER_COPY.open} (1 aplicado)`);
+              await expectBrowser(page.getByRole("list", { name: "Filtros aplicados", exact: true }).getByRole("listitem")).toHaveText(["Excepción a la lista: Sin excepción"]);
               await expectBrowser(page.getByText(ADMISSION_REVIEW_FILTER_COPY.emptyPage, { exact: true })).toBeVisible();
               expect(listReads).toEqual([]);
               if (recordFrames) await captureAdmissionReview(page, "review-filter-empty-page", forbidden, REVIEW_VALIDATION.captureFile);
               for (const index of [0, 1]) {
                 await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore, exact: true }).click();
-                await expectBrowser(apply).toBeEnabled();
+                await expectBrowser(filtersButton).toBeEnabled();
                 expect(listReads).toHaveLength(index + 1);
                 const query = new URLSearchParams(listReads[index]);
                 expect(query.get("requiresExceptionReason")).toBe("false"); expect(query.get("limit")).toBe("1"); expect(query.get("status")).toBe("pending"); expect(query.get("cursor")).toEqual(expect.any(String));
@@ -104,17 +110,22 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await expectBrowser(page.getByText(ADMISSION_REVIEW_UI_COPY.empty, { exact: true })).toBeVisible();
               await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore, exact: true })).toHaveCount(0);
               stage = reportStage("apply_combined_filters");
+              await page.getByRole("searchbox", { name: "Búsqueda", exact: true }).fill("Primer");
+              await openFilters();
               await page.getByRole("combobox", { name: "Excepción a la lista", exact: true }).click(); await page.getByRole("option", { name: "Excepciones a la lista", exact: true }).click();
               await page.getByRole("combobox", { name: "Origen", exact: true }).click(); await page.getByRole("option", { name: "Solicitud común", exact: true }).click();
               await page.getByRole("combobox", { name: "Comprobación de contacto", exact: true }).click(); await page.getByRole("option", { name: "Sin ese requisito actual", exact: true }).click();
               await page.getByRole("combobox", { name: "Estado", exact: true }).click(); await page.getByRole("option", { name: "Todos los estados", exact: true }).click();
-              await page.getByLabel("Búsqueda", { exact: true }).fill("Primer");
               await page.getByLabel("Desde (hora de Argentina)", { exact: true }).fill("2020-01-01T00:00");
               await page.getByLabel("Hasta (hora de Argentina)", { exact: true }).fill("2099-01-01T00:00");
+              await filtersDialog.screenshot({ path: join(artifacts, `${scenario.name}-${scenario.width}-filters-dialog.png`) });
+              if (recordFrames) await captureAdmissionReview(page, "review-filter-dialog", forbidden, REVIEW_VALIDATION.captureFile, { selector: "[role=\"dialog\"]" });
               listReads.length = 0;
-              await apply.click();
+              await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true }).click();
               await page.waitForURL((url) => url.searchParams.get("requiresExceptionReason") === "true" && url.searchParams.get("search") === "Primer");
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
+              await expectBrowser(filtersDialog).toHaveCount(0);
+              await expectBrowser(filtersButton).toBeEnabled();
+              await expectBrowser(filtersButton).toHaveAccessibleName(`${ADMISSION_REVIEW_FILTER_COPY.open} (6 aplicados)`);
               await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
               expect(listReads).toEqual([]);
               let filteredUrl = page.url();
@@ -122,14 +133,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 await expectBrowser(page.getByText(ADMISSION_REVIEW_UI_COPY.reading, { exact: true })).toHaveCount(0);
                 await captureAdmissionReview(page, "review-filter-applied", forbidden, REVIEW_VALIDATION.captureFile);
               }
-              const form = page.getByRole("form", { name: ADMISSION_REVIEW_FILTER_COPY.title, exact: true });
-              await form.screenshot({ path: join(artifacts, `${scenario.name}-${scenario.width}-filters.png`) });
+              await page.getByRole("region", { name: ADMISSION_REVIEW_FILTER_COPY.title, exact: true }).screenshot({ path: join(artifacts, `${scenario.name}-${scenario.width}-filters.png`) });
               stage = reportStage("preserve_precise_cutoff");
               const precisionRoute = new URL(filteredUrl); precisionRoute.searchParams.set("submittedUntil", preciseUntil);
               await page.goto(precisionRoute.href, { waitUntil: "domcontentloaded" });
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
-              await page.getByLabel("Búsqueda", { exact: true }).fill("Primer solicitante");
-              await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true }).click();
+              await expectBrowser(filtersButton).toBeEnabled();
+              /* Enter in the toolbar search applies it with the filters already applied, without opening the dialog. */
+              await page.getByRole("searchbox", { name: "Búsqueda", exact: true }).fill("Primer solicitante");
+              await page.getByRole("searchbox", { name: "Búsqueda", exact: true }).press("Enter");
               await page.waitForURL((url) => url.searchParams.get("search") === "Primer solicitante");
               expect(new URL(page.url()).searchParams.get("submittedUntil")).toBe(preciseUntil);
               await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
@@ -146,31 +157,43 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReason, { exact: true }).fill("");
               if (recordFrames) await captureAdmissionReview(page, "review-filter-detail", forbidden, REVIEW_VALIDATION.captureFile);
               await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close, exact: true }).click();
-              await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("Primer solicitante");
+              await expectBrowser(page.getByRole("searchbox", { name: "Búsqueda", exact: true })).toHaveValue("Primer solicitante");
               expect(page.url()).toBe(filteredUrl);
               listReads.length = 0; await page.reload({ waitUntil: "domcontentloaded" });
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
+              await expectBrowser(filtersButton).toBeEnabled();
               expect(listReads).toEqual([]);
-              await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("Primer solicitante");
+              await expectBrowser(page.getByRole("searchbox", { name: "Búsqueda", exact: true })).toHaveValue("Primer solicitante");
+              await openFilters();
               await page.getByRole("combobox", { name: "Estado", exact: true }).click(); await page.getByRole("option", { name: "Aprobadas", exact: true }).click();
               await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true }).click();
               await page.waitForURL((url) => url.searchParams.get("status") === "approved");
               await expectBrowser(page.getByText(ADMISSION_REVIEW_UI_COPY.empty, { exact: true })).toBeVisible();
               await page.goBack({ waitUntil: "domcontentloaded" });
               await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
-              await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("Primer solicitante");
+              await expectBrowser(page.getByRole("searchbox", { name: "Búsqueda", exact: true })).toHaveValue("Primer solicitante");
+              stage = reportStage("remove_applied_filter_chip");
+              await page.getByRole("button", { name: "Quitar Comprobación de contacto: Sin ese requisito actual", exact: true }).click();
+              await page.waitForURL((url) => !url.searchParams.has("needsVerification") && url.searchParams.get("search") === "Primer solicitante");
+              await expectBrowser(filtersButton).toHaveAccessibleName(`${ADMISSION_REVIEW_FILTER_COPY.open} (5 aplicados)`);
+              await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
               stage = reportStage("reset_and_revoke_current_role");
+              await openFilters();
               await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset, exact: true }).click();
               await page.waitForURL((url) => url.searchParams.get("status") === "pending" && !url.searchParams.has("search"));
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
+              await expectBrowser(filtersButton).toBeEnabled();
               await expectBrowser(page.getByRole("heading", { name: applicants[1].name, exact: true })).toBeVisible();
               stage = reportStage("reset_unapplied_edits_on_same_selection");
-              await page.getByLabel("Búsqueda", { exact: true }).fill("Edición todavía sin aplicar");
+              await page.getByRole("searchbox", { name: "Búsqueda", exact: true }).fill("Edición todavía sin aplicar");
+              await openFilters();
               await page.getByLabel("Desde (hora de Argentina)", { exact: true }).fill("2020-01-01T00:00");
               await page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset, exact: true }).click();
-              await expectBrowser(page.getByLabel("Búsqueda", { exact: true })).toHaveValue("");
+              await expectBrowser(filtersDialog).toHaveCount(0);
+              await expectBrowser(page.getByRole("searchbox", { name: "Búsqueda", exact: true })).toHaveValue("");
+              await openFilters();
               await expectBrowser(page.getByLabel("Desde (hora de Argentina)", { exact: true })).toHaveValue("");
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
+              await page.keyboard.press("Escape");
+              await expectBrowser(filtersDialog).toHaveCount(0);
+              await expectBrowser(filtersButton).toBeEnabled();
               await expectBrowser(page.getByRole("heading", { name: applicants[1].name, exact: true })).toBeVisible();
               if (recordFrames) await captureAdmissionReview(page, "review-filter-default", forbidden, REVIEW_VALIDATION.captureFile);
               stage = reportStage("mute_current_reviewer");
@@ -183,7 +206,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }).click();
               await expectBrowser(page.getByRole("button", { name: `${ADMISSION_REVIEW_UI_COPY.detail}: ${applicants[0].name}`, exact: true })).toHaveCount(0);
               /** A lost role hides the whole private inbox, filters included, behind the route error instead of leaving them disabled. */
-              await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toHaveCount(0);
+              await expectBrowser(filtersButton).toHaveCount(0);
+              await expectBrowser(page.getByRole("search", { name: ADMISSION_REVIEW_FILTER_COPY.search, exact: true })).toHaveCount(0);
               expect(errors).toEqual([]); expect(writes).toEqual([]);
               const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_operations where tribe_id=${tribeId}) as operations,(select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.academy_admission_requests where tribe_id=${tribeId} and status='pending' and version=1) as unchanged_requests`)).rows[0]);
               expect(effects).toEqual({ operations: 0, deliveries: 0, unchanged_requests: applicants.length });
@@ -193,6 +217,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         }, { messagingSecurity }));
       });
     } catch (error) {
+`);
       process.stdout.write(JSON.stringify({ phase: "native_review_filter_failure", engine: scenario.name, width: scenario.width, stage, errorName: error instanceof Error ? error.name : "unknown", detail: error instanceof Error ? error.message.split("\n")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[synthetic-id]").slice(0, 300) : undefined, sqlState: sqlFailureState(error) }) + "\n");
       throw new Error("Native reviewer filter flow failed; inspect its safe stage diagnostic and owned fixture");
     }
