@@ -1,0 +1,209 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "feat/admission-review-filters-dialog",
+    "commit": "b2e845f929af5d253483f8fc3481ac11c914912a",
+    "fingerprint": "sha256:3cc7f54a951d470eb1f07e07c8bec56fcf9e34d20de0800b32cd58bf030b67e6",
+    "uncommittedFiles": [
+      "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx",
+      "components/academy-admissions/admission-review-filters/index.tsx",
+      "components/academy-admissions/admission-review-filters/styles.module.scss",
+      "lib/academy-admissions/admission-review-filters.ts",
+      "src/modules/academy-admissions/constants/admission-review-filters.ts"
+    ],
+    "fileCount": 340,
+    "inputCount": 1833
+  },
+  "evidence": [
+    {
+      "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-review-filters.test.ts",
+      "durationMs": 67846,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "3ba73ce25e02eaa7497bade6619aec0affe4c9dd2a031048aa0318009f8f3caf",
+      "recordedAt": "2026-11-03T14:22:38.752Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    },
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-11-03T14:22:39.648Z",
+      "source": "attested",
+      "summary": "Checklist liviano de ui-ux-flow-patterns sobre los filtros de la bandeja: búsqueda con Enter, diálogo con validación de fechas junto al campo y error que queda abierto en el diálogo, descarte de ediciones al cerrar, chips con quitar y foco, estados deshabilitados durante lectura o decisión, contador accesible."
+    },
+    {
+      "kind": "browser",
+      "outcome": "skipped",
+      "recordedAt": "2026-11-03T14:25:34.810Z",
+      "source": "attested",
+      "summary": "La suite nativa admission-review-filters-browser falla en main en bounded_empty_initial_page: la primera solicitud sembrada ya no se clasifica como excepción, así que el recorrido no llega a los filtros. El layout y el diálogo de SearchFilterBar se midieron en golfo-ui con Playwright (Chromium y WebKit, 1440 y 390).",
+      "tool": "playwright"
+    }
+  ],
+  "limitations": [
+    "Sin recorrido en navegador real de TuTribu: la suite nativa de filtros falla en main por su fixture antes de llegar a los filtros.",
+    "Sin lector de pantalla."
+  ],
+  "mode": "incremental",
+  "pendingChecks": [
+    "Corregir el fixture de admission-review-filters-browser y recapturar los marcos del manual de filtros."
+  ],
+  "recordedAt": "2026-11-03T14:25:37.536Z",
+  "result": "partial",
+  "runId": "20261103T142119Z-08ed2b",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyDraft",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyFilters",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/discardFilterEdits",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/navigateFilters",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/removeFilter",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "components/academy-admissions/admission-review-filters/index.tsx#AdmissionReviewFilters",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-review-filters/index.tsx#AdmissionReviewFilters/changeOpen",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-review-filters/index.tsx#AdmissionReviewFilters/run",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-review-filters/index.tsx#AdmissionReviewFilters/submitDialog",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-review-filters/index.tsx#AdmissionReviewFilters~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-review-filters/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#AdmissionReviewAppliedFilter",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#AdmissionReviewDialogField",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#chipMinute",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#describeAdmissionReviewDialogFilters",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#discardAdmissionReviewDialogEdits",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-filters.ts#removeAdmissionReviewDialogFilter",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "pkg:@golfo/ui",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.dialogDescription",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.dialogTitle",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.open",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_COPY.searchPlaceholder",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_DATES",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_MINUTE_KEY_PATTERN",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "pending from the previous run: Recorrer en el navegador los estados de prerrequisito y el flujo cambiado.",
+      "whole unit academy.admissions.review.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-11-03T14:21:19.216Z",
+  "unitId": "academy.admissions.review.view"
+}

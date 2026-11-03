@@ -21,7 +21,7 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
-import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute, type AdmissionReviewDateFilter } from "@/lib/academy-admissions/admission-review-filters";
+import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute, describeAdmissionReviewDialogFilters, discardAdmissionReviewDialogEdits, removeAdmissionReviewDialogFilter, type AdmissionReviewDateFilter, type AdmissionReviewDialogField, type AdmissionReviewFilterDraft } from "@/lib/academy-admissions/admission-review-filters";
 import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/application/results/admission-review-selection";
 import { buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admission-review-history-routes";
 import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
@@ -206,19 +206,30 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
    * Navigates after validation; the server entrypoint rechecks authority and owns the next initial read.
    * @param filters - The validated selection for the next server snapshot.
    * @param resetDraft - Whether explicit reset must discard unapplied edits even on the same route.
-   * @returns Nothing; blocked navigation preserves the current draft and reports its cause.
+   * @returns Whether the navigation started; blocked navigation preserves the current draft and reports its cause.
    */
-  const navigateFilters = (filters: AdmissionReviewSelection, resetDraft = false) => {
-    if (act.locked() || !fresh || phase !== ADMISSION_REVIEW_PHASE.idle || navigating) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.blocked); return; }
+  const navigateFilters = (filters: AdmissionReviewSelection, resetDraft = false): boolean => {
+    if (act.locked() || !fresh || phase !== ADMISSION_REVIEW_PHASE.idle || navigating) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.blocked); return false; }
     if (resetDraft) { setFilterDraft(createAdmissionReviewFilterDraft(filters)); editedDateFilters.current.clear(); }
     controls.readController.current?.abort(); controls.setConfirmed(false); setErrorMessage(null); controls.setStatusMessage(null); setFilterError(null); batchActions.clear(); controls.setBatchManifest([]); controls.setBatchResult(null);
     startNavigation(() => router.push(buildAdmissionReviewSelectionRoute(ready.slug, filters)));
+    return true;
   };
-  /** @returns Nothing after navigating to the parsed draft, or reporting an invalid one. */
-  const applyFilters = () => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, filterDraft, appliedFilters.limit, { original: appliedFilters, editedDates: editedDateFilters.current }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return; } navigateFilters(parsed.filters); };
+  /**
+   * @param draft - Editable strings to apply.
+   * @param editedDates - Date filters the reviewer edited, which replace their original instants.
+   * @returns Whether the parsed draft started its navigation; an invalid one is reported instead.
+   */
+  const applyDraft = (draft: AdmissionReviewFilterDraft, editedDates: ReadonlySet<AdmissionReviewDateFilter>) => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, draft, appliedFilters.limit, { original: appliedFilters, editedDates }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return false; } return navigateFilters(parsed.filters); };
+  /** @returns Whether the whole draft (search and dialog) started its navigation. */
+  const applyFilters = () => applyDraft(filterDraft, editedDateFilters.current);
+  /** @param field - Dialog filter whose chip was removed. @returns Nothing after applying the selection without it and with the typed search. */
+  const removeFilter = (field: AdmissionReviewDialogField) => { const draft = removeAdmissionReviewDialogFilter(filterDraft, appliedFilters, field); if (applyDraft(draft, new Set())) { setFilterDraft(draft); editedDateFilters.current.clear(); } };
+  /** @returns Nothing after putting the dialog fields back on the applied selection, so a dismissed dialog applies nothing later. */
+  const discardFilterEdits = () => { setFilterDraft((current) => discardAdmissionReviewDialogEdits(current, appliedFilters)); editedDateFilters.current.clear(); setFilterError(null); };
   /** @param field - Edited filter. @param value - New draft value. @returns Nothing after remembering edited dates and clearing the filter error. */
   const changeFilter: ComponentProps<typeof AdmissionReviewFilters>["onChange"] = (field, value) => { if (field === "submittedFrom" || field === "submittedUntil") editedDateFilters.current.add(field); setFilterDraft((current) => ({ ...current, [field]: value })); setFilterError(null); };
-  return <AdmissionReview statusRef={decisionStatusRef} filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} onChange={changeFilter} onApply={applyFilters} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} /> : undefined}
+  return <AdmissionReview statusRef={decisionStatusRef} filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} appliedFilters={describeAdmissionReviewDialogFilters(appliedFilters)} onChange={changeFilter} onApply={applyFilters} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} onDiscard={discardFilterEdits} onRemoveFilter={removeFilter} /> : undefined}
     recovery={batchPending ? null : undefined}
     batchSelection={{ ids: new Set(batchSelection.map((item) => item.requestId)), disabled: formDisabled || uncertain, onToggle: act.toggleBatchRow }}
     batch={privateVisible && flags.batchContext ? <AdmissionBatchReview selection={batchSelection} manifest={view.batchManifest} result={batchResult} pending={batchPending} pendingAction={pendingAction} canRetry={canRetry} disabled={formDisabled} busy={reading} internalReason={internalReason} externalMessage={externalMessage} confirmed={batchConfirmed} errorMessage={flags.reviewError} allowApprove={batchAvailability.approve} allowReject={batchAvailability.reject} onInternalReason={(value) => act.editBatchReason(() => controls.setInternalReason(value))} onExternalMessage={(value) => act.editBatchReason(() => controls.setExternalMessage(value))} onConfirm={act.confirmBatch} onClear={act.clearBatch} onRetry={act.retryOriginal} onDecision={act.decideBatch} /> : undefined}

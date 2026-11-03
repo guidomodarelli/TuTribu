@@ -63,7 +63,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             expect(response?.status()).toBe(200);
             const serverHtml = await response!.text();
             expect(serverHtml).toContain("Pendiente hace tres días o más");
-            await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
+            await expectBrowser(page.getByRole("button", { name: new RegExp(`^${ADMISSION_REVIEW_FILTER_COPY.open}`) })).toBeEnabled();
             const oldRow = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: `${scenario.search} antigua`, exact: true }) });
             const freshRow = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: `${scenario.search} reciente`, exact: true }) });
             await expectBrowser(oldRow.getByText("Pendiente hace tres días o más", { exact: true })).toBeVisible();
@@ -87,7 +87,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             expect(writes).toBe(1);
             expect(documentLoads).toBe(1);
             await page.reload({ waitUntil: "domcontentloaded" });
-            await expectBrowser(page.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply, exact: true })).toBeEnabled();
+            await expectBrowser(page.getByRole("button", { name: new RegExp(`^${ADMISSION_REVIEW_FILTER_COPY.open}`) })).toBeEnabled();
             await expectBrowser(oldRow).toContainText("Aprobada");
             await expectBrowser(page.getByText("Pendiente hace tres días o más", { exact: true })).toHaveCount(0);
             const overflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - window.innerWidth));

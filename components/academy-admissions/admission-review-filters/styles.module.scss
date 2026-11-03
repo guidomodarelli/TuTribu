@@ -17,15 +17,8 @@
 
   &__fields {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
     min-width: 0;
     gap: 1rem;
-  }
-
-  &__field {
-    @include workspace-panel.field;
-
-    align-content: start;
   }
 
   &__control {
@@ -39,9 +32,5 @@
 
   &__error {
     @include workspace-panel.error;
-  }
-
-  &__actions {
-    @include workspace-panel.actions;
   }
 }
