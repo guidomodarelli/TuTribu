@@ -217,7 +217,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         }, { messagingSecurity }));
       });
     } catch (error) {
-`);
       process.stdout.write(JSON.stringify({ phase: "native_review_filter_failure", engine: scenario.name, width: scenario.width, stage, errorName: error instanceof Error ? error.name : "unknown", detail: error instanceof Error ? error.message.split("\n")[0].replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[synthetic-id]").slice(0, 300) : undefined, sqlState: sqlFailureState(error) }) + "\n");
       throw new Error("Native reviewer filter flow failed; inspect its safe stage diagnostic and owned fixture");
     }
