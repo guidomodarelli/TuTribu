@@ -67,11 +67,11 @@ export function PolicyRulesSteps(props: PolicyRulesStepsProps) {
       </>,
     },
     contact: {
-      id: ADMISSION_POLICY_STEP.contact, title: "Cómo se contactan", description: "Elegí con qué dato se identifica cada persona y si querés comprobarlo.", blockedReason: contactReason ?? undefined,
+      id: ADMISSION_POLICY_STEP.contact, title: "Cómo se contactan", description: "Elegí con qué dato reconocemos a cada persona en sus solicitudes y en la lista de Habilitados, y si querés comprobar que ese dato es suyo.", blockedReason: contactReason ?? undefined,
       content: <>
         <RadioGroup label="Tipo de contacto" value={draft.contactType} options={ADMISSION_POLICY_CONTACT_OPTIONS.map((option) => ({ ...option, disabled: locked && option.value !== draft.contactType }))} onValueChange={(value) => { const contactType = ADMISSION_POLICY_CONTACT_OPTIONS.find((option) => option.value === value)?.value; if (contactType) change({ contactType }); }} />
         {locked && <p className={styles.PolicyRulesSteps__note}>{ADMISSION_POLICY_BROWSER_COPY.contactLocked}</p>}
-        <Checkbox id={`${instanceId}-verification`} checked={draft.requiresAdditionalVerification} label="Comprobar el contacto con un código" description="Le enviamos un código a la persona para confirmar que el contacto es suyo. Para activarlo, el canal de envío tiene que estar preparado en Conexión." onCheckedChange={(checked) => change({ requiresAdditionalVerification: checked === true })} />
+        <Checkbox id={`${instanceId}-verification`} checked={draft.requiresAdditionalVerification} label="Comprobar el contacto con un código" description="La persona recibe un código de seis números en su correo o teléfono, según el tipo de contacto, y tiene que ingresarlo para demostrar que ese contacto es suyo. Para usar esta opción, el envío de mensajes tiene que estar conectado en la sección Conexión." onCheckedChange={(checked) => change({ requiresAdditionalVerification: checked === true })} />
         {phone && <div className={styles.PolicyRulesSteps__group}>
           {draft.requiresAdditionalVerification
             ? <>

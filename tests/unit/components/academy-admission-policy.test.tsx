@@ -196,7 +196,7 @@ describe("guided policy presentation", () => {
     expect(screen.queryByText(/Guardá el borrador y volvé a revisar/)).not.toBeInTheDocument();
     view.rerender(<AdmissionPolicyForm {...props} editing step={1} />);
     expect(screen.getByRole("radio", { name: "Teléfono" })).toBeDisabled();
-    expect(screen.getByText("El tipo de contacto quedó fijado al activar el control.")).toBeInTheDocument();
+    expect(screen.getByText("No se puede cambiar: el tipo de contacto queda fijo desde la primera vez que se activaron las admisiones, para que las solicitudes y la lista de Habilitados sigan reconociendo a las mismas personas.")).toBeInTheDocument();
   });
 
   it("should explain platform blocks with a copyable diagnostic code, a recheck and a report fallback, without offering to publish", async () => {

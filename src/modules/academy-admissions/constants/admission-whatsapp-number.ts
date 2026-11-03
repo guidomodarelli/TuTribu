@@ -27,7 +27,7 @@ export const ADMISSION_WHATSAPP_COPY = {
   notProvided: "No informó teléfono",
   declared: "Número declarado; la pertenencia al grupo se revisa manualmente.",
   policyLabel: "Exigir el teléfono del solicitante",
-  policyHelp: "Si no lo exigís, completarlo es opcional. El equipo lo compara manualmente con el grupo; esta opción no activa códigos ni envíos.",
+  policyHelp: "Es un dato aparte del tipo de contacto. Si lo exigís, la persona no puede enviar la solicitud sin su número; si no, completarlo es opcional. Quien revisa las solicitudes lo compara a mano con el grupo de WhatsApp: la aplicación no comprueba el número ni le envía códigos.",
   editTitle: "Tu teléfono",
   currentNumber: "Actualmente informado",
   confirmEdit: "Revisé el número y quiero guardar este cambio.",
