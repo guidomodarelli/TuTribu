@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.13.4] - 2026-11-03
+
 ### Changed
 
 - En Reglas, el paso «Cómo se contactan» explica cada opción sin dejar lugar a interpretación: para qué se usa el tipo de contacto (reconocer a cada persona en sus solicitudes y en Habilitados), por qué no se puede cambiar después de la primera activación, qué recibe la persona al comprobar el contacto con un código y qué hace «Exigir el teléfono del solicitante» (un dato aparte que se compara a mano con el grupo de WhatsApp, sin códigos ni envíos). Si al guardar se intenta cambiar el tipo de contacto ya fijado, el aviso dice qué hacer.
