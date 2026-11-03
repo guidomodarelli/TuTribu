@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-03
+
 ### Changed
 
 - En Solicitudes, los filtros quedan más ordenados: arriba está solo la búsqueda (se aplica con Enter) y el botón «Filtros», que abre una ventana con el estado, el origen, la excepción a la lista, la comprobación de contacto y el rango de fechas. Al lado aparece una etiqueta por cada filtro aplicado, que se puede quitar con su «×», y el botón muestra cuántos hay. En la computadora la ventana muestra los filtros en dos columnas, y en el teléfono en una. Cerrar la ventana sin aplicar descarta lo que cambiaste en ella. La fila se acomoda sola al ancho de la pantalla.
