@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En todas las pantallas que se completan por pasos (Reglas, Avisos, Invitaciones, Habilitados, la importación de habilitados, Países y cupos, Conexión y la solicitud de ingreso), «Atrás» vuelve al primer paso y se queda ahí. Hasta ahora el formulario avanzaba otra vez y no dejaba regresar.
+
 ## [1.13.4] - 2026-11-03
 
 ### Changed

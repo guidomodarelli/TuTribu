@@ -35,6 +35,34 @@ describe("guided steps", () => {
     expect(onFinish).toHaveBeenCalledTimes(1);
   });
 
+  it("should stay on the first step when Atrás returns to it instead of submitting and advancing again", () => {
+    const onWrite = vi.fn(), onFinish = vi.fn(), submitted = vi.fn();
+    render(<Flow written onWrite={onWrite} onFinish={onFinish} onRecover={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Enviá el código.")).toBeInTheDocument();
+    const form = screen.getByRole("form", { name: "Flujo de prueba" });
+    form.addEventListener("submit", submitted);
+    // In WebKit and Chromium a real click lets React commit the first step before the browser runs the button's default
+    // action, and the production build reuses the pressed node as the submit button. The window listener leaves the
+    // pressed node in that state at the same point of the dispatch, before the default action runs.
+    const pressedBecomesSubmit = (event: MouseEvent) => {
+      const pressed = event.target instanceof Element ? event.target.closest("button") : null;
+      if (pressed) pressed.type = "submit";
+    };
+    window.addEventListener("click", pressedBecomesSubmit);
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    } finally {
+      window.removeEventListener("click", pressedBecomesSubmit);
+    }
+    expect(screen.getByRole("navigation", { name: "Paso 1 de 3" })).toBeInTheDocument();
+    expect(screen.getByText("Completá los datos.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Atrás" })).not.toBeInTheDocument();
+    expect(submitted).not.toHaveBeenCalled();
+    expect(onWrite).not.toHaveBeenCalled();
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
   it("should keep secondary actions collapsed under their own disclosure", () => {
     const onRecover = vi.fn();
     render(<Flow written={false} onWrite={vi.fn()} onFinish={vi.fn()} onRecover={onRecover} />);
