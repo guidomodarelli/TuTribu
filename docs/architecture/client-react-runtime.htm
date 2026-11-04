@@ -44,43 +44,28 @@ tr:last-child td{border-bottom:none;}
 <div class="doc-header">
   <div class="doc-label">ARCHITECTURE</div>
   <div class="doc-title">Runtime de React en el navegador</div>
-  <div class="doc-sub">Los componentes cliente corren sobre TanStack Redact; el servidor sigue en React.</div>
-  <div class="doc-meta"><span>Scope: Frontend runtime</span><span>Status: Active</span></div>
+  <div class="doc-sub">Los componentes cliente corren sobre React; TanStack Redact se probo y se revirtio.</div>
+  <div class="doc-meta"><span>Scope: Frontend runtime</span><span>Status: Reverted</span></div>
 </div>
 
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Decision</div>
-  <p>TuTribu usa <strong>TanStack Redact</strong> (<code>@tanstack/redact</code>) como runtime de React en el navegador para reducir el JavaScript que descarga cada pagina. La integracion es <code>withRedact</code> de <code>@tanstack/redact/next</code>, que envuelve la configuracion exportada por <code>next.config.ts</code>.</p>
-  <p>El codigo de producto no cambia: sigue importando de <code>react</code> y <code>react-dom</code>. <code>withRedact</code> redirige esos imports solo en el bundle del navegador, tanto en Turbopack (reglas con condicion <code>browser</code>) como en webpack (cuando <code>isServer</code> es falso).</p>
-  <div class="callout c-info"><strong>Lo que queda en React:</strong> el render en servidor, los Server Components, Flight, el cache y el transporte de Server Actions. Redact hidrata el HTML y ejecuta los componentes cliente.</div>
+  <p>TuTribu ejecuta los componentes cliente con <strong>React</strong> (<code>react-dom</code>), igual que el servidor. <code>next.config.ts</code> exporta <code>nextConfig</code> sin ningun wrapper que reemplace el runtime del navegador.</p>
+  <p>Hubo un intento de usar <strong>TanStack Redact</strong> (<code>@tanstack/redact</code> 0.2.0, con <code>withRedact</code>) como runtime de React solo en el navegador, para bajar el JavaScript de cada pagina. Se revirtio.</p>
   <div class="divider"></div>
 </div>
 
 <div class="section">
   <div class="section-num">02</div>
-  <div class="section-title">Diferencias que hay que tener en cuenta</div>
+  <div class="section-title">Por que se revirtio</div>
   <ul>
-    <li>Redact renderiza en forma <strong>sincronica</strong>: no hay time slicing ni renders interrumpibles. <code>useTransition</code> y <code>useDeferredValue</code> conservan el contenido confirmado y el estado pendiente, pero no bajan la prioridad del trabajo.</li>
-    <li><code>&lt;Profiler&gt;</code> no ejecuta su callback, <code>cacheSignal</code> devuelve <code>null</code> y <code>unstable_useCacheRefresh</code> no hace nada en el cliente.</li>
-    <li>Los metodos de ciclo de vida legacy de clases no se ejecutan.</li>
-    <li><code>&lt;Activity&gt;</code> conserva el DOM y el estado ocultos, pero desconecta sus efectos y refs.</li>
-    <li>Los handlers reciben el <code>Event</code> nativo (con <code>nativeEvent</code> apuntando a si mismo), no un <code>SyntheticEvent</code>: no existen <code>isPropagationStopped()</code>, <code>isDefaultPrevented()</code> ni <code>persist()</code>. Radix RadioGroup, Checkbox, Switch y Select llaman a <code>isPropagationStopped()</code> en sus handlers, y sin ese metodo el clic lanza un error y el control no cambia.</li>
+    <li><strong>Ahorro chico:</strong> medido en build de produccion, cada pagina bajaba unos 31 KB gzip (3,7 % a 4,9 % de unos 750 KB). Es el peso fijo del runtime; el resto del bundle es codigo propio y dependencias.</li>
+    <li><strong>Roturas que los tests no ven:</strong> Redact pasa a los handlers el <code>Event</code> nativo, sin <code>isPropagationStopped()</code>, <code>isDefaultPrevented()</code> ni <code>persist()</code>. Radix RadioGroup, Checkbox, Switch y Select llaman a <code>isPropagationStopped()</code>, asi que el clic lanzaba un error y el control no cambiaba (por ejemplo, elegir &laquo;Lista de habilitados&raquo; en Reglas). Vitest corre con React, por lo que solo aparecia en el build de produccion.</li>
+    <li><strong>Next.js atado a Redact:</strong> <code>withRedact</code> solo acepta las versiones de Next.js que soporta (en 0.2.0: 15.5 y 16.0 a 16.4); subir Next.js exigia esperar a Redact.</li>
+    <li><strong>Render sincronico:</strong> sin time slicing, <code>useTransition</code> y <code>useDeferredValue</code> no bajan la prioridad del trabajo, y <code>&lt;Profiler&gt;</code> no ejecuta su callback.</li>
   </ul>
-  <div class="callout c-warn"><strong>Shim de eventos.</strong> <code>instrumentation-client.ts</code> corre <code>installSyntheticEventCompat(Event.prototype)</code> (<code>src/modules/shared/infrastructure/browser/install-synthetic-event-compat.ts</code>) antes de la hidratacion. Agrega a <code>Event.prototype</code> los tres metodos que faltan; envuelve <code>stopPropagation</code> y <code>stopImmediatePropagation</code> para que <code>isPropagationStopped()</code> responda como en React, y no toca metodos que el prototipo ya tenga. Es un parche global del navegador que existe solo por Redact.</div>
-  <p>La guia completa esta en <code>https://tanstack.com/redact/latest/docs/compatibility</code>.</p>
-  <div class="divider"></div>
-</div>
-
-<div class="section">
-  <div class="section-num">03</div>
-  <div class="section-title">Versiones y alcance</div>
-  <ul>
-    <li><code>withRedact</code> valida la version de Next.js al cargar la configuracion y falla con un error si no esta soportada (en <code>0.2.0</code>: 15.5 y 16.0 a 16.4). Antes de subir Next.js, subir Redact a una version que la soporte.</li>
-    <li><code>@tanstack/redact</code> figura en <code>minimumReleaseAgeExclude</code> de <code>pnpm-workspace.yaml</code>: el paquete publica versiones seguido y la integracion con Next.js llega primero en las versiones nuevas, asi que se instala sin esperar las 24 horas de <code>minimumReleaseAge</code>.</li>
-    <li>Los tests de Vitest siguen ejecutando React: Redact solo cambia el bundle que genera Next.js. La verificacion de Redact es <code>pnpm run build</code> y la prueba de la app en <code>https://dev.tutribu.app</code>.</li>
-    <li>Para volver a React en el navegador, exportar <code>nextConfig</code> sin <code>withRedact</code> y sacar de <code>instrumentation-client.ts</code> la llamada a <code>installSyntheticEventCompat</code> (junto con su modulo y su test): con React los eventos ya traen esos metodos y el parche global sobra.</li>
-  </ul>
+  <div class="callout c-warn"><strong>Antes de volver a probar otro runtime de React en el navegador:</strong> verificar con <code>pnpm run build</code> y la app real los controles de Radix (radio, casilla, interruptor y lista desplegable), porque los tests de Vitest no cubren el runtime del bundle.</div>
 </div>
 </body>
 </html>

@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { NextConfig } from "next";
-import { withRedact } from "@tanstack/redact/next";
 import { initializeOpenNextCloudflareForDev } from "./config/cloudflare-dev-runtime";
 import { getCloudflareOutputFileTracingIncludes } from "./config/cloudflare-output-tracing";
 import { getLegacyRedirects } from "./config/legacy-redirects";
@@ -77,6 +76,4 @@ const nextConfig: NextConfig = {
 
 void initializeOpenNextCloudflareForDev();
 
-// Run client components on TanStack Redact in the browser. Server rendering,
-// Server Components and Flight stay on upstream React.
-export default withRedact(nextConfig);
+export default nextConfig;
