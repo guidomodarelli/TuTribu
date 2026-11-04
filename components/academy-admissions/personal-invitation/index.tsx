@@ -15,7 +15,7 @@ import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constan
 /** Only safe presentation facts and callbacks enter the screen; the token is never a prop. */
 export type PersonalInvitationProps = {
   state: PersonalInvitationPageState; ready: boolean; confirmed: boolean; canSubmit: boolean; phase: "idle" | "reading" | "submitting" | "changing_account" | "uncertain";
-  accountChanged: boolean; hasPending: boolean; errorMessage: string | null; feedback: string | null; signInHref: string;
+  accountChanged: boolean; hasPending: boolean; /** The pending original proved absent or still `started` and can be discarded. */ originalDiscardable?: boolean; onDiscardOriginal?: () => void; errorMessage: string | null; feedback: string | null; signInHref: string;
   commonHref?: string; ownRequestHref?: string; academyHref?: string; verification?: ReactNode;
   whatsappNumber: string; whatsappErrorMessage: string | null; onWhatsappNumberChange: (value: string) => void;
   onConfirm: (value: boolean) => void; onSubmit: () => void; onRead: () => void; onChangeAccount: () => void; onReloadAccount: () => void;
@@ -28,6 +28,8 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
   const available = preview?.state === PERSONAL_INVITATION_OVERVIEW_STATE.available ? preview : null;
   const busy = props.phase !== PERSONAL_INVITATION_UI_PHASE.idle && props.phase !== PERSONAL_INVITATION_UI_PHASE.uncertain;
   const pending = available?.overview.state === ADMISSION_OVERVIEW_STATE.pending, member = available?.overview.state === ADMISSION_OVERVIEW_STATE.alreadyMember;
+  // An earlier request keeps its retry wait: the form would be refused until then, so only that request is linked.
+  const waiting = available?.overview.state === ADMISSION_OVERVIEW_STATE.closed;
   useEffect(() => { if (props.errorMessage) feedback.current?.focus(); }, [props.errorMessage]);
   return <main className={styles.PersonalInvitation}>
     <header className={styles.PersonalInvitation__header}>
@@ -40,7 +42,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
       {props.accountChanged ? <p role="status" className={styles.PersonalInvitation__description}>{PERSONAL_INVITATION_UI_COPY.accountChanged}</p> : <>
         {props.state.kind === "unavailable" && <p role="alert" className={styles.PersonalInvitation__error}>{props.state.message}</p>}
         {preview && <p className={styles.PersonalInvitation__description}>{preview.state === PERSONAL_INVITATION_OVERVIEW_STATE.available ? preview.overview.safeMessage : preview.safeMessage}</p>}
-        {available && !pending && !member && <>
+        {available && !pending && !member && !waiting && <>
           <p className={styles.PersonalInvitation__description}>{available.requiresAllowlist ? PERSONAL_INVITATION_UI_COPY.restriction : PERSONAL_INVITATION_UI_COPY.exemption}</p>
           {props.verification}
           <form className={styles.PersonalInvitation__form} noValidate onSubmit={(event) => { event.preventDefault(); if (props.canSubmit && !busy) props.onSubmit(); }}>
@@ -52,7 +54,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
             <Button type="submit" disabled={!props.canSubmit || !props.confirmed || busy || props.hasPending}>{props.phase === PERSONAL_INVITATION_UI_PHASE.submitting ? PERSONAL_INVITATION_UI_COPY.submitting : PERSONAL_INVITATION_UI_COPY.submit}</Button>
           </form>
         </>}
-        {pending && props.ownRequestHref && <Link href={props.ownRequestHref}>{PERSONAL_INVITATION_UI_COPY.ownRequest}</Link>}
+        {(pending || waiting) && props.ownRequestHref && <Link href={props.ownRequestHref}>{PERSONAL_INVITATION_UI_COPY.ownRequest}</Link>}
         {member && props.academyHref && <Link href={props.academyHref}>{PERSONAL_INVITATION_UI_COPY.openAcademy}</Link>}
       </>}
       {props.phase === PERSONAL_INVITATION_UI_PHASE.reading && <p role="status" className={styles.PersonalInvitation__description}>{PERSONAL_INVITATION_UI_COPY.reading}</p>}
@@ -63,6 +65,7 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
         {props.accountChanged && <Button type="button" variant="secondary" onClick={props.onReloadAccount}>{PERSONAL_INVITATION_UI_COPY.reloadAccount}</Button>}
         {!props.accountChanged && props.state.kind === "ready" && props.state.viewerId && <Button type="button" variant="secondary" disabled={busy || !props.ready} onClick={props.onChangeAccount}>{props.phase === PERSONAL_INVITATION_UI_PHASE.changingAccount ? PERSONAL_INVITATION_UI_COPY.changingAccount : PERSONAL_INVITATION_UI_COPY.changeAccount}</Button>}
         <Button type="button" variant="secondary" disabled={busy || props.accountChanged} onClick={props.onRead}>{props.hasPending ? PERSONAL_INVITATION_UI_COPY.original : PERSONAL_INVITATION_UI_COPY.read}</Button>
+        {props.originalDiscardable && props.onDiscardOriginal && <Button type="button" variant="ghost" disabled={busy || props.accountChanged} onClick={props.onDiscardOriginal}>{PERSONAL_INVITATION_UI_COPY.discardOriginal}</Button>}
         <Link href={ROUTES.home}>Ir al inicio</Link>
       </div>
       {!props.accountChanged && props.commonHref && <section className={styles.PersonalInvitation__alternative} aria-labelledby={`${fieldId}-alternative`}>

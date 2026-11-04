@@ -23,7 +23,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission s
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${otherTribeId},${fixture.userId},'leader','active')`);
         await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id) values (${otherTribeId})`);
         for (const scope of [{ tribeId: fixture.tribeId, requestId: ownRequestId }, { tribeId: otherTribeId, requestId: otherRequestId }]) {
-          await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,applicant_message,submitted_at,expires_at) values (${scope.requestId},${scope.tribeId},${applicantId},'common','email',${`${applicantId}@example.test`},'declared',${privateMarker},clock_timestamp(),clock_timestamp()+interval '30 days')`);
+          await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,applicant_message,submitted_at,expires_at) values (${scope.requestId},${scope.tribeId},${applicantId},'common','email',${`${applicantId}@example.test`},'declared',${privateMarker},transaction_timestamp(),transaction_timestamp()+interval '30 days')`);
         }
       });
       /** @returns Safe persisted effect counts, excluding all private row data. */

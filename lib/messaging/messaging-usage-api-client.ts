@@ -1,9 +1,10 @@
 "use client";
 /** Uses native global auth and same-origin own usage DTOs without hidden retries. @module messaging-usage-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE, BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import type { z } from "zod";
 import { createAuthClient } from "better-auth/client";
 import type { MessagingUsageBrowserClient, MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
-import { messagingUsagePolicyStateSchema, messagingUsagePolicySchema, messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
+import { messagingUsageCurrentSchema, messagingUsagePolicySchema, messagingPublicErrorSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { messagingUsageOperationRecoverySchema } from "@/src/modules/messaging/application/results/messaging-usage-operation-result";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -12,29 +13,44 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
 
+/** The only session facts the viewer reads: the account id, or the status of a failed read. */
+type SessionRead = { data: { user: { id: string } } | null; error: { status: number } | null };
+
 /** Optional write of an own usage request: the original input and its method (POST by default). */
 type UsageWrite = { input?: object; method?: "POST" | "PUT" };
 
-function failure(code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false): MessagingUsageBrowserResult<never> {
-  return { status: "failed", code, message: MESSAGING_ERROR_MESSAGE[code], uncertain };
+/** @param message - Browser-owned copy for a failure that never reached an own route (session, network); the catalogue copy otherwise. */
+function failure(code: typeof MESSAGING_ERROR_CODE[keyof typeof MESSAGING_ERROR_CODE], uncertain = false, message: string = MESSAGING_ERROR_MESSAGE[code]): MessagingUsageBrowserResult<never> {
+  return { status: "failed", code, message, uncertain };
 }
 
-/** @param auth - Installed native SDK client. @returns The default viewer: the native account id only. */
-function createSessionViewer(auth: ReturnType<typeof createAuthClient>): MessagingUsageBrowserClient["viewer"] {
-  return async (signal) => {
-    if (signal.aborted) return { status: "aborted" };
-    try {
-      const result = await auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
-      if (signal.aborted) return { status: "aborted" };
-      if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable);
-      return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
-    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable); }
+/**
+ * @param getSession - Session read of the installed native SDK, under the signal it receives.
+ * @returns The default viewer: the native account id only. Like every other request, a hung session check ends at the browser
+ * deadline as a timeout instead of keeping the page checking forever.
+ */
+export function createSessionViewer(getSession: (signal: AbortSignal) => Promise<SessionRead>): MessagingUsageBrowserClient["viewer"] {
+  return (callerSignal) => {
+    if (callerSignal.aborted) return Promise.resolve({ status: "aborted" });
+    return boundBrowserRequest<Awaited<ReturnType<MessagingUsageBrowserClient["viewer"]>>>(callerSignal, async (signal) => {
+      try {
+        const result = await getSession(signal);
+        if (signal.aborted) return { status: "aborted" };
+        if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, false, BROWSER_SESSION_CHECK_MESSAGE);
+        return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
+      } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, false, BROWSER_SESSION_CHECK_MESSAGE); }
+    }, () => failure(MESSAGING_ERROR_CODE.transportTimeout));
   };
+}
+
+/** @param auth - Installed native SDK client. @returns Its fresh session read under one signal. */
+function nativeSessionRead(auth: ReturnType<typeof createAuthClient>) {
+  return (signal: AbortSignal) => auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
 }
 
 /** @param options - Explicit feature-owned transport/viewer ports; defaults retain the real Better Auth SDK. @returns Abortable own reads and immutable original writes, without full route refreshes. */
 export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetch; viewer?: MessagingUsageBrowserClient["viewer"] } = {}): MessagingUsageBrowserClient {
-  const transport = options.fetch ?? globalThis.fetch, viewer = options.viewer ?? createSessionViewer(createAuthClient());
+  const transport = options.fetch ?? globalThis.fetch, viewer = options.viewer ?? createSessionViewer(nativeSessionRead(createAuthClient()));
   const base = (slug: string) => `${MESSAGING_USAGE_BROWSER_PATH.tribePrefix}/${encodeURIComponent(slug)}/${MESSAGING_USAGE_BROWSER_PATH.usageSegment}`;
   /** Only own response DTOs are schema-guarded; transport failure of a write remains uncertain. */
   function request<Value>(path: string, schema: z.ZodType<Value>, callerSignal: AbortSignal, write: UsageWrite = {}): Promise<MessagingUsageBrowserResult<Value>> {
@@ -48,14 +64,16 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
     const writing = input !== undefined;
     try {
       const response = await transport(path, { method: writing ? method : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(input) } : {}) });
-      const value: unknown = await response.json();
+      let value: unknown;
+      // A reply without own JSON (an edge HTML 502/504) is not the route's contract: a write may still have committed behind it.
+      try { value = await response.json(); } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.publicContractUnusable, writing); }
       if (signal.aborted) return { status: "aborted" };
       const publicFailure = messagingPublicErrorSchema.safeParse(value);
       if (publicFailure.success) return failure(publicFailure.data.code, writing && (response.status >= HTTP_STATUS.serverError || publicFailure.data.operation !== undefined));
       if (!response.ok) return failure(MESSAGING_ERROR_CODE.publicContractUnusable, writing);
       const parsed = schema.safeParse(value);
       return parsed.success ? { status: "ready", value: parsed.data } : failure(MESSAGING_ERROR_CODE.publicContractUnusable, writing);
-    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, writing); }
+    } catch { return signal.aborted ? { status: "aborted" } : failure(MESSAGING_ERROR_CODE.dependencyUnavailable, writing, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
   }
   /** Current version is not inferred from an original replay; only its own UUID/counter relationship is confirmed. */
   async function write(slug: string, input: { operationId: string; confirmed: true; expectedVersion?: number }, signal: AbortSignal, method: "POST" | "PUT") {
@@ -66,7 +84,7 @@ export function createMessagingUsageBrowserClient(options: { fetch?: typeof fetc
     return result;
   }
   return {
-    read: (slug, signal) => request(base(slug), messagingUsagePolicyStateSchema, signal),
+    read: (slug, signal) => request(base(slug), messagingUsageCurrentSchema, signal),
     initialize: (slug, input, signal) => write(slug, input, signal, "POST"),
     update: (slug, input, signal) => write(slug, input, signal, "PUT"),
     async operation(slug, operationId, signal) {

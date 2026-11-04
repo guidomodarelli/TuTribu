@@ -1,4 +1,5 @@
 /** Keeps admission runtime data inside this leaf's own Suspense, outside membership layout. @module admission-entry-page */
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createAdmissionRequestModules } from "@/src/modules/setup";
@@ -11,8 +12,8 @@ export const metadata: Metadata = { title: "Solicitud de ingreso", referrer: "no
 
 /** Loads one native safe initial snapshot; GET never submits, consumes or sends. */
 async function AdmissionContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [resolvedParams, query] = await Promise.all([params, searchParams]);
-  const state = await loadAdmissionPageState({ params: resolvedParams, query, mode: "entry" }, async () => ({ page: (await createAdmissionRequestModules()).queries.page }));
+  const [resolvedParams, query, requestHeaders] = await Promise.all([params, searchParams, headers()]);
+  const state = await loadAdmissionPageState({ params: resolvedParams, query, mode: "entry" }, async () => ({ page: (await createAdmissionRequestModules()).queries.page }), requestHeaders);
   return <AdmissionContainer key={state.kind === "ready" ? `${state.overview.tribe.slug}:${state.viewerId ?? "public"}` : state.code} initialState={state} />;
 }
 

@@ -18,8 +18,10 @@ export const MESSAGING_USAGE_SETTINGS_SEGMENT = "academia/admissions/messaging";
 /** UI phases never grant the current role or permission by themselves. */
 export type MessagingUsageBrowserPhase = "checking" | "idle" | "reading" | "writing" | "uncertain" | "changed_viewer";
 export const MESSAGING_USAGE_BROWSER_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const satisfies Record<string, MessagingUsageBrowserPhase>;
-/** A legacy session-change answer alone does not revoke read access; actual authority/resource denial does. */
-export const MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES: readonly MessagingErrorCode[] = [MESSAGING_ERROR_CODE.authenticationRequired, MESSAGING_ERROR_CODE.permissionDenied, MESSAGING_ERROR_CODE.resourceUnavailable];
+/** A lost session or role revokes read access; a write rejected as unavailable does not while the current read still works. */
+export const MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES: readonly MessagingErrorCode[] = [MESSAGING_ERROR_CODE.authenticationRequired, MESSAGING_ERROR_CODE.permissionDenied];
+/** A definitive write rejection registered nothing; only a session answer keeps its original, so signing in again can recover it. */
+export const MESSAGING_USAGE_INTENT_KEEPING_FAILURES: readonly MessagingErrorCode[] = [MESSAGING_ERROR_CODE.authenticationRequired, MESSAGING_ERROR_CODE.reauthenticationRequired];
 /** Ordered decisions of the guided usage flow; the review step is always last. */
 export type MessagingUsageStepId = "countries" | "verification" | "notification" | "review";
 export const MESSAGING_USAGE_STEP = { countries: "countries", verification: "verification", notification: "notification", review: "review" } as const satisfies Record<string, MessagingUsageStepId>;
@@ -32,6 +34,10 @@ export const MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT = 20;
 /** Safe browser feedback never renders database or provider messages. */
 export const MESSAGING_USAGE_UI_COPY = {
   invalid: "Revisá los países y los límites diarios antes de confirmar.",
+  /** A save asked while an earlier original is still unresolved: its recovery, above the steps, decides first. */
+  originalPending: "Antes de guardar de nuevo, resolvé el guardado anterior en «Recuperar operación original», arriba de los pasos.",
+  /** Shown once a stored original turns out unregistered: nothing was applied, so the chosen values reopen for a new save. */
+  unregistered: "El guardado anterior no llegó a registrarse. Revisá los valores y guardá de nuevo.",
   quotaInvalid: "Revisá los límites diarios; deben ser enteros desde cero y respetar los máximos actuales.",
   countryInvalid: "Revisá los países; no pueden repetirse ni usar códigos desconocidos.",
   saved: "Los países y cupos quedaron guardados.",
@@ -43,5 +49,9 @@ export const MESSAGING_USAGE_UI_COPY = {
   uncertain: "Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.",
   changedViewer: "La cuenta cambió. Volvé a abrir la configuración de uso con tu cuenta actual.",
   storageFailed: "No pudimos conservar esta acción. Consultá su resultado antes de repetir.",
-  retry: "La operación original todavía no está registrada. Confirmá un reintento con sus mismos datos.",
+  started: "La operación original todavía no terminó. Si no avanza, confirmá un reintento con sus mismos datos: no se aplica dos veces.",
+  startedWrite: "El guardado todavía no terminó. Consultá la operación original para ver su resultado o reintentarla con los mismos datos.",
+  /** Shown once a stored original turns out unregistered while the platform cannot protect saves: nothing is left to retry. */
+  platformForgotten: "El guardado anterior no quedó registrado y no hace falta reintentarlo. Vas a poder guardar cuando el equipo de TuTribu resuelva la seguridad de la plataforma.",
+  platformConsequence: "Esto no es algo que puedas resolver desde tu academia. Mientras tanto no se pueden guardar países ni cupos; los guardados siguen vigentes.",
 } as const;

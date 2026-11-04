@@ -53,14 +53,14 @@ describe("policy explicit input contracts", () => {
 
 describe("policy native command HTTP boundary", () => {
   it("should publish safe informational cutover blockers without accepting browser readiness or exposing inventory metadata", async () => {
-    const tribeId = randomUUID(), value = { prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 }, privateCatalog: "synthetic-private" };
+    const tribeId = randomUUID(), value = { prepared: false, reasons: ["preflight_runtime_unavailable"], privateCatalog: "synthetic-private" };
     const execute = vi.fn(async () => ({ ok: true as const, value })), open = vi.fn(async () => ({ resolveTribe: { execute: async () => ({ ok: true as const, value: { tribeId } }) }, preflight: { execute } }));
     const handler = createAdmissionPreflightQueryHandler(open), context = { params: Promise.resolve({ slug: "synthetic" }) };
     expect((await handler(new Request("https://tutribu.example.test/policy/preflight?prepared=true"), context)).status).toBe(400);
     expect(open).not.toHaveBeenCalled();
     const response = await handler(new Request("https://tutribu.example.test/policy/preflight"), context);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } });
+    expect(await response.json()).toEqual({ prepared: false, reasons: ["preflight_runtime_unavailable"] });
     expect(response.headers.get("cache-control")).toContain("no-store");
     execute.mockResolvedValueOnce({ ok: true, value: { ...value, prepared: true } });
     expect((await handler(new Request("https://tutribu.example.test/policy/preflight"), context)).status).toBe(500);

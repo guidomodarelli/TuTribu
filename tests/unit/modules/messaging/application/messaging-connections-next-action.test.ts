@@ -10,7 +10,7 @@ const observedAt="2026-10-20T15:00:00.000Z",now=Date.parse(observedAt),fresh=new
 const usage={state:"configured" as const,policy:{version:1,allowedCountries:["AR"],verificationDailyLimit:100,notificationDailyLimit:200,platformMaximums:{verificationDailyLimit:1000,notificationDailyLimit:5000},consumption:{verificationToday:0,notificationToday:0}}};
 /** @param patch - Facts that differ from a valid production candidate with one tested email channel. @returns Own projected metadata, never a provider DTO. */
 function connection(patch:Partial<MessagingConfigurationConnection>={}):MessagingConfigurationConnection{
-  return{id:"00000000-0000-4000-8000-000000000001",name:"Candidata",version:3,configurationVersion:2,state:"ready",credentialState:"valid",credentialMode:"production",maskedCredential:"••••••••",capabilities:[{channel:"email",state:"prepared",checkedAt:fresh,testedAt:fresh}],...patch};
+  return{id:"00000000-0000-4000-8000-000000000001",name:"Candidata",version:3,configurationVersion:2,state:"ready",credentialState:"valid",credentialMode:"production",maskedCredential:"••••••••",securityCurrent:true,capabilities:[{channel:"email",state:"prepared",checkedAt:fresh,testedAt:fresh}],...patch};
 }
 /** @param candidate - Candidate under test. @param selected - Current selection. @param policy - Saved usage. @returns The resolved action at the fixed observation time. */
 const resolve=(candidate:MessagingConfigurationConnection|null,selected:MessagingConfigurationConnection|null=null,policy:MessagingUsagePolicyStateDto=usage)=>resolveMessagingConnectionsNextAction({selected,candidate,usage:policy,observedAt});
@@ -94,5 +94,21 @@ describe("messaging diagnostic settlement",()=>{
     expect(isMessagingDiagnosticSettled({...diagnostic,channel:"sms"},connection())).toBe(false);
     expect(isMessagingDiagnosticSettled(diagnostic,connection({configurationVersion:3}))).toBe(false);
     expect(isMessagingDiagnosticSettled(diagnostic,null)).toBe(false);
+  });
+  it("should block every step while the platform cannot protect the writes, without offering an action the leader cannot resolve",()=>{
+    for(const platformRequirement of ["security_unconfigured","recovery_locked"] as const){
+      expect(resolveMessagingConnectionsNextAction({selected:null,candidate:connection({credentialState:"not_validated"}),usage,observedAt,platformRequirement})).toEqual({step:"platformBlocked",title:"Los pasos esperan al equipo de TuTribu",reason:expect.stringContaining("cuando la plataforma pueda proteger la mensajería"),action:null,target:null,channel:null});
+      expect(resolveMessagingConnectionsNextAction({selected:connection({state:"active"}),candidate:null,usage,observedAt,platformRequirement})).toMatchObject({step:"platformBlocked",action:null});
+    }
+    expect(resolveMessagingConnectionsNextAction({selected:null,candidate:null,usage,observedAt,platformRequirement:null})).toMatchObject({step:"saveCandidate"});
+  });
+  it("should never report a connection sealed under a previous platform security as active or ready, and ask for its key again",()=>{
+    expect(resolve(null,connection({state:"active",securityCurrent:false}))).toMatchObject({step:"saveCandidate",title:"Guardá la clave de Zavu otra vez",action:"Ir a Clave",target:{kind:"step",step:"key"}});
+    const selected=connection({id:"00000000-0000-4000-8000-000000000002",state:"active"});
+    expect(resolve(connection({securityCurrent:false}),selected)).toMatchObject({title:"Guardá la clave de Zavu otra vez",action:"Reemplazar la clave",target:{kind:"step",step:"key"}});
+    const shared=connection({state:"active",securityCurrent:false});
+    const sharedAction=resolve(shared,shared);
+    expect(sharedAction).toMatchObject({action:"Ir a Seguridad y retiro",target:{kind:"security"}});
+    expect(sharedAction.reason).toContain("retirarla también quita la selección");
   });
 });

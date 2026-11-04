@@ -4,11 +4,11 @@ import { evaluateAdmissionActivationPreflight, type AdmissionActivationInventory
 
 /** Supplies an explicitly complete private inventory; each test removes one actual prerequisite. */
 function completeInventory(): AdmissionActivationInventory {
-  return { tribeId: "synthetic-tribe", isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: true, evaluatorEnabled: true, recoveryLocked: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+  return { tribeId: "synthetic-tribe", isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: true, evaluatorEnabled: true, recoveryLocked: false };
 }
 
 describe("activation cutover inventory", () => {
-  it("should require complete inventory and preserve the observed history without changing any fact", () => {
+  it("should require complete inventory without changing any fact", () => {
     const inventory = completeInventory(), original = { ...inventory };
     expect(evaluateAdmissionActivationPreflight(inventory.tribeId, inventory)).toEqual({ prepared: true, reasons: [] });
     expect(inventory).toEqual(original);
@@ -28,10 +28,5 @@ describe("activation cutover inventory", () => {
   it("should keep complete storage and runtime closed during the current external recovery lock", () => {
     const inventory = { ...completeInventory(), recoveryLocked: true };
     expect(evaluateAdmissionActivationPreflight(inventory.tribeId, inventory)).toEqual({ prepared: false, reasons: ["preflight_recovery_locked"] });
-  });
-
-  it.each([1, -1, Number.NaN])("should require authorized history resolution when the unresolved count is %s", (count) => {
-    const inventory = { ...completeInventory(), unknownCommercialMemberCount: count, privilegedCommercialMemberCount: count };
-    expect(evaluateAdmissionActivationPreflight(inventory.tribeId, inventory)).toEqual({ prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"] });
   });
 });

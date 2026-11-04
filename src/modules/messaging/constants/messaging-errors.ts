@@ -16,6 +16,8 @@ export const MESSAGING_ERROR_CODE = {
   verificationCodeIncorrect: "verification_code_incorrect",
   challengeExpired: "challenge_expired",
   challengeInvalidated: "challenge_invalidated",
+  /** A live test code for the same destination already exists; it is replaced only through an explicit resend. */
+  challengeAlreadySent: "challenge_already_sent",
   verificationAttemptsExceeded: "verification_attempts_exceeded",
   /** Kept only for persisted audit values and responses from older servers; current writers never emit it. */
   reauthenticationRequired: "reauthentication_required",
@@ -25,7 +27,7 @@ export const MESSAGING_ERROR_CODE = {
 /** Only catalogue copy can cross the public error boundary. */
 export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.invalidInput]: "Revisá los datos de la operación antes de confirmar.",
-  [MESSAGING_ERROR_CODE.authenticationRequired]: "Iniciá sesión para gestionar la mensajería de la academia.",
+  [MESSAGING_ERROR_CODE.authenticationRequired]: "Volvé a ingresar con Google para gestionar la mensajería de la academia.",
   [MESSAGING_ERROR_CODE.permissionDenied]: "No tenés permiso para realizar esta operación.",
   [MESSAGING_ERROR_CODE.resourceUnavailable]: "El recurso solicitado no está disponible.",
   [MESSAGING_ERROR_CODE.idempotencyConflict]: "Esta operación ya tiene otro contenido. Consultá su estado antes de repetir.",
@@ -38,6 +40,7 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.verificationCodeIncorrect]: "El código no es correcto. Revisá el código recibido para esta prueba de conexión.",
   [MESSAGING_ERROR_CODE.challengeExpired]: "El código de la prueba venció. Solicitá uno nuevo cuando esté disponible.",
   [MESSAGING_ERROR_CODE.challengeInvalidated]: "Ese código ya no está vigente para esta prueba de conexión.",
+  [MESSAGING_ERROR_CODE.challengeAlreadySent]: "Ya enviamos un código de prueba a ese destino. Ingresalo o usá «Reenviar» cuando esté disponible.",
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: "Alcanzaste el límite de intentos de esta prueba. Esperá antes de intentar otra vez.",
   [MESSAGING_ERROR_CODE.reauthenticationRequired]: "Tu sesión cambió. Recargá la página e intentá de nuevo.",
   [MESSAGING_ERROR_CODE.connectionIncomplete]: "La academia todavía no tiene preparada la conexión necesaria.",
@@ -53,4 +56,7 @@ export const MESSAGING_ERROR_MESSAGE = {
   [MESSAGING_ERROR_CODE.upstreamPayloadUnusable]: "No pudimos interpretar la respuesta de mensajería. Conservá los datos y consultá el estado.",
   [MESSAGING_ERROR_CODE.publicContractUnusable]: "No pudimos mostrar el resultado de la operación. Conservá los datos y consultá el estado.",
   [MESSAGING_ERROR_CODE.unexpectedFailure]: "No pudimos completar la operación de mensajería. Conservá los datos y consultá el estado.",
+  [MESSAGING_ERROR_CODE.platformSecurityUnavailable]: "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.",
+  [MESSAGING_ERROR_CODE.connectionRetirementBlocked]: "No podés desconectar la conexión seleccionada mientras la usen tus Reglas con verificación y las admisiones abiertas, o los avisos por correo. Pausá las admisiones o desactivá los avisos, y volvé a intentarlo.",
+  [MESSAGING_ERROR_CODE.originalDispatchUnresolved]: "El envío anterior de este aviso puede haber salido y todavía no tiene un resultado confirmado. Consultá el estado de la entrega antes de recuperarlo.",
 } as const;

@@ -22,6 +22,8 @@ export const SUBSCRIPTION_MEMBERSHIP_MIGRATIONS: readonly string[] = [
   "20261006220000_extend_admission_notifications.sql",
   "20261007020000_resolve_paid_admission_requests.sql",
   "20261007023000_close_unavailable_admission_requests.sql",
+  // The membership reconciliation skips memberships the first activation converted into free members.
+  "20261031120000_convert_commercial_memberships_on_admission_activation.sql",
 ];
 
 /** Defines only synthetic names, amounts and bounded fixture durations. */

@@ -10,6 +10,7 @@ import {MESSAGING_CONNECTION_DIAGNOSTIC_MAXIMUM_AGE_MS} from "../../constants/me
 import {MESSAGING_CHANNEL_LABEL} from "../../constants/messaging-connection-presentation";
 import {MESSAGING_CONNECTIONS_NEXT_ACTION_COPY as COPY,MESSAGING_CONNECTIONS_NEXT_STEP,MESSAGING_CONNECTIONS_STEP_KIND,type MessagingConnectionsNextActionTarget,type MessagingConnectionsNextStep} from "../../constants/messaging-connections-workspace";
 import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
+import type {PlatformSecurityRequirement} from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Channel vocabulary of the public connection contract. */
 export type MessagingConnectionChannel=MessagingConfigurationConnection["capabilities"][number]["channel"];
@@ -50,11 +51,16 @@ const TARGET={key:{kind:"step",step:MESSAGING_CONNECTIONS_STEP_KIND.key},credent
 
 /**
  * Resolves the one action the leader should take next, in the order the server requires: candidate, credential, channels, tests, activation.
- * @param input - The leader's selected connection and candidate, saved usage and the observation time (deterministic on the server render).
- * @returns The highlighted action with its reason; a prepared channel whose test expired counts as pending again.
+ * @param input - The leader's selected connection and candidate, saved usage, the observation time (deterministic on the server render)
+ * and what only the TuTribu team can resolve before any write of the page can be protected.
+ * @returns The highlighted action with its reason; a prepared channel whose test expired counts as pending again, and a platform
+ * requirement blocks every step without offering an action.
  */
-export function resolveMessagingConnectionsNextAction(input:{selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;usage:MessagingUsagePolicyStateDto;observedAt:string}):MessagingConnectionsNextAction{
+export function resolveMessagingConnectionsNextAction(input:{selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;usage:MessagingUsagePolicyStateDto;observedAt:string;platformRequirement?:PlatformSecurityRequirement|null}):MessagingConnectionsNextAction{
   const{candidate,selected,usage}=input,nowMs=Date.parse(input.observedAt);
+  if(input.platformRequirement)return{step:MESSAGING_CONNECTIONS_NEXT_STEP.platformBlocked,...COPY.platformBlocked,action:null,target:null,channel:null};
+  // A selection sealed under a previous platform security cannot send anymore: a new key replaces it, even while it reads as active.
+  if(!candidate&&selected&&!selected.securityCurrent)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.securityOutdatedSelected,TARGET.key);
   // Activating clears the candidate slot; an active selection without a new candidate is finished, not waiting for a key.
   if(!candidate)return selected?.state===MESSAGING_CONNECTION_STATE.active?{step:MESSAGING_CONNECTIONS_NEXT_STEP.active,title:COPY.activeTitle,reason:COPY.selectedActiveReason,action:null,target:null,channel:null}:actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.saveCandidate,TARGET.key);
   const credentialAction=resolveCandidateCredentialAction(candidate,selected);
@@ -71,6 +77,8 @@ export function resolveMessagingConnectionsNextAction(input:{selected:MessagingC
 function resolveCandidateCredentialAction(candidate:MessagingConfigurationConnection,selected:MessagingConfigurationConnection|null):MessagingConnectionsNextAction|null{
   // Retiring a candidate that is also the selection retires the selection too, so its advice never promises the selection stays.
   if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.activate,candidate.id===selected?.id?COPY.suspendedSelection:COPY.suspendedCandidate,TARGET.security);
+  // A key sealed under a previous platform security is not fixed by checking it again: the leader saves it again after retiring this candidate.
+  if(!candidate.securityCurrent)return candidate.id===selected?.id?actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.securityOutdatedSelection,TARGET.security):actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate,COPY.securityOutdatedCandidate,TARGET.key);
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.notValidated)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,COPY.credentialNotValidated,TARGET.credential);
   // A rejected key is not fixed by checking it again: a separate candidate is retired from Clave, which leaves the selection untouched.
   if(candidate.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid)return actionAt(MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential,candidate.id===selected?.id?COPY.credentialInvalidSelection:COPY.credentialInvalid,candidate.id===selected?.id?TARGET.credential:TARGET.key);

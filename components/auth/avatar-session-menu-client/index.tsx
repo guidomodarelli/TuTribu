@@ -7,11 +7,8 @@ import { useMemberSessionKeepAlive } from "@/hooks/use-member-session-keep-alive
 import { replaceCurrentPageWithUrl } from "@/lib/browser-navigation";
 import { signOutMember } from "@/src/modules/auth/infrastructure/better-auth/client";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
+import { SIGN_OUT_COPY } from "@/src/modules/auth/constants/sign-out";
 import styles from "./styles.module.scss";
-
-const AUTH_SIGN_OUT_REQUEST = {
-  errorMessage: "No pudimos cerrar la sesión. Intentá de nuevo.",
-} as const;
 
 /** Identity shown to visitors without a session. */
 const GUEST_ACCOUNT = {
@@ -60,7 +57,7 @@ export function AvatarSessionMenuClient({
       await signOutMember();
     } catch {
       // Recoverable: the session is still valid, so the member stays here and retries.
-      toast.error(AUTH_SIGN_OUT_REQUEST.errorMessage);
+      toast.error(SIGN_OUT_COPY.failed);
       setIsSigningOut(false);
       return;
     }

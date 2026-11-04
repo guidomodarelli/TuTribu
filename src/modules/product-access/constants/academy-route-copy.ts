@@ -5,7 +5,22 @@
  */
 
 export const ACADEMY_ROUTE_COPY = {
-  checkoutUnresolved: "Estamos verificando si Mercado Pago creó tu suscripción. Esperá unos instantes y volvé a intentar. Si el problema continúa, contactá al líder.",
+  checkoutUnresolved:
+    "Estamos verificando si Mercado Pago preparó tu pago. Esperá un par de minutos y volvé a intentar; no se generó un cobro nuevo.",
+  checkoutIntegrationUnavailable:
+    "El cobro de esta tribu no está disponible: quien la administra tiene que volver a conectar Mercado Pago. No se generó ningún cobro.",
+  checkoutRejected:
+    "Mercado Pago no pudo iniciar el pago. No se generó ningún cobro. Si vuelve a pasar, avisá a quien administra la tribu.",
+  cancelIntegrationUnavailable:
+    "No pudimos cancelar porque la conexión de la tribu con Mercado Pago no está disponible. Podés cancelar la suscripción desde tu cuenta de Mercado Pago.",
+  cancelRejected: "Mercado Pago rechazó la cancelación. Podés cancelarla desde tu cuenta de Mercado Pago.",
+  cancelUnavailable: "No pudimos contactar a Mercado Pago. Tu renovación sigue activa; intentá de nuevo más tarde.",
+  cancelUnconfirmed:
+    "Registramos tu pedido de cancelación, pero Mercado Pago todavía no lo confirmó. Tocá «Actualizar estado» en unos minutos para confirmarlo.",
+  joinUnavailable: "No pudimos sumarte a la tribu. Intentá de nuevo en unos minutos.",
+  reconcileIntegrationUnavailable:
+    "No podemos consultar Mercado Pago hasta que quien administra la tribu vuelva a conectarlo. Tu acceso confirmado se mantiene.",
+  requestRequired: "Esta academia ahora pide una solicitud de ingreso.",
   admissionClosed: "Las admisiones de esta tribu no están abiertas en este momento.",
   alreadyMember: "Ya formás parte de esta tribu.",
   alreadyRevoked: "Esa bonificación ya estaba revocada.",

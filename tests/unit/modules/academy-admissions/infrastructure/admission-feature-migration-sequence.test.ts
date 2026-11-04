@@ -1,6 +1,8 @@
 /** @vitest-environment node */
 /** Exercises the real migration command and its replay exclusively on an owned database branch. @module admission-feature-migration-sequence-tests */
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -11,11 +13,13 @@ import { PostgresMessageDispatchRunRecorder } from "@/src/modules/messaging/infr
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission migration sequence", () => {
   it("should apply the real registered feature sequence once and preserve physical retirement protection on replay", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
+      // The branch clones the default branch, which may already run part (or all) of the feature: only the journal suffix it lacks is pending.
       const before = await database.withContext({ userId: null, email: null }, async (transaction) => ({
         history: (await transaction.execute<{ total: number; latest: string }>(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows[0],
-        featureAbsent: (await transaction.execute<{ absent: boolean }>(sql`select to_regclass('public.academy_admission_policies') is null as absent`)).rows[0].absent,
       }));
-      expect(before.featureAbsent).toBe(true);
+      const journal = (JSON.parse(await readFile(join(process.cwd(), "database", "migrations", "meta", "_journal.json"), "utf8")) as { entries: { when: number }[] }).entries;
+      const pending = journal.filter((entry) => BigInt(entry.when) > BigInt(before.history.latest));
+      const journalLatest = journal.reduce((latest, entry) => (entry.when > latest ? entry.when : latest), 0);
       // The branch guard supplies both URLs in memory. The child process's
       // initial environment wins over development files in @next/env.
       await database.withServerEnvironment(async (environment) => {
@@ -26,8 +30,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
           expect((await transaction.execute(sql`select to_regclass('public.academy_admission_retired_bindings') is not null and to_regclass('public.academy_admission_retired_operations') is not null and to_regclass('public.academy_admission_retired_audit_events') is not null as ready`)).rows).toEqual([{ ready: true }]);
           return (await transaction.execute<{ total: number; latest: string }>(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows[0];
         });
-        expect(applied.total - before.history.total).toBe(70);
-        expect(BigInt(applied.latest) > BigInt(before.history.latest)).toBe(true);
+        expect(applied.total - before.history.total).toBe(pending.length);
+        expect(BigInt(applied.latest)).toBe(BigInt(journalLatest));
         await migrate();
         await database.withContext({ userId: null, email: null }, async (transaction) => {
           expect((await transaction.execute(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows).toEqual([applied]);

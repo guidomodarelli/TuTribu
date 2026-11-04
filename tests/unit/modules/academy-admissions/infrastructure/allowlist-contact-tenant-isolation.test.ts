@@ -23,7 +23,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist t
         await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${otherTribeId},'Other synthetic contact tribe',${`isolation-${otherTribeId}`},${fixture.userId})`);
         await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${otherTribeId},'academy',true)`);
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${otherTribeId},${fixture.userId},'leader','active')`);
-        await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,mode,is_open,allow_common_exceptions,activated_at) values (${otherTribeId},'allowlist',true,false,${now})`);
+        await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,mode,is_open,allow_common_exceptions,activated_at,requires_whatsapp_number) values (${otherTribeId},'allowlist',true,false,${now},false)`);
         await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${otherTribeId}`);
         await transaction.execute(sql`update public."user" set email=${`changed.${randomUUID()}@example.test`} where id=${first.userId}`);
         await transaction.execute(sql`update public."user" set email=${first.email} where id=${next.userId}`);

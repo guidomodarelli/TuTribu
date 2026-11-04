@@ -37,7 +37,7 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
   /** @param database - Same read transaction. @param scope - Native server account/session/tribe. @param target - Registered action and whether the actor is the active leader. @throws AdmissionOperationError unless the current leader may recover leader-only work. */
   private async authorizeLeaderRecovery(database: RequestDatabase, scope: AdmissionCommandScope, { operationType, leader }: { operationType: RegisteredOperationRow["operation_type"]; leader: boolean }): Promise<void> {
     if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(operationType) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-    if (operationType === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings || operationType === REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview) {
+    if (operationType === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings) {
       if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       await authorizeAdmissionPolicy(database, { ...scope, action: ADMISSION_ACTION.readPolicy, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId });
     }

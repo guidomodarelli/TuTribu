@@ -8,7 +8,7 @@ import type {RequestContext} from "@/src/modules/shared/infrastructure/observabi
 import {createAdmissionOperationStateSchema} from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import {connectionDiagnosticIssuanceSchema} from "@/src/modules/messaging/application/results/connection-diagnostic-issuance-result";
 import {connectionDiagnosticSnapshotSchema} from "@/src/modules/messaging/application/results/connection-diagnostic-result";
-import {messagingFailure,type MessagingErrorCode} from "@/src/modules/messaging/application/results/messaging-errors";
+import {messagingFailure,messagingTribeRoutingFailure,type MessagingErrorCode} from "@/src/modules/messaging/application/results/messaging-errors";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_DIAGNOSTIC_HTTP_OPERATION} from "@/src/modules/messaging/constants/messaging-http";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
@@ -48,7 +48,7 @@ export function createMessagingDiagnosticHandlers(open:(requestContext:RequestCo
         const query=boundary.input("query",diagnosticQuerySchema,Object.fromEntries(new URL(request.url).searchParams));if(!query.usable)return query.response;
         const body=await boundary.readBody(messagingConnectionDiagnosticSchema);if(!body.usable)return body.response;
         const services=await open(boundary.requestContext),requestId=boundary.requestContext.requestId,routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-        if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+        if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
         const outcome=await services.issue.execute({...body.value,tribeId:routing.value.tribeId,connectionId:params.value.connectionId,requestId});if(!outcome.ok)return boundary.failure(outcome.failure);
         const schema=createAdmissionOperationStateSchema(connectionDiagnosticIssuanceSchema),parsed=schema.safeParse(outcome.value);
         if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
@@ -64,7 +64,7 @@ export function createMessagingDiagnosticHandlers(open:(requestContext:RequestCo
         const query=boundary.input("query",diagnosticQuerySchema,Object.fromEntries(new URL(request.url).searchParams));if(!query.usable)return query.response;
         const body=await boundary.readBody(messagingDiagnosticVerifySchema);if(!body.usable)return body.response;
         const services=await open(boundary.requestContext),requestId=boundary.requestContext.requestId,routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-        if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+        if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
         const outcome=await services.verify.execute({tribeId:routing.value.tribeId,connectionId:params.value.connectionId,diagnosticId:params.value.diagnosticId,operationId:body.value.operationId,code:body.value.verificationCode,requestId});if(!outcome.ok)return boundary.failure(outcome.failure);
         const schema=createAdmissionOperationStateSchema(connectionDiagnosticSnapshotSchema),parsed=schema.safeParse(outcome.value);
         if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));

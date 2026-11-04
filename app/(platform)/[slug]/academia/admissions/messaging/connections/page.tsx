@@ -1,4 +1,5 @@
 /** Loads the wizard's current own metadata through a single server entrypoint inside its leaf runtime boundary. @module messaging-connections-page */
+import { headers } from "next/headers";
 import {Suspense} from "react";
 import {createMessagingConfigurationRequestModule} from "@/src/modules/setup";
 import {loadMessagingConnectionsPageState} from "@/src/modules/messaging/infrastructure/composition/messaging-connections-page";
@@ -11,7 +12,7 @@ import {ADMISSION_POLICY_DRAFT_COPY} from "@/src/modules/academy-admissions/cons
 
 /** @param props - Runtime route values resolved only below this segment's Suspense. @returns Current role-scoped metadata without SDK, keyrings, initialization or an initial browser configuration read. */
 async function ConnectionsContent({params,searchParams}:{params:Promise<{slug:string}>;searchParams:Promise<Record<string,string|string[]|undefined>>}){
-  const[route,rawQuery]=await Promise.all([params,searchParams]),{navigation,query}=readAdmissionSettingsNavigation(rawQuery),state=await loadMessagingConnectionsPageState({params:route,query},async()=>(await createMessagingConfigurationRequestModule()).createPage()),key=state.kind==="ready"?`${state.slug}:${state.viewerId}`:state.code;
+  const[route,rawQuery,requestHeaders]=await Promise.all([params,searchParams,headers()]),{navigation,query}=readAdmissionSettingsNavigation(rawQuery),state=await loadMessagingConnectionsPageState({params:route,query},async()=>(await createMessagingConfigurationRequestModule()).createPage(),requestHeaders),key=state.kind==="ready"?`${state.slug}:${state.viewerId}`:state.code;
   /** Only the allowlisted return from the rules review adds the way back; it never carries a free URL. */
   const links=navigation.returnTo&&state.kind==="ready"?[{href:admissionPolicyStepHref(state.slug,ADMISSION_POLICY_ENTRY_STEP.review),label:ADMISSION_POLICY_DRAFT_COPY.returnToRules}]:[];
   return<AdmissionSettingsPage page="connections" links={links}><MessagingConnectionsContainer key={key} initialState={state} /></AdmissionSettingsPage>;

@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises native batch exception reasons, current list authority and redeemed nominative restrictions. @module admission-batch-eligibility-tests */
+/** Exercises native batch exceptions with an optional internal reason, current list authority and redeemed nominative restrictions. @module admission-batch-eligibility-tests */
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -9,41 +9,38 @@ import { ADMISSION_BATCH_ELIGIBILITY_TEST_TIMEOUT_MS } from "@/tests/support/con
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission batch current eligibility", () => {
-  it("should require a reason for exception approval and rejection and preserve declared identity when a reasoned batch is confirmed", async () => {
+  it("should approve an exception and reject another without an internal reason and preserve declared identity when the batch is confirmed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      // Given a real common exception with declared contact and no independent list entry.
+      // Given two real common exceptions with declared contact and no independent list entry.
       const prepared = await prepareAdmissionBatchEligibility(database), { fixture, leader } = prepared;
       const applicant = await prepared.applicant(false), selected = await prepared.submitCommon(applicant);
+      const rejectedApplicant = await prepared.applicant(false), rejectedSelection = await prepared.submitCommon(rejectedApplicant);
       const input = {
         tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), confirmed: true as const,
-        decision: "approve" as const, internalReason: "   ", externalMessage: null, items: [selected],
+        decision: "approve" as const, internalReason: "   ", externalMessage: "Tu solicitud fue aprobada.", items: [selected],
       };
 
-      // When either decision omits its reason, every row is a confirmed denial without a membership effect.
-      for (const decision of ["approve", "reject"] as const) {
-        expect(await leader.decideBatch.execute({ ...input, operationId: randomUUID(), decision })).toMatchObject({
-          ok: true, value: { state: "completed", result: "all_rejected", completedCount: 0, failedCount: 1, unresolvedCount: 0,
-            items: [{ requestId: selected.admissionRequestId, status: "denied", code: "invalid_input" }] },
-        });
-      }
-      await database.withContext(fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select status,version,evidence_source,binding_id from public.academy_admission_requests where id=${selected.admissionRequestId}`)).rows).toEqual([{ status: "pending", version: selected.expectedVersion, evidence_source: "declared", binding_id: null }]);
-        expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_decisions where request_id=${selected.admissionRequestId}`)).rows).toEqual([{ count: 0 }]);
-        expect((await transaction.execute(sql`select count(*)::int as count from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${applicant.userId}`)).rows).toEqual([{ count: 0 }]);
-      });
-      const reasoned = { ...input, internalReason: "Acepto esta excepción después de revisarla.", externalMessage: "Tu solicitud fue aprobada." };
-      const approved = await leader.decideBatch.execute(reasoned);
+      // When the batch approves with a blank internal reason.
+      const approved = await leader.decideBatch.execute(input);
 
-      // Then approval retains its separate notes and never creates list authority or trusted contact evidence.
+      // Then the exception is approved, the blank reason is stored as none and no list authority or trusted contact evidence appears.
       expect(approved).toMatchObject({ ok: true, value: { state: "completed", result: "all_succeeded", completedCount: 1, failedCount: 0, unresolvedCount: 0, items: [{ requestId: selected.admissionRequestId, status: "approved", version: selected.expectedVersion + 1 }] } });
       await database.withContext(fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select internal_reason,external_message,evidence_snapshot from public.academy_admission_decisions where request_id=${selected.admissionRequestId}`)).rows).toEqual([{ internal_reason: reasoned.internalReason, external_message: reasoned.externalMessage, evidence_snapshot: { kind: "declared", referenceId: null, verifiedAt: null } }]);
+        expect((await transaction.execute(sql`select internal_reason,external_message,evidence_snapshot from public.academy_admission_decisions where request_id=${selected.admissionRequestId}`)).rows).toEqual([{ internal_reason: null, external_message: input.externalMessage, evidence_snapshot: { kind: "declared", referenceId: null, verifiedAt: null } }]);
         expect((await transaction.execute(sql`select (select count(*)::int from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}) as entries,(select count(*)::int from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId} and owner_user_id=${applicant.userId}) as bindings,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${applicant.userId}) as memberships`)).rows).toEqual([{ entries: 0, bindings: 0, memberships: 1 }]);
       });
-      if (!approved.ok) throw new Error("Reasoned native exception batch did not complete");
+      if (!approved.ok) throw new Error("Native exception batch without internal reason did not complete");
       expect(approved.value).not.toHaveProperty("internalReason");
       expect(approved.value).not.toHaveProperty("externalMessage");
-      expect(await leader.decideBatch.execute(reasoned)).toEqual(approved);
+      expect(await leader.decideBatch.execute(input)).toEqual(approved);
+
+      // And a rejection without any internal reason also commits, without a membership.
+      const rejected = await leader.decideBatch.execute({ ...input, operationId: randomUUID(), decision: "reject", internalReason: "", externalMessage: null, items: [rejectedSelection] });
+      expect(rejected).toMatchObject({ ok: true, value: { state: "completed", result: "all_succeeded", completedCount: 1, failedCount: 0, unresolvedCount: 0, items: [{ requestId: rejectedSelection.admissionRequestId, status: "rejected", version: rejectedSelection.expectedVersion + 1 }] } });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select outcome,internal_reason from public.academy_admission_decisions where request_id=${rejectedSelection.admissionRequestId}`)).rows).toEqual([{ outcome: "rejected", internal_reason: null }]);
+        expect((await transaction.execute(sql`select count(*)::int as count from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${rejectedApplicant.userId}`)).rows).toEqual([{ count: 0 }]);
+      });
     });
   }, ADMISSION_BATCH_ELIGIBILITY_TEST_TIMEOUT_MS);
 

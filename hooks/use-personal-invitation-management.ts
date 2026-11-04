@@ -19,8 +19,9 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { appendAdmissionListPage } from "@/lib/academy-admissions/admission-list-pages";
 import { isAdmissionAccessLoss } from "@/lib/academy-admissions/admission-access-loss";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import { requireReadyValue } from "@/hooks/require-ready-value";
-import { closeManagementScope, createManagementFailure, interruptedManagementMessage, readManagementOutcome, referenceForManagementIntent, settleManagementRun, type PersonalInvitationManagementPhase } from "@/hooks/use-personal-invitation-management-support";
+import { closeManagementScope, createManagementFailure, interruptedManagementMessage, managementIssueRejectionMessage, readManagementOutcome, referenceForManagementIntent, settleManagementRun, type PersonalInvitationManagementPhase } from "@/hooks/use-personal-invitation-management-support";
 
 type ManagementOptions = { initialState: PersonalInvitationManagementPageState; client?: PersonalInvitationManagementBrowserClient };
 type ManagementOutcome = { state: "started" | "completed"; operationId: string; result?: unknown; invitationUrl?: string };
@@ -37,12 +38,19 @@ function useManagementState(options: ManagementOptions) {
   const [pending, setPending] = useState<PersonalInvitationManagementReference | null>(null), [errorMessage, setErrorMessage] = useState<string | null>(null), [fieldError, setFieldError] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null), [conflict, setConflict] = useState(false), [needsCurrent, setNeedsCurrent] = useState(false), [invitationUrl, setInvitationUrl] = useState<string | null>(null);
   const mountedRef = useRef(false), closedRef = useRef(false), generationRef = useRef(0), busyRef = useRef(false), controllerRef = useRef<AbortController | null>(null), pendingRef = useRef<PersonalInvitationManagementReference | null>(null), draftRef = useRef(draft), stateRef = useRef(state);
   const [selectionBlocked, setSelectionBlocked] = useState(false), [step, setStep] = useState(0), writeToastRef = useRef<WriteToast | null>(null);
+  /** The last consult of the pending original proved it absent: only then may the leader discard it. */
+  const [originalAbsent, setOriginalAbsent] = useState(false);
+  /**
+   * The last consult answered `started`. The reference holds no recipient, so the original cannot be resent: once its effect stopped
+   * nothing finishes it, and the leader may discard it and read the current state, which shows whether it did land.
+   */
+  const [originalStarted, setOriginalStarted] = useState(false);
   /** A focus recheck in flight and the revision of explicit operations: any newer operation supersedes it. */
   const focusCheckRef = useRef<AbortController | null>(null), operationRevisionRef = useRef(0);
   /** «Ver más» adds pages below the shown ones; its progress and failure stay next to its button. */
   const [loadingMore, setLoadingMore] = useState(false), [moreError, setMoreError] = useState<string | null>(null), loadedPagesRef = useRef(0);
   const live = useCallback((signal: AbortSignal, scope: number) => mountedRef.current && generationRef.current === scope && !signal.aborted, []);
-  return { initial, client, state, setState, draft, setDraft, confirmed, setConfirmed, ready, setReady, privateVisible, setPrivateVisible, phase, setPhase, pending, setPending, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, needsCurrent, setNeedsCurrent, invitationUrl, setInvitationUrl, mountedRef, closedRef, generationRef, busyRef, controllerRef, pendingRef, draftRef, stateRef, selectionBlocked, setSelectionBlocked, step, setStep, writeToastRef, focusCheckRef, operationRevisionRef, loadingMore, setLoadingMore, moreError, setMoreError, loadedPagesRef, live };
+  return { initial, client, state, setState, draft, setDraft, confirmed, setConfirmed, ready, setReady, privateVisible, setPrivateVisible, phase, setPhase, pending, setPending, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, needsCurrent, setNeedsCurrent, invitationUrl, setInvitationUrl, mountedRef, closedRef, generationRef, busyRef, controllerRef, pendingRef, draftRef, stateRef, selectionBlocked, setSelectionBlocked, step, setStep, writeToastRef, originalAbsent, setOriginalAbsent, originalStarted, setOriginalStarted, focusCheckRef, operationRevisionRef, loadingMore, setLoadingMore, moreError, setMoreError, loadedPagesRef, live };
 }
 type ManagementState = ReturnType<typeof useManagementState>;
 
@@ -51,13 +59,24 @@ function useManagementCore(workflow: ManagementState) {
   const { initial, client, live, closedRef, pendingRef, stateRef, loadedPagesRef, setPrivateVisible, setReady, setConfirmed, setInvitationUrl, setPhase, setErrorMessage, setPending, setState, setNeedsCurrent } = workflow;
   /** A changed viewer permanently closes this mounted scope and removes transient private material. */
   const close = useCallback(() => { closedRef.current = true; setPrivateVisible(false); setReady(false); setConfirmed(false); setInvitationUrl(null); setPhase(PHASE.closed); setErrorMessage(COPY.account); }, [closedRef, setConfirmed, setErrorMessage, setInvitationUrl, setPhase, setPrivateVisible, setReady]);
-  /** @param signal - This observation's lifetime. @param scope - Mounted generation. @returns Whether the actual native viewer still owns this page. */
-  const authorize = useCallback(async (signal: AbortSignal, scope: number) => {
+  /**
+   * @param signal - This observation's lifetime. @param scope - Mounted generation.
+   * @param options - `boundResult`: the reply was already bound by the server to the initial viewer, so a session that could not be read
+   * does not discard it (a one-time link would be lost); `silent`: a background check keeps the page as it was.
+   * @returns Whether the actual native viewer still owns this page. Only another account closes it; a session that could not be read
+   * keeps the private view and explains it.
+   */
+  const authorize = useCallback(async (signal: AbortSignal, scope: number, options: { boundResult?: boolean; silent?: boolean } = {}) => {
     if (!initial || closedRef.current) return false;
     const check = await verifyInitialViewer({ client, viewerId: initial.viewerId, live }, signal, scope);
     if (check === INITIAL_VIEWER_CHECK.changed) { close(); return false; }
+    if (check === INITIAL_VIEWER_CHECK.unavailable) {
+      if (options.boundResult) return true;
+      if (!options.silent) setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE);
+      return false;
+    }
     return check === INITIAL_VIEWER_CHECK.current;
-  }, [client, close, closedRef, initial, live]);
+  }, [client, close, closedRef, initial, live, setErrorMessage]);
   /** @param reference - Original progress or confirmed absence. @returns Whether storage accepted the reference before dispatch. */
   const persist = useCallback((reference: PersonalInvitationManagementReference | null) => {
     if (!initial) return false;
@@ -91,7 +110,7 @@ type ManagementCore = ReturnType<typeof useManagementCore>;
 
 /** @param workflow - Workflow state. @param core - Shared steps. @returns The bounded action runner and the original consumer. */
 function useManagementRunner(workflow: ManagementState, core: ManagementCore) {
-  const { initial, live, closedRef, busyRef, generationRef, controllerRef, focusCheckRef, operationRevisionRef, writeToastRef, pendingRef, mountedRef, stateRef, draftRef, setErrorMessage, setStatusMessage, setFieldError, setPhase, setPending, setConfirmed, setNeedsCurrent, setConflict, setInvitationUrl, setStep, setDraft } = workflow;
+  const { initial, live, closedRef, busyRef, generationRef, controllerRef, focusCheckRef, operationRevisionRef, writeToastRef, pendingRef, mountedRef, stateRef, draftRef, setErrorMessage, setStatusMessage, setFieldError, setPhase, setPending, setConfirmed, setNeedsCurrent, setConflict, setInvitationUrl, setStep, setDraft, setOriginalStarted } = workflow;
   const { authorize, persist, refresh } = core;
   /**
    * @param action - Explicit observation or write. @param writing - Whether the user confirmed a mutation.
@@ -115,14 +134,16 @@ function useManagementRunner(workflow: ManagementState, core: ManagementCore) {
   }, [authorize, busyRef, closedRef, controllerRef, focusCheckRef, generationRef, initial, live, mountedRef, operationRevisionRef, pendingRef, setErrorMessage, setFieldError, setPhase, setStatusMessage, writeToastRef]);
   /** @param code - Recorded denial. @param stored - Whether the cleared reference was stored. A conflict blocks the form and stays next to it; any other denial is the write's failure. */
   const rejectOriginal = useCallback((code: keyof typeof ADMISSION_ERROR_MESSAGE, stored: boolean) => {
-    const blocking = code === ADMISSION_ERROR_CODE.invitationConflict;
+    // An issue rejected for its recipient or its list keeps the draft unblocked: the leader fixes it there or reissues from the history.
+    const issueMessage = managementIssueRejectionMessage(code, draftRef.current), blocking = !issueMessage && code === ADMISSION_ERROR_CODE.invitationConflict;
     setConflict(blocking); if (stored) setNeedsCurrent(false);
-    if (blocking || !writeToastRef.current) setErrorMessage(ADMISSION_ERROR_MESSAGE[code]); else writeToastRef.current.announce({ kind: "error", message: ADMISSION_ERROR_MESSAGE[code] });
-  }, [setConflict, setErrorMessage, setNeedsCurrent, writeToastRef]);
+    const message = issueMessage ?? ADMISSION_ERROR_MESSAGE[code];
+    if (blocking || issueMessage || !writeToastRef.current) setErrorMessage(message); else writeToastRef.current.announce({ kind: "error", message });
+  }, [draftRef, setConflict, setErrorMessage, setNeedsCurrent, writeToastRef]);
   /** Publishes the confirmed original before any following read, so a failed GET cannot reopen a write. */
   const consume: ManagementConsume = useCallback(async (reference, outcome, signal, scope) => {
     if (outcome.operationId !== reference.operationId) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
-    if (outcome.state === OPERATION_STATE.started) { setErrorMessage(COPY.started); return; }
+    if (outcome.state === OPERATION_STATE.started) { setErrorMessage(COPY.started); setOriginalStarted(pendingRef.current?.operationId === reference.operationId); return; }
     const read = readManagementOutcome(reference, outcome.result);
     if (!read) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
     pendingRef.current = null; setPending(null); setConfirmed(false); setNeedsCurrent(true);
@@ -135,7 +156,7 @@ function useManagementRunner(workflow: ManagementState, core: ManagementCore) {
     if (!stored) return;
     if (!await refresh(requireReadyValue(stateRef.current, CURRENT_STATE).query, signal, scope) && live(signal, scope) && !closedRef.current) { setErrorMessage(COPY.freshFailed); return; }
     const currentState = requireReadyValue(stateRef.current, CURRENT_STATE); draftRef.current = emptyPersonalInvitationManagementDraft(currentState); setDraft(draftRef.current); setConflict(false);
-  }, [closedRef, draftRef, live, pendingRef, persist, refresh, rejectOriginal, setConfirmed, setConflict, setDraft, setErrorMessage, setInvitationUrl, setNeedsCurrent, setPending, setStatusMessage, setStep, stateRef, writeToastRef]);
+  }, [closedRef, draftRef, live, pendingRef, persist, refresh, rejectOriginal, setConfirmed, setConflict, setDraft, setErrorMessage, setInvitationUrl, setNeedsCurrent, setOriginalStarted, setPending, setStatusMessage, setStep, stateRef, writeToastRef]);
   return { run, consume };
 }
 
@@ -147,9 +168,10 @@ function useManagementLifecycle(workflow: ManagementState, core: ManagementCore,
     mountedRef.current = true; generationRef.current += 1; const scope = generationRef.current, hydration = new AbortController();
     const timeout = window.setTimeout(() => hydration.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
     queueMicrotask(() => { void (async () => {
-      if (!await authorize(hydration.signal, scope)) return;
+      // A session that could not be read leaves the page idle with its explanation; «Consultar estado actual» checks it again.
+      if (!await authorize(hydration.signal, scope)) { if (live(hydration.signal, scope) && !closedRef.current) setPhase(PHASE.idle); return; }
       observeReference(); if (!live(hydration.signal, scope)) return; setReady(true); setConfirmed(false); setPhase(pendingRef.current ? PHASE.uncertain : PHASE.idle);
-    })().catch(() => { if (live(hydration.signal, scope)) { setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }).finally(() => { window.clearTimeout(timeout); if (hydration.signal.aborted && mountedRef.current && generationRef.current === scope) { setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); setPhase(PHASE.idle); } }); });
+    })().catch(() => { if (live(hydration.signal, scope)) { setErrorMessage(COPY.storage); setPhase(PHASE.idle); } }).finally(() => { window.clearTimeout(timeout); if (hydration.signal.aborted && mountedRef.current && generationRef.current === scope) { setErrorMessage(BROWSER_SESSION_CHECK_MESSAGE); setPhase(PHASE.idle); } }); });
     /** Restoring a document rereads identity/progress and never restarts its original mutation. */
     const restored = (event: PageTransitionEvent) => { if (!event.persisted || !mountedRef.current || closedRef.current || busyRef.current) return; setPrivateVisible(false); setConfirmed(false); setInvitationUrl(null); void run(async (signal, observedScope) => { observeReference(); if (await refresh(requireReadyValue(stateRef.current, CURRENT_STATE).query, signal, observedScope) && !closedRef.current) setPrivateVisible(true); }); };
     /**
@@ -162,7 +184,7 @@ function useManagementLifecycle(workflow: ManagementState, core: ManagementCore,
       const check = new AbortController(), checkScope = generationRef.current, revision = operationRevisionRef.current, checkTimeout = window.setTimeout(() => check.abort(), PERSONAL_INVITATION_MANAGEMENT_TIMEOUT_MS);
       focusCheckRef.current = check;
       void (async () => {
-        if (!await authorize(check.signal, checkScope)) return;
+        if (!await authorize(check.signal, checkScope, { silent: true })) return;
         const readyScope = requireReadyValue(initial, SCOPE);
         const result = await client.page(readyScope.slug, requireReadyValue(stateRef.current, CURRENT_STATE).query, check.signal);
         // An explicit read or write started meanwhile owns the page state: this older answer must not overwrite it.
@@ -181,17 +203,21 @@ function useManagementLifecycle(workflow: ManagementState, core: ManagementCore,
 
 /** @param workflow - Workflow state. @param core - Shared steps. @param writes - Action runner and original consumer. @returns The confirmed save and the read of the original. */
 function useManagementWrites(workflow: ManagementState, core: ManagementCore, writes: { run: ManagementRun; consume: ManagementConsume }) {
-  const { initial, client, ready, confirmed, needsCurrent, conflict, live, busyRef, closedRef, pendingRef, stateRef, draftRef, writeToastRef, setFieldError, setErrorMessage, setPending, setNeedsCurrent, setConfirmed, setConflict } = workflow;
+  const { initial, client, ready, confirmed, needsCurrent, conflict, live, busyRef, closedRef, pendingRef, stateRef, draftRef, writeToastRef, setFieldError, setErrorMessage, setPending, setNeedsCurrent, setConfirmed, setConflict, setOriginalAbsent, setOriginalStarted } = workflow;
   const { authorize, close, observeReference, persist, report } = core;
   const { run, consume } = writes;
-  /** @param result - Definite write failure. Clears the original; a conflict blocks the form, any other failure is the write's toast. */
+  /** @param result - Definite write failure. Clears the original; a conflict blocks the form, a platform block stays next to it, any other failure is the write's toast. */
   const rejectSave = useCallback((result: { code: string; message: string }) => {
     pendingRef.current = null; setPending(null); if (!persist(null)) { setNeedsCurrent(true); return; } setConfirmed(false); if (report(result)) return;
-    const blocking = result.code === ADMISSION_ERROR_CODE.invitationConflict; setConflict(blocking);
-    if (!blocking) { setErrorMessage(null); writeToastRef.current?.announce({ kind: "error", message: result.message }); }
-  }, [pendingRef, persist, report, setConfirmed, setConflict, setErrorMessage, setNeedsCurrent, setPending, writeToastRef]);
+    // An issue rejected for its recipient or its list keeps the draft unblocked, with its explanation next to the form.
+    const issueMessage = managementIssueRejectionMessage(result.code, draftRef.current), blocking = !issueMessage && result.code === ADMISSION_ERROR_CODE.invitationConflict; setConflict(blocking);
+    // Nothing was registered and only the TuTribu team can lift the block, so its copy stays next to the form instead of a passing toast.
+    if (issueMessage) setErrorMessage(issueMessage);
+    else if (result.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable) setErrorMessage(result.message);
+    else if (!blocking) { setErrorMessage(null); writeToastRef.current?.announce({ kind: "error", message: result.message }); }
+  }, [draftRef, pendingRef, persist, report, setConfirmed, setConflict, setErrorMessage, setNeedsCurrent, setPending, writeToastRef]);
   const save = useCallback(async () => {
-    if (!ready || !confirmed || busyRef.current || closedRef.current || pendingRef.current || needsCurrent || conflict || !stateRef.current || !draftRef.current) { if (!confirmed) setFieldError(COPY.confirm); return; }
+    if (!ready || !confirmed || busyRef.current || closedRef.current || pendingRef.current || needsCurrent || conflict || !stateRef.current || stateRef.current.platformRequirement || !draftRef.current) { if (!confirmed) setFieldError(COPY.confirm); return; }
     let intent;
     try { intent = preparePersonalInvitationManagementIntent(stateRef.current, draftRef.current, newAdmissionOperationId(), new Date()); }
     catch { setFieldError(COPY.invalid); return; }
@@ -201,7 +227,7 @@ function useManagementWrites(workflow: ManagementState, core: ManagementCore, wr
       if (!persist(reference)) return;
       const readyScope = requireReadyValue(initial, SCOPE);
       const result = await client.write(readyScope.slug, intent, signal);
-      if (!live(signal, scope) || !await authorize(signal, scope)) return;
+      if (!live(signal, scope) || !await authorize(signal, scope, { boundResult: result.status === "ready" && result.value.viewerId === readyScope.viewerId })) return;
       if (result.status === "ready") { if (result.value.viewerId !== readyScope.viewerId) { close(); return; } await consume(reference, result.value.outcome, signal, scope); }
       else if (result.status === "failed" && !result.uncertain) rejectSave(result);
       else setErrorMessage(COPY.uncertain);
@@ -209,14 +235,19 @@ function useManagementWrites(workflow: ManagementState, core: ManagementCore, wr
   }, [authorize, busyRef, client, close, closedRef, confirmed, conflict, consume, draftRef, initial, live, needsCurrent, observeReference, pendingRef, persist, ready, rejectSave, run, setErrorMessage, setFieldError, stateRef]);
   const readOriginal = useCallback(() => run(async (signal, scope) => {
     observeReference(); const reference = pendingRef.current; if (!reference) return;
+    setOriginalAbsent(false); setOriginalStarted(false);
     const readyScope = requireReadyValue(initial, SCOPE);
     const result = await client.operation(readyScope.slug, reference.operationId, signal);
-    if (!live(signal, scope) || !await authorize(signal, scope)) return;
+    if (!live(signal, scope) || !await authorize(signal, scope, { boundResult: result.status === "ready" && result.value.viewerId === readyScope.viewerId })) return;
     if (result.status === "ready" && result.value.viewerId !== readyScope.viewerId) { close(); return; }
     if (result.status === "ready" && result.value.original.type === reference.type) await consume(reference, result.value.original, signal, scope);
-    else if (result.status === "failed") { if (!report(result)) setErrorMessage(result.code === ADMISSION_ERROR_CODE.resourceUnavailable ? COPY.absent : result.message); }
+    else if (result.status === "failed") {
+      if (report(result)) return;
+      const absent = result.code === ADMISSION_ERROR_CODE.resourceUnavailable;
+      setOriginalAbsent(absent); setErrorMessage(absent ? COPY.absent : result.message);
+    }
     else setErrorMessage(COPY.uncertain);
-  }), [authorize, client, close, consume, initial, live, observeReference, pendingRef, report, run, setErrorMessage]);
+  }), [authorize, client, close, consume, initial, live, observeReference, pendingRef, report, run, setErrorMessage, setOriginalAbsent, setOriginalStarted]);
   return { save, readOriginal };
 }
 
@@ -240,10 +271,13 @@ function useManagementReads(workflow: ManagementState, core: ManagementCore, run
     if (draftRef.current && selected) { draftRef.current = { ...draftRef.current, selected, withdrawalAcknowledged: false, replacementAcknowledged: false }; setDraft(draftRef.current); }
     setSelectionBlocked(false); setConflict(false); setReady(true); toast.info(COPY.current);
   }), [blockUnavailableReplacement, draftRef, observeReference, pendingRef, refresh, run, setConfirmed, setConflict, setDraft, setErrorMessage, setNeedsCurrent, setReady, setSelectionBlocked, setStatusMessage, stateRef]);
-  /** Adds the next page below the shown invitations without repeating any of them; the draft, its selection and the one-time link stay as they are. */
+  /**
+   * Adds the next page below the shown invitations without repeating any of them; the draft, its selection and the one-time link stay
+   * as they are. Paging never touches a pending original, so it stays available while one waits.
+   */
   const readMore = useCallback(async () => {
     const shown = stateRef.current, cursor = shown?.page.nextCursor;
-    if (!initial || !shown || !cursor || busyRef.current || closedRef.current || pendingRef.current) return;
+    if (!initial || !shown || !cursor || busyRef.current || closedRef.current) return;
     setMoreError(null); setLoadingMore(true);
     try {
       await run(async (signal, scope) => {
@@ -257,7 +291,7 @@ function useManagementReads(workflow: ManagementState, core: ManagementCore, run
         loadedPagesRef.current += 1; setState(stateRef.current);
       }, false, setMoreError);
     } finally { setLoadingMore(false); }
-  }, [authorize, busyRef, client, close, closedRef, initial, live, loadedPagesRef, pendingRef, run, setLoadingMore, setMoreError, setState, stateRef]);
+  }, [authorize, busyRef, client, close, closedRef, initial, live, loadedPagesRef, run, setLoadingMore, setMoreError, setState, stateRef]);
   return { readCurrent, readMore };
 }
 
@@ -269,7 +303,8 @@ export function usePersonalInvitationManagement(options: ManagementOptions) {
   useManagementLifecycle(workflow, core, run);
   const { save, readOriginal } = useManagementWrites(workflow, core, { run, consume });
   const { readCurrent, readMore } = useManagementReads(workflow, core, run);
-  const { state, draft, pending, ready, privateVisible, phase, confirmed, setConfirmed, loadingMore, moreError, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, needsCurrent, setNeedsCurrent, selectionBlocked, setSelectionBlocked, invitationUrl, setInvitationUrl, step, setStep, setDraft, busyRef, pendingRef, closedRef, mountedRef, draftRef, stateRef } = workflow;
+  const { state, draft, pending, ready, privateVisible, phase, setPhase, confirmed, setConfirmed, loadingMore, moreError, errorMessage, setErrorMessage, fieldError, setFieldError, statusMessage, setStatusMessage, conflict, setConflict, needsCurrent, setNeedsCurrent, selectionBlocked, setSelectionBlocked, invitationUrl, setInvitationUrl, step, setStep, setDraft, setPending, originalAbsent, setOriginalAbsent, originalStarted, setOriginalStarted, busyRef, pendingRef, closedRef, mountedRef, draftRef, stateRef } = workflow;
+  const { persist } = core;
   const changeDraft = (next: PersonalInvitationManagementDraft) => { if (busyRef.current || pendingRef.current || closedRef.current || !ready) return; draftRef.current = next; setDraft(next); setConfirmed(false); setFieldError(null); setErrorMessage(null); setStatusMessage(null); setInvitationUrl(null); };
   const select = (item: PersonalInvitationManagementResult, mode: "rename" | "revoke" | "create") => { if (!stateRef.current || conflict || busyRef.current || pendingRef.current || closedRef.current || !ready) return; const next = emptyPersonalInvitationManagementDraft(stateRef.current); changeDraft({ ...next, mode, selected: item, internalName: item.internalName, identity: item.recipient.value, country: item.recipient.country ?? next.country, requiresAllowlist: item.requiresAllowlist, replaceSelected: mode === MODE.create }); setStep(0); };
   /** Copies within the click itself: WebKit drops the user activation after a network round trip. The link is already on screen, focus changes recheck the viewer and copying never competes with the read that follows the write. */
@@ -279,6 +314,14 @@ export function usePersonalInvitationManagement(options: ManagementOptions) {
     try { await navigator.clipboard.writeText(invitationUrl); if (mountedRef.current && !closedRef.current) toast.success(COPY.copied); }
     catch { if (mountedRef.current) toast.info(COPY.clipboard); }
   };
+  /**
+   * Forgets an original the server proved absent, or one that answered `started`. The reference holds no recipient, so the original
+   * cannot be resent: the current state is read again before another action, which shows whether a late write did land.
+   */
+  const discardOriginal = () => {
+    if (busyRef.current || closedRef.current || !pendingRef.current || !(originalAbsent || originalStarted) || !persist(null)) return;
+    pendingRef.current = null; setPending(null); setOriginalAbsent(false); setOriginalStarted(false); setConfirmed(false); setNeedsCurrent(true); setErrorMessage(null); setPhase(PHASE.idle); toast.info(COPY.discarded);
+  };
   const discardSelection = () => { if (!selectionBlocked || !stateRef.current || busyRef.current || pendingRef.current || closedRef.current || !ready) return; changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setSelectionBlocked(false); setConflict(false); setNeedsCurrent(false); setStep(0); };
-  return { state, draft, pending, ready, privateVisible, phase, confirmed, loadingMore, moreError, readMore, errorMessage, fieldError, statusMessage, conflict, needsCurrent, selectionBlocked, discardSelection, invitationUrl, step, setStep: (value: number) => { if (!busyRef.current) setStep(value); }, changeDraft, select, newInvitation: () => { if (stateRef.current && !conflict && !busyRef.current && !pendingRef.current) { changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setStep(0); } }, setConfirmed: (value: boolean) => { if (!ready || busyRef.current || pendingRef.current || closedRef.current) return; setConfirmed(value); setFieldError(null); }, save, readOriginal, readCurrent, copyUrl, hideUrl: () => setInvitationUrl(null) };
+  return { state, draft, pending, ready, privateVisible, phase, confirmed, loadingMore, moreError, readMore, errorMessage, fieldError, statusMessage, conflict, needsCurrent, selectionBlocked, discardSelection, originalAbsent, originalStarted, discardOriginal, invitationUrl, step, setStep: (value: number) => { if (!busyRef.current) setStep(value); }, changeDraft, select, newInvitation: () => { if (stateRef.current && !conflict && !busyRef.current && !pendingRef.current) { changeDraft(emptyPersonalInvitationManagementDraft(stateRef.current)); setStep(0); } }, setConfirmed: (value: boolean) => { if (!ready || busyRef.current || pendingRef.current || closedRef.current) return; setConfirmed(value); setFieldError(null); }, save, readOriginal, readCurrent, copyUrl, hideUrl: () => setInvitationUrl(null) };
 }

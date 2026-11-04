@@ -97,7 +97,7 @@ describe("declared admission WhatsApp number", () => {
     expect(proposeAdmissionWhatsappNumberChange({ ...input, expectedVersion: 2 })).toMatchObject({ outcome: "denied", code: "request_conflict" });
     expect(proposeAdmissionWhatsappNumberChange({ ...input, actorUserId: "another-user" })).toMatchObject({ outcome: "denied", code: "permission_denied" });
     expect(proposeAdmissionWhatsappNumberChange({ ...input, policy: { ...input.policy, tribeId: "another-tribe" } })).toMatchObject({ outcome: "denied", code: "permission_denied" });
-    expect(proposeAdmissionWhatsappNumberChange({ ...input, now: request.expiresAt })).toMatchObject({ outcome: "denied", code: "admission_ineligible" });
+    expect(proposeAdmissionWhatsappNumberChange({ ...input, now: request.expiresAt })).toMatchObject({ outcome: "denied", code: "request_expired" });
     expect(proposeAdmissionWhatsappNumberChange({ ...input, request: { ...request, status: "approved" } })).toMatchObject({ outcome: "denied", code: "request_conflict" });
   });
 

@@ -1,10 +1,11 @@
 /** Pure decisions of the personal invitation management workflow, kept apart so each hook step stays readable. @module use-personal-invitation-management-support */
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { WriteToast } from "@/lib/toasts/write-toast";
-import type { PersonalInvitationManagementIntent, PersonalInvitationManagementReference } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
+import type { PersonalInvitationManagementDraft, PersonalInvitationManagementIntent, PersonalInvitationManagementReference } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
 import { personalInvitationMutationResultSchema, personalInvitationMutationDenialSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-management-schemas";
-import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_PHASE as PHASE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
-import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_PHASE as PHASE, PERSONAL_INVITATION_MANAGEMENT_MODE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
+import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** Visible management phase. */
@@ -27,6 +28,20 @@ export function readManagementOutcome(reference: PersonalInvitationManagementRef
   return matches ? { kind: "completed" } as const : null;
 }
 
+/**
+ * The catalog copy of a management rejection speaks of a changed invitation or of an applicant's admission; two rejections of an
+ * issue mean something else for the leader. Without a replacement, the only conflict an issue can meet is a recipient that already
+ * has an active invitation; an unavailable invitation on issue means the list it requires has no enabled entry of that contact type.
+ * @param code - Recorded denial or definitive failure. @param draft - Draft the write was prepared from, when still known.
+ * @returns The leader copy for that rejection, or null when the catalog copy applies.
+ */
+export function managementIssueRejectionMessage(code: string, draft: PersonalInvitationManagementDraft | null): string | null {
+  if (draft?.mode !== PERSONAL_INVITATION_MANAGEMENT_MODE.create) return null;
+  if (code === ADMISSION_ERROR_CODE.invitationConflict && !(draft.replaceSelected && draft.selected)) return COPY.activeRecipient;
+  if (code === ADMISSION_ERROR_CODE.invitationUnavailable && draft.requiresAllowlist) return COPY.allowlistUnusable;
+  return null;
+}
+
 /** Refs an action run owns while it is in flight. */
 export type ManagementRunRefs = {
   controllerRef: RefObject<AbortController | null>;
@@ -40,7 +55,7 @@ export type ManagementRunRefs = {
 
 /** @param pendingRef - Unresolved original, if any. @returns The failure copy of an interrupted action: uncertain while an original is pending. */
 export function interruptedManagementMessage(pendingRef: RefObject<PersonalInvitationManagementReference | null>): string {
-  return pendingRef.current ? COPY.uncertain : ADMISSION_ERROR_MESSAGE.dependency_unavailable;
+  return pendingRef.current ? COPY.uncertain : BROWSER_REQUEST_TRANSPORT_MESSAGE;
 }
 
 /** Where one run's retryable failures go. */

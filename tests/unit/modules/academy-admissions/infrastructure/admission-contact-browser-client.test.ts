@@ -3,8 +3,25 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAdmissionContactApiClient } from "@/lib/academy-admissions/admission-contact-api-client";
-import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { admissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
+import { createAdmissionRouteBoundary } from "@/src/modules/academy-admissions/infrastructure/api/admission-route-http";
+import { ADMISSION_HTTP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-http";
 import { MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
+
+describe("admission contact browser writes the platform cannot protect", () => {
+  const signal = new AbortController().signal, challengeId = randomUUID();
+  it.each([
+    ["code request", (client: ReturnType<typeof createAdmissionContactApiClient>) => client.issue("synthetic-academy", { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1, channel: "email" }, signal)],
+    ["resend", (client: ReturnType<typeof createAdmissionContactApiClient>) => client.resend("synthetic-academy", challengeId, { operationId: randomUUID(), confirmed: true }, signal)],
+    ["code check", (client: ReturnType<typeof createAdmissionContactApiClient>) => client.verify("synthetic-academy", challengeId, { operationId: randomUUID(), confirmed: true, verificationCode: "123456" }, signal)],
+  ])("should return a refused %s as a definitive failure with the catalogue copy, never as uncertain", async (_write, send) => {
+    const transport = vi.fn(async () => createAdmissionRouteBoundary({ request: new Request("https://synthetic.invalid/api/tribes/synthetic-academy/admissions/challenges"), operation: ADMISSION_HTTP_OPERATION.challengeIssue, diagnostics: vi.fn() }).failure(admissionFailure(ADMISSION_ERROR_CODE.platformSecurityUnavailable)));
+
+    expect(await send(createAdmissionContactApiClient({ fetch: transport }))).toEqual({ status: "failed", code: ADMISSION_ERROR_CODE.platformSecurityUnavailable, message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable, uncertain: false });
+    expect(transport).toHaveBeenCalledOnce();
+  });
+});
 
 describe("admission contact browser client", () => {
   it("should keep POST selection failures readonly and omit private fields from a safe result", async () => {

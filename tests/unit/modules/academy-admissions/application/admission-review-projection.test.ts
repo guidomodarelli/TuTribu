@@ -55,10 +55,10 @@ describe("admission reviewer projection", () => {
     expect(projectAdmissionReview(record)).toMatchObject({ pendingAgeThresholdReached: false, eligibleActions: [], eligibilityReasons: ["request_expired"] });
   });
 
-  it("should offer an explicit exception approval when only its editable internal reason is missing", () => {
+  it("should offer an explicit exception approval without an internal reason and mark it as an exception", () => {
     const record = reviewRecord();
     record.review.policy!.mode = "allowlist"; record.review.policy!.allowCommonExceptions = true;
-    expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: ["exception_reason_required"], restrictions: { requiresExceptionReason: true }, eligibleActions: ["reject", "approve"] });
+    expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: [], restrictions: { requiresExceptionReason: true }, eligibleActions: ["reject", "approve"] });
     record.review.policy!.requiresAdditionalVerification = true;
     expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: ["local_proof_required"], needsVerification: true, restrictions: { requiresExceptionReason: false }, eligibleActions: ["reject"] });
   });
@@ -87,6 +87,12 @@ describe("admission reviewer projection", () => {
     const record = reviewRecord();
     record.review.policy!.isOpen = false;
     expect(projectAdmissionReview(record).eligibleActions).toEqual(["reject"]);
+  });
+
+  it.each(["security_unconfigured", "recovery_locked"] as const)("should offer neither approval nor rejection while the platform requirement %s keeps every decision from being protected", (platformRequirement) => {
+    const record = reviewRecord();
+    expect(projectAdmissionReview(record).eligibleActions).toEqual(["reject", "approve"]);
+    expect(projectAdmissionReview(record, platformRequirement)).toMatchObject({ status: "pending", version: 1, eligibleActions: [] });
   });
 
   it("should deny self decisions and expired requests without changing the recorded resource version", () => {

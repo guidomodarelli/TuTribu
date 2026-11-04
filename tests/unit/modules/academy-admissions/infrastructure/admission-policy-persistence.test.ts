@@ -7,6 +7,7 @@ import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from 
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createUnenrolledSecurityConfig } from "@/tests/support/admission-unenrolled-security-config";
 import { PostgresAdmissionPolicyRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository";
 import { PostgresAdmissionPolicyReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader";
 import { AdmissionMessagingUsagePolicyReader } from "@/src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader";
@@ -38,8 +39,10 @@ import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/cons
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
-import { COMMERCIAL_MEMBERSHIP_DECISION_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_COPY, COMMERCIAL_MEMBERSHIP_REVIEW_LABEL, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
-import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { PostgresAdmissionPolicyViewFactsReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader";
+import { createSubscriptionMembershipReconciliationRepository } from "@/tests/support/subscription-membership-reconciliation-fixture";
+import { TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE } from "@/src/modules/subscriptions/constants/subscriptions";
+import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY, ADMISSION_POLICY_DRAFT_COPY, ADMISSION_POLICY_PLATFORM_COPY, freeConversionImpactCopy } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { ADMISSION_SETUP_GUIDE_COPY, ADMISSION_SETUP_STEP_COPY } from "@/src/modules/academy-admissions/constants/admission-setup-guide";
 import { createTenantRowsPreflight } from "@/tests/support/admission-tenant-rows-preflight";
 import { AdmissionPolicyRequirementError } from "@/src/modules/academy-admissions/domain/errors/admission-policy-requirement-error";
@@ -94,11 +97,13 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       await data.initialize();
-      const command = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { requiresWhatsappNumber: true } };
+      // A new policy requires the phone by default; the leader declares it optional and old clients that omit the field keep that choice.
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, version: 1 });
+      const command = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { requiresWhatsappNumber: false } };
       expect(await data.repository.update(command)).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 1, changed: true } });
-      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, version: 2, verificationEpoch: 1 });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, version: 2, verificationEpoch: 1 });
       expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 2, patch: { isOpen: true } })).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
-      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, isOpen: true, version: 3 });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, isOpen: true, version: 3 });
       expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 3 })).toMatchObject({ state: "completed", result: { version: 3, changed: false } });
       await expect(data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 2 })).rejects.toMatchObject({ code: "policy_conflict" });
       data.setPrepared(true);
@@ -106,12 +111,12 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 4 })).toMatchObject({ state: "completed", result: { version: 5, controlActivated: true } });
       const preparedReads = data.preparationCount();
       data.setPrepared(false); data.setPreparationFailure(true);
-      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 5, patch: { requiresWhatsappNumber: false } })).toMatchObject({ state: "completed", result: { version: 6, verificationEpoch: 2, changed: true } });
+      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 5, patch: { requiresWhatsappNumber: true } })).toMatchObject({ state: "completed", result: { version: 6, verificationEpoch: 2, changed: true } });
       expect(data.preparationCount()).toBe(preparedReads);
-      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, requiresAdditionalVerification: true, version: 6, verificationEpoch: 2 });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, requiresAdditionalVerification: true, version: 6, verificationEpoch: 2 });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
       await expect(data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 6 })).rejects.toMatchObject({ code: "permission_denied" });
-      expect(await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute(sql`select requires_whatsapp_number,version,verification_epoch,(select count(*)::int from public.message_deliveries where tribe_id=${data.tribeId}) as deliveries from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ requires_whatsapp_number: false, version: 6, verification_epoch: 2, deliveries: 0 }]);
+      expect(await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute(sql`select requires_whatsapp_number,version,verification_epoch,(select count(*)::int from public.message_deliveries where tribe_id=${data.tribeId}) as deliveries from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ requires_whatsapp_number: true, version: 6, verification_epoch: 2, deliveries: 0 }]);
     });
   }, ADMISSION_WHATSAPP_SQL_TIMEOUT_MS);
 
@@ -125,7 +130,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       data.loseNextReply();
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", result: { version: 2, changed: true } });
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
-      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
+      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: true, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
       // Assert: audit and ledger preserve one actual effect and the correct scope.
       const audit = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select event.actor_user_id,event.resource_type,event.resource_id,event.event_type,event.resource_version,event.rule,event.cause,event.metadata,operation.idempotency_key,event.created_at>=operation.created_at as ordered from public.academy_admission_audit_events event join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${data.tribeId} order by event.resource_version`)).rows);
       expect(audit).toEqual([
@@ -176,15 +181,15 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       let recoveryLocked = false;
       const preflight = admissionModule.createPreflightModule({ runtime, readRecoveryLock: async () => recoveryLocked }).useCases;
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [] } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=false where tribe_id=${data.tribeId}`));
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_evaluator_disabled"] } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=true where tribe_id=${data.tribeId}`));
       recoveryLocked = true;
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_recovery_locked"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_recovery_locked"] } });
       recoveryLocked = false;
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter table public.academy_admission_decisions disable trigger admission_decision_commit_guard`));
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_storage_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_storage_unavailable"] } });
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter table public.academy_admission_decisions enable trigger admission_decision_commit_guard`));
       expect(await preflight.execute(query)).toMatchObject({ ok: true, value: { prepared: true } });
       await database.withContext(data.fixture.own, async (transaction) => {
@@ -193,7 +198,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${privileged},'guardian','removed','payment_blocked','muted')`);
       });
       const before = await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`select id,role,status,created_at,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} order by id`));
-      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } } });
+      // Commercial memberships no longer block the preflight: the activation itself converts them.
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [] } });
       const after = await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`select id,role,status,created_at,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} order by id`));
       expect(after.rows).toEqual(before.rows);
       expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false, policy: { activatedAt: null, version: 1 } });
@@ -229,7 +235,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const data = await preparePolicy(database);
       for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql"]) await database.applyMigration(migration);
       await data.initialize();
-      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { isOpen: true } });
+      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { isOpen: true, requiresWhatsappNumber: false } });
       await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 2 });
       const applicantId = randomUUID(), applicantSessionId = randomUUID();
       await database.withContext(data.fixture.own, async (transaction) => {
@@ -240,7 +246,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const submitted = await requests.submit({ userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 3, source: { kind: "common" }, contact: { type: "email", value: `${applicantId}@example.test` }, proofId: null, message: null });
       if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Native policy transition did not produce the expected pending request");
       const requestId = submitted.result.admissionRequestId;
-      const own = new PostgresOwnAdmissionRequestReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run));
+      // The hosting recovery lock is read from this test, not from an environment that leaves it unset (and therefore locked).
+      const own = new PostgresOwnAdmissionRequestReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => false);
       const query = { userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID() };
       const before = await own.readOwn(query);
       expect(before).toMatchObject({ id: requestId, status: "pending", version: 1, needsVerification: false });
@@ -262,10 +269,11 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const data = await preparePolicy(database); await data.initialize();
       let runtimePrepared = false;
       const inventory = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).read(data.readContext));
-      expect(await inventory()).toMatchObject({ tribeId: data.tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: false, ingressProtected: false, runtimePrepared: false });
+      // The owned branch clones a default branch that already runs the guarded storage and ingress; the closed cases are produced below by disabling them.
+      expect(await inventory()).toMatchObject({ tribeId: data.tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: false });
       for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       const current = await inventory();
-      expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
+      expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false });
       const prepared = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).readPreparation(data.tribeId).then((preparation) => preparation.prepared));
       expect(await prepared()).toBe(false);
       runtimePrepared = true;
@@ -284,41 +292,116 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       expect(await prepared()).toBe(true);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
       const preview = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPreflightModule({ runtime: { isPrepared: async () => false }, readRecoveryLock: async () => false }).useCases;
-      expect(await preview.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      expect(await preview.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_runtime_unavailable"] } });
     });
   }, 300_000);
 
-  it("should retain unknown and privileged commercial history without backfill and reject a foreign inventory scope", async () => {
+  it("should convert commercial members into free tribemates at the first activation, keep a paid way in for pending checkouts and keep converted members out of stale subscription reconciliation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
-      for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
-      const unknownId = randomUUID(), privilegedId = randomUUID();
+      data.setPrepared(true);
+      const ids = { paidBlocked: randomUUID(), inactiveRemoved: randomUUID(), guardian: randomUUID(), mutedBlocked: randomUUID(), abandoned: randomUUID(), conduct: randomUUID(), muted: randomUUID() };
+      const integrationId = randomUUID(), priceId = randomUUID(), providerId = randomUUID(), checkoutProviderId = randomUUID(), slug = `policy-${data.tribeId}`;
       await database.withContext(data.fixture.own, async (transaction) => {
-        for (const userId of [unknownId, privilegedId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic preflight account',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknownId},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${privilegedId},'guardian','removed','payment_blocked','muted')`);
+        for (const userId of Object.values(ids)) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic commercial member',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status,last_seen_at) values
+          (${data.tribeId},${ids.paidBlocked},'tribemate','blocked','payment_blocked','active',null),
+          (${data.tribeId},${ids.inactiveRemoved},'tribemate','removed','subscription_inactive',null,clock_timestamp()-interval '90 days'),
+          (${data.tribeId},${ids.guardian},'guardian','blocked','payment_blocked',null,null),
+          (${data.tribeId},${ids.mutedBlocked},'tribemate','blocked','payment_blocked','muted',null),
+          (${data.tribeId},${ids.abandoned},'tribemate','blocked','payment_blocked',null,null),
+          (${data.tribeId},${ids.conduct},'tribemate','blocked','conduct_blocked',null,null),
+          (${data.tribeId},${ids.muted},'tribemate','muted','none',null,null)`);
+        // The removed member's old membership subscription still has a Mercado Pago preapproval that can send a late status.
+        await transaction.execute(sql`insert into public.tribe_payment_integrations(id,tribe_id,provider,account_label,status,access_token,token_expires_at,connected_by) values (${integrationId},${data.tribeId},'mercado_pago','Synthetic seller','connected',${randomUUID()},clock_timestamp()+interval '1 day',${data.fixture.userId})`);
+        await transaction.execute(sql`insert into public.tribe_subscription_prices(id,tribe_id,name,amount_cents,currency,frequency,status,is_current,mercado_pago_preapproval_plan_id,payment_integration_id,product_key,created_by) values (${priceId},${data.tribeId},'Synthetic membership',1500,'ARS','monthly','active',true,${randomUUID()},${integrationId},'membership',${data.fixture.userId})`);
+        await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,mercado_pago_preapproval_id,status,status_reason,product_key) values (${data.tribeId},${ids.inactiveRemoved},${priceId},${integrationId},${providerId},'canceled','subscription_inactive','membership')`);
+        // A paid checkout still pending at activation: its preapproval exists but no payment was confirmed yet.
+        await transaction.execute(sql`insert into public.tribe_member_subscriptions(tribe_id,user_id,price_id,payment_integration_id,mercado_pago_preapproval_id,status,status_reason,product_key) values (${data.tribeId},${ids.abandoned},${priceId},${integrationId},${checkoutProviderId},'pending','payment_blocked','membership')`);
       });
-      const before = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id in (${unknownId},${privilegedId}) order by user_id`)).rows);
-      const observed = await database.withContext(data.fixture.own, async (transaction) => {
-        const repository = new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false);
-        const inventory = await repository.read(data.readContext);
-        expect(await repository.readPreparation(data.tribeId)).toMatchObject({ prepared: false });
-        await expect(repository.readPreparation(randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
-        return inventory;
-      });
-      expect(observed).toMatchObject({ unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 });
-      expect(observed).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: true });
-      expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id in (${unknownId},${privilegedId}) order by user_id`)).rows)).toEqual(before);
-      expect(observed).not.toHaveProperty("members");
-      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
-      await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).read(data.readContext))).rejects.toMatchObject({ code: "permission_denied" });
+      expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
+      const operationId = randomUUID();
+      expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 1 })).toMatchObject({ state: "completed", result: { controlActivated: true } });
+      const members = async () => Object.fromEntries((await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ user_id: string; role: string; status: string; status_reason: string; commercial_recovery_status: string | null }>(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id<>${data.fixture.userId}`))).rows.map((row) => [Object.entries(ids).find(([, id]) => id === row.user_id)?.[0], { role: row.role, status: row.status, reason: row.status_reason, recovery: row.commercial_recovery_status }]));
+      const converted = { role: "tribemate", status: "active", reason: "none" };
+      const expected = {
+        paidBlocked: { ...converted, recovery: "active" }, inactiveRemoved: { ...converted, recovery: null }, guardian: { ...converted, recovery: null }, mutedBlocked: { ...converted, recovery: "muted" },
+        abandoned: { role: "tribemate", status: "blocked", reason: "payment_blocked", recovery: "active" }, conduct: { role: "tribemate", status: "blocked", reason: "conduct_blocked", recovery: null }, muted: { role: "tribemate", status: "muted", reason: "none", recovery: null },
+      };
+      expect(await members()).toEqual(expected);
+      const ledgerId = (await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ id: string }>(sql`select id from public.academy_admission_operations where tribe_id=${data.tribeId} and idempotency_key=${operationId}`))).rows[0].id;
+      const audit = (await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ member_user_id: string; actor_user_id: string; decision: string; basis: string; previous_role: string; previous_status: string; resulting_status: string; operation_id: string }>(sql`select member_user_id,actor_user_id,decision,basis,previous_role,previous_status,resulting_status,operation_id from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId} order by member_user_id`))).rows;
+      const conversions = audit.filter((row) => row.decision === "convert_free");
+      expect(conversions.map((row) => row.member_user_id).sort()).toEqual([ids.paidBlocked, ids.inactiveRemoved, ids.guardian, ids.mutedBlocked].sort());
+      expect(conversions.every((row) => row.basis === "academy_activation_conversion" && row.resulting_status === "active" && row.actor_user_id === data.fixture.userId && row.operation_id === ledgerId)).toBe(true);
+      // The pending checkout is not converted: only the snapshot a paid invitation promises is recorded, audited.
+      expect(audit.filter((row) => row.decision !== "convert_free")).toEqual([{ member_user_id: ids.abandoned, actor_user_id: data.fixture.userId, decision: "recover_active", basis: "academy_activation_pending_checkout", previous_role: "tribemate", previous_status: "blocked", resulting_status: "blocked", operation_id: ledgerId }]);
+      expect(audit.find((row) => row.member_user_id === ids.guardian)).toMatchObject({ previous_role: "guardian", previous_status: "blocked" });
+      const reconcile = (status: "authorized" | "cancelled") => createSubscriptionMembershipReconciliationRepository(database, { userId: data.fixture.userId, email: null }, status).reconcileProviderSubscribers({ priceId, tribeSlug: slug, source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton });
+      // The payment of the pending checkout confirms after the activation: it joins as an active paid member.
+      await reconcile("authorized");
+      const afterPayment = await members();
+      expect(afterPayment.abandoned).toEqual({ role: "tribemate", status: "active", reason: "none", recovery: "active" });
+      // A late cancellation of an old preapproval must not block or remove a converted member again.
+      await reconcile("cancelled");
+      const afterCancellation = await members();
+      for (const key of ["paidBlocked", "inactiveRemoved", "guardian", "mutedBlocked", "conduct", "muted"] as const) expect(afterCancellation[key]).toEqual(expected[key]);
+      // A replayed activation neither converts again nor duplicates the audit.
+      expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId, confirmed: true, type: "activate_admission_policy", expectedVersion: 1 })).toMatchObject({ state: "completed", replayed: true });
+      expect((await database.withContext(data.fixture.own, (transaction) => transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.tribe_member_commercial_resolutions where tribe_id=${data.tribeId}`))).rows[0].count).toBe(5);
     });
-  }, 300_000);
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it("should reject a new policy write without hosting security and keep the resend of a registered original unresolved", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database), operationId = randomUUID();
+      await data.initialize(operationId);
+      // The same leader after the deployment lost its hosting messaging security.
+      const unconfigured = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), () => readMessagingHostingSecurityConfig({}), () => { throw new Error("Preparation must not be composed"); });
+      const context = data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
+      await expect(unconfigured.initialize({ context, operationId, confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "operation_unresolved", operationId });
+      await expect(unconfigured.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_security_unconfigured" } });
+      // Keys whose proofs were never enrolled (a rotation without enrollment) and a recovery lock are platform requirements too, not an absent resource.
+      const unenrolled = await createUnenrolledSecurityConfig(data.fixture.config);
+      const unenrolledRepository = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), async () => unenrolled, () => { throw new Error("Preparation must not be composed"); });
+      await expect(unenrolledRepository.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_security_unconfigured", cause: { code: "messaging_crypto_key_continuity_unproven" } } });
+      const lockedRepository = new PostgresAdmissionPolicyRepository((_context, work) => database.withContext(data.fixture.own, work), async () => ({ ...data.fixture.config, recoveryLocked: true }), () => { throw new Error("Preparation must not be composed"); });
+      await expect(lockedRepository.initialize({ context, operationId: randomUUID(), confirmed: true, type: "initialize_admission_policy" })).rejects.toMatchObject({ code: "admission_ineligible", cause: { code: "admission_recovery_locked" } });
+      const ledger = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${data.tribeId}`)).rows[0].count);
+      expect(ledger).toBe(1);
+      // The rules read runs the same checks inside its own transaction and names each requirement before any write.
+      const readRequirements = async (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => {
+        const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, run) => database.withContext(data.fixture.own, run));
+        const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null, readSecurityConfig }).useCases;
+        const result = await policy.execute({ tribeId: data.tribeId, requestId: randomUUID() });
+        return result.ok ? result.value.preparation.requirements : [];
+      };
+      expect(await readRequirements(async () => unenrolled)).toContain("admission_security_unconfigured");
+      expect(await readRequirements(async () => ({ ...data.fixture.config, recoveryLocked: true }))).toContain("admission_recovery_locked");
+      expect(await readRequirements(async () => data.fixture.config)).not.toContain("admission_security_unconfigured");
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it("should count the commercial members the first activation converts and reject a foreign inventory scope", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database); await data.initialize();
+      const memberId = randomUUID(), abandonedId = randomUUID();
+      await database.withContext(data.fixture.own, async (transaction) => {
+        for (const userId of [memberId, abandonedId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic preflight account',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${memberId},'guardian','removed','payment_blocked','muted'),(${data.tribeId},${abandonedId},'tribemate','blocked','payment_blocked',null)`);
+      });
+      expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false });
+      const facts = await new PostgresAdmissionPolicyViewFactsReader((_context, work) => database.withContext(data.fixture.own, work), null, async () => null).read(data.readContext, (await data.reader.read(data.readContext)).policy);
+      expect(facts).toMatchObject({ freeConversionMemberCount: 1 });
+      await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).readPreparation(randomUUID()))).rejects.toMatchObject({ code: "permission_denied" });
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
   it("should compose current policy absence and protected loss through native query owners without secret access", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
-      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null }).useCases;
+      const policy = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPolicyQueryModule({ composePreparation: null, readSecurityConfig: async () => data.fixture.config }).useCases;
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
       expect(await policy.execute(query)).toMatchObject({ ok: true, value: { state: "not_configured", policy: null, controlActivated: false, preparation: { state: "not_evaluated" }, impact: { pendingRequestCount: 0 } } });
       await data.initialize();
@@ -341,8 +424,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       /** Mirrors the production composition: the query reuses the commands' preparation evaluator instead of reporting it as not evaluated. */
       const commands = admissions.createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, { isPrepared: async () => true }, async () => false) });
       const query = { tribeId: data.tribeId, requestId: randomUUID() };
-      expect(await admissions.createPolicyQueryModule({ composePreparation: null }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
-      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation }).useCases.execute(query);
+      expect(await admissions.createPolicyQueryModule({ composePreparation: null, readSecurityConfig: async () => data.fixture.config }).useCases.execute(query)).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "not_evaluated", requirements: [] } } });
+      const evaluated = await admissions.createPolicyQueryModule({ composePreparation: commands.composePreparation, readSecurityConfig: async () => data.fixture.config }).useCases.execute(query);
       expect(evaluated).toMatchObject({ ok: true, value: { state: "draft", preparation: { state: "evaluated" } } });
       expect(evaluated.ok && evaluated.value.preparation.requirements).toContain("verification_unavailable");
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select admissions_control_activated_at is null as not_activated from public.tribes where id=${data.tribeId}`)).rows)).toEqual([{ not_activated: true }]);
@@ -518,7 +601,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
         expect(await saved.json()).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 2, changed: true, controlActivated: false } });
         const preflight = await request("GET", "/policy/preflight");
         expect(preflight.status).toBe(200);
-        expect(await preflight.json()).toEqual({ prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } });
+        expect(await preflight.json()).toEqual({ prepared: true, reasons: [] });
         expect((await request("PUT", "/policy", { ...edit, operationId: randomUUID() })).status).toBe(409);
         const activation = await request("POST", "/policy/activate", { operationId: randomUUID(), confirmed: true, expectedVersion: 2 });
         expect(activation.status).toBe(409);
@@ -559,15 +642,15 @@ async function expectGuidedFlowFits(page: Page, label: string): Promise<void> {
   await page.waitForFunction((name) => { const form = document.querySelector(`form[aria-label="${CSS.escape(name)}"]`); return form !== null && form.scrollWidth <= form.clientWidth + 1; }, label, { timeout: 10_000 });
 }
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy settings browser", () => {
-  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should stop the chained activation on memberships blocked by payment and clear it once each one is decided in $engine", async ({ engine, browserType }) => {
+  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should announce in the final step how many memberships blocked by payment become free members, with no review step, in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database, await readMessagingHostingSecurityConfig()), slug = `policy-${data.tribeId}`;
       await data.initialize();
       await database.withContext(data.fixture.own, async (transaction) => {
-        const unknown = randomUUID(), crossed = randomUUID(), guardian = randomUUID();
-        for (const [userId, name] of [[unknown, "Integrante sintética A"], [crossed, "Integrante sintética B"], [guardian, "Guardián sintético"]]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},${name},${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
-        // A canonical pair (removed + subscription_inactive), a crossed pair (blocked + subscription_inactive) and a guardian: the review lists every commercial combination.
-        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${crossed},'tribemate','blocked','subscription_inactive',null),(${data.tribeId},${guardian},'guardian','blocked','payment_blocked','muted')`);
+        const paid = randomUUID(), guardian = randomUUID(), abandoned = randomUUID();
+        for (const [userId, name] of [[paid, "Integrante sintética A"], [guardian, "Guardián sintético"], [abandoned, "Checkout sintético"]]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},${name},${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
+        // Two former members convert; the abandoned paid checkout never joined and is not counted.
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${paid},'tribemate','blocked','payment_blocked','active'),(${data.tribeId},${guardian},'guardian','removed','subscription_inactive','muted'),(${data.tribeId},${abandoned},'tribemate','blocked','payment_blocked',null)`);
       });
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const browser = await browserType.launch({ headless: true });
@@ -584,56 +667,15 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
               const next = page.getByRole("button", { name: "Continuar", exact: true });
               await next.waitFor({ timeout: 90_000 });
-              /** The server-read preflight of the saved draft already names what blocks activation. */
-              const impact = page.getByRole("region", { name: "Lo que falta resolver" });
-              await impact.waitFor({ timeout: 90_000 });
-              const desktop = width === 1280;
-              expect((await impact.textContent())?.includes("Membresías bloqueadas por pago sin revisar: 2.")).toBe(desktop);
-              expect(await impact.textContent()).toContain("Guardianes bloqueados por pago: 1.");
-              /** The chained flow stops at the membership review: its continue action stays disabled and the final action is never offered. */
-              await next.click({ timeout: 90_000 });
               while (await next.count() && await next.isEnabled()) await next.click();
-              await page.getByText(COMMERCIAL_MEMBERSHIP_REVIEW_COPY.pendingBlocked, { exact: true }).first().waitFor({ timeout: 90_000 });
-              expect(await next.isDisabled()).toBe(true);
-              expect(await page.getByRole("button", { name: "Guardar y activar admisiones", exact: true }).count()).toBe(0);
-              const rows = page.getByRole("list", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, exact: true }).locator(":scope > li");
-              expect(await rows.count()).toBe(desktop ? 3 : 1);
+              await page.getByRole("navigation", { name: "Paso 4 de 4", exact: true }).waitFor({ timeout: 90_000 });
+              await page.getByText(freeConversionImpactCopy(2), { exact: true }).waitFor({ timeout: 90_000 });
               await expectGuidedFlowFits(page, "Configurar reglas de admisión");
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               expect(runtimeErrors).toEqual([]);
-              await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-preflight.png`), fullPage: true });
+              await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-free-conversion.png`), fullPage: true });
               const forbidden = [data.fixture.userId, data.sessionId, data.sessionToken, secret];
-              /** Each context writes its own export: a capture file holds only the captures of the page that wrote it. */
-              const capture = (name: string, outputFile: string) => captureAdmissionReview(page, name, forbidden, outputFile, { selector: 'section[aria-label="Reglas de admisión"]' });
-              if (desktop) await capture("admission-policy-preflight", "preflight-captures.json");
-              /**
-               * Decides one listed membership through the real audited resolution.
-               * @param row - Listed membership row. @param decision - Visible decision label. @param remaining - Rows expected afterwards.
-               */
-              const decide = async (row: ReturnType<typeof rows.first>, decision: string, remaining: number) => {
-                await row.getByRole("radio", { name: decision, exact: true }).click();
-                await row.getByRole("checkbox", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.confirm, exact: true }).check();
-                const resolution = page.waitForResponse((result) => result.request().method() === "POST" && new URL(result.url()).pathname.endsWith("/resolution"));
-                await row.getByRole("button", { name: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.submit, exact: true }).click();
-                expect((await resolution).status()).toBe(200);
-                if (remaining > 0) await page.waitForFunction(({ label, count }) => document.querySelectorAll(`ul[aria-label="${CSS.escape(label)}"] > li`).length === count, { label: COMMERCIAL_MEMBERSHIP_REVIEW_COPY.listLabel, count: remaining });
-              };
-              /** Desktop decides both unknown histories (the canonical and the crossed pair); mobile retires the remaining guardian. */
-              if (desktop) {
-                const unknownRows = rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history });
-                await decide(unknownRows.first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate.recover_active, 2);
-                await capture("admission-policy-membership-decided", "preflight-captures.json");
-                await decide(rows.filter({ hasText: COMMERCIAL_MEMBERSHIP_REVIEW_LABEL.kind.unknown_history }).first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.tribemate.recover_muted, 1);
-                expect(await next.isDisabled()).toBe(true);
-                await capture("admission-policy-membership-guardian", "preflight-captures.json");
-              } else {
-                await decide(rows.first(), COMMERCIAL_MEMBERSHIP_DECISION_COPY.guardian.retire, 0);
-                await page.getByText(commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow), { exact: true }).first().waitFor({ timeout: 90_000 });
-                await impact.waitFor({ state: "detached" });
-                await page.getByRole("button", { name: ADMISSION_POLICY_DRAFT_COPY.activateNow, exact: true }).waitFor();
-                await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-memberships-done.png`), fullPage: true });
-                await capture("admission-policy-memberships-done", "memberships-done-captures.json");
-              }
+              if (width === 1280) await captureAdmissionReview(page, "admission-policy-free-conversion", forbidden, "preflight-captures.json", { selector: 'section[aria-label="Reglas de admisión"]' });
               expect(activationRequests).toBe(0);
             } finally { await context.close(); }
           }

@@ -14,14 +14,15 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAdmissionVerificationReadinessReader } from "@/src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { VERIFICATION_EMAIL_CHANNEL } from "@/src/modules/messaging/constants/verification-delivery";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionNotificationEmailSettings } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationEmailSettingsChangePlan } from "../../domain/entities/admission-notification-email-settings";
-import type { AdmissionNotificationEmailSettingsCommand, AdmissionNotificationEmailSettingsRepository } from "../../domain/repositories/admission-notification-email-settings-repository";
-import { planAdmissionNotificationEmailSettingsChange, resolveAdmissionNotificationEmailSettings } from "../../domain/policies/admission-notification-email-settings";
+import type { AdmissionNotificationEmailSettingsCommand, AdmissionNotificationEmailSettingsCurrent, AdmissionNotificationEmailSettingsRepository } from "../../domain/repositories/admission-notification-email-settings-repository";
+import { isAdmissionNotificationPreparedEmailAvailable, planAdmissionNotificationEmailSettingsChange, resolveAdmissionNotificationEmailSettings } from "../../domain/policies/admission-notification-email-settings";
 import { admissionEmailSettingsChangeResultSchema } from "../../application/results/admission-email-settings-result-schemas";
 import { ADMISSION_EMAIL_SETTINGS_AUDIT, ADMISSION_EMAIL_SETTINGS_OPERATION, ADMISSION_EMAIL_SETTINGS_REJECTION, ADMISSION_EMAIL_SETTINGS_STATUS } from "../../constants/admission-notification-email-settings";
 
@@ -37,8 +38,13 @@ function mapSettings(row: SettingsRow): AdmissionNotificationEmailSettings {
 
 /** Separates read-only defaults, original confirmed outcomes and current tested email authority. */
 export class PostgresAdmissionNotificationEmailSettingsRepository implements AdmissionNotificationEmailSettingsRepository {
-  /** @param execute - Native current-user transaction executor. @param readSecurityConfig - Current local hosting configuration; never a provider call. */
-  constructor(private readonly execute: SettingsDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  /**
+   * @param execute - Native current-user transaction executor.
+   * @param readSecurityConfig - Current local hosting configuration; never a provider call.
+   * @param readPlatformSecurity - Runs, inside the authorized read transaction, the same hosting security checks the ledger runs before
+   * signing a change (import and enrolled proofs), without exposing keys; null when a change can be protected.
+   */
+  constructor(private readonly execute: SettingsDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly readPlatformSecurity: (database: RequestDatabase) => Promise<PlatformSecurityRequirement | null>) {}
 
   /** @param database - Original transaction. @param context - Server-resolved current native actor. @param mutate - Requires this settings action's own operation scope only when changing configuration. @returns After canonical leadership, session and academy checks. */
   private async authorize(database: RequestDatabase, context: AuthorizedAdmissionContext, mutate: boolean): Promise<void> {
@@ -53,12 +59,16 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
     return row ? mapSettings(row) : null;
   }
 
-  /** @param database - Original transaction retaining the canonical tribe fence. @param context - This exact settings mutation's authority. @returns Current selected version's tested email readiness, independent of verification quota or OTP policy. */
-  private async prepared(database: RequestDatabase, context: AuthorizedAdmissionContext): Promise<boolean> {
+  /**
+   * @param database - Original transaction retaining the canonical tribe fence. @param context - This exact settings action's authority.
+   * @param mutate - Whether a change asks (its operation scope is required) or a read reports the capability before any write.
+   * @returns Current selected version's tested email readiness, independent of verification quota or OTP policy.
+   */
+  private async prepared(database: RequestDatabase, context: AuthorizedAdmissionContext, mutate: boolean): Promise<boolean> {
     const selected = (await database.execute<{ id: string; selected_version: number }>(sql`select id,selected_version from public.tenant_messaging_connections where tribe_id=${context.tribeId} and is_selected and retired_at is null order by id for share`)).rows[0];
     const readiness = new PostgresAdmissionVerificationReadinessReader(database, async (transaction, tribeId) => {
       if (tribeId !== context.tribeId) return false;
-      await this.authorize(transaction, context, true);
+      await this.authorize(transaction, context, mutate);
       return true;
     }, this.readSecurityConfig);
     const result = await readiness.read({ tribeId: context.tribeId, connectionId: selected?.id ?? null, connectionVersion: selected?.selected_version ?? null, channel: VERIFICATION_EMAIL_CHANNEL, requiresSmsAlternative: false });
@@ -66,15 +76,24 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
     return Boolean(result.channelPrepared && security && !current.recoveryLocked && security.environment === current.environment && security.securityEpoch === current.securityEpoch && current.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(security.credentialKeyId));
   }
 
-  /** @param context - Actual current leader/session and own tribe. @returns Read-only settings without credential, provider, ledger or initialization work. */
-  async get(context: AuthorizedAdmissionContext): Promise<AdmissionNotificationEmailSettings> {
+  /**
+   * @param context - Actual current leader/session and own tribe.
+   * @returns Read-only settings, the platform requirement that blocks changing them and, while the email is off, whether enabling it
+   * would pass the write's capability rule; without credential, provider, ledger or initialization work.
+   */
+  async get(context: AuthorizedAdmissionContext): Promise<AdmissionNotificationEmailSettingsCurrent> {
     return this.execute(context, async (database) => {
       await this.authorize(database, context, false);
       const stored = await this.read(database, context.tribeId, false);
-      await this.authorize(database, context, false);
+      // Every change signs its original through the admission ledger; the leader learns before writing whether the platform can protect it.
+      const platformRequirement = await this.readPlatformSecurity(database);
       const settings = resolveAdmissionNotificationEmailSettings(context.tribeId, stored);
       if (!settings) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      return settings;
+      // The same readiness the write checks before enabling, so the screen asks for the connection exactly when the write would refuse.
+      const preparedEmailAvailable = settings.enabled || platformRequirement !== null ? null
+        : isAdmissionNotificationPreparedEmailAvailable(context.tribeId, { tribeId: context.tribeId, available: await this.prepared(database, context, false) });
+      await this.authorize(database, context, false);
+      return { settings, platformRequirement, preparedEmailAvailable };
     });
   }
 
@@ -89,7 +108,7 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
         const stored = await this.read(database, context.tribeId, true);
         const timeZoneExists = (await database.execute(sql`select name from pg_timezone_names where name=${input.timeZone}`)).rows[0];
         if (!timeZoneExists) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-        const available = input.enabled && (!stored?.enabled || stored.timeZone !== input.timeZone) ? await this.prepared(database, context) : false;
+        const available = input.enabled && (!stored?.enabled || stored.timeZone !== input.timeZone) ? await this.prepared(database, context, true) : false;
         const now = Number((await database.execute<{ now: string }>(sql`select (extract(epoch from clock_timestamp())*1000000)::bigint::text as now`)).rows[0].now);
         const plan = planAdmissionNotificationEmailSettingsChange({ tribeId: context.tribeId, stored, change: input, preparedEmail: { tribeId: context.tribeId, available }, nowMicroseconds: now });
         if (plan.status !== ADMISSION_EMAIL_SETTINGS_STATUS.changed) return plan;
@@ -100,7 +119,7 @@ export class PostgresAdmissionNotificationEmailSettingsRepository implements Adm
         if (!written) return { status: ADMISSION_EMAIL_SETTINGS_STATUS.rejected, reason: ADMISSION_EMAIL_SETTINGS_REJECTION.versionConflict };
         const saved = mapSettings(written);
         await new PostgresAdmissionAuditRepository(database).append(createAdmissionResourceAuditEvent({ tribeId: context.tribeId, actorUserId: context.userId, resourceType: ADMISSION_EMAIL_SETTINGS_AUDIT.resource, resourceId: context.tribeId, operationId: ledgerId, eventType: ADMISSION_EMAIL_SETTINGS_AUDIT.event, resourceVersion: saved.version, rule: null, cause: null, metadata: { previousVersion: stored?.version ?? null, enabled: saved.enabled, timeZone: saved.timeZone }, createdAt: await admissionDatabaseNow(database) }));
-        if (saved.enabled && !await this.prepared(database, context)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+        if (saved.enabled && !await this.prepared(database, context, true)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
         await this.authorize(database, context, true);
         return { status: ADMISSION_EMAIL_SETTINGS_STATUS.changed, settings: saved };
       });

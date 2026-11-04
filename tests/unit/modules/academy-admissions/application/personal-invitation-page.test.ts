@@ -7,6 +7,10 @@ import { GetPersonalInvitationOverviewUseCase } from "@/src/modules/academy-admi
 import { GetPersonalInvitationPageUseCase } from "@/src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case";
 import { personalInvitationPageStateSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-page";
 import { loadPersonalInvitationPageState } from "@/src/modules/academy-admissions/infrastructure/composition/personal-invitation-page";
+import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
+import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
 
 /** @returns Controlled own ports and a canonical opaque proposal, without replacing SDK/database/schema libraries. */
 function fixture() {
@@ -27,6 +31,15 @@ describe("personal invitation SSR page", () => {
     expect(serialized).not.toContain(data.account.normalizedEmail);
     expect(serialized).not.toContain(data.account.session.id);
     expect(data.preview.execute).toHaveBeenCalledExactlyOnceWith(data.query, data.account);
+  });
+
+  it("should project a platform security rejection of the preview as a typed unavailable page, not an unexpected failure", async () => {
+    const data = fixture();
+    const reader = { readOverview: vi.fn(async () => { throw new AdmissionOperationError("platform_security_unavailable", { cause: new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.keyContinuityUnproven) }); }) };
+    const page = new GetPersonalInvitationPageUseCase(data.accounts, new GetPersonalInvitationOverviewUseCase(data.accounts, reader, () => data.now), () => data.now);
+    const state = await loadPersonalInvitationPageState({ params: { token: data.token }, query: {} }, async () => ({ page }));
+    expect(state).toEqual({ kind: "unavailable", code: "platform_security_unavailable", message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable });
+    expect(personalInvitationPageStateSchema.safeParse(state).success).toBe(true);
   });
 
   it("should reject a transient different preview account even when surrounding page reads return to the first account", async () => {

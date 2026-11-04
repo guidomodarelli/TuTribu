@@ -5,6 +5,8 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingSecretAccessContext, AuthorizedMessagingContext, MessagingSecurityFacts } from "../../domain/repositories/messaging-repositories";
 import type { MessagingResourceExposure, MessagingResourceExposureRecorder } from "../../domain/repositories/messaging-resource-exposure";
 import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
+import { MessagingPlatformSecurityError } from "../../domain/errors/messaging-platform-security-error";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { MESSAGING_AUTHORIZATION_PURPOSE } from "../../constants/messaging-connection";
 import { MESSAGING_AUTHORIZED_EXPOSURE } from "../../constants/messaging-authorized-exposure";
@@ -36,7 +38,8 @@ export class PostgresMessagingResourceExposureRecorder implements MessagingResou
       const authorization = await authorizeMessagingSecret(database, context);
       const requireCurrent = async () => {
         const facts = await this.readSecurityFacts();
-        if (facts.recoveryLocked || facts.environment !== context.environment || facts.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
+        if (facts.recoveryLocked) throw new MessagingPlatformSecurityError(PLATFORM_SECURITY_REQUIREMENT.recoveryLocked);
+        if (facts.environment !== context.environment || facts.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
         const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
         if (!messagingSecretLifetimeIsCurrent(authorization, now)) throw new MessagingSecretAccessError(messagingSecretLifetimeFailure(authorization, now));
       };

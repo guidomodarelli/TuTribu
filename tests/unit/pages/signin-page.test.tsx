@@ -216,8 +216,23 @@ describe("SignInPage", () => {
 
     await waitFor(() => {
       expect(startGoogleSignInMock).toHaveBeenCalledWith(
-        "/matematica-pro?preapproval_id=preapproval-1"
+        "/matematica-pro?preapproval_id=preapproval-1",
+        { selectAccount: false }
       );
+    });
+  });
+
+  it("asks Google for its account chooser after an explicit account change", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+
+    render(
+      await SignInContent({
+        searchParams: Promise.resolve({ callbackUrl: "/admissions/matematica-pro", selectAccount: "1" }),
+      })
+    );
+
+    await waitFor(() => {
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/admissions/matematica-pro", { selectAccount: true });
     });
   });
 
@@ -231,7 +246,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/", { selectAccount: false });
     });
 
     expect(
@@ -263,7 +278,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(startGoogleSignInMock).toHaveBeenCalledWith("/auth/error");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/auth/error", { selectAccount: false });
     });
   });
 
@@ -277,7 +292,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/", { selectAccount: false });
     });
   });
 
@@ -320,7 +335,7 @@ describe("SignInPage", () => {
       screen.queryByRole("heading", { name: "Abrí TuTribu en tu navegador" })
     ).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/", { selectAccount: false });
     });
   });
   describe("development sign-in", () => {
@@ -390,7 +405,7 @@ describe("SignInPage", () => {
         screen.queryByRole("form", { name: "Acceso de desarrollo" })
       ).not.toBeInTheDocument();
       await waitFor(() => {
-        expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+        expect(startGoogleSignInMock).toHaveBeenCalledWith("/", { selectAccount: false });
       });
     });
   });

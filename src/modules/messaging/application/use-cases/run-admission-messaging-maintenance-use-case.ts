@@ -1,6 +1,6 @@
 /** Coordinates the fixed admission owners under one deadline without retrying uncertain effects. @module run-admission-messaging-maintenance-use-case */
 import type { AdmissionMessagingMaintenanceBeginning, AdmissionMessagingMaintenancePhase, AdmissionMessagingMaintenancePhaseOutput, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenancePhaseSnapshot, AdmissionMessagingMaintenanceProgress, AdmissionMessagingMaintenanceResult, AdmissionMessagingMaintenanceRuntime, AdmissionMessagingMaintenanceWork } from "../../domain/repositories/admission-messaging-maintenance";
-import { AdmissionMessagingMaintenanceError } from "../../domain/errors/admission-messaging-maintenance-error";
+import { AdmissionMessagingMaintenanceError, findAdmissionMessagingMaintenanceError } from "../../domain/errors/admission-messaging-maintenance-error";
 import { ADMISSION_MESSAGING_MAINTENANCE_BUDGET_MS, ADMISSION_MESSAGING_MAINTENANCE_FINISH_RESERVE_MS, ADMISSION_MESSAGING_MAINTENANCE_OBSERVATION, ADMISSION_MESSAGING_MAINTENANCE_OPERATION, ADMISSION_MESSAGING_MAINTENANCE_PHASES, ADMISSION_MESSAGING_MAINTENANCE_PHASE_STATUS, ADMISSION_MESSAGING_MAINTENANCE_REASON, ADMISSION_MESSAGING_MAINTENANCE_RUN_STATUS, ADMISSION_MESSAGING_MAINTENANCE_RUNNING_PHASE } from "../../constants/admission-messaging-maintenance";
 import { observeWithin } from "./observe-dispatch-deadline";
 import { admissionMaintenanceCompleted, admissionMaintenancePhaseDeadline, createUnavailableAdmissionMaintenanceHealth, createUnstartedAdmissionMaintenancePhase, createUnstartedAdmissionMaintenancePhases, projectAdmissionMaintenancePhase } from "./admission-messaging-maintenance-state";
@@ -40,7 +40,7 @@ export class RunAdmissionMessagingMaintenanceUseCase {
   /** @param error - Original private failure. @param runId - Actual correlation, never a promise of registration. @param phase - Actual fixed owner, if started. @returns A closed unresolved/known-denial output without inferring rollback. */
   private failure(error: unknown, runId: string, phase?: AdmissionMessagingMaintenancePhase): AdmissionMessagingMaintenancePhaseOutput {
     this.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId, ...(phase ? { phase } : {}) });
-    const reason = error instanceof AdmissionMessagingMaintenanceError ? error.reason : ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
+    const reason = findAdmissionMessagingMaintenanceError(error)?.reason ?? ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
     const status = maintenanceFailureStatus(reason);
     return { status, reason, metrics: [], hasRemainingWork: true };
   }

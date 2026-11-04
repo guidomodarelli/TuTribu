@@ -1,6 +1,7 @@
 /** Owns settings workflow vocabulary and safe Spanish feedback without encoding provider messages. @module admission-notification-settings-browser-constants */
 import type { AdmissionNotificationEmailSettingsRejectionReason } from "../domain/entities/admission-notification-email-settings";
 import { ADMISSION_EMAIL_SETTINGS_REJECTION } from "./admission-notification-email-settings";
+import { ADMISSION_ERROR_CODE, type AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 /** Distinguishes cancellable reads, explicit writes and uncertainty requiring original recovery. */
 export const ADMISSION_NOTIFICATION_SETTINGS_PHASE = { checking: "checking", reading: "reading", writing: "writing", idle: "idle", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
@@ -15,6 +16,19 @@ export type AdmissionNotificationSettingsEmailPlan = "unchanged" | "save" | "ret
 /** Names each email outcome of the review step. */
 export const ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN = { unchanged: "unchanged", save: "save", retry: "retry", blocked: "blocked" } as const satisfies Record<string, AdmissionNotificationSettingsEmailPlan>;
 
+/**
+ * Definite write rejections whose meaning depends on current state: a lost access, or a platform requirement that only the TuTribu
+ * team resolves. Nothing was applied, so a fresh read decides what stays visible instead of hiding the whole section.
+ */
+export const ADMISSION_NOTIFICATION_SETTINGS_WRITE_FAILURES_CHECKED_BY_READ: readonly AdmissionErrorCode[] = [ADMISSION_ERROR_CODE.permissionDenied, ADMISSION_ERROR_CODE.resourceUnavailable, ADMISSION_ERROR_CODE.platformSecurityUnavailable];
+
+/**
+ * Terminal email rejections that leave the read view current: the server changed nothing and the observed version still holds, so the
+ * leader may correct the draft (for example, keep the tribe email off and save only the frequency) without another read. A version
+ * conflict or a crossed scope still needs a fresh read before another save.
+ */
+export const ADMISSION_NOTIFICATION_SETTINGS_REJECTIONS_KEEPING_VIEW: readonly AdmissionNotificationEmailSettingsRejectionReason[] = [ADMISSION_EMAIL_SETTINGS_REJECTION.capabilityUnavailable];
+
 /** Stable keys of the leader's guided steps. */
 export type AdmissionNotificationSettingsGuidedStep = "tribe-email" | "frequency" | "review";
 /** Names each guided step of the leader. */
@@ -28,7 +42,10 @@ export const ADMISSION_NOTIFICATION_SETTINGS_COPY = {
   changedViewer: "La cuenta cambió. Volvé a cargar la página antes de continuar.",
   storageFailed: "No pudimos conservar el cambio en este navegador. Consultá el estado antes de continuar.",
   uncertain: "Todavía no confirmamos el resultado. Consultá el cambio original antes de iniciar otro.",
-  originalAbsent: "El cambio original todavía no aparece registrado. Podés volver a consultarlo o reintentarlo con la misma referencia y una nueva confirmación.",
+  /** An unregistered original applied nothing: its values reopen on the review for a new save. */
+  originalUnregistered: "El cambio anterior del correo de la tribu no llegó a registrarse. Revisá los valores y guardá de nuevo.",
+  /** The same, while the platform cannot protect a tribe email change: nothing is left to retry and saving waits for the TuTribu team. */
+  originalUnregisteredPlatform: "El cambio anterior del correo de la tribu no llegó a registrarse y no hace falta reintentarlo. Vas a poder cambiarlo cuando el equipo de TuTribu resuelva la seguridad de la plataforma.",
   originalStarted: "El cambio sigue pendiente. Podés consultarlo o reintentar el original con una confirmación nueva.",
   recovered: "Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.",
   preferenceConflict: "Tu preferencia cambió en otra ventana. Consultá el estado actual y confirmá tu elección nuevamente.",
@@ -39,6 +56,9 @@ export const ADMISSION_NOTIFICATION_SETTINGS_COPY = {
   saved: "Tus avisos quedaron guardados.",
   preferencePending: "Tu preferencia todavía no se guardó.",
   emailSavedPreferencePending: "El correo de la tribu quedó guardado. Falta guardar tu preferencia.",
+  preferenceSavedEmailFailed: "Tu preferencia quedó guardada. El correo de la tribu no se guardó.",
+  emailNotSaved: "El correo de la tribu no se guardó.",
+  platformConsequence: "Mientras tanto no se puede cambiar el correo de la tribu. Tu frecuencia de avisos se puede seguir guardando.",
   staleRead: "Consultá el estado actual antes de guardar otro cambio.",
   noChanges: "No hay cambios para guardar.",
   confirmRequired: "Marcá la confirmación para guardar.",

@@ -80,16 +80,18 @@ export function getAdmissionRetryAllowedAt(request: Pick<AdmissionRequest, "stat
 
 /**
  * Proposes owner/leader cancellation independently of the current admission opening.
- * @param input - Current request/version, actual scoped actor, explicit management reason and SQL clock.
+ * @param input - Current request/version, actual scoped actor, optional management reason and SQL clock.
  * @returns A terminal proposal or a closed denial; persistence must commit its decision/notice atomically.
  */
 export function proposeAdmissionCancellation(input: { request: AdmissionRequest; expectedVersion: number; decisionId: string; actor: AdmissionActorFacts; internalReason: string | null; now: Date }) {
   const { request, actor } = input;
   if (request.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== input.expectedVersion) return { allowed: false as const, code: ADMISSION_ERROR_CODE.requestConflict };
-  if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return { allowed: false as const, code: ADMISSION_ERROR_CODE.admissionIneligible };
+  if (!Number.isFinite(input.now.getTime()) || input.now < request.submittedAt) return { allowed: false as const, code: ADMISSION_ERROR_CODE.admissionIneligible };
+  if (input.now >= request.expiresAt) return { allowed: false as const, code: ADMISSION_ERROR_CODE.requestExpired };
   const own = actor.userId === request.userId;
   if (!canPerformAdmissionAction(actor, own ? ADMISSION_ACTION.cancelOwnRequest : ADMISSION_ACTION.cancelByManagement, { tribeId: request.tribeId, applicantUserId: request.userId })) return { allowed: false as const, code: ADMISSION_ERROR_CODE.permissionDenied };
   const reason = input.internalReason?.trim() || null;
-  if (!own && !reason || reason && reason.length > ADMISSION_LIMIT.internalMessageCharacters) return { allowed: false as const, code: ADMISSION_ERROR_CODE.invalidInput };
+  // Management may cancel without an internal reason; an empty or blank one is stored as none.
+  if (reason && reason.length > ADMISSION_LIMIT.internalMessageCharacters) return { allowed: false as const, code: ADMISSION_ERROR_CODE.invalidInput };
   return { allowed: true as const, request: { ...request, status: ADMISSION_REQUEST_STATUS.cancelled, version: request.version + 1, decisionId: input.decisionId, cancelReason: reason, resolvedAt: new Date(input.now) }, rule: own ? ADMISSION_DECISION_RULE.applicantCancellation : ADMISSION_DECISION_RULE.managementCancellation, internalReason: reason };
 }

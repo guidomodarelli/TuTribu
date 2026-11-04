@@ -154,12 +154,18 @@ export const TRIBE_SUBSCRIPTION_PRODUCT_KEY = {
   membership: "membership",
 } as const satisfies Record<string, TribeSubscriptionProductKey>;
 
-/** Renewal state of an academy subscription as confirmed locally. */
+/**
+ * Renewal state of an academy subscription as confirmed locally. `pending`
+ * means the checkout reached the provider and waits for its payment; a local
+ * reservation that never reached the provider reads as `none`. `paused` is a
+ * live recurrence the provider stopped charging for now.
+ */
 export type AcademySubscriptionRenewalStatus =
   | "active"
   | "canceled"
   | "canceling"
   | "none"
+  | "paused"
   | "pending";
 
 export const ACADEMY_SUBSCRIPTION_RENEWAL_STATUS = {
@@ -167,11 +173,19 @@ export const ACADEMY_SUBSCRIPTION_RENEWAL_STATUS = {
   canceled: "canceled",
   canceling: "canceling",
   none: "none",
+  paused: "paused",
   pending: "pending",
 } as const satisfies Record<string, AcademySubscriptionRenewalStatus>;
 
 /** Minimum time between two self-service coverage reconciliations. */
 export const ACADEMY_COVERAGE_RECONCILIATION_THROTTLE_SECONDS = 60;
+
+/**
+ * Age after which a provider creation claim whose subscription the provider
+ * search confirms absent is released: well above the bounded token refresh
+ * plus the single creation attempt, so no creation can still be in flight.
+ */
+export const ACADEMY_CHECKOUT_CREATION_CLAIM_STALE_SECONDS = 120;
 
 /** Monthly academy billing cycle policy. */
 export const ACADEMY_BILLING_CYCLE = {

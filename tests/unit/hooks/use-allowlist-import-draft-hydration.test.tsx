@@ -12,7 +12,7 @@ import type { SavedAllowlistImportDraft } from "@/src/modules/academy-admissions
 afterEach(() => window.sessionStorage.clear());
 describe("private local draft restoration", () => {
   it("should reject a late draft for account A after the native viewer changes to B while storage is loading", async () => {
-    const viewerId = randomUUID(), initialState: AllowlistImportPageState = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", policyVersion: 1, contactType: "email", renderedAt: "2026-10-09T08:00:00Z" };
+    const viewerId = randomUUID(), initialState: AllowlistImportPageState = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", policyVersion: 1, contactType: "email", platformRequirement: null, renderedAt: "2026-10-09T08:00:00Z" };
     const drafts = createAllowlistImportDraftStoreFixture(), saved = await drafts.save(viewerId, "synthetic", { fileName: "private-account-a.csv", csvText: "identity,display_name\nsynthetic@example.test,Nombre" }, new AbortController().signal);
     let publish: (draft: SavedAllowlistImportDraft) => void = () => {};
     const load = vi.spyOn(drafts, "load").mockImplementation(async () => new Promise((resolve) => { publish = resolve; }));

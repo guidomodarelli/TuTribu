@@ -10,7 +10,8 @@ import { MESSAGING_USAGE_COUNT_PATTERN, MESSAGING_USAGE_RECOVERABLE_OPERATION, M
 const countrySchema = z.string().trim().toUpperCase().refine((country) => isSupportedCountry(country as CountryCode));
 const usageFields = { allowedCountries: z.array(countrySchema).refine((countries) => new Set(countries).size === countries.length).transform((countries) => [...countries].sort()), verificationDailyLimit: z.int().nonnegative().max(MESSAGING_USAGE_LIMIT.verificationDailyMaximum), notificationDailyLimit: z.int().nonnegative().max(MESSAGING_USAGE_LIMIT.notificationDailyMaximum) };
 export const messagingUsageBrowserIntentSchema = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal(MESSAGING_USAGE_RECOVERABLE_OPERATION.initialize), input: z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true) }) }),
+  // `chosen` keeps, in this tab only, the values the update after the initialization will save; it is never part of the request.
+  z.strictObject({ type: z.literal(MESSAGING_USAGE_RECOVERABLE_OPERATION.initialize), input: z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true) }), chosen: z.strictObject(usageFields).optional() }),
   z.strictObject({ type: z.literal(MESSAGING_USAGE_RECOVERABLE_OPERATION.update), input: z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedVersion: z.int().positive(), ...usageFields }) }),
 ]);
 export type MessagingUsageBrowserIntent = z.infer<typeof messagingUsageBrowserIntentSchema>;

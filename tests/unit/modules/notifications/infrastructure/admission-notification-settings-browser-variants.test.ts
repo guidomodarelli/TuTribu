@@ -122,7 +122,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await reviewAndSave();
               await page.getByRole("alert").filter({ hasText: "Falta un correo preparado" }).waitFor(); await ready();
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tu preferencia todavía no se guardó.", { exact: true }).waitFor();
-              expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 0 });
+              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ enabled: false, version: 0 });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull();
               await capture("notification-settings-capability-rejected");
               await readCurrent();
@@ -157,25 +157,26 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               const activeReply = page.waitForResponse((reply) => new URL(reply.url()).pathname.endsWith("/admissions/email-settings") && reply.request().method() === "POST");
               await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
               expect(await (await activeReply).json()).toEqual({ state: "started", operationId: original.operationId }); await ready();
-              expect(emailWrites).toBe(writesBeforeResume + 1); expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 1 });
+              expect(emailWrites).toBe(writesBeforeResume + 1); expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 1 });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBe(originalBody);
               await mark("resume_expired_original_once");
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where tribe_id=${tribeId} and idempotency_key=${original.operationId} and state='started' returning state`)).rows)).toEqual([{ state: "started" }]);
               await readCurrent(); await confirm();
               await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
-              expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 2, enabled: false, timeZone: "Asia/Kolkata" });
+              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 2, enabled: false, timeZone: "Asia/Kolkata" });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull(); await capture("notification-settings-resumed");
 
-              await mark("absent_original_requires_new_consent");
-              const absent = fixture.command(2, false, "UTC"); forbidden.push(absent.operationId);
+              await mark("absent_original_reopens_values_for_a_new_save");
+              const absent = fixture.command(2, true, "UTC"); forbidden.push(absent.operationId);
               await page.evaluate(({ key, value }) => sessionStorage.setItem(key, value), { key: storedKey, value: JSON.stringify({ viewerId: fixture.own.userId, slug, input: absent }) });
               await page.reload({ waitUntil: "domcontentloaded" }); await ready();
-              await page.getByRole("alert").filter({ hasText: "El cambio original todavía no aparece registrado." }).waitFor();
+              await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("El cambio anterior del correo de la tribu no llegó a registrarse. Revisá los valores y guardá de nuevo.", { exact: true }).waitFor();
+              expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull();
               expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); await capture("notification-settings-original-absent");
               await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
-              expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" });
+              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 3, enabled: true, timeZone: "UTC" });
 
               await mark("owned_read_failure_and_explicit_retry");
               await page.route("**/admissions/notification-preferences", async (request) => {
@@ -194,7 +195,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               while (await page.getByRole("button", { name: "Continuar", exact: true }).count()) await page.getByRole("button", { name: "Continuar", exact: true }).click();
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("No hay cambios para guardar.", { exact: true }).waitFor();
               expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); expect(emailWrites).toBe(writesBeforeRecovery);
-              expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" }); await capture("notification-settings-email-unchanged");
+              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: 3, timeZone: "UTC" }); await capture("notification-settings-email-unchanged");
 
               await mark("lost_write_keeps_original_without_google");
               await page.getByRole("button", { name: "Atrás", exact: true }).click(); await page.getByRole("button", { name: "Atrás", exact: true }).click();
@@ -219,7 +220,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               }
               expect(errors).toEqual([]);
               const finalSettingsVersion = scenario.name === "validation" ? 1 : 3;
-              expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: finalSettingsVersion });
+              expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ version: finalSettingsVersion });
               const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.academy_admission_policies where tribe_id=${tribeId}) as policies`)).rows[0]);
               expect(effects).toEqual({ deliveries: 0, policies: 0 });
               await mark("completed");

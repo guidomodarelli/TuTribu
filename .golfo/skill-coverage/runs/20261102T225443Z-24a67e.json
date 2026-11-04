@@ -1,0 +1,3435 @@
+{
+  "baseline": {
+    "analyzer": "babel-tokens/1",
+    "branch": "feat/admissions-setup-prerequisites",
+    "commit": "987dac421c5a22ad6a1beca59742e8115e5e9bc8",
+    "fingerprint": "sha256:8ec62275e6ad622d8141393103355709f4b258a2063d708aa5f01b1c8c10e4bd",
+    "uncommittedFiles": [],
+    "fileCount": 340,
+    "inputCount": 1816
+  },
+  "evidence": [
+    {
+      "kind": "review",
+      "outcome": "pass",
+      "recordedAt": "2026-11-02T22:55:06.831Z",
+      "source": "attested",
+      "summary": "Guía de Solicitudes: pasos agrupados (necesarios primero, opcionales al final, orden base dentro de cada grupo); next/contador/progreso cuentan solo necesarios; blockedBy: conexión -> Elegir países y cupos sin uso guardado, avisos -> Preparar el correo sin correo preparado; hechos no leídos o plataforma bloqueada no bloquean."
+    },
+    {
+      "command": "pnpm vitest run tests/unit/modules/academy-admissions/application/admission-setup-progress.test.ts tests/unit/components/admission-setup-guide.test.tsx tests/unit/modules/academy-admissions/infrastructure/admission-setup-guide-page.test.ts",
+      "durationMs": 23265,
+      "exitCode": 0,
+      "kind": "test",
+      "outcome": "pass",
+      "outputSha256": "8f65cf14d862cee6f37d761b1b66f4a2135587b5376a79947cddda80154f211a",
+      "recordedAt": "2026-11-02T22:59:08.329Z",
+      "source": "witnessed",
+      "summary": "exit code 0"
+    }
+  ],
+  "limitations": [
+    "Sin recorrido en navegador: la app local necesita sesión de Google y una base con migraciones; se verificó con Testing Library sobre componentes y contenedores reales.",
+    "Revisión acotada a las regiones cambiadas; el resto de la unidad no se re-auditó."
+  ],
+  "mode": "incremental",
+  "pendingChecks": [
+    "Recorrer en el navegador los estados de prerrequisito y el flujo cambiado."
+  ],
+  "recordedAt": "2026-11-02T22:59:30.694Z",
+  "result": "partial",
+  "runId": "20261102T225443Z-24a67e",
+  "scope": {
+    "decision": "full",
+    "reasons": [
+      "baseline commit is not an ancestor of HEAD (rebase or branch switch): compared by content fingerprints",
+      "previous run was partial and there is no verified coverage: only a full analysis can accredit the unit"
+    ],
+    "relevantChangesAtBegin": [
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyFilters",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyTransitions",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/changeFilter",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/checkViewer",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/clearBatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/handleResourceFailure",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/hidePrivate",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/launchRead",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/navigateFilters",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/publishItems",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/readCurrent",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/refreshVisibleReview",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/retryOriginal",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/send",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#BatchActions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewFlags",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#ReviewInteractionDeps",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/clearBatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/confirmBatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/decideBatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/decideSingle",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/editBatchReason",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/locked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/retryOriginal",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/select",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions/toggleBatchRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewInteractions~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#reviewRouteError",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#ReviewSessionInput",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#ReviewView",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewSession/applyTransitions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewSession/checkViewer",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewSession/handleResourceFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewSession/publishItems",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewSession~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewState/controls",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#useReviewState~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#visibleReviewProps",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#applyReviewTransitions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#BatchActions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#batchAvailabilityFor",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#closeReviewSelection",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#completeBatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#forgetReviewIntent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#hideReviewPrivate",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#isBatchDecisionValid",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#isExpectedTransition",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#offerStartedOriginalRetry",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#publishReviewItems",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#quietViewerFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#readReviewCurrent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#readReviewDetail",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#readReviewWindow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#recoverBatchOriginal",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#recoverDecisionOriginal",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#recoverReviewOriginal",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#refreshFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#refreshVisibleReviewWindow/current",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#refreshVisibleReviewWindow~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#releaseUnprotectedOriginal",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#restoreReviewIntent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewControls",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewPhase",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewPrivacyScope",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewReader",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewReadRequest",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewReady",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#ReviewSession",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#sendBatchDecision",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#sendReviewIntent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#sendSingleDecision",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#settledReviewPhase",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#startReviewLifecycle/restored",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#startReviewLifecycle~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#startReviewRead",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/(platform)/[slug]/academia/admissions/admission-review-workflow.ts#withTransition",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#admissionQueryHandlers",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#admissionReviewHandlers",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "app/api/tribes/[slug]/admissions/overview/route.ts#GET",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/api/tribes/[slug]/admissions/requests/[requestId]/route.ts#GET",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "app/api/tribes/[slug]/admissions/requests/route.ts#GET",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-decision-form/index.tsx#AdmissionDecisionForm",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-review-filters/index.tsx#AdmissionReviewFilters",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-review/index.tsx#AdmissionReview",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-review/index.tsx#AdmissionReviewProps",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-review/index.tsx#describeEvidence",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/admission-review/index.tsx#EVIDENCE_COPY",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-review/styles.module.scss#*",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "components/academy-admissions/admission-route-error/index.tsx#AdmissionRouteError",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#PlatformSecurityNotice/copy",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#PlatformSecurityNotice~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/index.tsx#PlatformSecurityNoticeProps",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "components/academy-admissions/platform-security-notice/styles.module.scss#*",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-admission-route-location.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "hooks/use-admission-route-location.ts#useAdmissionRouteLocation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-replaced-action-focus.ts#useReplacedActionFocus~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "hooks/use-visible-notification-refresh.ts#useVisibleNotificationRefresh~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#AdmissionPolicyCommand",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#AdmissionWrite",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#bounded",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/bounded",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/failed",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/policyCommand",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/request",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient/send",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-api-client.ts#createAdmissionApiClient~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#createSessionViewer",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#failed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#hasForeignOperation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#isUnboundPolicySnapshot",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#readAdmissionFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-api-client.ts#send",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-review-filters.ts#parseAdmissionReviewFilterDraft",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-refresh-client.ts#mergeNewestRows",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-refresh-client.ts#readSelectedDetail",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-review-refresh-client.ts#readVisibleAdmissionReviewSnapshot~shell",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-refresh-client.ts#readVisiblePages",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/academy-admissions/admission-review-refresh-client.ts#unavailable",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-review-refresh-client.ts#VisiblePages",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#ADDRESS_BOUND_ERROR_CODES",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#AdmissionRouteLocation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#AdmissionRouteRecovery",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#resolveAdmissionRouteRecovery",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/academy-admissions/admission-route-recovery.ts#TRANSIENT_ERROR_CODES",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/sign-in-redirect.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/sign-in-redirect.ts#buildSignInRedirectUrl",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/auth/sign-in-redirect.ts#URL_QUERY_SEPARATOR",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/browser-navigation.ts#reloadCurrentPage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "lib/notifications/admission-notification-refresh-store.ts#currentStore",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "lib/object-omit.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/object-omit.ts#DistributiveOmit",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/object-omit.ts#omitKeys",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/siteping/siteping-report-launcher.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/siteping/siteping-report-launcher.ts#currentOpener",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "lib/siteping/siteping-report-launcher.ts#openSitepingReport",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "pkg:@golfo/ui",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "pkg:@zavudev/sdk",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_REQUEST_TRANSPORT_MESSAGE",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/browser-request.ts#BROWSER_SESSION_CHECK_MESSAGE",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY.changedWhileReading",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY.invalidAddress",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY.notFound",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY.permissionDenied",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY.signInRequired",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY.unavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/page-read.ts#PAGE_READ_COPY~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/query-params.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/query-params.ts#QUERY_PARAMS.auth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/query-params.ts#QUERY_PARAMS~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/constants/routes.ts#ROUTES.auth",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client.ts#CommercialMembershipReviewBrowserClient",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-batch-browser-result.ts#matchesAdmissionBatchDecisionResult",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/results/admission-batch-browser-result.ts#matchesAdmissionBatchItem",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts#projectAdmissionBatchDecisionResult",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/results/admission-batch-decision-result.ts#summarizeCompletedAdmissionBatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-contact-verification-schemas.ts#admissionChallengeSnapshotSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#admissionBatchResultSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/results/admission-flow-result-schemas.ts#expectedAdmissionBatchResult",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-policy-result-schemas.ts#admissionPolicyMutationResultSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-policy-result-schemas.ts#admissionPolicyStateResultSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-preflight-result-schema.ts#admissionPreflightResultSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-review-intent.ts#isAdmissionBatchReviewIntent",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-review-page-result.ts#admissionReviewPageSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-review-page-state.ts#admissionReviewPageStateSchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/results/admission-review-visible-snapshot.ts#AdmissionReviewVisibleSnapshot",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/commercial-membership-review-schemas.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/commercial-membership-review-schemas.ts#commercialMembershipResolutionResultSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/commercial-membership-review-schemas.ts#commercialMembershipReviewCaseSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/commercial-membership-review-schemas.ts#commercialMembershipReviewListSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/results/commercial-membership-review-schemas.ts#recoveryStatusSchema",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts#AllowAdmissionRetryUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#admissionChallengeSource",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#ContactVerificationUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#GetAdmissionActivityPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#ACCOUNT_CHANGE_DENIAL_REASONS",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#AdmissionOverviewPresentation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#GetAdmissionOverviewUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#parseOwnRequest",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#presentAdmissionOverview",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#requiresAnotherAccount",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#GetAdmissionPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#GetAdmissionPolicyPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#activationRequirements",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#AdmissionPolicyPreparation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#admissionPolicyPublicState",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#assertPreparationScope",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#DraftValidation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#GetAdmissionPolicyUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#OperationalValidation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#projectAdmissionPolicy",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#validationReasons",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#GetAdmissionReviewHistoryPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#GetAdmissionReviewPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#GetAdmissionReviewUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#GetAllowlistPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts#GetOwnAdmissionUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#GetPersonalInvitationManagementPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#GetPersonalInvitationOverviewUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#GetPersonalInvitationPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#ImportAllowlistUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#ManageAllowlistUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#ManageCommercialMembershipReviewsUseCases",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#confirmInvitationMutation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#ManagePersonalInvitationsUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#PreflightAdmissionActivationUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#assertPolicyOriginal",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#ReadAdmissionOperationUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#recoverOperation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#ReadCurrentAdmissionChallengeUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#applicantOf",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#hasValidSensitiveOperation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#mayReadAdmissionResource",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#ResolveAdmissionContextUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#ResolveAdmissionTribeUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#SubmitAcademyEntryUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#admissionSubmissionSource",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#declaredWhatsappNumber",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#SubmitAdmissionUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-batch-review-ui.ts#ADMISSION_BATCH_REVIEW_COPY.invalid",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-batch-review-ui.ts#ADMISSION_BATCH_REVIEW_COPY.started",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-command-denial.ts#ADMISSION_COMMAND_DENIAL_CODES",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-command-denial.ts#AdmissionCommandDenialCode",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_DENIAL_REASON.exceptionReasonRequired",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.challengeAlreadySent",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.connectionIncomplete",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.deliveryUnknown",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.dependencyUnavailable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.invalidCredentials",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.missingCapability",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.operationUnresolved",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.providerRateLimited",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.publicContractUnusable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.requestExpired",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.transportTimeout",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.unexpectedFailure",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.upstreamPayloadUnusable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.upstreamRejected",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.usagePolicyMissing",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_MESSAGE",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#<module>",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-operation-recovery-schemas.ts#admissionOperationRecoverySchema",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-operation.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-operation.ts#ADMISSION_OPERATION_MAC_KEY_PURPOSES",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-policy.ts#ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-preflight.ts#ADMISSION_PREFLIGHT_REASON.privilegedCommercialMembership",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-preflight.ts#ADMISSION_PREFLIGHT_REASON.unknownCommercialHistory",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-read-errors.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-read-errors.ts#ADMISSION_READ_ERROR_MESSAGE",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-read-errors.ts#admissionReadErrorMessage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-review-filters.ts#ADMISSION_REVIEW_FILTER_GROUPS",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.admission_closed",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.admission_scope_mismatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.allowlist_requirement_unmet",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.contact_account_mismatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.contact_conflict",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.contact_type_mismatch",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.evidence_revoked",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.exception_reason_required",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.invitation_recipient_unproven",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.invitation_unusable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.local_proof_required",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.membership_recovery_unknown",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.membership_restricted",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.phone_invitation_unavailable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.request_expired",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY.reviewer_unauthorized",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_ELIGIBILITY_COPY~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.internalHelp",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.internalOptionalHelp",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.internalReason",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.internalReasonRequired",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.internalRequiredHelp",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.invalid",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.platformConsequence",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.selectionUnavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#ADMISSION_REVIEW_UI_COPY.started",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#AdmissionReviewEligibilityReason",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.admission_closed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.admission_scope_mismatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.allowlist_requirement_unmet",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.contact_account_mismatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.contact_conflict",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.contact_type_mismatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.evidence_revoked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.invitation_recipient_unproven",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.invitation_unusable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.local_proof_required",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.membership_recovery_unknown",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.membership_restricted",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.phone_invitation_unavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.request_expired",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.reviewer_unauthorized",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY.whatsapp_number_required",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-review-ui.ts#REVIEW_ELIGIBILITY_COPY~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_TRANSIENT_PAGE_ERROR_CODES",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.initialView",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/admission-ui.ts#ADMISSION_UI_COPY.readFailed",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/constants/admission-whatsapp-number.ts#ADMISSION_WHATSAPP_CANONICAL_PATTERN",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_DECISION.recoverActive",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_DECISION.recoverMuted",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_DECISION.retire",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_DECISION~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_RECOVERY_STATUSES",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION.canonicalLeader",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION.decisionNotAllowed",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION.membershipAlreadyResolved",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION.membershipChanged",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION.membershipNotCommercial",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION.membershipUnavailable",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REJECTION~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.resolutionSegment",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_ROLES",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_STATUS_REASONS",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.rejected",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_STATUS.resolved",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_STATUS~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#COMMERCIAL_MEMBERSHIP_REVIEW_STATUSES",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#CommercialMembershipDecision",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#CommercialMembershipRecoveryStatus",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#CommercialMembershipRejection",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#CommercialMembershipReviewRole",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#CommercialMembershipReviewStatus",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/constants/commercial-membership-review.ts#CommercialMembershipReviewStatusReason",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_DIAGNOSTIC_CODE.recovery_locked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_DIAGNOSTIC_CODE.security_unconfigured",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_DIAGNOSTIC_CODE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.consequence",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.copied",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.copy",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.copyFailed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.diagnosticLabel",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.recheck",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.report",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.reportUnavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY.title",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_NOTICE_COPY~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_REQUIREMENT_COPY.recovery_locked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_REQUIREMENT_COPY.security_unconfigured",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/constants/platform-security-notice.ts#PLATFORM_SECURITY_REQUIREMENT_COPY~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#CommercialMembershipResolution",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#CommercialMembershipResolutionRejection",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#CommercialMembershipResolutionResult",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#CommercialMembershipReviewCase",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#CommercialMembershipReviewList",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#isCommercialMembershipState",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionActivationInventory",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionPreflightReason",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#evaluateAdmissionActivationPreflight",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/domain/policies/admission-eligibility.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/domain/policies/admission-eligibility.ts#AdmissionDenialReason",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/domain/policies/admission-eligibility.ts#DenialReason",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/domain/repositories/admission-contact-verification.ts#AdmissionChallengeSnapshot",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/admission-query-handlers.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/admission-query-handlers.ts#createAdmissionQueryHandlers/read",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/admission-query-handlers.ts#createAdmissionQueryHandlers~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/admission-review-handlers.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/admission-review-handlers.ts#createAdmissionReviewHandlers",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#AllowlistCsvReader",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#decodeAllowlistCsv",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishField",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishRecord",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#AdmissionPlatformSecurityReader",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#createAdmissionPlatformSecurityReader",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#createIdentityBoundExecutor",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#PostgresAdmissionActivationRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#PostgresAdmissionActivityReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#PostgresAdmissionAuthorizationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#AcademyMembershipStateRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PostgresAdmissionContactVerificationOperations",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#assertRecoveryOwnership",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#PostgresAdmissionOperationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#compareBatchResourceIds",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#isAccessDenial",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#NativeSubmissionScope",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#normalizeBatch",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#OperationAuthorizer",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#platformSecurityFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#PostgresAdmissionOperationRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#allowlistBoundUserId",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PostgresAdmissionOverviewReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#policyPlatformRequirement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#PostgresAdmissionPolicyRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#requirementUnmet",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts#PostgresAdmissionPolicyViewFactsReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionAuthorizationGuard",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionBatchEffects",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionPreparedDecision",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRecordInput",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRunCommand",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#assertSubmissionEligible",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#PostgresAdmissionRequestRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#requestContact",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionRequest",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionSourceKind",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#PostgresAdmissionReviewHistoryReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#PostgresAdmissionReviewReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#bindingConflicts",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isProofSecurityChanged",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isSameProofDestination",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isUsableChallenge",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PostgresAdmissionVerificationProofWriter",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#ProofApplicationDenialCode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#proofFromRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#requestContactColumns",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#selectContactBinding",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#PostgresAllowlistImportRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#AllowlistAuditOperation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#PostgresAllowlistRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#OWNER_DENIAL_CODES",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#PostgresCommercialMembershipReviewRepository",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ResolutionRow",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ReviewListRow",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#toIso",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#AdmissionErrorCodeValue",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CapabilityRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#channelSenderId",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CURRENT_CHALLENGE_COLUMNS",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CurrentChallengeRow",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isChannelMismatch",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isIssuanceSecurityChanged",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#issuanceOperationType",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#newDiagnosticId",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PostgresContactVerificationIssuer",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#senderCapabilityDenial",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#challengeFromRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#deniedVerification",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isSameDestination",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isValidationScopeUnavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#macScopeChanged",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#PostgresContactVerificationRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#VerificationFailureIdentity",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#ownRetryAt",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#PostgresOwnAdmissionRequestReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#presentedReasons",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#invitationRecipientMatches",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#isInvitationTokenAvailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#policyFacts",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PostgresPersonalInvitationOverviewReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#PostgresPersonalInvitationRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#AdmissionModuleContext",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeScopedQuery",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeVerification",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildInvitationAndVerificationModules",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildLedgerModules",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildPolicyModules",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#buildReadModules",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/academy-admissions/setup.ts#createAdmissionContextResolver",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/auth/constants/reauthentication-resources.ts#REAUTHENTICATION_OPERATION.resolveCommercialMembershipReview",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/auth/constants/reauthentication-resources.ts#ReauthenticationOperation",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/constants/sign-out.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/constants/sign-out.ts#SIGN_OUT_COPY.failed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/constants/sign-out.ts#SIGN_OUT_COPY~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#AuthenticatedFeatureDependencies",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseExecutor",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/results/messaging-errors.ts#MessagingFailure",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/activate-messaging-connection-use-case.ts#ActivateMessagingConnectionUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#abortedOrUnexpectedCode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#configurationFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#ConfigureMessagingConnectionUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#missingResource",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetSenderRequirement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/configure-messaging-connection-use-case.ts#unmetTemplateRequirement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/connection-diagnostic-use-cases.ts#VerifyConnectionDiagnosticUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#GetMessagingConnectionsPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#isAuthorityFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-connections-page-use-case.ts#projectNotificationCatalog",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/get-messaging-usage-page-use-case.ts#GetMessagingUsagePageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/issue-connection-diagnostic-use-case.ts#IssueConnectionDiagnosticUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases.ts#ManageMessagingUsageUseCases",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-message-delivery-use-case.ts#ReadMessageDeliveryUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#audienceOf",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-configuration-use-case.ts#ReadMessagingConfigurationUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-connection-operation-use-case.ts#ReadMessagingConnectionOperationUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#abortedOrUnexpectedCode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#compareResourceIds",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#listResources",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-resources-use-case.ts#ReadMessagingResourcesUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/read-messaging-usage-operation-use-case.ts#ReadMessagingUsageOperationUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#OriginalMessageContextResolver",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryDependencies",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#ReconcileMessageDeliveryUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts#resolveOriginalReconciliationContext",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#proposedRecoveryFailureCode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts#RecoverNotificationDeliveryUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case.ts#ReserveMessagingUsageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#hasCurrentLeadership",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingContextUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-context-use-case.ts#ResolveMessagingWriteContextUseCase",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#isManagementLeader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#ResolveMessagingTribeManagementUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopedResourceId",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case.ts#scopeSensitiveOperation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#inspectCredentialOutcome",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#requireSameValidator",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionInput",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#ValidateMessagingConnectionUseCaseDependencies",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/application/use-cases/validate-messaging-connection-use-case.ts#validationFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/constants/messaging-errors.ts#MESSAGING_ERROR_CODE~frame",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingPlatformRequirement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingSecurityConfig",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-facts.ts#readMessagingPlatformSecurityFacts",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#classifyMessagingPlatformSecurityFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#UNCONFIGURED_SECURITY_FAILURES",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/config/messaging-security-config.ts#createMessagingSecurityConfig",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/config/messaging-security-config.ts#importKeyring",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/registered-notification-delivery-sender.ts#PreparedNotificationDelivery",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/registered-notification-delivery-sender.ts#RegisteredNotificationDeliverySender",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/messaging-platform-security-probe.ts#readMessagingPlatformSecurityRequirement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#isVerifiableResource",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#PostgresAdmissionVerificationReadinessReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#resourceSenderId",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#knownFailureCode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-issuance.ts#PostgresConnectionDiagnosticIssuance",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-connection-diagnostic-operations.ts#PostgresConnectionDiagnosticOperations",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget.ts#PostgresCredentialValidationBudget",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#DatabaseExecutor",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#isOperation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStore",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#PostgresEncryptedSecretStoreDependencies",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store.ts#SecurityConfigReader",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#PostgresMessageReconciliationRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-reconciliation-repository.ts#receiptReason",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparation",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#PostgresMessageStatusPreparationDependencies",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-message-status-preparation.ts#StatusDatabaseExecutor",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader.ts#PostgresMessagingAuthorizationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure.ts#PostgresMessagingResourceExposureRecorder",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#PostgresMessagingConfigurationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-configuration-reader.ts#storedCredentialMode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#activationFailureCode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#configuredChannelsOf",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#effectiveSelection",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#isExplicitlyConfirmed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation.ts#PostgresMessagingConnectionActivation",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#configuredSenderId",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#PostgresMessagingConnectionConfiguration",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration.ts#requiredWhatsappTemplate",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection.ts#PostgresMessagingConnectionDisconnection",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#ConnectionOperationRow",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-operation-reader.ts#PostgresMessagingConnectionOperationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#assertUnchangedSecurityScope",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#PostgresMessagingConnectionRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-repository.ts#readOriginalResult",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension.ts#PostgresMessagingConnectionSuspension",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#compareEntryKeys",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#PostgresMessagingContactBudgetRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#PostgresMessagingCredentialValidation",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialMode",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation.ts#validatedCredentialState",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#ledgerTypesOf",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-original-operation-lookup.ts#PostgresMessagingOriginalOperationLookup",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#PostgresMessagingUsageOperationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operation-reader.ts#UsageOperationRow",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-operations.ts#PostgresMessagingUsageOperations",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestriction",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestrictions",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#PostgresMessagingUsageRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#CatalogRow",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-catalog-reader.ts#PostgresNotificationDeliveryCatalogReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#assertRecoverySecurityScope",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#isExplicitlyConfirmed",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#PostgresNotificationDeliveryRecoveryRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryDeadlineExpired",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryDecision",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#RecoveryRows",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTargetFacts",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#recoveryTimestamps",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#StagedRecoveryGroup",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetCapabilityRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository.ts#TargetVersionRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/repositories/postgres-notification-recovery-operation-reader.ts#PostgresNotificationRecoveryOperationReader",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#lookupMessage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#providerAttemptState",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/messaging/infrastructure/zavu/zavu-message-status-lookup.ts#ZavuMessageStatusLookup",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule/createManagement",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule/createSensitiveContext",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule/createUsage",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/messaging/setup.ts#buildMessagingModule~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createActorExecutor",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createMessagingManagement/executeGuardedRead",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createMessagingManagement~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createMessagingUsage",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/messaging/setup.ts#createSensitiveMessagingContext",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/notifications/application/results/admission-email-settings-result-schemas.ts#settings",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/notifications/application/use-cases/get-admission-notification-settings-page-use-case.ts#GetAdmissionNotificationSettingsPageUseCase",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority.ts#readCurrentMarkedAdmissionNotificationDelivery/authorize",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-authority.ts#AdmissionNotificationLockedResourceWork",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-authority.ts#intentMatchesDelivery",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-authority.ts#isQueuedGroupEmailRow",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-authority.ts#LockedDeliveryConfirmation",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-authority.ts#PostgresAdmissionNotificationDeliveryAuthority",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-delivery-authority.ts#singleDestination",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-email-settings-repository.ts#PostgresAdmissionNotificationEmailSettingsRepository",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/notifications/setup.ts#buildAdmissionNotificationSettingsModule",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/notifications/setup.ts#buildAdmissionNotificationSettingsModule/execute",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/notifications/setup.ts#buildAdmissionNotificationSettingsModule~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/setup.ts#<module>",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/setup.ts#createAdmissionRequestModules",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionIncomplete",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.connectionRetirementBlocked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.deliveryUnknown",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.dependencyUnavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.invalidCredentials",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.missingCapability",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.operationUnresolved",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.originalDispatchUnresolved",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.platformSecurityUnavailable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.providerRateLimited",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.publicContractUnusable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.transportTimeout",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.unexpectedFailure",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamPayloadUnusable",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.upstreamRejected",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE.usagePolicyMissing",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/messaging-connection-error-codes.ts#MESSAGING_CONNECTION_ERROR_CODE~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.recoveryLocked",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.unconfigured",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT~frame",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#<module>",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#PlatformSecurityRequirement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/shared/infrastructure/database/postgres-pool.ts#createPostgresPool",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease/release",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease~shell",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/handleCheckedOutClientError",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/releaseClient",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/handleCheckedOutClientError",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/releaseClient",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction~shell",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS_REASON~frame",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS.blocked",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "removed",
+        "key": "src/modules/tribes/constants/tribe-page-access.ts#TRIBE_MEMBERSHIP_STATUS.removed",
+        "reason": "code no longer reached by the unit: check that no state lost its feedback"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApplicableDecision",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "modified",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#applyApprovedAcademyMembership",
+        "reason": "visible or interactive code changed"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApprovedMembershipContext",
+        "reason": "new visible or interactive code"
+      },
+      {
+        "change": "added",
+        "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#findApplicableDecision",
+        "reason": "new visible or interactive code"
+      }
+    ],
+    "suggestedScope": [
+      "whole unit academy.admissions.review.view: state matrix of every region (loading, empty, data, error, partial, no permission), feedback channel per event, copy and browser walk-through"
+    ]
+  },
+  "skill": {
+    "definitionFiles": {
+      "SKILL.md": "9fc5ee4bb0e2e4e9",
+      "references/feedback-channels.md": "aa0394882f505308",
+      "references/flow-catalog.md": "77527b8062d13243",
+      "references/sources.md": "018203bece1d2e8a",
+      "references/state-matrix.md": "026b6005f6fa0cae",
+      "references/validation-feedback.md": "3e4fb5d227cacfbd"
+    },
+    "definitionHash": "sha256:77f14b3b1fafda15212339d5dc37d93e06d4f1812e8975d14d9a2caa22765afc",
+    "name": "ui-ux-flow-patterns",
+    "version": "1.5.0"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-11-02T22:54:43.324Z",
+  "unitId": "academy.admissions.review.view"
+}

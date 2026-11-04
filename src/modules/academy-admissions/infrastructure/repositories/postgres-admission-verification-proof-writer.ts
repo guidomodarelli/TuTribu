@@ -20,6 +20,7 @@ import type { AdmissionVerificationProofWriter, ApplyAdmissionVerificationProofC
 import { proposeAdmissionProofApplication } from "@/src/modules/academy-admissions/domain/policies/verification-challenge-policy";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { admissionContactStoredValues, isSameAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 
 type PendingRequestRow = { id: string; version: number; status: string; contact_type: string | null; normalized_contact: string | null; binding_id: string | null; source: string; invitation_id: string | null; expires_at: string };
 type ProofRow = { id: string; challenge_id: string; user_id: string; tribe_id: string; contact_type: string; normalized_contact: string; verification_epoch: number; connection_id: string; connection_version: number; security_epoch: string; status: AdmissionVerificationProof["status"]; verified_at: string; apply_before: string; applied_request_id: string | null; applied_at: string | null; invalidated_at: string | null; invalidation_reason: string | null };
@@ -39,6 +40,26 @@ function bindingConflicts(binding: { id: string; owner_user_id: string } | undef
 /** @param config - Live protection. @param resource - Locked connection version. @param scopeEpoch - Epoch of the authorized scope. @returns Whether recovery locked or the deployment environment or epoch moved. */
 function isProofSecurityChanged(config: { recoveryLocked: boolean; environment: string; securityEpoch: string }, resource: { environment: string; security_epoch: string }, scopeEpoch: string): boolean {
   return config.recoveryLocked || config.environment !== resource.environment || config.securityEpoch !== resource.security_epoch || config.securityEpoch !== scopeEpoch;
+}
+
+/**
+ * @param bindings - Locked bindings of the contact and of the form it had before an Argentine mobile took its 9, canonical first.
+ * @param requestBindingId - Binding already attached to the request.
+ * @param userId - Actual applicant.
+ * @returns The binding another owner holds, else the request's own one, else the first one, so a foreign holder of either form conflicts.
+ */
+function selectContactBinding(bindings: { id: string; owner_user_id: string }[], requestBindingId: string | null, userId: string): { id: string; owner_user_id: string } | undefined {
+  return bindings.find((binding) => binding.owner_user_id !== userId) ?? bindings.find((binding) => binding.id === requestBindingId) ?? bindings[0];
+}
+
+/**
+ * A pending contact is immutable: one saved before an Argentine mobile took its 9 keeps its stored value and fingerprint.
+ * @param request - Locked own pending. @param contact - Canonical contact of the proof. @param challenge - Origin challenge with its fingerprint.
+ * @returns The contact assignments of the request update.
+ */
+function requestContactColumns(request: Pick<PendingRequestRow, "normalized_contact">, contact: AdmissionVerificationProof["contact"], challenge: { contact_fingerprint: Uint8Array; fingerprint_key_id: string }) {
+  if (request.normalized_contact !== null && request.normalized_contact !== contact.value) return sql`contact_type=contact_type`;
+  return sql`contact_type=${contact.type},normalized_contact=${contact.value},contact_fingerprint=${Buffer.from(challenge.contact_fingerprint)},fingerprint_key_id=${challenge.fingerprint_key_id}`;
 }
 
 /** @param row - Locked stored proof. @param contact - Authorized destination. @returns Whether the proof verified exactly that destination. */
@@ -67,11 +88,12 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
    */
   private async pendingRequestDenial(command: ApplyAdmissionVerificationProofCommand, request: PendingRequestRow | undefined): Promise<ProofApplicationDenialCode | null> {
     if (request?.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== command.expectedRequestVersion) return ADMISSION_ERROR_CODE.requestConflict;
-    if (request.normalized_contact !== null && (request.normalized_contact !== command.scope.contact.value || request.contact_type !== command.scope.contact.type)) return ADMISSION_ERROR_CODE.contactBindingConflict;
+    // A request or invitation saved before an Argentine mobile took its 9 still names the proof's canonical contact.
+    if (request.normalized_contact !== null && !isSameAdmissionContact({ type: request.contact_type ?? "", value: request.normalized_contact }, command.scope.contact)) return ADMISSION_ERROR_CODE.contactBindingConflict;
     if (request.source !== ADMISSION_SOURCE_KIND.personal) return null;
     const invitation = (await this.database.execute<{ contact_type: string; normalized_contact: string; status: string; authorization_revoked_at: string | null }>(sql`select contact_type,normalized_contact,status,authorization_revoked_at from public.academy_personal_invitations where id=${request.invitation_id} and tribe_id=${command.scope.tribeId} and redeemed_by_user_id=${command.scope.userId} and redeemed_request_id=${request.id} for share`)).rows[0];
     if (invitation?.status !== ADMISSION_INVITATION_STATUS.redeemed || invitation.authorization_revoked_at !== null) return ADMISSION_ERROR_CODE.invitationUnavailable;
-    if (invitation.contact_type !== command.scope.contact.type || invitation.normalized_contact !== command.scope.contact.value) return ADMISSION_ERROR_CODE.contactBindingConflict;
+    if (!isSameAdmissionContact({ type: invitation.contact_type, value: invitation.normalized_contact }, command.scope.contact)) return ADMISSION_ERROR_CODE.contactBindingConflict;
     return null;
   }
 
@@ -93,10 +115,12 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     return scope.purpose === ADMISSION_VERIFICATION_PURPOSE.admission && await isCurrentVerificationActor(this.database, this.authorize, scope);
   }
 
-  /** @param command - Original application command. @returns The locked contact binding, if any, after the reservation is re-read, or a contact conflict. */
-  private async lockContactBinding(command: ApplyAdmissionVerificationProofCommand): Promise<{ binding: { id: string; owner_user_id: string } | undefined } | { denial: typeof ADMISSION_ERROR_CODE.contactBindingConflict }> {
+  /** @param command - Original application command. @param requestBindingId - Binding already attached to the request. @returns The locked contact binding, if any, after the reservation is re-read, or a contact conflict. */
+  private async lockContactBinding(command: ApplyAdmissionVerificationProofCommand, requestBindingId: string | null): Promise<{ binding: { id: string; owner_user_id: string } | undefined } | { denial: typeof ADMISSION_ERROR_CODE.contactBindingConflict }> {
     await this.database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify([ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, command.scope.tribeId, command.scope.contact.type, command.scope.contact.value])},0))`);
-    const binding: { id: string; owner_user_id: string } | undefined = (await this.database.execute<{ id: string; owner_user_id: string }>(sql`select id,owner_user_id from public.academy_admission_contact_bindings where tribe_id=${command.scope.tribeId} and contact_type=${command.scope.contact.type} and normalized_contact=${command.scope.contact.value} for update`)).rows[0];
+    const storedValues = sql.param(admissionContactStoredValues(command.scope.contact));
+    const bindings = (await this.database.execute<{ id: string; owner_user_id: string }>(sql`select id,owner_user_id from public.academy_admission_contact_bindings where tribe_id=${command.scope.tribeId} and contact_type=${command.scope.contact.type} and normalized_contact=any(${storedValues}::text[]) order by normalized_contact=${command.scope.contact.value} desc for update`)).rows;
+    const binding = selectContactBinding(bindings, requestBindingId, command.scope.userId);
     // Re-read the reservation after any account deletion that completed during this wait.
     try { await assertUnreservedAdmissionContact(this.database, command.scope.tribeId, command.scope.contact, this.readSecurityConfig); }
     catch (error) { if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.contactBindingConflict) return { denial: error.code }; throw error; }
@@ -126,7 +150,7 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     if (!row || !isUsableChallenge(challenge)) return denied(ADMISSION_ERROR_CODE.proofUnavailable);
     if (!isSameProofDestination(row, command.scope.contact)) return denied(ADMISSION_ERROR_CODE.contactBindingConflict);
     const proof = proofFromRow(row, command.scope.contact, challenge.channel);
-    const locked = await this.lockContactBinding(command);
+    const locked = await this.lockContactBinding(command, request.binding_id);
     if ("denial" in locked) return denied(locked.denial);
     let binding = locked.binding;
     if (bindingConflicts(binding, request.binding_id, command.scope.userId)) return denied(ADMISSION_ERROR_CODE.contactBindingConflict);
@@ -139,7 +163,7 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     if (proposal.outcome !== ADMISSION_PROOF_APPLICATION_OUTCOME.applied) return denied(ADMISSION_ERROR_CODE.proofUnavailable);
     binding ??= (await this.database.execute<{ id: string; owner_user_id: string }>(sql`insert into public.academy_admission_contact_bindings(tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,owner_user_id,first_request_id,first_proof_id,evidence_source) values (${command.scope.tribeId},${command.scope.contact.type},${command.scope.contact.value},${Buffer.from(challenge.contact_fingerprint)},${challenge.fingerprint_key_id},${command.scope.userId},${request.id},${row.id},${ADMISSION_EVIDENCE_KIND.local}) returning id,owner_user_id`)).rows[0];
     const requestVersion = request.version + 1;
-    const updated = (await this.database.execute(sql`update public.academy_admission_requests set contact_type=${command.scope.contact.type},normalized_contact=${command.scope.contact.value},contact_fingerprint=${Buffer.from(challenge.contact_fingerprint)},fingerprint_key_id=${challenge.fingerprint_key_id},evidence_source=${ADMISSION_EVIDENCE_KIND.local},proof_id=${row.id},binding_id=${binding.id},version=${requestVersion} where id=${request.id} and version=${request.version} and status=${ADMISSION_REQUEST_STATUS.pending} returning id`)).rows[0];
+    const updated = (await this.database.execute(sql`update public.academy_admission_requests set ${requestContactColumns(request, command.scope.contact, challenge)},evidence_source=${ADMISSION_EVIDENCE_KIND.local},proof_id=${row.id},binding_id=${binding.id},version=${requestVersion} where id=${request.id} and version=${request.version} and status=${ADMISSION_REQUEST_STATUS.pending} returning id`)).rows[0];
     if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
     const applied = (await this.database.execute<{ id: string; applied_at: Date | string }>(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.applied},applied_request_id=${request.id},applied_at=${now} where id=${row.id} and status=${ADMISSION_PROOF_STATUS.available} returning id,applied_at`)).rows[0];
     if (!applied) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);

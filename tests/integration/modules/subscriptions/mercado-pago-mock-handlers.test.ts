@@ -181,7 +181,7 @@ describe("Mercado Pago development mock handlers", () => {
         accessToken: ACCESS_TOKEN,
         externalReference: "reservation-4",
       })
-    ).resolves.toEqual(checkout);
+    ).resolves.toEqual({ ...checkout, status: "found" });
     await expect(
       getMercadoPagoPreapprovalStatus({
         accessToken: ACCESS_TOKEN,

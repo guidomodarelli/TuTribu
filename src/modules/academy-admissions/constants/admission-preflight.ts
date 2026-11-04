@@ -1,4 +1,4 @@
-/** Safe cutover reasons distinguish missing storage, ingress coverage and unresolved membership history. @module admission-preflight-constants */
+/** Safe cutover reasons distinguish missing storage, ingress coverage and runtime readiness. @module admission-preflight-constants */
 export const ADMISSION_PREFLIGHT_REASON = {
   scopeMismatch: "preflight_scope_mismatch",
   academyUnavailable: "preflight_academy_unavailable",
@@ -6,8 +6,6 @@ export const ADMISSION_PREFLIGHT_REASON = {
   markerInconsistent: "preflight_marker_inconsistent",
   storageUnavailable: "preflight_storage_unavailable",
   ingressUnprotected: "preflight_ingress_unprotected",
-  unknownCommercialHistory: "preflight_unknown_commercial_history",
-  privilegedCommercialMembership: "preflight_privileged_commercial_membership",
   runtimeUnavailable: "preflight_runtime_unavailable",
   evaluatorDisabled: "preflight_evaluator_disabled",
   recoveryLocked: "preflight_recovery_locked",

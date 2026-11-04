@@ -8,6 +8,8 @@ export type NotificationDeliveryCatalogItem = {
   createdAt: string;
   deadlineAt: string;
   recoveryDeliveryId: string | null;
+  /** True while an earlier send of this notice may have left and has no confirmed result: recovering it is refused until it resolves. */
+  dispatchUnresolved: boolean;
 };
 /** A stable chronological cursor grants no tenant or actor authority. */
 export type NotificationDeliveryCatalogCursor = { deliveryId: string; createdAt: string };

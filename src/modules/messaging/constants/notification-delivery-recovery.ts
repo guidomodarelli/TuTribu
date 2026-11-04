@@ -33,8 +33,10 @@ export const NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON = {
   [NOTIFICATION_DELIVERY_RECOVERY_REASON.wrongTribe]: ADMISSION_ERROR_CODE.permissionDenied,
   [NOTIFICATION_DELIVERY_RECOVERY_REASON.sameConnection]: ADMISSION_ERROR_CODE.connectionConflict,
   [NOTIFICATION_DELIVERY_RECOVERY_REASON.connectionNotReady]: ADMISSION_ERROR_CODE.connectionIncomplete,
-  [NOTIFICATION_DELIVERY_RECOVERY_REASON.securityScopeChanged]: ADMISSION_ERROR_CODE.connectionIncomplete,
+  // Prepared under another platform security: it can never be recovered, like a notice that no longer applies.
+  [NOTIFICATION_DELIVERY_RECOVERY_REASON.securityScopeChanged]: ADMISSION_ERROR_CODE.resourceUnavailable,
   [NOTIFICATION_DELIVERY_RECOVERY_REASON.alreadyDelivered]: ADMISSION_ERROR_CODE.resourceUnavailable,
-  [NOTIFICATION_DELIVERY_RECOVERY_REASON.possiblyDispatched]: ADMISSION_ERROR_CODE.deliveryUnknown,
+  // A definitive rejection whose effect rolled back, not an uncertain send of this request.
+  [NOTIFICATION_DELIVERY_RECOVERY_REASON.possiblyDispatched]: ADMISSION_ERROR_CODE.originalDispatchUnresolved,
   [NOTIFICATION_DELIVERY_RECOVERY_REASON.noCurrentObligation]: ADMISSION_ERROR_CODE.resourceUnavailable,
 } as const satisfies Record<string, AdmissionErrorCode>;

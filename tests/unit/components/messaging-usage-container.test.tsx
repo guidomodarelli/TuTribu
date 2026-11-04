@@ -1,5 +1,5 @@
 /** Exercises the actual guided usage container and shared controls through owned browser ports. @module messaging-usage-container-tests */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SidebarInset, SidebarProvider, ThemedToaster } from "@golfo/ui";
 import { Activity, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,11 +13,14 @@ import { AdmissionSettingsPage } from "@/components/academy-admissions/admission
 import { AdmissionWorkspaceRoute } from "@/tests/support/admission-workspace-route";
 import { changeGuidedStep } from "@/tests/support/guided-steps";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
-import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { MESSAGING_ROUTE_ERROR_COPY } from "@/src/modules/messaging/constants/messaging-route-error";
 
+/** Better Auth keeps the `fetch` it finds when its module loads, so the Google sign-in edge is installed before the imports. */
+const googleSignIn = await vi.hoisted(async () => (await import("@/tests/support/google-sign-in-request")).installGoogleSignInTransport());
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const savedText = "Los países y cupos quedaron guardados.", partialText = "La configuración se creó con los valores iniciales, pero todavía falta guardar lo que elegiste.";
+const unregisteredText = "El guardado anterior no llegó a registrarse. Revisá los valores y guardá de nuevo.";
 const router = { back: vi.fn(), bfcacheId: "usage-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 type InitializeResult = Awaited<ReturnType<MessagingUsageBrowserClient["initialize"]>>;
 type UpdateResult = Awaited<ReturnType<MessagingUsageBrowserClient["update"]>>;
@@ -26,10 +29,10 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 /** Supplies only current application state and feature-owned asynchronous outcomes. */
 function fixture(configured = true) {
   const policy = { version: 3, allowedCountries: ["AR"], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 2, notificationToday: 1 } };
-  const state: Extract<MessagingUsagePageState, { kind: "ready" }> = { kind: "ready", slug, tribeId, viewerId, renderedAt: "2026-10-07T12:00:00Z", usage: configured ? { state: "configured", policy } : { state: "not_configured", policy: null }, countryChoices: [{ value: "AR", label: "Argentina" }, { value: "US", label: "Estados Unidos" }] };
+  const state: Extract<MessagingUsagePageState, { kind: "ready" }> = { kind: "ready", slug, tribeId, viewerId, renderedAt: "2026-10-07T12:00:00Z", usage: configured ? { state: "configured", policy } : { state: "not_configured", policy: null }, platformRequirement: null, countryChoices: [{ value: "AR", label: "Argentina" }, { value: "US", label: "Estados Unidos" }] };
   const client = {
     viewer: vi.fn<MessagingUsageBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
-    read: vi.fn<MessagingUsageBrowserClient["read"]>(async () => ({ status: "ready", value: { state: "configured", policy } })),
+    read: vi.fn<MessagingUsageBrowserClient["read"]>(async () => ({ status: "ready", value: { usage: { state: "configured", policy }, platformRequirement: null } })),
     operation: vi.fn<MessagingUsageBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
     initialize: vi.fn<MessagingUsageBrowserClient["initialize"]>(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { ...policy, version: 1, allowedCountries: [] } } })),
     update: vi.fn<MessagingUsageBrowserClient["update"]>(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { ...policy, version: input.expectedVersion + 1, allowedCountries: input.allowedCountries, verificationDailyLimit: input.verificationDailyLimit, notificationDailyLimit: input.notificationDailyLimit } } })),
@@ -68,7 +71,7 @@ function save() { fireEvent.click(screen.getByRole("button", { name: /Guardar pa
 async function saveVerificationChange(verification: string) { await openSteps(); await reviewWith({ verification }); await confirm(); save(); }
 /** @returns A promise and its resolver, to observe in-flight states. */
 function deferred<Value>() { let resolve!: (value: Value) => void; const promise = new Promise<Value>((complete) => { resolve = complete; }); return { promise, resolve }; }
-beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
+beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); googleSignIn.reset(); });
 
 describe("guided usage route workflow", () => {
   it("should create the configuration and then save the chosen values, announcing each sub-step and success only at the end", async () => {
@@ -124,7 +127,7 @@ describe("guided usage route workflow", () => {
     expect(data.client.update.mock.calls[1][1].operationId).not.toBe(data.client.update.mock.calls[0][1].operationId);
   });
 
-  it("should keep an uncertain second write as the original operation and retry it only with its own identity", async () => {
+  it("should keep an uncertain second write as the original operation and, once it proves unregistered, save the chosen values again as a new operation", async () => {
     const data = fixture(false); data.client.update.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar el guardado.", uncertain: true });
     render(data.node, { wrapper: Providers });
     await reviewWith({ verification: "40" }); await confirm(); save();
@@ -133,13 +136,53 @@ describe("guided usage route workflow", () => {
     expect(screen.queryByRole("button", { name: "Reintentar guardado" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeDisabled();
     const original = readMessagingUsageIntent(viewerId, slug); expect(original?.type).toBe("update_messaging_usage");
-    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 1, allowedCountries: [] } } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 1, allowedCountries: [] } }, platformRequirement: null } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: /Confirmo reintentar el guardado/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(screen.getByText(unregisteredText)).toHaveAttribute("role", "status");
+    // The created configuration still lacks the chosen values, so only that partial save stays as an alert.
+    expect(screen.getByRole("alert")).toHaveTextContent(partialText); expect(screen.getByRole("alert")).not.toHaveTextContent(/reintento|registrada/);
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Recuperar operación original" })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    await confirm(); save();
     await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
-    expect(data.client.update).toHaveBeenCalledTimes(2); expect(data.client.update.mock.calls[1][1]).toEqual(original!.input);
+    expect(data.client.update).toHaveBeenCalledTimes(2);
+    expect(data.client.update.mock.calls[1][1]).toMatchObject({ expectedVersion: 1, verificationDailyLimit: 40 });
+    expect(data.client.update.mock.calls[1][1].operationId).not.toBe(original!.input.operationId);
     expect(data.client.initialize).toHaveBeenCalledOnce();
+  });
+
+  it("should keep the chosen values open after recovering a confirmed initialization whose response was lost, and save them next", async () => {
+    const data = fixture(false); data.client.initialize.mockResolvedValueOnce({ status: "failed", code: "transport_timeout", message: MESSAGING_ERROR_MESSAGE.transport_timeout, uncertain: true });
+    render(data.node, { wrapper: Providers });
+    await reviewWith({ verification: "40", notification: "90" }); await confirm(); save();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeInTheDocument());
+    expect(data.client.update).not.toHaveBeenCalled();
+    const original = readMessagingUsageIntent(viewerId, slug); expect(original).toMatchObject({ type: "initialize_messaging_usage", chosen: { verificationDailyLimit: 40, notificationDailyLimit: 90 } });
+    const created = { ...data.policy, version: 1, allowedCountries: [] };
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "initialize_messaging_usage", state: "completed", operationId: original!.input.operationId, replayed: true, result: created } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: created }, platformRequirement: null } });
+    fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(partialText));
+    expect(screen.queryByText("El resultado original quedó confirmado. Revisá el uso actual antes de continuar.")).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.initialize).toHaveBeenCalledOnce();
+    expect(data.client.update).toHaveBeenCalledOnce(); expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 1, verificationDailyLimit: 40, notificationDailyLimit: 90 });
+  });
+
+  it("should reopen the chosen values of a stored initialization after a reload", async () => {
+    writeMessagingUsageIntent(viewerId, slug, { type: "initialize_messaging_usage", input: { operationId, confirmed: true }, chosen: { allowedCountries: ["US"], verificationDailyLimit: 30, notificationDailyLimit: 60 } });
+    const data = fixture(false), created = { ...data.policy, version: 1, allowedCountries: [] };
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "initialize_messaging_usage", state: "completed", operationId, replayed: true, result: created } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: created }, platformRequirement: null } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(partialText));
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 1, allowedCountries: ["US"], verificationDailyLimit: 30, notificationDailyLimit: 60 });
   });
 
   it("should summarize the saved configuration and open the steps with the current values", async () => {
@@ -215,7 +258,7 @@ describe("guided usage route workflow", () => {
     expect(data.client.update).not.toHaveBeenCalled();
   });
 
-  it("should withhold the old private policy after a mutation reports lost current authority", async () => {
+  it("should withhold the old private policy after a mutation reports lost current authority and forget the unregistered original", async () => {
     const data = fixture();
     data.client.update.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para modificar el uso.", uncertain: false });
     render(data.node, { wrapper: Providers });
@@ -223,7 +266,94 @@ describe("guided usage route workflow", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso"));
     expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument();
     expect(screen.queryByText(/2 códigos y 1 avisos consumidos hoy/)).not.toBeInTheDocument();
-    expect(readMessagingUsageIntent(viewerId, slug)?.input.operationId).toBe(data.client.update.mock.calls[0][1].operationId);
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+  });
+
+  it("should keep the page and forget the original when a save is rejected as unavailable while the current read still works", async () => {
+    const data = fixture();
+    data.client.update.mockResolvedValueOnce({ status: "failed", code: "resource_unavailable", message: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.resourceUnavailable], uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await saveVerificationChange("120");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.resourceUnavailable]));
+    expect(screen.getByText(/2 códigos y 1 avisos consumidos hoy/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Consultar operación original" })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+  });
+
+  it("should release a save the platform rejected as definitive, with its copy and no recovery of the same original", async () => {
+    const data = fixture();
+    data.client.update.mockResolvedValueOnce({ status: "failed", code: "platform_security_unavailable", message: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.platformSecurityUnavailable], uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await saveVerificationChange("120");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/depende del equipo de TuTribu/));
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Consultar operación original" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Configuración actual: versión 3/)).toBeInTheDocument();
+    expect(data.client.update).toHaveBeenCalledOnce();
+  });
+
+  it("should explain the platform block, keep the saved configuration readable and disable every save while the platform cannot protect it", async () => {
+    const data = fixture(); data.state.platformRequirement = "security_unconfigured";
+    render(data.node, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: "Depende del equipo de TuTribu" });
+    expect(notice).toHaveTextContent("admission_security_unconfigured"); expect(notice).toHaveTextContent(/no se pueden guardar países ni cupos/);
+    expect(screen.getByText(/Configuración actual: versión 3/)).toBeInTheDocument();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Cambiar países y cupos" })).toBeDisabled();
+    expect(data.client.update).not.toHaveBeenCalled(); expect(data.client.initialize).not.toHaveBeenCalled();
+  });
+
+  it("should re-enable saving in the same session when the current read of a restored page reports the platform problem resolved", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    const view = render(<Activity mode="visible">{data.node}</Activity>, { wrapper: Providers });
+    await screen.findByRole("region", { name: "Depende del equipo de TuTribu" });
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Cambiar países y cupos" })).toBeDisabled();
+    view.rerender(<Activity mode="hidden">{data.node}</Activity>);
+    view.rerender(<Activity mode="visible">{data.node}</Activity>);
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument());
+    await saveVerificationChange("120");
+    await screen.findByText(savedText);
+    expect(data.client.update).toHaveBeenCalledOnce();
+  });
+
+  it("should let a first configuration recheck the platform block from the notice and lift it without a reload", async () => {
+    const data = fixture(false); data.state.platformRequirement = "security_unconfigured";
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "not_configured", policy: null }, platformRequirement: null } });
+    render(data.node, { wrapper: Providers });
+    const notice = await screen.findByRole("region", { name: "Depende del equipo de TuTribu" });
+    const recheck = within(notice).getByRole("button", { name: "Volver a comprobar" }); await waitFor(() => expect(recheck).toBeEnabled());
+    fireEvent.click(recheck);
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument());
+    expect(data.client.update).not.toHaveBeenCalled(); expect(data.client.initialize).not.toHaveBeenCalled();
+  });
+
+  it("should block saving in the same session when the current read of a restored page reports a new platform requirement", async () => {
+    const data = fixture();
+    const view = render(<Activity mode="visible">{data.node}</Activity>, { wrapper: Providers });
+    await openSteps();
+    view.rerender(<Activity mode="hidden">{data.node}</Activity>);
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: data.policy }, platformRequirement: "security_unconfigured" } });
+    view.rerender(<Activity mode="visible">{data.node}</Activity>);
+    const notice = await screen.findByRole("region", { name: "Depende del equipo de TuTribu" });
+    expect(notice).toHaveTextContent("admission_security_unconfigured");
+    expect(data.client.read).toHaveBeenCalledOnce(); expect(data.client.update).not.toHaveBeenCalled();
+  });
+
+  it("should forget a stored original that was never registered while the platform cannot protect a save, instead of offering its retry", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: data.policy }, platformRequirement: "recovery_locked" } });
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/El guardado anterior no quedó registrado y no hace falta reintentarlo/)).toBeInTheDocument());
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reintentar operación original" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("admission_recovery_locked");
+    expect(data.client.update).not.toHaveBeenCalled();
   });
 
   it("should ignore a late aborted usage read after a newer current version and counters are displayed", async () => {
@@ -234,10 +364,10 @@ describe("guided usage route workflow", () => {
     data.client.read.mockImplementationOnce(() => new Promise((resolve) => { completeOld = resolve; }));
     await act(async () => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
     await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
-    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 9, consumption: { verificationToday: 8, notificationToday: 5 } } } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 9, consumption: { verificationToday: 8, notificationToday: 5 } } }, platformRequirement: null } });
     await act(async () => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
     await waitFor(() => expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument());
-    await act(async () => { completeOld({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 4 } } }); });
+    await act(async () => { completeOld({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 4 } }, platformRequirement: null } }); });
     expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument();
     expect(screen.getByText(/8 códigos y 5 avisos consumidos hoy/)).toBeInTheDocument();
     expect(data.client.read.mock.calls[0][1].aborted).toBe(true);
@@ -253,12 +383,12 @@ describe("guided usage route workflow", () => {
       return result;
     });
     let complete!: (value: Awaited<ReturnType<MessagingUsageBrowserClient["read"]>>) => void;
-    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 7 } } }).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 7 } }, platformRequirement: null } }).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
     await act(async () => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
     await waitFor(() => expect(data.client.read).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("status")).toHaveTextContent("Consultando la cuenta y el uso actual");
     expect(screen.queryByText(/Configuración actual: versión 7/)).not.toBeInTheDocument();
-    await act(async () => { complete({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 9 } } }); });
+    await act(async () => { complete({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 9 } }, platformRequirement: null } }); });
     await waitFor(() => expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument());
     expect(data.client.update).not.toHaveBeenCalled(); expect(router.refresh).not.toHaveBeenCalled();
   });
@@ -290,7 +420,7 @@ describe("guided usage route workflow", () => {
   });
 
   it("should retain the draft after conflict and refresh only its current version before a newly confirmed command", async () => {
-    const data = fixture(); data.client.update.mockResolvedValueOnce({ status: "failed", code: "usage_policy_conflict", message: "Los países o cupos cambiaron. Revisalos y volvé a confirmar.", uncertain: false }); data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 7 } } });
+    const data = fixture(); data.client.update.mockResolvedValueOnce({ status: "failed", code: "usage_policy_conflict", message: "Los países o cupos cambiaron. Revisalos y volvé a confirmar.", uncertain: false }); data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 7 } }, platformRequirement: null } });
     render(data.node, { wrapper: Providers }); await saveVerificationChange("0");
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Los países o cupos cambiaron"));
     fireEvent.click(screen.getByRole("button", { name: "Consultar uso actual" }));
@@ -305,7 +435,7 @@ describe("guided usage route workflow", () => {
   it("should recover the original result before reading current state and never replace a newer version with replay", async () => {
     const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 1, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
     data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "completed", operationId, replayed: true, result: { ...data.policy, version: 2 } } });
-    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 9 } } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 9 } }, platformRequirement: null } });
     render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByText("El resultado original quedó confirmado. Revisá el uso actual antes de continuar.")).toBeInTheDocument());
     expect(data.client.operation.mock.invocationCallOrder[0]).toBeLessThan(data.client.read.mock.invocationCallOrder[0]);
@@ -314,10 +444,57 @@ describe("guided usage route workflow", () => {
     await waitFor(() => expect(data.client.update).toHaveBeenCalledOnce()); expect(data.client.update.mock.calls[0][1].expectedVersion).toBe(9);
   });
 
-  it("should reopen the review of a restored unfinished update above the original-operation recovery", async () => {
+  it("should forget a restored original that was never registered, reopen the values chosen with it and save them as a new operation", async () => {
     const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
     render(data.node, { wrapper: Providers });
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(screen.getByText("De 100 a 0")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Revisá los países y los límites diarios/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+    await confirm();
+    expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeEnabled();
+    save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 });
+    expect(data.client.update.mock.calls[0][1].operationId).not.toBe(operationId);
+  });
+
+  it("should read the current configuration after forgetting a restored unregistered original and save its values against the current version", async () => {
+    const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, version: 7, verificationDailyLimit: 50 } }, platformRequirement: null } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(data.client.read).toHaveBeenCalledOnce();
+    expect(data.client.operation.mock.invocationCallOrder[0]).toBeLessThan(data.client.read.mock.invocationCallOrder[0]);
+    expect(screen.getByText("De 50 a 0")).toBeInTheDocument();
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 7, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 });
+  });
+
+  it("should forget a restored unregistered original with the saving notice once the current read reports the platform problem resolved", async () => {
+    const data = fixture(); data.state.platformRequirement = "recovery_locked";
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    expect(screen.queryByText(/El guardado anterior no quedó registrado y no hace falta reintentarlo/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
+    await confirm();
+    expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeEnabled();
+  });
+
+  it("should reopen the review of a restored unfinished update above the original-operation recovery, with its explanation beside the retry", async () => {
+    const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input: { operationId, expectedVersion: 3, confirmed: true, allowedCountries: ["US"], verificationDailyLimit: 0, notificationDailyLimit: 200 } });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    const recovery = await screen.findByRole("region", { name: "Recuperar operación original" });
+    await waitFor(() => expect(within(recovery).getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).toBeInTheDocument());
+    expect(within(recovery).getByRole("status")).toHaveTextContent("La operación original todavía no terminó.");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("De 100 a 0")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeDisabled();
     expect(data.client.update).not.toHaveBeenCalled();
@@ -342,12 +519,13 @@ describe("guided usage route workflow", () => {
     expect(readMessagingUsageIntent(viewerId, slug)).not.toBeNull(); expect(data.client.update).toHaveBeenCalledOnce(); expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("should retain an uncertain original write and only offer an identical retry after original absence and current read", async () => {
+  it("should retain an uncertain original write and only offer an identical retry after the original proves started and a current read", async () => {
     const data = fixture(); data.client.update.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar el guardado.", uncertain: true });
     render(data.node, { wrapper: Providers }); await saveVerificationChange("120");
     await waitFor(() => expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeInTheDocument());
     const original = readMessagingUsageIntent(viewerId, slug); expect(original).not.toBeNull();
     expect(screen.getByRole("button", { name: /Guardar países y cupos/ })).toBeDisabled();
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId: original!.input.operationId } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
     await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Reintentar operación original" })).toBeDisabled();
@@ -357,8 +535,24 @@ describe("guided usage route workflow", () => {
     expect(data.client.operation.mock.invocationCallOrder[0]).toBeLessThan(data.client.update.mock.invocationCallOrder[1]);
   });
 
+  it("should keep the current usage visible for a restored started original and complete it by resending the same operation", async () => {
+    const data = fixture(), input = { operationId, expectedVersion: 3, confirmed: true as const, allowedCountries: ["US"], verificationDailyLimit: 120, notificationDailyLimit: 200 };
+    writeMessagingUsageIntent(viewerId, slug, { type: "update_messaging_usage", input });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_messaging_usage", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/La operación original todavía no terminó/)).toBeInTheDocument());
+    expect(data.client.read).toHaveBeenCalled();
+    expect(screen.getByText("De 100 a 120")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo reintentar el guardado/ })); fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.update).toHaveBeenCalledOnce();
+    expect(data.client.update.mock.calls[0][1]).toEqual(input);
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
+  });
+
   it("should withhold retry when current read fails and abort the active private read on unmount", async () => {
     const data = fixture(); writeMessagingUsageIntent(viewerId, slug, { type: "initialize_messaging_usage", input: { operationId, confirmed: true } });
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "initialize_messaging_usage", state: "started", operationId } });
     data.client.read.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el uso actual.", uncertain: false });
     const view = render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos consultar"));
@@ -376,7 +570,7 @@ describe("guided usage route workflow", () => {
     const data = fixture(); const view = render(<Activity mode="visible">{data.node}</Activity>, { wrapper: Providers });
     await openSteps(); await reviewWith({ verification: "120" }); await confirm(); expect(data.client.read).not.toHaveBeenCalled();
     view.rerender(<Activity mode="hidden">{data.node}</Activity>);
-    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, consumption: { verificationToday: 5, notificationToday: 4 } } } });
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { usage: { state: "configured", policy: { ...data.policy, consumption: { verificationToday: 5, notificationToday: 4 } } }, platformRequirement: null } });
     view.rerender(<Activity mode="visible">{data.node}</Activity>);
     await waitFor(() => expect(screen.getByText(/5 códigos y 4 avisos consumidos hoy/)).toBeInTheDocument());
     expect(data.client.read).toHaveBeenCalledOnce(); expect(data.client.update).not.toHaveBeenCalled();
@@ -403,13 +597,46 @@ describe("guided usage route workflow", () => {
     await act(async () => { complete({ status: "ready", value: { id: viewerId } }); });
   });
 
-  it("should offer signing in, and come back to this page with its way back to the rules, when the usage page was read without a session", () => {
-    const pathname = "/tribu/academia/admissions/messaging", search = "return=policy-review", code = MESSAGING_ERROR_CODE.authenticationRequired;
+  it("should offer signing in again with Google, back to this page with its way back to the rules, when the usage page was read without a usable session", async () => {
+    const pathname = "/tribu/academia/admissions/messaging", search = "return=policy-review", code = MESSAGING_ERROR_CODE.authenticationRequired, requests = googleSignIn.requests;
     render(<SearchParamsContext.Provider value={new URLSearchParams(search)}><AdmissionWorkspaceRoute pathname={pathname} slug="tribu"><AdmissionSettingsPage page="usage"><MessagingUsageContainer initialState={{ kind: "unavailable", code, message: MESSAGING_ERROR_MESSAGE[code] }} client={fixture().client} /></AdmissionSettingsPage></AdmissionWorkspaceRoute></SearchParamsContext.Provider>, { wrapper: Providers });
 
-    expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_ERROR_MESSAGE[code]);
-    expect(screen.getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", buildSignInRedirectUrl(`${pathname}?${search}`));
+    expect(screen.getByRole("heading", { name: MESSAGING_ROUTE_ERROR_COPY.title })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "No podemos mostrar esta admisión" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Volvé a ingresar con Google para gestionar la mensajería de la academia.");
+    expect(screen.queryByRole("link", { name: "Iniciar sesión" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: MESSAGING_ROUTE_ERROR_COPY.reauthenticate }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({ provider: "google", callbackURL: `${pathname}?${search}`, errorCallbackURL: "/auth/error" });
+  });
+
+  it("should ask to sign in again with Google when a save is rejected for the session, and reopen the chosen values to save them after the return", async () => {
+    const pathname = "/synthetic-academy/academia/admissions/messaging", requests = googleSignIn.requests, data = fixture(false);
+    data.client.initialize.mockResolvedValueOnce({ status: "failed", code: "authentication_required", message: MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.authenticationRequired], uncertain: false });
+    data.client.read.mockResolvedValue({ status: "ready", value: { usage: { state: "not_configured", policy: null }, platformRequirement: null } });
+    const route = (node: ReactNode) => <PathnameContext.Provider value={pathname}>{node}</PathnameContext.Provider>;
+    const first = render(route(data.node), { wrapper: Providers });
+    await reviewWith({ verification: "40", notification: "90" }); await confirm(); save();
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: MESSAGING_ROUTE_ERROR_COPY.title })).toBeInTheDocument());
+    expect(screen.getByRole("alert")).toHaveTextContent("Volvé a ingresar con Google para gestionar la mensajería de la academia.");
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).toMatchObject({ type: "initialize_messaging_usage", chosen: { verificationDailyLimit: 40, notificationDailyLimit: 90 } });
+    fireEvent.click(screen.getByRole("button", { name: MESSAGING_ROUTE_ERROR_COPY.reauthenticate }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]).toMatchObject({ provider: "google", callbackURL: pathname });
+
+    // Back from Google the page mounts again: the save never registered, so the chosen values reopen to be confirmed as a new operation.
+    first.unmount();
+    render(route(<MessagingUsageContainer initialState={data.state} client={data.client} />), { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(unregisteredText)).toBeInTheDocument());
+    await confirm(); save();
+    await waitFor(() => expect(screen.getByText(savedText)).toBeInTheDocument());
+    expect(data.client.initialize).toHaveBeenCalledTimes(2);
+    expect(data.client.initialize.mock.calls[1][1].operationId).not.toBe(data.client.initialize.mock.calls[0][1].operationId);
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 1, verificationDailyLimit: 40, notificationDailyLimit: 90 });
+    expect(readMessagingUsageIntent(viewerId, slug)).toBeNull();
   });
 
   it("should not offer a retry that cannot grant a denied permission", () => {

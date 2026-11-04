@@ -37,7 +37,9 @@ export function toAcademyAccessStatusDto(
     hasBonusCoverage: access.hasBonusCoverage,
     hasPaidCoverage: access.hasPaidCoverage,
     isLeaderPreview: access.isLeaderPreview,
+    lastPaymentRejected: access.lastPaymentRejected,
     level: access.level,
+    membershipRecovery: access.membershipRecovery,
     nextAction: access.nextAction,
     renewalStatus: access.renewalStatus,
   };

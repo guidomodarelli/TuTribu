@@ -12,9 +12,10 @@ import type {
   AcademyPaymentWebhookResult,
   AcademySubscriptionRepository,
   CancelAcademyRenewalResult,
+  OwnAcademyRenewal,
+  StartAcademyCheckoutCommand,
   StartAcademyCheckoutResult,
 } from "@/src/modules/subscriptions/domain/repositories/academy-subscription-repository";
-import type { AcademySubscriptionRenewalStatus } from "@/src/modules/subscriptions/constants/subscriptions";
 
 type Dependencies = {
   academySubscriptionRepository: AcademySubscriptionRepository;
@@ -32,11 +33,9 @@ export function startAcademySubscription({
   academySubscriptionRepository,
   isAcademySalesActivationAllowed,
 }: Dependencies & { isAcademySalesActivationAllowed: () => boolean }) {
-  return async (command: {
-    acceptedOfferVersion: number;
-    correlationId: string;
-    tribeSlug: string;
-  }): Promise<StartAcademyCheckoutResult | { status: "invalid_input" }> => {
+  return async (
+    command: StartAcademyCheckoutCommand
+  ): Promise<StartAcademyCheckoutResult | { status: "invalid_input" }> => {
     if (!Number.isInteger(command.acceptedOfferVersion) || command.acceptedOfferVersion < 1) {
       return { status: "invalid_input" };
     }
@@ -52,9 +51,10 @@ export function startAcademySubscription({
   };
 }
 
-export function getOwnAcademyRenewalStatus({ academySubscriptionRepository }: Dependencies) {
-  return async ({ tribeSlug }: { tribeSlug: string }): Promise<AcademySubscriptionRenewalStatus> =>
-    academySubscriptionRepository.getOwnRenewalStatus({ tribeSlug: normalizeSlug(tribeSlug) });
+/** Reads the renewal of the member's academy subscription and whether its last payment was rejected. */
+export function getOwnAcademyRenewal({ academySubscriptionRepository }: Dependencies) {
+  return async ({ tribeSlug }: { tribeSlug: string }): Promise<OwnAcademyRenewal> =>
+    academySubscriptionRepository.getOwnRenewal({ tribeSlug: normalizeSlug(tribeSlug) });
 }
 
 export function cancelOwnAcademyRenewal({ academySubscriptionRepository }: Dependencies) {

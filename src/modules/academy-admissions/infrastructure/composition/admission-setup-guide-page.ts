@@ -13,11 +13,9 @@ import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/me
 import { MESSAGING_USAGE_POLICY_STATE } from "@/src/modules/messaging/constants/messaging-limits";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
-import { loadCommercialMembershipReviewState } from "./commercial-membership-review-page";
 import { loadAdmissionPreflightState } from "./admission-preflight-page";
-import type { CommercialMembershipReviewPageState } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-page-state";
 import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
-import { isAdmissionPolicyPlatformReason } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { isAdmissionPolicyPlatformReason, readAdmissionPolicyPlatformSecurity } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_PREFLIGHT_REASON } from "@/src/modules/academy-admissions/constants/admission-preflight";
 
 /** Server-selected openers of each area's own page use case, supplied by the route entrypoint. */
@@ -25,8 +23,6 @@ export type AdmissionSetupGuideOpeners = {
   policy: Parameters<typeof loadAdmissionPolicyPageState>[1];
   notifications: Parameters<typeof loadAdmissionNotificationSettingsPageState>[1];
   messaging: Parameters<typeof loadMessagingConnectionsPageState>[1];
-  /** Leader-only review of memberships blocked by payment; omitted where the page does not need it. */
-  reviews?: Parameters<typeof loadCommercialMembershipReviewState>[1];
   /** Leader-only informational activation check; omitted where the page does not need it. */
   preflight?: Parameters<typeof loadAdmissionPreflightState>[1];
 };
@@ -39,31 +35,26 @@ export type AdmissionSetupGuideState = { slug: string; progress: AdmissionSetupP
  *
  * @param input - Unvalidated route params and query, validated by each loader.
  * @param open - Openers of the rules, notifications and messaging page use cases.
+ * @param requestHeaders - Incoming request headers, so each loader logs with the native correlation.
  * @returns The derived guide, or `null` for any viewer that is not the current leader.
  */
-export async function loadAdmissionSetupGuideState(input: unknown, open: AdmissionSetupGuideOpeners): Promise<AdmissionSetupGuideState> {
+export async function loadAdmissionSetupGuideState(input: unknown, open: AdmissionSetupGuideOpeners, requestHeaders?: Pick<Headers, "get">): Promise<AdmissionSetupGuideState> {
   const routeInput = readRouteInput(input);
-  const [policyState, notificationState, messagingState, reviewState, preflight] = await Promise.all([
-    loadAdmissionPolicyPageState(input, open.policy),
-    loadAdmissionNotificationSettingsPageState(input, open.notifications),
-    loadMessagingConnectionsPageState(input, open.messaging),
-    open.reviews && routeInput ? loadCommercialMembershipReviewState(routeInput, open.reviews) : Promise.resolve(null),
-    open.preflight && routeInput ? loadAdmissionPreflightState(routeInput, open.preflight) : Promise.resolve(null),
+  const [policyState, notificationState, messagingState, preflight] = await Promise.all([
+    loadAdmissionPolicyPageState(input, open.policy, requestHeaders),
+    loadAdmissionNotificationSettingsPageState(input, open.notifications, requestHeaders),
+    loadMessagingConnectionsPageState(input, open.messaging, requestHeaders),
+    open.preflight && routeInput ? loadAdmissionPreflightState(routeInput, open.preflight, requestHeaders) : Promise.resolve(null),
   ]);
   if (policyState.kind !== "ready") return null;
   const messaging = readMessagingFacts(messagingState);
   if (!messaging.leader) return null;
-  return { slug: policyState.slug, progress: deriveAdmissionSetupProgress({ policy: readPolicyFacts(policyState), messaging: messaging.facts, notifications: readNotificationFacts(notificationState), memberships: readMembershipFacts(reviewState), activation: readActivationFacts(preflight) }) };
+  return { slug: policyState.slug, progress: deriveAdmissionSetupProgress({ policy: readPolicyFacts(policyState), messaging: messaging.facts, notifications: readNotificationFacts(notificationState), activation: readActivationFacts(preflight), platformSecurity: readPlatformSecurityFacts(policyState) }) };
 }
 
 /** @param input - Untrusted page input. @returns Only its route params, for loaders that accept no query. */
 function readRouteInput(input: unknown): { params: unknown } | null {
   return typeof input === "object" && input !== null && "params" in input ? { params: input.params } : null;
-}
-
-/** Pending and recorded decisions of the membership review; an unreadable review never adds a step. */
-function readMembershipFacts(state: CommercialMembershipReviewPageState | null): AdmissionSetupFacts["memberships"] {
-  return state?.kind === "ready" ? { pendingCount: state.list.pendingCount, resolvedCount: state.list.resolvedCount } : null;
 }
 
 /**
@@ -76,16 +67,25 @@ function readActivationFacts(preflight: AdmissionPolicyPreflightDto | null): Adm
   return { platformBlocked: blocked && preflight.reasons.some(isAdmissionPolicyPlatformReason), admissionsClosed: blocked && preflight.reasons.includes(ADMISSION_PREFLIGHT_REASON.evaluatorDisabled) };
 }
 
+/**
+ * The rules read lists the platform security every admission write signs with (the same checks the writers run): while it names
+ * one, the guide offers no step, since every rules, messaging and quota save would be rejected.
+ */
+function readPlatformSecurityFacts(state: Extract<AdmissionPolicyPageState, { kind: "ready" }>): AdmissionSetupFacts["platformSecurity"] {
+  return readAdmissionPolicyPlatformSecurity([...state.policy.preparation.requirements, ...(state.policy.policy?.requirements ?? [])]);
+}
+
 /** Maps the rules page state to the guide's policy facts. */
 function readPolicyFacts(state: Extract<AdmissionPolicyPageState, { kind: "ready" }>): AdmissionSetupFacts["policy"] {
   const { policy } = state.policy;
-  const sendsCodes = policy !== null && (policy.requiresAdditionalVerification || policy.contactType === ADMISSION_CONTACT_TYPE.phone);
+  // Only the additional verification sends codes: a phone contact without it is declared, so it needs no connection, quota or country.
+  const sendsCodes = policy?.requiresAdditionalVerification ?? false;
   return {
     exists: policy !== null,
     open: state.policy.state === ADMISSION_POLICY_PUBLIC_STATE.active,
     paused: state.policy.state === ADMISSION_POLICY_PUBLIC_STATE.paused,
     sendsCodes,
-    verifiesPhone: policy?.contactType === ADMISSION_CONTACT_TYPE.phone,
+    verifiesPhone: sendsCodes && policy?.contactType === ADMISSION_CONTACT_TYPE.phone,
   };
 }
 
@@ -101,8 +101,12 @@ function readMessagingFacts(state: MessagingConnectionsPageState): { leader: boo
   return { leader: true, facts: { connected: configuration.selected?.state === MESSAGING_CONNECTION_STATE.active, candidatePending, usage } };
 }
 
-/** Email notices need both the tribe's email switch and a personal frequency other than "omitted". */
+/**
+ * Reports the tribe's email switch and whether the personal frequency is not "omitted"; the guide combines both, since email notices
+ * need both. It also carries the email capability the notices page reads with the email write's own rule, so the guide sends the leader
+ * to the connection exactly when the notices page would.
+ */
 function readNotificationFacts(state: AdmissionNotificationSettingsPageState): AdmissionSetupFacts["notifications"] {
   if (state.kind !== "ready") return null;
-  return { emailEnabled: state.email?.enabled ?? false, receivesEmail: state.preference.mode !== ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted };
+  return { emailEnabled: state.email?.enabled ?? false, receivesEmail: state.preference.mode !== ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted, preparedEmailAvailable: state.preparedEmailAvailable };
 }

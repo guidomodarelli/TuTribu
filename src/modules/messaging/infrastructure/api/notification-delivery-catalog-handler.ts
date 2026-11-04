@@ -3,8 +3,7 @@ import "server-only";
 import type { ReadNotificationDeliveryCatalogUseCase } from "../../application/use-cases/read-notification-delivery-catalog-use-case";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { notificationDeliveryCatalogQuerySchema, notificationDeliveryCatalogSchema, NOTIFICATION_DELIVERY_CATALOG_HTTP } from "../../constants/notification-delivery-catalog";
-import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
-import { messagingFailure } from "../../application/results/messaging-errors";
+import { messagingTribeRoutingFailure } from "../../application/results/messaging-errors";
 import { createMessagingRouteBoundary } from "./messaging-route-http";
 import { messagingTribeParamsSchema } from "./messaging-request-schemas";
 
@@ -22,7 +21,7 @@ export function createNotificationDeliveryCatalogHandler(open: () => Promise<Not
       if (!query.usable) return query.response;
       const services = await open(), requestId = boundary.requestContext.requestId;
       const routing = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!routing.ok) return boundary.failure(messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === routing.failure.code) ?? MESSAGING_ERROR_CODE.resourceUnavailable));
+      if (!routing.ok) return boundary.failure(messagingTribeRoutingFailure(routing.failure));
       const cursor = query.value.cursorId && query.value.cursorCreatedAt ? { deliveryId: query.value.cursorId, createdAt: query.value.cursorCreatedAt } : null;
       const outcome = await services.catalog.execute({ tribeId: routing.value.tribeId, requestId, cursor });
       return outcome.ok ? boundary.success(notificationDeliveryCatalogSchema, outcome.value) : boundary.failure(outcome.failure);

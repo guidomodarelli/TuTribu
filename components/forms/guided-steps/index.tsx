@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useEffect, useId, useRef, useState, type ComponentProps, type SubmitEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ComponentProps, type MouseEvent, type SubmitEvent, type ReactNode } from "react";
 import { AnimatePresence, m, useIsPresent, useReducedMotion, type Variants } from "motion/react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { Button, MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING, SPRING_PANEL, SPRING_POP } from "@golfo/ui";
@@ -71,6 +71,12 @@ export type GuidedStepsProps = {
 
 /** Summary of a collapsed group of secondary actions when the owner does not name it. */
 const DEFAULT_SECONDARY_LABEL = "Más opciones";
+
+/**
+ * Stable identities of the two action buttons, so React never reuses the Atrás node as the submit button when Atrás
+ * leaves on the first step.
+ */
+const GUIDED_STEPS_ACTION_KEY = { back: "back", forward: "forward" } as const;
 
 /**
  * Keeps optional reads and recoveries out of the main path behind a native disclosure.
@@ -181,6 +187,12 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
 
   /** Moves to another step and remembers that focus should follow it. */
   const go = (index: number) => { moved.current = true; setDirection(index >= active ? 1 : -1); onCurrentChange(index); };
+  /**
+   * Atrás never submits. A real click lets React commit the previous step before the browser runs the button's default
+   * action; on the first step Atrás disappears, and if that commit turned the pressed node into the submit button, the
+   * default action would submit the form and advance again. Cancelling the click keeps the person on the step they chose.
+   */
+  const back = (event: MouseEvent<HTMLButtonElement>) => { event.preventDefault(); go(active - 1); };
   /** Enter advances like Continue; a step that owns a write (and the last step) runs it instead, and focus follows the step it opens. */
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -214,10 +226,10 @@ export function GuidedSteps({ label, steps, current, onCurrentChange, finalActio
 
       {step.blockedReason && <p id={blockedId} className={styles.GuidedSteps__blocked}>{step.blockedReason}</p>}
       <div className={styles.GuidedSteps__actions}>
-        {active > 0 && <Button variant="secondary" size="md" onClick={() => go(active - 1)} disabled={busy}><ArrowLeftIcon aria-hidden="true" />Atrás</Button>}
+        {active > 0 && <Button key={GUIDED_STEPS_ACTION_KEY.back} variant="secondary" size="md" onClick={back} disabled={busy}><ArrowLeftIcon aria-hidden="true" />Atrás</Button>}
         {stepAction
-          ? <Button type="submit" variant="primary" size="md" loading={stepAction.loading} disabled={stepAction.disabled || Boolean(step.blockedReason) || (busy && !stepAction.loading)} aria-describedby={step.blockedReason ? blockedId : undefined}>{stepAction.label}</Button>
-          : <Button type="submit" variant="primary" size="md" disabled={busy || Boolean(step.blockedReason)} aria-describedby={step.blockedReason ? blockedId : undefined}>{nextLabel}<ArrowRightIcon aria-hidden="true" /></Button>}
+          ? <Button key={GUIDED_STEPS_ACTION_KEY.forward} type="submit" variant="primary" size="md" loading={stepAction.loading} disabled={stepAction.disabled || Boolean(step.blockedReason) || (busy && !stepAction.loading)} aria-describedby={step.blockedReason ? blockedId : undefined}>{stepAction.label}</Button>
+          : <Button key={GUIDED_STEPS_ACTION_KEY.forward} type="submit" variant="primary" size="md" disabled={busy || Boolean(step.blockedReason)} aria-describedby={step.blockedReason ? blockedId : undefined}>{nextLabel}<ArrowRightIcon aria-hidden="true" /></Button>}
       </div>
       {footer}
     </form>

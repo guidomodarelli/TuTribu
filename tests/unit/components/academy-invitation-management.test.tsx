@@ -9,14 +9,18 @@ import type { PersonalInvitationManagementPageState } from "@/src/modules/academ
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { PERSONAL_INVITATION_MANAGEMENT_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
+import { PLATFORM_SECURITY_NOTICE_COPY, PLATFORM_SECURITY_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/platform-security-notice";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { readPersonalInvitationManagementReference } from "@/lib/academy-admissions/personal-invitation-management-intent";
 import { fromBuenosAiresMinuteKey, toBuenosAiresMinuteKey } from "@/src/modules/shared/application/date-time/buenos-aires-minute";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 
 const CONFIRMATION = "Confirmo esta acción sobre la invitación personal.";
 
 /** @returns Safe initial props and own ports, with real storage, hooks, controls and validation. */
 function fixture(phone = false) {
   const viewerId = randomUUID(), tribeId = randomUUID(), invitationId = randomUUID();
-  const initial: Extract<PersonalInvitationManagementPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic", tribeId, viewerId, renderedAt: new Date().toISOString(), contactType: phone ? "phone" : "email", requiresAdditionalVerification: phone, allowedCountries: ["AR"], hasUsableAllowlist: false, page: { items: [], nextCursor: null }, query: { limit: 25 } };
+  const initial: Extract<PersonalInvitationManagementPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic", tribeId, viewerId, renderedAt: new Date().toISOString(), contactType: phone ? "phone" : "email", platformRequirement: null, requiresAdditionalVerification: phone, allowedCountries: ["AR"], hasUsableAllowlist: false, page: { items: [], nextCursor: null }, query: { limit: 25 } };
   const invitationUrl = `https://tutribu.example.test/admissions/invitations/${randomBytes(32).toString("base64url")}`;
   const metadata = { id: invitationId, version: 1, internalName: "Grupo inicial", recipient: { type: "email" as const, value: "recipient@example.test" }, requiresAllowlist: false, expiresAt: null, status: "active" as const, createdAt: initial.renderedAt, redeemedAt: null, revokedAt: null, authorizationRevokedAt: null };
   const client: PersonalInvitationManagementBrowserClient = {
@@ -181,6 +185,25 @@ describe("personal invitation management controls", () => {
     expect(screen.queryByLabelText("Enlace personal")).not.toBeInTheDocument();
   });
 
+  it("should show a one-time link the server bound to this leader even when the session check after the write cannot be read", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "ready", value: { id: data.initial.viewerId } }).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar tu sesión.", uncertain: false });
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByLabelText("Enlace personal")).toHaveValue(data.invitationUrl);
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.account)).not.toBeInTheDocument();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+  });
+
+  it("should keep the private view and explain a session that cannot be read before an action, without closing it", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar tu sesión.", uncertain: false });
+    await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByText(BROWSER_SESSION_CHECK_MESSAGE)).toBeVisible();
+    expect(data.client.write).not.toHaveBeenCalled();
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.account)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Emitir invitación" })).toBeInTheDocument();
+  });
+
   it("should keep the one-time link and its feedback when the leader returns to the window with the same account", async () => {
     const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
     await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
@@ -303,11 +326,34 @@ describe("personal invitation management controls", () => {
     expect(screen.getByRole("checkbox", { name: CONFIRMATION })).not.toBeChecked();
   });
 
-  it("should keep phone OFF disabled without sending a hidden verification or creation", async () => {
-    const data = fixture(true); data.initial.requiresAdditionalVerification = false;
+  it("should show the phone code prerequisite instead of the issue steps, without a hidden creation, and keep renaming available", async () => {
+    const data = fixture(true), user = userEvent.setup(); data.initial.requiresAdditionalVerification = false; data.initial.page.items = [data.metadata];
     render(<InvitationsContainer initialState={data.initial} client={data.client} />);
-    expect(await screen.findByText(/código apagado no se emiten/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled(); expect(data.client.write).not.toHaveBeenCalled();
+
+    const prerequisite = await screen.findByRole("region", { name: "Primero activá la comprobación del teléfono con un código" });
+    expect(prerequisite).toHaveTextContent("Tus reglas piden un teléfono sin comprobarlo con un código, y así no se emiten invitaciones personales.");
+    expect(within(prerequisite).getByRole("link", { name: "Ir a Reglas" })).toHaveAttribute("href", "/synthetic/academia/admissions/settings");
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Nombre interno")).not.toBeInTheDocument();
+    // Existing invitations stay manageable: renaming needs no new issue.
+    const rename = screen.getByRole("button", { name: "Renombrar Grupo inicial" });
+    await waitFor(() => expect(rename).toBeEnabled());
+    await user.click(rename);
+    expect(screen.queryByRole("region", { name: "Primero activá la comprobación del teléfono con un código" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeInTheDocument();
+    expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should show the saved-rules prerequisite with its link to Reglas instead of an issue form that would be rejected", async () => {
+    const data = fixture(); data.initial.contactType = null; data.initial.requiresAdditionalVerification = false;
+    render(<InvitationsContainer initialState={data.initial} client={data.client} />);
+
+    const prerequisite = await screen.findByRole("region", { name: "Primero guardá las reglas de admisión" });
+    expect(prerequisite).toHaveTextContent("Cada invitación usa el tipo de contacto de las reglas de admisión. Guardalas primero y después emití invitaciones.");
+    expect(within(prerequisite).getByRole("link", { name: "Ir a Reglas" })).toHaveAttribute("href", "/synthetic/academia/admissions/settings");
+    expect(screen.queryByLabelText("Nombre interno")).not.toBeInTheDocument();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    expect(data.client.write).not.toHaveBeenCalled();
   });
 
   it("should require a separate redeemed-authorization acknowledgement before the exact withdrawal", async () => {
@@ -451,5 +497,75 @@ describe("invitation history «Ver más»", () => {
     expect(alert).toHaveAttribute("role", "alert");
     expect(alert.parentElement).toContainElement(screen.getByRole("button", { name: "Ver más invitaciones" }));
     expect(renamed()).toHaveLength(1);
+  });
+});
+
+describe("invitation management without platform protection", () => {
+  beforeEach(() => window.sessionStorage.clear());
+  afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+  it("should explain the platform block, keep the history readable and offer no issue, rename or revoke", async () => {
+    const data = fixture(), initial = { ...data.initial, platformRequirement: "security_unconfigured" as const, page: { items: [data.metadata], nextCursor: null } };
+    render(<InvitationsContainer initialState={initial} client={data.client} />);
+    const notice = await screen.findByRole("region", { name: PLATFORM_SECURITY_NOTICE_COPY.title });
+    expect(within(notice).getByText(PLATFORM_SECURITY_REQUIREMENT_COPY.security_unconfigured)).toBeVisible();
+    expect(within(notice).getByText(PERSONAL_INVITATION_MANAGEMENT_COPY.platformConsequence)).toBeVisible();
+    await waitFor(() => expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.reading)).not.toBeInTheDocument());
+    expect(screen.getByText(data.metadata.internalName)).toBeVisible();
+    for (const action of ["Renombrar", "Reemitir", "Revocar"]) expect(screen.getByRole("button", { name: `${action} ${data.metadata.internalName}` })).toBeDisabled();
+    expect(screen.queryByLabelText("Nombre interno")).not.toBeInTheDocument();
+    expect(data.client.write).not.toHaveBeenCalled();
+  });
+
+  it("should release the original and keep the platform copy next to the form when the platform cannot protect the issue", async () => {
+    const data = fixture(), user = userEvent.setup(), code = ADMISSION_ERROR_CODE.platformSecurityUnavailable;
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+    await mount(data); await emailProposal(user); await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByText(ADMISSION_ERROR_MESSAGE[code])).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Consultar operación original" })).not.toBeInTheDocument();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+    expect(data.client.operation).not.toHaveBeenCalled(); expect(data.client.write).toHaveBeenCalledOnce();
+  });
+
+  it("should offer to discard an original only after a consult proves it absent, then require the current state", async () => {
+    const data = fixture(), user = userEvent.setup();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    await mount(data); await emailProposal(user); await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    await screen.findByRole("button", { name: "Consultar operación original" });
+    expect(screen.queryByRole("button", { name: "Descartar la operación sin registrar" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Consultar operación original" }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.absent)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Descartar la operación sin registrar" }));
+    // The discarded reference holds no recipient: the next action waits for a fresh read of the current state.
+    expect((await screen.findAllByText(PERSONAL_INVITATION_MANAGEMENT_COPY.currentRequired))[0]).toBeVisible();
+    expect(screen.getByRole("button", { name: "Emitir invitación" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Consultar operación original" })).not.toBeInTheDocument();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+    expect(data.client.write).toHaveBeenCalledOnce();
+  });
+
+  it("should let the leader discard an original that stays started, since it cannot be resent, then require the current state", async () => {
+    const data = fixture(), user = userEvent.setup();
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "Sin confirmar.", uncertain: true });
+    await mount(data); await emailProposal(user); await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    await screen.findByRole("button", { name: "Consultar operación original" });
+    const operationId = readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)!.operationId;
+    vi.mocked(data.client.operation).mockResolvedValueOnce({ status: "ready", value: { viewerId: data.initial.viewerId, original: { type: "create_personal_invitation", state: "started", operationId } } });
+    await user.click(screen.getByRole("button", { name: "Consultar operación original" }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.started)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Descartar la operación pendiente" }));
+    expect((await screen.findAllByText(PERSONAL_INVITATION_MANAGEMENT_COPY.currentRequired))[0]).toBeVisible();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
+    expect(data.client.write).toHaveBeenCalledOnce();
+  });
+
+  it("should explain an issue for a recipient that already has an active invitation without blocking the draft as a changed invitation", async () => {
+    const data = fixture(), user = userEvent.setup(), code = ADMISSION_ERROR_CODE.invitationConflict;
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+    await mount(data); await emailProposal(user); await user.click(screen.getByRole("button", { name: "Emitir invitación" }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.activeRecipient)).toBeVisible();
+    expect(screen.queryByText(ADMISSION_ERROR_MESSAGE[code])).not.toBeInTheDocument();
+    expect(screen.queryByText(PERSONAL_INVITATION_MANAGEMENT_COPY.conflictBlocked)).not.toBeInTheDocument();
+    expect(readPersonalInvitationManagementReference(data.initial.viewerId, data.initial.slug)).toBeNull();
   });
 });

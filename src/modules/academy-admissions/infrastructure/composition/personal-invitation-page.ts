@@ -2,32 +2,24 @@
 import "server-only";
 import type { GetPersonalInvitationPageUseCase } from "../../application/use-cases/get-personal-invitation-page-use-case";
 import type { PersonalInvitationPageState } from "../../application/results/personal-invitation-page-state";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "../../constants/admission-errors";
-import type { AdmissionErrorCode } from "../../application/results/admission-errors";
-import { PERSONAL_INVITATION_PAGE_KIND, PERSONAL_INVITATION_PAGE_OPERATION, personalInvitationPageInputSchema, personalInvitationPageStateSchema } from "../../constants/personal-invitation-page";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
+import { PERSONAL_INVITATION_PAGE_OPERATION, personalInvitationPageInputSchema, personalInvitationPageStateSchema } from "../../constants/personal-invitation-page";
+import { createAdmissionPageDiagnostics, loadAdmissionPageRead, unavailableAdmissionPage } from "./admission-page-diagnostics";
 
-/** @param input - Untrusted resolved params/query. @param open - Native read-only framework composition. @returns Allowlisted SSR state without the route token, recipient or private cause. */
-export async function loadPersonalInvitationPageState(input: unknown, open: () => Promise<{ page: Pick<GetPersonalInvitationPageUseCase, "execute"> }>): Promise<PersonalInvitationPageState> {
-  const failed = (code: AdmissionErrorCode): PersonalInvitationPageState => ({ kind: PERSONAL_INVITATION_PAGE_KIND.unavailable, code, message: ADMISSION_ERROR_MESSAGE[code] });
+/** Fixed messages of the personal invitation loader; the token never reaches a log. */
+const PERSONAL_INVITATION_PAGE_DIAGNOSTIC = { readFailed: "Personal invitation page application read failed", contractRejected: "Personal invitation page returned an unusable own state", loadFailed: "Personal invitation page could not load safe state" } as const;
+
+/**
+ * @param input - Untrusted resolved params/query. @param open - Native read-only framework composition.
+ * @param requestHeaders - Incoming request headers, for native correlation.
+ * @returns Allowlisted SSR state without the route token, recipient or private cause.
+ */
+export async function loadPersonalInvitationPageState(input: unknown, open: () => Promise<{ page: Pick<GetPersonalInvitationPageUseCase, "execute"> }>, requestHeaders?: Pick<Headers, "get">): Promise<PersonalInvitationPageState> {
   const parsed = personalInvitationPageInputSchema.safeParse(input);
-  if (!parsed.success) return failed(ADMISSION_ERROR_CODE.invalidInput);
-  const context = resolveRequestContext(new Headers());
-  const logger = createServerLogger({ feature: "academy-admissions", operation: PERSONAL_INVITATION_PAGE_OPERATION, ...context });
-  try {
-    const pageModule = await open();
-    const loaded = await pageModule.page.execute({ token: parsed.data.params.token, requestId: context.requestId });
-    if (!loaded.ok) {
-      if (loaded.failure.code === ADMISSION_ERROR_CODE.unexpectedFailure || loaded.failure.code === ADMISSION_ERROR_CODE.publicContractUnusable) logger.error({ message: "Personal invitation page application read failed", metadata: { code: loaded.failure.code } });
-      return failed(loaded.failure.code);
-    }
-    const state = personalInvitationPageStateSchema.safeParse(loaded.value);
-    if (state.success) return state.data;
-    logger.error({ message: "Personal invitation page returned an unusable own state", metadata: { code: ADMISSION_ERROR_CODE.publicContractUnusable } });
-    return failed(ADMISSION_ERROR_CODE.publicContractUnusable);
-  } catch {
-    logger.error({ message: "Personal invitation page could not load safe state", metadata: { code: ADMISSION_ERROR_CODE.unexpectedFailure } });
-    return failed(ADMISSION_ERROR_CODE.unexpectedFailure);
-  }
+  if (!parsed.success) return unavailableAdmissionPage(ADMISSION_ERROR_CODE.invalidInput);
+  const diagnostics = createAdmissionPageDiagnostics(PERSONAL_INVITATION_PAGE_OPERATION, requestHeaders);
+  return loadAdmissionPageRead({
+    diagnostics, stateSchema: personalInvitationPageStateSchema, messages: PERSONAL_INVITATION_PAGE_DIAGNOSTIC,
+    read: async () => (await open()).page.execute({ token: parsed.data.params.token, requestId: diagnostics.context.requestId }),
+  });
 }

@@ -3,27 +3,41 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAllowlistHandlers, type AllowlistServices  } from "@/src/modules/academy-admissions/infrastructure/api/allowlist-handlers";
+import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
 
 /** @returns Own HTTP ports and actual boundary handlers without replacing framework/platform libraries. */
 function fixture() {
   const tribeId = randomUUID(), entryId = randomUUID(), operationId = randomUUID();
   const operation = { state: "completed" as const, operationId, replayed: false, result: { entryId, version: 1, changed: true, created: true } };
   const entry = { id: entryId, version: 1, contactType: "email" as const, identity: "entry@example.test", displayName: null, status: "enabled" as const, source: "manual" as const, createdAt: "2026-10-09T04:00:00Z", updatedAt: "2026-10-09T04:00:00Z" };
-  const services: AllowlistServices = { resolveTribe: { execute: async () => ({ ok: true, value: { tribeId } }) }, allowlist: { list: vi.fn(async () => ({ ok: true as const, value: { items: [entry], nextCursor: null } })), read: vi.fn(async () => ({ ok: true as const, value: entry })), create: vi.fn(async () => ({ ok: true as const, value: operation })), update: vi.fn(async () => ({ ok: true as const, value: { ...operation, result: { ...operation.result, version: 2, created: false } } })) } };
+  const policy: AdmissionPolicyStateDto = { state: "not_configured", controlActivated: false, policy: null, usage: null, preparation: { state: "not_evaluated", requirements: ["policy_unavailable"] }, impact: { pendingRequestCount: 0, contactTypeLocked: false, historicalLinksProtected: false, warnings: [] } };
+  const services: AllowlistServices = { resolveTribe: { execute: async () => ({ ok: true, value: { tribeId } }) }, policy: { execute: vi.fn<AllowlistServices["policy"]["execute"]>(async () => ({ ok: true as const, value: policy })) }, allowlist: { list: vi.fn(async () => ({ ok: true as const, value: { items: [entry], nextCursor: null } })), read: vi.fn(async () => ({ ok: true as const, value: entry })), create: vi.fn(async () => ({ ok: true as const, value: operation })), update: vi.fn(async () => ({ ok: true as const, value: { ...operation, result: { ...operation.result, version: 2, created: false } } })) } };
   const open = vi.fn(async () => services), handlers = createAllowlistHandlers(open), context = { params: Promise.resolve({ slug: "synthetic" }) }, entryContext = { params: Promise.resolve({ slug: "synthetic", entryId }) };
   /** @param method - Static route operation. @param body - Own proposal only. @param query - Explicit bounded search. @returns A native same-origin request. */
   const request = (method = "GET", body?: unknown, query = "") => new Request(`https://tutribu.example.test/api/tribes/synthetic/admissions/allowlist${query}`, { method, headers: { origin: "https://tutribu.example.test", "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
-  return { tribeId, entryId, operationId, entry, operation, services, open, handlers, context, entryContext, request };
+  return { tribeId, entryId, operationId, entry, operation, policy, services, open, handlers, context, entryContext, request };
 }
 
 describe("allowlist native HTTP contracts", () => {
   it("should return bounded list metadata without invoking a command", async () => {
     const data = fixture(), response = await data.handlers.list(data.request("GET", undefined, "?limit=1&status=enabled"), data.context);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ items: [data.entry], nextCursor: null });
+    expect(await response.json()).toEqual({ items: [data.entry], nextCursor: null, platformRequirement: null });
     expect(data.services.allowlist.list).toHaveBeenCalledWith(expect.objectContaining({ tribeId: data.tribeId, limit: 1, status: "enabled" }));
     expect(data.services.allowlist.create).not.toHaveBeenCalled(); expect(data.services.allowlist.update).not.toHaveBeenCalled();
     expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("should publish the platform requirement of list writes from the current rules read with every page", async () => {
+    const data = fixture();
+    vi.mocked(data.services.policy.execute).mockResolvedValueOnce({ ok: true, value: { ...data.policy, preparation: { state: "not_evaluated", requirements: ["policy_unavailable", "admission_recovery_locked"] } } });
+    const blocked = await data.handlers.list(data.request("GET"), data.context);
+    expect(blocked.status).toBe(200);
+    expect(await blocked.json()).toEqual({ items: [data.entry], nextCursor: null, platformRequirement: "recovery_locked" });
+    expect(data.services.policy.execute).toHaveBeenCalledWith(expect.objectContaining({ tribeId: data.tribeId }));
+    vi.mocked(data.services.policy.execute).mockResolvedValueOnce({ ok: false, failure: { code: "permission_denied" } });
+    expect((await data.handlers.list(data.request("GET"), data.context)).status).toBe(403);
+    expect(data.services.allowlist.list).toHaveBeenCalledOnce();
   });
 
   it("should reject nonpositive version, foreign authority and malformed cursor before native composition", async () => {

@@ -17,7 +17,9 @@ export type IssueContactVerificationCommand = {
 /** No recoverable code, destination, credential or cryptographic material leaves the writer. */
 export type ContactVerificationIssuanceResult =
   | { outcome: "denied"; code: (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE] }
-  | { outcome: "issued"; challengeId: string; deliveryId: string; diagnosticId: string | null; expiresAt: Date; resendAllowedAt: Date };
+  | { outcome: "issued"; challengeId: string; deliveryId: string; diagnosticId: string | null; expiresAt: Date; resendAllowedAt: Date }
+  /** An original admission issuance found a live code of the same origin for this destination (another tab or device): it is returned as is, without another send or quota use. */
+  | { outcome: "current"; challengeId: string; deliveryId: string; channel: "email" | "sms" | "whatsapp"; deliveryState: "queued" | "accepted" | "delivered" | "failed" | "unknown" | "suppressed" | "cancelled"; expiresAt: Date; resendAllowedAt: Date };
 
 /** Owns issuance and explicit resend; delivery confirmation never substitutes local verification. */
 export interface ContactVerificationIssuer {

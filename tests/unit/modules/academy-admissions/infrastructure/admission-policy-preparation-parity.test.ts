@@ -9,7 +9,6 @@ import { GuardScenarioRollback } from "@/tests/support/guard-lock-order";
 import { isAcademySettingsLocked } from "@/tests/support/academy-settings-lock-probe";
 import { PostgresAdmissionActivationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import { PostgresAdmissionPolicyPreparationReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-preparation-reader";
-import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import type { AdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -35,7 +34,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission p
         let facts: PreparationFacts | undefined;
         await database.withContext(leader.fixture.own, async (transaction) => {
           await prepare?.(transaction);
-          const read = await new PostgresAdmissionPolicyPreparationReader(new PostgresAdmissionActivationRepository(transaction, context, { isPrepared: async () => true }, async () => false), { readForTribe: async () => null }, { read: async () => ({ channelPrepared: false, smsAlternativePrepared: false, verificationQuotaPositive: false }) }, () => readMessagingHostingSecurityConfig()).read(policy);
+          const read = await new PostgresAdmissionPolicyPreparationReader(new PostgresAdmissionActivationRepository(transaction, context, { isPrepared: async () => true }, async () => false), { readForTribe: async () => null }, { read: async () => ({ channelPrepared: false, smsAlternativePrepared: false, verificationQuotaPositive: false }) }, async () => leader.fixture.config).read(policy);
           expect(read.tribeId).toBe(leader.tribeId);
           facts = { isAcademy: read.isAcademy, controlActivated: read.controlActivated, evaluatorEnabled: read.evaluatorEnabled, preflightComplete: read.preflightComplete, settingsLocked: await isAcademySettingsLocked(database, leader) };
           throw new GuardScenarioRollback();

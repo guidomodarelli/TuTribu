@@ -13,6 +13,8 @@ import { ManageTribeLifecycleUseCases } from "@/src/modules/tribes/application/u
 import { createAdmissionScopeClosureWriter } from "@/src/modules/academy-admissions/setup";
 import type { TribeLifecycleContext } from "@/src/modules/tribes/domain/repositories/tribe-lifecycle-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifecycle owner", () => {
   it("should change with the live leader session, close scope on exit and recover a committed deletion without using a surviving tribe", async () => {
@@ -77,6 +79,30 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
         expect((await transaction.execute(sql`select tribe_lifecycle_operation_id,operation_id,actor_reference_id from public.academy_admission_retired_audit_events where tribe_id=${fixture.tribeId} and resource_type='admission_request' and event_type='cancelled'`)).rows).toEqual([{ tribe_lifecycle_operation_id: exit.operationId, operation_id: null, actor_reference_id: null }]);
       });
       await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${fixture.tribeId},'Synthetic prohibited reuse',${`reuse-${fixture.tribeId}`},${fixture.userId})`))).rejects.toMatchObject({ cause: { code: "23514" } });
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it("should keep a resent committed change unresolved while the platform security is down, and reject only a new change definitively", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const { fixture } = await prepareAllowlistAdmission(database);
+      for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
+      const execute = <Result>(_context: TribeLifecycleContext, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext(fixture.own, run);
+      const lifecycle = (readSecurityConfig: () => Promise<MessagingSecurityConfig>) => new ManageTribeLifecycleUseCases(accounts, new PostgresTribeLifecycleRepository(execute, readSecurityConfig, createAdmissionScopeClosureWriter));
+      const protectedLifecycle = lifecycle(async () => fixture.config), unprotected = lifecycle(() => readMessagingHostingSecurityConfig({})), locked = lifecycle(async () => ({ ...fixture.config, recoveryLocked: true }));
+      const state = () => database.withContext(fixture.own, async (transaction) => ({
+        settings: (await transaction.execute<{access_model: string; config_version: number}>(sql`select access_model,config_version from public.tribe_academy_settings where tribe_id=${fixture.tribeId}`)).rows[0],
+        originals: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.tribe_lifecycle_operations where tribe_id=${fixture.tribeId}`)).rows[0].count,
+      }));
+      const before = await state();
+      const exit = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), action: "exit_academy" as const, expectedConfigVersion: before.settings.config_version, confirmed: true };
+      await expect(protectedLifecycle.change(exit)).resolves.toMatchObject({ state: "completed", replayed: false });
+      // The commit response was lost and the same POST is resent after the hosting security became unusable.
+      for (const current of [unprotected, locked]) await expect(current.change(exit)).rejects.toMatchObject({ code: "operation_unresolved", operationId: exit.operationId });
+      const deletion = { ...exit, operationId: randomUUID(), action: "delete_tribe" as const, expectedConfigVersion: before.settings.config_version + 1 };
+      for (const current of [unprotected, locked]) await expect(current.change(deletion)).rejects.toMatchObject({ code: "platform_security_unavailable", operationId: undefined });
+      expect(await state()).toEqual({ settings: { access_model: "legacy", config_version: before.settings.config_version + 1 }, originals: 1 });
+      await expect(protectedLifecycle.change(exit)).resolves.toMatchObject({ state: "completed", replayed: true });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 });

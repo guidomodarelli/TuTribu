@@ -21,6 +21,11 @@ describe("request review history storage mapping", () => {
     expect(JSON.stringify(event)).not.toContain("private-");
   });
 
+  it("should name an applicant phone correction instead of an unclassified event", () => {
+    const row = { ...fixture(), event_type: "whatsapp_number_changed", from_status: "pending", to_status: "pending", resource_version: 2 };
+    expect(mapAdmissionReviewHistoryStorage(row)).toMatchObject({ eventType: "whatsapp_number_changed", fromStatus: "pending", toStatus: "pending", resourceVersion: 2 });
+  });
+
   it("should preserve the original request scope and known terminal transition for the application guard", () => {
     const row = { ...fixture(), event_type: "rejected", from_status: "pending", to_status: "rejected" };
     expect(mapAdmissionReviewHistoryStorage(row)).toMatchObject({ tribeId: row.tribe_id, admissionRequestId: row.admission_request_id, eventType: "rejected", fromStatus: "pending", toStatus: "rejected" });

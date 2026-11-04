@@ -20,6 +20,7 @@ function prepareUseCases() {
   const policy: MessagingUsagePolicyResult = { version: 1, allowedCountries: [], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 0, notificationToday: 0 } };
   const operations: MessagingUsageOperations<MessagingUsagePolicyResult, MessagingUsagePolicyStateResult> = {
     read: async () => ({ state: "not_configured", policy: null }),
+    readPage: async () => ({ usage: { state: "not_configured", policy: null }, platformRequirement: null }),
     initialize: async (context, operationId) => { calls.push(context); return { state: "completed", operationId, replayed: false, result: policy }; },
     update: async (context, input) => { calls.push(context); return { state: "started", operationId: input.operationId }; },
   };

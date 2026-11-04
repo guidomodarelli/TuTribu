@@ -9,6 +9,32 @@ import { createAdmissionRouteBoundary } from "@/src/modules/academy-admissions/i
 import { ADMISSION_HTTP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-http";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
+
+/** @returns A fresh refusal of the real HTTP boundary for a write the platform cannot protect. */
+function platformRefusal(): Response {
+  const boundary = createAdmissionRouteBoundary({ request: new Request("https://synthetic.invalid/api/tribes/synthetic-academy/admissions/submissions"), operation: ADMISSION_HTTP_OPERATION.submit, diagnostics: vi.fn() });
+  return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.platformSecurityUnavailable));
+}
+
+describe("admission browser writes the platform cannot protect", () => {
+  const requestId = randomUUID(), operationId = randomUUID(), signal = new AbortController().signal;
+  const decision = { operationId, confirmed: true as const, decision: "reject" as const, internalReason: "Revisión manual", expectedVersion: 1 };
+  it.each([
+    ["submission", (client: ReturnType<typeof createAdmissionApiClient>) => client.submit("synthetic-academy", { operationId, confirmed: true, expectedPolicyVersion: 1 }, signal)],
+    ["cancellation", (client: ReturnType<typeof createAdmissionApiClient>) => client.cancel("synthetic-academy", requestId, { operationId, confirmed: true, expectedVersion: 1 }, signal)],
+    ["WhatsApp correction", (client: ReturnType<typeof createAdmissionApiClient>) => client.updateWhatsappNumber("synthetic-academy", requestId, { operationId, confirmed: true, expectedVersion: 1, whatsappNumber: "+14155552671" }, signal)],
+    ["individual decision", (client: ReturnType<typeof createAdmissionApiClient>) => client.decide("synthetic-academy", requestId, decision, signal)],
+    ["batch decision", (client: ReturnType<typeof createAdmissionApiClient>) => client.decideBatch("synthetic-academy", { operationId, confirmed: true, decision: "reject", internalReason: "Revisión manual", items: [{ requestId, expectedVersion: 1 }] }, signal)],
+  ])("should return a refused %s as a definitive failure with the catalogue copy, never as uncertain", async (_write, send) => {
+    expect(platformRefusal().status).toBe(HTTP_STATUS.conflict);
+    const fetch = vi.fn(async () => platformRefusal());
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+
+    expect(await send(client)).toEqual({ status: "failed", code: ADMISSION_ERROR_CODE.platformSecurityUnavailable, message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable, uncertain: false });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+});
 
 describe("admission browser API", () => {
   it.each([OPERATION_STATE.started, OPERATION_STATE.completed])("should preserve an unresolved original when the real HTTP boundary returns 202 with %s metadata", async (state) => {
@@ -78,6 +104,14 @@ describe("admission browser API", () => {
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) }), input = { operationId, confirmed: true as const, expectedPolicyVersion: 1 };
     expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toMatchObject({ status: "failed", uncertain: true, code: "dependency_unavailable" });
     expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toMatchObject({ status: "failed", uncertain: false, code: "invalid_input" });
+  });
+
+  it("should explain a request that never reached TuTribu and keep an edge HTML reply as an unusable contract, not as messaging", async () => {
+    const operationId = randomUUID(), input = { operationId, confirmed: true as const, expectedPolicyVersion: 1 };
+    const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValueOnce(new Response("<html>504 Gateway Timeout</html>", { status: 504, headers: { "content-type": "text/html" } }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toEqual({ status: "failed", code: ADMISSION_ERROR_CODE.dependencyUnavailable, message: BROWSER_REQUEST_TRANSPORT_MESSAGE, uncertain: true });
+    expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toEqual({ status: "failed", code: ADMISSION_ERROR_CODE.publicContractUnusable, message: ADMISSION_ERROR_MESSAGE.public_contract_unusable, uncertain: true });
   });
 
   it("should query an explicit own history item, strip review detail and treat cancellation without error feedback", async () => {

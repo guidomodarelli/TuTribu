@@ -6,14 +6,22 @@
  *   (`tribe_academy_admission_id_by_slug`, which also rejects conduct blocks);
  * - a new member enters as `tribemate` / `active` without any grant;
  * - concurrent joins collapse on `tribe_members (tribe_id, user_id)`;
- * - an existing row is only recovered when its previous state was an
- *   exclusively commercial one (`removed/subscription_inactive` or
- *   `blocked/payment_blocked`); conduct blocks and other removals stay.
+ * - an existing tribemate or guardian row is only recovered when its
+ *   previous state was an exclusively commercial one
+ *   (`removed/subscription_inactive` or `blocked/payment_blocked`); it comes
+ *   back as a tribemate in the readable state it had before the block (a muted
+ *   member stays muted), like the 1.11.0 conversion drops the guardian role;
+ *   conduct blocks and other removals stay;
+ * - a database failure is wrapped in `TribeAcademyAdmissionError` with its cause.
  *
  * @module postgres-tribe-academy-admission-repository
  */
 
 import { sql, type SQL } from "drizzle-orm";
+import {
+  TRIBE_ACADEMY_ADMISSION_ERROR_CODE,
+  TribeAcademyAdmissionError,
+} from "@/src/modules/tribes/domain/errors/tribe-academy-admission-error";
 import {applyApprovedAcademyMembership} from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import type {ApplyApprovedAcademyMembershipCommand,ApplyApprovedAcademyMembershipResult} from "@/src/modules/tribes/domain/repositories/academy-approved-membership-writer";
 
@@ -52,16 +60,19 @@ function buildConductBlockedMembershipStatement(tribeSlug: string): SQL {
 }
 
 /**
- * Reactivates a membership blocked or removed only for a commercial reason, keeping its role.
+ * Reactivates a tribemate or guardian membership blocked or removed only for a
+ * commercial reason, as a tribemate in its readable state before the block.
  */
 function buildRecoverCommercialBlockStatement(tribeId: string): SQL {
   return sql`
         update public.tribe_members
         set
-          status = ${TRIBE_MEMBERSHIP_STATUS.active},
+          role = ${TRIBE_MEMBER_ROLE.tribemate},
+          status = coalesce(tribe_members.commercial_recovery_status, ${TRIBE_MEMBERSHIP_STATUS.active}),
           status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.none}
         where tribe_members.tribe_id = ${tribeId}
           and tribe_members.user_id = public.current_app_user_id()
+          and tribe_members.role in (${TRIBE_MEMBER_ROLE.guardian}, ${TRIBE_MEMBER_ROLE.tribemate})
           and (
             (
               tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS.removed}
@@ -86,7 +97,16 @@ export class PostgresTribeAcademyAdmissionRepository
     return applyApprovedAcademyMembership(database,command);
   }
 
-  async join({
+  async join(command: JoinTribeAcademyAdmissionCommand): Promise<{ status: TribeAcademyAdmissionStatus }> {
+    try {
+      return await this.joinInTransaction(command);
+    } catch (error) {
+      // Includes the membership guard refusing an entry that a concurrent admission activation protected (23514).
+      throw new TribeAcademyAdmissionError(TRIBE_ACADEMY_ADMISSION_ERROR_CODE.joinFailed, { cause: error });
+    }
+  }
+
+  private async joinInTransaction({
     tribeSlug,
   }: JoinTribeAcademyAdmissionCommand): Promise<{ status: TribeAcademyAdmissionStatus }> {
     return this.executeWithDatabase(async (database) => {

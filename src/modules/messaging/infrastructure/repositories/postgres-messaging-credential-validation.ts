@@ -19,6 +19,7 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { messagingCredentialPreparationSchema,messagingCredentialValidationSchema } from "@/src/modules/messaging/application/results/messaging-credential-validation-result";
 import { authorizeMessagingSecret,messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import { knownConnectionFailureCode } from "./messaging-operation-failure-code";
 import { readMessagingCandidatePreparationState } from "./postgres-messaging-candidate-preparation";
 import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
 import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
@@ -71,7 +72,7 @@ export class PostgresMessagingCredentialValidation implements MessagingCredentia
   /** @param error - Real private failure. @returns Closed outcome preserving only genuinely registered progress. */
   private failure(error:unknown):MessagingConnectionOperationError{
     if(error instanceof MessagingConnectionOperationError)return error;
-    const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:MESSAGING_ERROR_CODE.unexpectedFailure;
+    const code=knownConnectionFailureCode(error);
     return new MessagingConnectionOperationError(code,{cause:error,...(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId?{operationId:error.operationId}:{})});
   }
 

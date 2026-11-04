@@ -33,7 +33,9 @@ import PolicyError from "@/app/(platform)/[slug]/academia/admissions/settings/er
 import PolicyLoading from "@/app/(platform)/[slug]/academia/admissions/settings/loading";
 import { ADMISSION_PAGES, type AdmissionPage } from "@/src/modules/academy-admissions/constants/admission-sections";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
+import { MESSAGING_ROUTE_ERROR_COPY } from "@/src/modules/messaging/constants/messaging-route-error";
 import { PERSONAL_INVITATION_UI_COPY } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
+import { PAGE_READ_COPY } from "@/src/constants/page-read";
 
 type RouteErrorBoundary = ComponentType<RouteErrorBoundaryProps>;
 
@@ -52,6 +54,9 @@ const LEADER_PAGE_BOUNDARIES: readonly [AdmissionPage, ComponentType, RouteError
   ["notifications", NotificationsLoading, NotificationsError],
   ["activity", ActivityLoading, ActivityError],
 ];
+
+/** Leader pages of the messaging workspace, which share their own failure title. */
+const MESSAGING_PAGES: ReadonlySet<AdmissionPage> = new Set<AdmissionPage>(["usage", "connections"]);
 
 const APPLICANT_ERROR_BOUNDARIES: readonly [string, RouteErrorBoundary][] = [
   ["public admission", PublicAdmissionError],
@@ -114,7 +119,9 @@ describe("academy admission route boundaries", () => {
     const region = screen.getByRole("region", { name: definition.title });
     expect(within(region).getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(within(region).getByRole("heading", { level: 1, name: definition.title })).toBeInTheDocument();
-    expect(within(region).getByRole("heading", { level: 2, name: ADMISSION_UI_COPY.unavailableTitle })).toBeInTheDocument();
+    // Messaging pages name their own failure instead of the applicant's admission.
+    const failureTitle = MESSAGING_PAGES.has(page) ? MESSAGING_ROUTE_ERROR_COPY.title : ADMISSION_UI_COPY.unavailableTitle;
+    expect(within(region).getByRole("heading", { level: 2, name: failureTitle })).toBeInTheDocument();
     await expectKeyboardRecovery(boundary);
   });
 
@@ -123,7 +130,8 @@ describe("academy admission route boundaries", () => {
 
     const main = screen.getByRole("main");
     expect(within(main).getByRole("heading", { level: 1, name: ADMISSION_UI_COPY.unavailableTitle })).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_UI_COPY.readFailed);
+    // The page content was replaced, so the message never claims the last confirmed facts remain.
+    expect(screen.getByRole("alert")).toHaveTextContent(PAGE_READ_COPY.unavailable);
     await expectKeyboardRecovery(boundary);
   });
 

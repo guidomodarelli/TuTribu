@@ -5,8 +5,7 @@ import type { AdmissionActivityPage } from "@/src/modules/academy-admissions/app
 import type { AdmissionActivityPageSelection } from "@/src/modules/academy-admissions/application/results/admission-activity-page-state";
 import type { AdmissionActivityFilterDraft } from "@/src/modules/academy-admissions/application/commands/admission-activity-filter-draft";
 import { ADMISSION_ACTIVITY_EVENT_LABELS, ADMISSION_ACTIVITY_RESOURCE_LABELS, ADMISSION_ACTIVITY_FILTER_ALL, ADMISSION_OBSERVATION_COPY } from "@/src/modules/academy-admissions/constants/admission-activity-labels";
-import { ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode  } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { createAdmissionActivityDetailRows } from "@/lib/academy-admissions/admission-activity-view-model";
+import { createAdmissionActivityDetailRows, describeAdmissionActivityActor, describeAdmissionActivityCause, describeAdmissionActivityRule } from "@/lib/academy-admissions/admission-activity-view-model";
 import { formatAdmissionObservationTime } from "@/lib/academy-admissions/admission-observation-format";
 import styles from "./styles.module.scss";
 
@@ -37,15 +36,14 @@ export function AdmissionActivity(props: AdmissionActivityProps) {
     </form>
     <p className={styles.AdmissionActivity__help}>Filtros aplicados: {props.selection.resourceType ? ADMISSION_ACTIVITY_RESOURCE_LABELS[props.selection.resourceType] : "todos los recursos"}{props.selection.resourceId ? ` · ${props.selection.resourceId}` : ""}. Se muestran hasta {props.selection.limit} hechos por consulta.</p>
     {props.page.items.length ? <ol className={styles.AdmissionActivity__list}>{props.page.items.map((event) => {
-      const cause = event.cause && Object.hasOwn(ADMISSION_ERROR_MESSAGE, event.cause) ? ADMISSION_ERROR_MESSAGE[event.cause as AdmissionErrorCode] : event.cause;
       const details = [
-        { label: "Actor", value: event.actorUserId ?? ADMISSION_OBSERVATION_COPY.systemActor },
+        { label: "Actor", value: describeAdmissionActivityActor(event) },
         { label: "Tribu", value: props.page.tribeId },
         { label: "Recurso", value: ADMISSION_ACTIVITY_RESOURCE_LABELS[event.resourceType] },
         { label: "Referencia del recurso", value: event.resourceId ?? ADMISSION_OBSERVATION_COPY.absent },
         { label: "Versión histórica", value: String(event.resourceVersion ?? ADMISSION_OBSERVATION_COPY.noVersion) },
-        { label: "Regla aplicada", value: event.rule ?? ADMISSION_OBSERVATION_COPY.absent },
-        { label: "Causa registrada", value: cause ?? ADMISSION_OBSERVATION_COPY.absent },
+        { label: "Regla aplicada", value: describeAdmissionActivityRule(event) },
+        { label: "Causa registrada", value: describeAdmissionActivityCause(event.cause) },
         { label: "Operación original", value: event.operationId ?? ADMISSION_OBSERVATION_COPY.absent },
         { label: "Operación de ciclo de vida", value: event.tribeLifecycleOperationId ?? ADMISSION_OBSERVATION_COPY.absent },
         ...createAdmissionActivityDetailRows(event.changes),

@@ -9,8 +9,8 @@ import { admissionMessagingMaintenanceErrorSchema, admissionMessagingMaintenance
 import { ADMISSION_MAINTENANCE_TRIGGER } from "../../constants/admission-maintenance-trigger.mjs";
 import { admissionMaintenanceMadeProgress } from "../../application/use-cases/admission-messaging-maintenance-state";
 
-/** Contains only own machine-code failures; raw causes stay at the private boundary. */
-type MaintenanceHttpFailure = { readonly code: "maintenance_unauthorized" | "maintenance_invalid_input" | "maintenance_unavailable" };
+/** Contains only own machine-code failures; the private cause is summarized by the boundary log and never projected. */
+type MaintenanceHttpFailure = { readonly code: "maintenance_unauthorized" | "maintenance_invalid_input" | "maintenance_unavailable"; readonly cause?: unknown };
 
 /** @param failure - Closed own failure. @param requestId - Server correlation. @returns Its HTTP status and safe body. */
 function projectMaintenanceFailure(failure: MaintenanceHttpFailure, requestId: string) {
@@ -33,7 +33,7 @@ function maintenanceHttpStatus(result: Awaited<ReturnType<RunAdmissionMessagingM
 /** @param dependencies - Actual native bearer and lazy server composition; diagnostics contain only closed own fields. @returns An authenticated handler without implicit provider, account or database access. */
 export function createAdmissionMessagingMaintenanceHandler(dependencies: { authorize: (request: Request) => boolean | Promise<boolean>; create: (request: Request, context: RequestContext) => Promise<{ useCases: { runMaintenance: Pick<RunAdmissionMessagingMaintenanceUseCase, "execute"> } }>; diagnostics?: (diagnostic: OwnHttpDiagnostic) => void }) {
   return async (request: Request): Promise<Response> => {
-    const boundary = createOwnJsonRouteBoundary<MaintenanceHttpFailure, { code: MaintenanceHttpFailure["code"]; message: string; requestId: string }>({ request, feature: ADMISSION_MESSAGING_MAINTENANCE_LOG.feature, operation: ADMISSION_MESSAGING_MAINTENANCE_LOG.operation, errorSchema: admissionMessagingMaintenanceErrorSchema, invalidInput: () => ({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.invalidInput }), unusableContract: () => ({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.unavailable }), unexpectedFailure: () => ({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.unavailable }), diagnostics: dependencies.diagnostics,
+    const boundary = createOwnJsonRouteBoundary<MaintenanceHttpFailure, { code: MaintenanceHttpFailure["code"]; message: string; requestId: string }>({ request, feature: ADMISSION_MESSAGING_MAINTENANCE_LOG.feature, operation: ADMISSION_MESSAGING_MAINTENANCE_LOG.operation, errorSchema: admissionMessagingMaintenanceErrorSchema, invalidInput: () => ({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.invalidInput }), unusableContract: () => ({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.unavailable }), unexpectedFailure: (cause) => ({ code: ADMISSION_MESSAGING_MAINTENANCE_HTTP_CODE.unavailable, cause }), diagnostics: dependencies.diagnostics,
       projectFailure: projectMaintenanceFailure,
     });
     try {

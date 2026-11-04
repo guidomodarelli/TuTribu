@@ -11,9 +11,6 @@ import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/a
 import { readAdmissionPolicyIntent, writeAdmissionPolicyIntent } from "@/lib/academy-admissions/admission-policy-intent";
 import { createAdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
 import { ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY, ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_DESTINATION_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
-import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
-import type { CommercialMembershipReviewCase } from "@/src/modules/academy-admissions/domain/entities/commercial-membership-review";
-import { readCommercialMembershipReviewIntent } from "@/lib/academy-admissions/commercial-membership-review-intent";
 
 const tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", viewerId = "synthetic-leader", slug = "synthetic-academy", activatedAt = "2026-10-07T10:00:00Z";
 const router = { back: vi.fn(), bfcacheId: "policy-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
@@ -37,20 +34,23 @@ function fixture(lifecycle: "draft" | "not_configured" | "active" | "paused" = "
   const client = {
     viewer: vi.fn<AdmissionPolicyBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
     readPolicy: vi.fn<AdmissionPolicyBrowserClient["readPolicy"]>(async () => ({ status: "ready", value: policy })),
-    readPreflight: vi.fn<AdmissionPolicyBrowserClient["readPreflight"]>(async () => ({ status: "ready", value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } })),
+    readPreflight: vi.fn<AdmissionPolicyBrowserClient["readPreflight"]>(async () => ({ status: "ready", value: { prepared: true, reasons: [] } })),
     operation: vi.fn<AdmissionPolicyBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
     initializePolicy: vi.fn<AdmissionPolicyBrowserClient["initializePolicy"]>(async (_slug, input) => mutation(input.operationId, 1)),
     updatePolicy: vi.fn<AdmissionPolicyBrowserClient["updatePolicy"]>(async (_slug, input) => mutation(input.operationId, input.expectedVersion + 1, activatedControl)),
     activatePolicy: vi.fn<AdmissionPolicyBrowserClient["activatePolicy"]>(async (_slug, input) => mutation(input.operationId, input.expectedVersion + 1, true)),
     pausePolicy: vi.fn<AdmissionPolicyBrowserClient["pausePolicy"]>(async (_slug, input) => mutation(input.operationId, input.expectedVersion + 1, true)),
   };
-  const reviewClient = {
-    viewer: client.viewer,
-    operation: vi.fn<CommercialMembershipReviewBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
-    readCommercialReviews: vi.fn<CommercialMembershipReviewBrowserClient["readCommercialReviews"]>(async () => ({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 0 } })),
-    resolveCommercialReview: vi.fn<CommercialMembershipReviewBrowserClient["resolveCommercialReview"]>(async (_slug, memberId, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "resolved", memberId, decision: input.decision, resultingRole: "tribemate", resultingStatus: input.expected.status, resultingRecoveryStatus: input.decision === "recover_muted" ? "muted" : "active", decidedAt: "2026-10-19T12:00:00.000Z" } } })),
-  };
-  return { policy, state, client, reviewClient, node: <AdmissionPolicyContainer initialState={state} client={client} reviewClient={reviewClient} /> };
+  return { policy, state, client, node: <AdmissionPolicyContainer initialState={state} client={client} /> };
+}
+
+/** A denied write whose original was not registered: the browser keeps no intent and shows the rules requirements instead. */
+const ineligible = { status: "failed" as const, code: "admission_ineligible" as const, message: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.", uncertain: false };
+/** A write whose result is unknown: the original intent stays stored for its recovery. */
+const unconfirmed = { status: "failed" as const, code: "dependency_unavailable" as const, message: "No pudimos confirmar el resultado.", uncertain: true };
+/** @param policy - Current state. @param requirements - Requirements the read lists. @returns The same state as read with those requirements, before evaluating the preparation. */
+function withRequirements(policy: AdmissionPolicyStateDto, requirements: AdmissionPolicyStateDto["preparation"]["requirements"]): AdmissionPolicyStateDto {
+  return { ...policy, preparation: { state: "not_evaluated", requirements } };
 }
 
 /** Waits for the initial account check, then walks every step up to the review. */
@@ -89,7 +89,7 @@ describe("guided policy route workflow", () => {
     await act(async () => { update.resolve(mutation(saved.operationId, 2)); });
     await waitFor(() => expect(screen.getByText("Revisando los requisitos…")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Guardar y activar admisiones" })).toHaveAttribute("aria-busy", "true");
-    await act(async () => { preflight.resolve({ status: "ready", value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } }); });
+    await act(async () => { preflight.resolve({ status: "ready", value: { prepared: true, reasons: [] } }); });
     await waitFor(() => expect(screen.getByText("Activando las admisiones…")).toBeInTheDocument());
     const activationInput = data.client.activatePolicy.mock.calls[0][1];
     expect(activationInput.expectedVersion).toBe(2);
@@ -123,7 +123,7 @@ describe("guided policy route workflow", () => {
 
   it("should stop before activating when requirements are missing, explain them and keep every choice", async () => {
     const data = fixture();
-    data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+    data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_evaluator_disabled"] } });
     render(data.node, { wrapper: Providers });
     expect(screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
@@ -160,6 +160,28 @@ describe("guided policy route workflow", () => {
     expect(screen.getByRole("link", { name: "Ir a Conexión" })).toHaveAttribute("href", `/${slug}/academia/admissions/messaging/connections?return=policy-review`);
     expect(screen.queryByText("Falta un requisito actual para resolver el ingreso.")).not.toBeInTheDocument();
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
+  });
+
+  it("should stop on the platform block, not on an uncertain write, when the first save lacks the hosting security", async () => {
+    const data = fixture("not_configured");
+    data.client.initializePolicy.mockResolvedValueOnce({ status: "failed", code: "admission_ineligible", message: "Falta un requisito actual para resolver el ingreso.", uncertain: false });
+    data.client.readPolicy.mockResolvedValueOnce({ status: "ready", value: { ...data.policy, preparation: { state: "not_evaluated", requirements: ["admission_security_unconfigured", "policy_unavailable"] } } });
+    render(data.node, { wrapper: Providers });
+    await goToReview(); await confirm();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+    const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+    expect(block).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
+    const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+    expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+    expect(platform).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Mientras tanto no se guarda nada: lo que elijas queda solo en esta pantalla y se pierde si salís.");
+    expect(platform).not.toHaveTextContent("quedó guardado como borrador");
+    expect(block).toHaveTextContent("Lo que elegiste sigue en esta pantalla.");
+    expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Todavía no hay reglas de admisión y por ahora no se pueden guardar: depende del equipo de TuTribu.");
+    expect(screen.getByRole("button", { name: "Guardar y activar admisiones" })).toBeDisabled();
+    expect(screen.queryByText(/consultá el resultado de la operación anterior/)).not.toBeInTheDocument();
+    expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+    expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    expect(data.client.activatePolicy).not.toHaveBeenCalled();
   });
 
   it("should say what was done when activation fails and retry only the missing sub-steps", async () => {
@@ -441,6 +463,22 @@ describe("guided policy route workflow", () => {
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
 
+  it("should offer resending a restored original that is still started and complete it with the same operation and payload", async () => {
+    const data = fixture(), operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
+    const intent = { type: "update_admission_policy" as const, input: { operationId, confirmed: true as const, expectedVersion: 3, ...createAdmissionPolicyDraft(data.policy), requiresAdditionalVerification: true } };
+    writeAdmissionPolicyIntent(viewerId, slug, intent);
+    data.client.operation.mockResolvedValueOnce({ status: "ready", value: { type: "update_admission_policy", state: "started", operationId } });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByText(/La operación original todavía no terminó/)).toBeInTheDocument());
+    expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo reintentar/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+    await waitFor(() => expect(data.client.updatePolicy).toHaveBeenCalledOnce());
+    expect(data.client.updatePolicy.mock.calls[0][1]).toEqual(intent.input);
+    await waitFor(() => expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull());
+    expect(screen.queryByRole("button", { name: "Reintentar operación original" })).not.toBeInTheDocument();
+  });
+
   it("should withhold original retry confirmation until current policy can be read after original absence", async () => {
     const data = fixture(), operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
     writeAdmissionPolicyIntent(viewerId, slug, { type: "update_admission_policy", input: { operationId, confirmed: true, expectedVersion: 3, ...createAdmissionPolicyDraft(data.policy) } });
@@ -452,107 +490,200 @@ describe("guided policy route workflow", () => {
     expect(data.client.updatePolicy).not.toHaveBeenCalled();
   });
 
-  describe("memberships blocked by payment", () => {
-    const unknownCase: CommercialMembershipReviewCase = { memberId: "0b9f6c8e-2f4f-4b8e-9d11-0d6f6a0c2a11", displayName: "Integrante sintética", role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null, joinedAt: "2026-05-07T12:00:00.000Z" };
-    const guardianCase: CommercialMembershipReviewCase = { memberId: "5c3c1f0e-8d7a-4f0b-9a7e-2b1d3c4e5f60", displayName: "Guardiana sintética", role: "guardian", status: "removed", statusReason: "subscription_inactive", recoveryStatus: "active", joinedAt: "2025-11-02T12:00:00.000Z" };
+  describe("platform security", () => {
+    it("should explain a pause the platform security blocks while admissions stay open, without a retry", async () => {
+      const data = fixture("active");
+      data.client.pausePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Pausar admisiones" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Pausar admisiones" }));
+      fireEvent.change(screen.getByLabelText("Motivo de la pausa"), { target: { value: "Cierre de cohorte" } });
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar pausa" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para pausar las admisiones.");
+      expect(block).toHaveTextContent("Las admisiones siguen abiertas. Cuando se resuelva, volvé a tocar «Confirmar pausa».");
+      const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Las admisiones siguen abiertas: se siguen recibiendo solicitudes.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+      expect(screen.queryByText(/Falta un requisito actual para resolver el ingreso/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirmar pausa" })).toBeDisabled();
+      expect(screen.getByLabelText("Motivo de la pausa")).toHaveValue("Cierre de cohorte");
+      expect(screen.getByRole("heading", { name: "Admisiones abiertas" })).toBeInTheDocument();
+      expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+      expect(data.client.pausePolicy).toHaveBeenCalledOnce();
+    });
 
-    it("should insert the review before the final step when activation is blocked, record each decision and return to «Activar ahora»", async () => {
-      const data = fixture();
-      data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } } });
-      data.reviewClient.readCommercialReviews.mockResolvedValueOnce({ status: "ready", value: { cases: [unknownCase, guardianCase], pendingCount: 2, resolvedCount: 0 } })
-        .mockResolvedValueOnce({ status: "ready", value: { cases: [guardianCase], pendingCount: 1, resolvedCount: 1 } })
-        .mockResolvedValueOnce({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 2 } });
+    it("should warn before the steps when the rules read names the platform security, keep it while the draft changes and never send a write", async () => {
+      const data = fixture("not_configured");
+      render(<AdmissionPolicyContainer initialState={{ ...data.state, policy: withRequirements(data.policy, ["admission_security_unconfigured", "policy_unavailable"]) }} client={data.client} />, { wrapper: Providers });
+      expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Todavía no hay reglas de admisión y por ahora no se pueden guardar: depende del equipo de TuTribu. Podés recorrer los pasos, pero lo que elijas no se guarda.");
+      const block = screen.getByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
+      const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Mientras tanto no se guarda nada: lo que elijas queda solo en esta pantalla y se pierde si salís.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+      expect(platform).not.toHaveTextContent("borrador");
+      await waitFor(() => expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("radio", { name: "Lista de habilitados" }));
+      expect(screen.getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("admission_security_unconfigured");
+      await goToReview(); await confirm();
+      const final = screen.getByRole("button", { name: "Guardar y activar admisiones" });
+      expect(final).toBeDisabled();
+      expect(screen.getByText("Por ahora no se pueden guardar las reglas: depende del equipo de TuTribu.")).toBeInTheDocument();
+      fireEvent.click(final);
+      expect(data.client.initializePolicy).not.toHaveBeenCalled();
+      expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    });
+
+    it("should keep paused admissions closed to a resume while the platform recovery lock is listed", async () => {
+      const data = fixture("paused");
+      render(<AdmissionPolicyContainer initialState={{ ...data.state, policy: withRequirements(data.policy, ["admission_recovery_locked"]) }} client={data.client} />, { wrapper: Providers });
+      const block = screen.getByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para reanudar las admisiones.");
+      const platform = within(block).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Las admisiones siguen pausadas.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+      expect(screen.getByRole("region", { name: "Estado actual" })).toHaveTextContent("Las admisiones siguen pausadas y por ahora no se pueden reanudar ni cambiar sus reglas: depende del equipo de TuTribu.");
+      await waitFor(() => expect(within(platform).getByRole("button", { name: "Volver a comprobar" })).toBeEnabled());
+      expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Editar reglas" })).toBeDisabled();
+      // Once the team lifts the lock, rechecking reopens the resume without another decision.
+      fireEvent.click(within(platform).getByRole("button", { name: "Volver a comprobar" }));
+      await waitFor(() => expect(screen.getByText("Volvimos a comprobar y ya no hay bloqueos. Podés reanudar las admisiones.")).toHaveAttribute("role", "status"));
+      expect(screen.queryByRole("region", { name: "Lo que falta resolver" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeEnabled();
+      expect(data.client.readPreflight).not.toHaveBeenCalled();
+      expect(data.client.updatePolicy).not.toHaveBeenCalled();
+    });
+
+    it("should say the current rules did not change when saving active rules lacks the platform security", async () => {
+      const data = fixture("active");
+      data.client.updatePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Editar reglas" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Editar reglas" }));
+      fireEvent.click(screen.getByRole("radio", { name: "Lista de habilitados" }));
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para guardar estos cambios.");
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Las reglas vigentes no cambiaron.");
+      expect(block).not.toHaveTextContent("borrador");
+      expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+    });
+
+    it("should say admissions stay paused when a resume lacks the platform security", async () => {
+      const data = fixture("paused");
+      data.client.updatePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      await waitFor(() => expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Reanudar admisiones" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent("Todavía falta un requisito para reanudar las admisiones.");
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Esto no es algo que puedas cambiar desde tu academia. Las admisiones siguen pausadas.");
+      expect(screen.getByRole("heading", { name: "Admisiones pausadas" })).toBeInTheDocument();
+    });
+
+    it("should show the platform block on «Volver a comprobar» after a save the recovery lock denied, naming the cause once", async () => {
+      const data = fixture("not_configured");
+      data.client.initializePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_recovery_locked", "policy_unavailable"]) });
+      data.client.readPreflight.mockResolvedValue({ status: "ready", value: { prepared: false, reasons: ["preflight_policy_unavailable", "preflight_recovery_locked"] } });
       render(data.node, { wrapper: Providers });
       await goToReview(); await confirm();
       fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
-      const list = await screen.findByRole("list", { name: "Membresías por revisar" });
-      expect(screen.getByRole("group", { name: "Revisá membresías bloqueadas por pago" })).toBeInTheDocument();
-      expect(screen.getByRole("navigation", { name: "Paso 4 de 5" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
-      expect(list).toHaveTextContent("Integrante sintética");
-      expect(list).toHaveTextContent("Alta: 07/05/2026");
-      // Both a common member and a guardian can be retired.
-      expect(screen.getAllByRole("radio", { name: "No vuelve por pago: queda retirada" })).toHaveLength(2);
-      const save = screen.getAllByRole("button", { name: "Guardar decisión" })[0];
-      expect(save).toBeDisabled();
-      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante silenciada" }));
-      fireEvent.change(screen.getAllByLabelText("Motivo (opcional)")[0], { target: { value: "  Acordado con la tribu  " } });
-      fireEvent.click(screen.getAllByRole("checkbox", { name: /Confirmo esta decisión/ })[0]);
-      fireEvent.click(save);
-      await waitFor(() => expect(screen.getByText("Listo: registramos la decisión para Integrante sintética.")).toBeInTheDocument());
-      expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledWith(slug, unknownCase.memberId, expect.objectContaining({ confirmed: true, decision: "recover_muted", reason: "Acordado con la tribu", expected: { role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null } }), expect.any(AbortSignal));
-      expect(readCommercialMembershipReviewIntent(viewerId, slug)).toBeNull();
-      fireEvent.click(screen.getByRole("radio", { name: "No vuelve por pago: queda retirada" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
-      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
-      await waitFor(() => expect(screen.getByRole("button", { name: "Activar ahora" })).toBeInTheDocument());
-      expect(data.reviewClient.resolveCommercialReview.mock.calls[1][2]).toMatchObject({ decision: "retire", expected: { role: "guardian", recoveryStatus: "active" } });
-      expect(screen.getByText("No quedan membresías por revisar; ya podés volver a «Activar ahora».")).toHaveAttribute("role", "status");
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+      fireEvent.click(within(block).getByRole("button", { name: "Volver a comprobar" }));
+      await waitFor(() => expect(screen.getByText("Volvimos a comprobar: todavía falta resolver lo que se indica.")).toBeInTheDocument());
+      const rechecked = screen.getByRole("region", { name: "Lo que falta resolver" });
+      const platform = within(rechecked).getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("La plataforma pausó las admisiones mientras recupera un servicio.");
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_recovery_locked");
+      expect(platform).not.toHaveTextContent("preflight_recovery_locked");
+      expect(within(platform).getAllByRole("listitem")).toHaveLength(1);
+      expect(rechecked).toHaveTextContent("Todavía falta un requisito para guardar las reglas.");
+      expect(data.client.readPreflight).toHaveBeenCalledOnce();
+      expect(data.client.initializePolicy).toHaveBeenCalledOnce();
+    });
+
+    it("should show the failed reread after a denied save instead of an empty requirements block", async () => {
+      const data = fixture("not_configured");
+      data.client.initializePolicy.mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la configuración actual.", uncertain: false });
+      render(data.node, { wrapper: Providers });
+      await goToReview(); await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Todavía falta un requisito para guardar las reglas. No pudimos consultar la configuración actual."));
       expect(screen.queryByRole("region", { name: "Lo que falta resolver" })).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Activar ahora" }));
+      expect(screen.queryByText(/Falta un requisito actual para resolver el ingreso/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Consultar configuración actual" })).toBeEnabled());
+      expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+    });
+
+    it.each([
+      { scenario: "a pause", lifecycle: "active" as const, method: "pausePolicy" as const, message: "Todavía falta un requisito para pausar las admisiones.", consequence: "Las admisiones siguen abiertas: se siguen recibiendo solicitudes." },
+      { scenario: "a resume", lifecycle: "paused" as const, method: "updatePolicy" as const, message: "Todavía falta un requisito para reanudar las admisiones.", consequence: "Las admisiones siguen pausadas." },
+      { scenario: "a change to active rules", lifecycle: "active" as const, method: "updatePolicy" as const, message: "Todavía falta un requisito para guardar estos cambios.", consequence: "Las reglas vigentes no cambiaron." },
+    ])("should explain a retried original of $scenario with its own action, never «Guardar y activar admisiones»", async ({ lifecycle, method, message, consequence }) => {
+      const data = fixture(lifecycle);
+      data.client[method].mockResolvedValueOnce(unconfirmed).mockResolvedValueOnce(ineligible);
+      data.client.readPolicy.mockResolvedValueOnce({ status: "ready", value: data.policy }).mockResolvedValue({ status: "ready", value: withRequirements(data.policy, ["admission_security_unconfigured"]) });
+      render(data.node, { wrapper: Providers });
+      if (method === "pausePolicy") {
+        await waitFor(() => expect(screen.getByRole("button", { name: "Pausar admisiones" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Pausar admisiones" }));
+        fireEvent.change(screen.getByLabelText("Motivo de la pausa"), { target: { value: "Cierre de cohorte" } });
+        fireEvent.click(screen.getByRole("button", { name: "Confirmar pausa" }));
+      } else if (lifecycle === "paused") {
+        await waitFor(() => expect(screen.getByRole("button", { name: "Reanudar admisiones" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Reanudar admisiones" }));
+      } else {
+        await waitFor(() => expect(screen.getByRole("button", { name: "Editar reglas" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Editar reglas" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Lista de habilitados" }));
+        await goToReview(); await confirm();
+        fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+      }
+      await waitFor(() => expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeEnabled());
+      const original = readAdmissionPolicyIntent(viewerId, slug);
+      fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
+      fireEvent.click(await screen.findByRole("checkbox", { name: /Confirmo reintentar/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Reintentar operación original" }));
+      const block = await screen.findByRole("region", { name: "Lo que falta resolver" });
+      expect(block).toHaveTextContent(message);
+      expect(within(block).getByRole("group", { name: "Depende del equipo de TuTribu" })).toHaveTextContent(consequence);
+      expect(block).not.toHaveTextContent("Guardar y activar admisiones");
+      expect(data.client[method]).toHaveBeenCalledTimes(2);
+      expect(data.client[method].mock.calls[1][1]).toEqual(original!.input);
+      expect(readAdmissionPolicyIntent(viewerId, slug)).toBeNull();
+    });
+  });
+
+  describe("memberships blocked by payment", () => {
+    it("should tell the leader before activating how many memberships blocked by payment become free members, without an extra step", async () => {
+      const data = fixture();
+      const state = { ...data.state, policy: { ...data.policy, impact: { ...data.policy.impact, freeConversionMemberCount: 2 } } };
+      render(<AdmissionPolicyContainer initialState={state} client={data.client} />, { wrapper: Providers });
+      await goToReview();
+      expect(screen.getByRole("navigation", { name: "Paso 4 de 4" })).toBeInTheDocument();
+      expect(screen.getByText("Al activar, 2 membresías bloqueadas por pago pasan a ser integrantes gratuitas: entran a la tribu sin acceso al contenido pago de la academia y las que eran guardianas pierden ese rol. Después podés gestionarlas desde Integrantes.")).toBeInTheDocument();
+      await confirm();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
       await waitFor(() => expect(data.client.activatePolicy).toHaveBeenCalledOnce());
     });
 
-    it("should keep an uncertain decision and read its original result instead of sending it again", async () => {
+    it("should not mention the conversion when no membership converts", async () => {
       const data = fixture();
-      data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_unknown_commercial_history"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 } } });
-      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } });
-      data.reviewClient.resolveCommercialReview.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar la decisión.", uncertain: true });
-      render(data.node, { wrapper: Providers });
-      await goToReview(); await confirm();
-      fireEvent.click(screen.getByRole("button", { name: "Guardar y activar admisiones" }));
-      await screen.findByRole("list", { name: "Membresías por revisar" });
-      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante activa" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
-      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
-      await waitFor(() => expect(screen.getByRole("button", { name: "Consultar resultado" })).toBeInTheDocument());
-      const pending = readCommercialMembershipReviewIntent(viewerId, slug);
-      expect(pending?.input.decision).toBe("recover_active");
-      expect(screen.getByRole("button", { name: "Guardar decisión" })).toBeDisabled();
-      data.reviewClient.operation.mockResolvedValueOnce({ status: "ready", value: { type: "resolve_commercial_membership_review", state: "completed", operationId: pending!.input.operationId, replayed: true, result: { status: "resolved", memberId: unknownCase.memberId, decision: "recover_active", resultingRole: "tribemate", resultingStatus: "blocked", resultingRecoveryStatus: "active", decidedAt: "2026-10-19T12:00:00.000Z" } } });
-      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 1 } });
-      fireEvent.click(screen.getByRole("button", { name: "Consultar resultado" }));
-      await waitFor(() => expect(screen.getByRole("button", { name: "Activar ahora" })).toBeInTheDocument());
-      expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledOnce();
-      expect(readCommercialMembershipReviewIntent(viewerId, slug)).toBeNull();
-    });
-
-    it("should keep the decision group controlled from its first render so choosing a decision raises no controlled-state warning", async () => {
-      const data = fixture();
-      const warnings = [vi.spyOn(console, "error"), vi.spyOn(console, "warn")];
-      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialCommercialReview={{ kind: "ready", list: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } }} entryStep="memberships" />, { wrapper: Providers });
-      fireEvent.click(await screen.findByRole("radio", { name: "No vuelve por pago: queda retirada" }));
-      expect(screen.getByRole("radio", { name: "No vuelve por pago: queda retirada" })).toBeChecked();
-      const controlledStateWarnings = warnings.flatMap((spy) => spy.mock.calls).filter((call) => call.some((argument) => /uncontrolled to controlled/.test(String(argument))));
-      expect(controlledStateWarnings).toEqual([]);
-      warnings.forEach((spy) => spy.mockRestore());
-    });
-
-    it("should label a crossed commercial pair with its own status and reason and send them as the observed facts", async () => {
-      const data = fixture();
-      const crossedCase: CommercialMembershipReviewCase = { ...unknownCase, memberId: "7d2e4f60-1a3b-4c5d-8e9f-0a1b2c3d4e5f", displayName: "Integrante cruzada", status: "removed", statusReason: "payment_blocked" };
-      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [], pendingCount: 0, resolvedCount: 1 } });
-      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialCommercialReview={{ kind: "ready", list: { cases: [crossedCase], pendingCount: 1, resolvedCount: 0 } }} entryStep="memberships" />, { wrapper: Providers });
-      const facts = await screen.findByRole("list", { name: "Estado de Integrante cruzada" });
-      expect(within(facts).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Dada de baja", "Pago bloqueado", "Estado anterior desconocido"]);
-      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante activa" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
-      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
-      await waitFor(() => expect(data.reviewClient.resolveCommercialReview).toHaveBeenCalledWith(slug, crossedCase.memberId, expect.objectContaining({ decision: "recover_active", expected: { role: "tribemate", status: "removed", statusReason: "payment_blocked", recoveryStatus: null } }), expect.any(AbortSignal)));
-      await waitFor(() => expect(data.reviewClient.readCommercialReviews).toHaveBeenCalled());
-    });
-
-    it("should explain a rejected decision and refresh the list", async () => {
-      const data = fixture();
-      data.reviewClient.resolveCommercialReview.mockImplementationOnce(async (_slug, memberId, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { status: "rejected", memberId, reason: "membership_changed" } } }));
-      data.reviewClient.readCommercialReviews.mockResolvedValue({ status: "ready", value: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } });
-      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialCommercialReview={{ kind: "ready", list: { cases: [unknownCase], pendingCount: 1, resolvedCount: 0 } }} entryStep="memberships" />, { wrapper: Providers });
-      await screen.findByRole("list", { name: "Membresías por revisar" });
-      fireEvent.click(screen.getByRole("radio", { name: "Al regularizar el pago vuelve como integrante activa" }));
-      fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo esta decisión/ }));
-      fireEvent.click(screen.getByRole("button", { name: "Guardar decisión" }));
-      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("La membresía cambió mientras decidías. Actualizamos la lista: revisala y volvé a decidir."));
-      expect(data.reviewClient.readCommercialReviews).toHaveBeenCalled();
+      const state = { ...data.state, policy: { ...data.policy, impact: { ...data.policy.impact, freeConversionMemberCount: 0 } } };
+      render(<AdmissionPolicyContainer initialState={state} client={data.client} />, { wrapper: Providers });
+      await goToReview();
+      expect(screen.queryByText(/membresías? bloqueadas? por pago/)).not.toBeInTheDocument();
     });
   });
 
@@ -572,7 +703,7 @@ describe("guided policy route workflow", () => {
     it("should name a saved draft's evaluated requirement and where to resolve it as soon as the rules open", async () => {
       const data = fixture();
       const state = { ...data.state, policy: { ...data.policy, preparation: { state: "evaluated" as const, requirements: ["verification_unavailable" as const] } } };
-      render(<AdmissionPolicyContainer initialState={state} client={data.client} reviewClient={data.reviewClient} />, { wrapper: Providers });
+      render(<AdmissionPolicyContainer initialState={state} client={data.client} />, { wrapper: Providers });
       const block = screen.getByRole("region", { name: "Lo que falta resolver" });
       expect(block).toHaveTextContent("Todavía falta un requisito para activar las admisiones.");
       expect(block).toHaveTextContent("El canal para comprobar el contacto todavía no está preparado.");
@@ -583,22 +714,22 @@ describe("guided policy route workflow", () => {
       expect(data.client.activatePolicy).not.toHaveBeenCalled();
     });
 
-    it("should explain pending memberships through the preflight instead of an incomplete-protection platform block", async () => {
+    it("should name a missing platform security once even when the preflight reads it as a recovery lock, and offer no publication", async () => {
       const data = fixture();
-      const state = { ...data.state, policy: { ...data.policy, preparation: { state: "evaluated" as const, requirements: ["admission_preflight_incomplete" as const] } } };
-      render(<AdmissionPolicyContainer initialState={state} client={data.client} reviewClient={data.reviewClient} initialPreflight={{ prepared: false, reasons: ["preflight_unknown_commercial_history"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 } }} />, { wrapper: Providers });
-      const block = screen.getByRole("region", { name: "Lo que falta resolver" });
-      expect(block).toHaveTextContent("Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas.");
-      expect(block).not.toHaveTextContent("La plataforma todavía no terminó de preparar las protecciones de admisión.");
-      expect(screen.queryByRole("group", { name: "Depende del equipo de TuTribu" })).not.toBeInTheDocument();
-      // The mount viewer check settles and the leader can still open the review step.
-      await waitFor(() => expect(screen.getByRole("button", { name: "Revisar y activar" })).toBeEnabled());
-      expect(screen.getByRole("region", { name: "Lo que falta resolver" })).toHaveTextContent("Hay membresías bloqueadas por pago de las que no sabemos si estaban activas o silenciadas.");
+      render(<AdmissionPolicyContainer initialState={{ ...data.state, policy: withRequirements(data.policy, ["admission_security_unconfigured"]) }} client={data.client} initialPreflight={{ prepared: false, reasons: ["preflight_recovery_locked"] }} />, { wrapper: Providers });
+      const platform = screen.getByRole("group", { name: "Depende del equipo de TuTribu" });
+      expect(platform).toHaveTextContent("Código de diagnóstico: admission_security_unconfigured");
+      expect(platform).not.toHaveTextContent("preflight_recovery_locked");
+      expect(platform).toHaveTextContent("Lo que ya elegiste quedó guardado como borrador.");
+      const notice = screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" });
+      expect(notice).toHaveTextContent("Tus reglas siguen guardadas como borrador, pero por ahora no se pueden cambiar ni activar: depende del equipo de TuTribu.");
+      await waitFor(() => expect(within(platform).getByRole("button", { name: "Volver a comprobar" })).toBeEnabled());
+      expect(screen.queryByRole("button", { name: "Revisar y activar" })).not.toBeInTheDocument();
     });
 
     it("should open the final step from a return link", async () => {
       const data = fixture();
-      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} entryStep="review" />, { wrapper: Providers });
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} entryStep="review" />, { wrapper: Providers });
       expect(screen.getByRole("navigation", { name: "Paso 4 de 4" })).toBeInTheDocument();
       // Once the mount viewer check settles, the step waits for the leader's confirmation before activating.
       await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé las reglas/ })).toBeEnabled());
@@ -607,7 +738,7 @@ describe("guided policy route workflow", () => {
 
     it("should not offer to publish while a platform block is known, and recheck without asking for another decision", async () => {
       const data = fixture();
-      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} reviewClient={data.reviewClient} initialPreflight={{ prepared: false, reasons: ["preflight_recovery_locked"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } }} />, { wrapper: Providers });
+      render(<AdmissionPolicyContainer initialState={data.state} client={data.client} initialPreflight={{ prepared: false, reasons: ["preflight_recovery_locked"] }} />, { wrapper: Providers });
       const notice = screen.getByRole("group", { name: "Tenés reglas guardadas sin publicar" });
       expect(notice).toHaveTextContent("Por ahora no se pueden activar: depende del equipo de TuTribu.");
       expect(screen.queryByRole("button", { name: "Revisar y activar" })).not.toBeInTheDocument();

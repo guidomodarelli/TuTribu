@@ -33,10 +33,12 @@ function buildRepository(overrides: Partial<ProductAccessRepository> = {}): Prod
 
 const verifiedSnapshot: OwnAcademyAccessSnapshot = {
   accessModel: "academy",
+  admissionControlActive: false,
   admissionEnabled: true,
   firstActivatedAt: null,
   grants: [],
   membership: { role: "tribemate", status: "active" },
+  membershipDetail: { commercialRecoveryStatus: null, statusReason: "none" },
   offerPurchasable: true,
   salesEnabled: true,
 };
@@ -46,7 +48,7 @@ describe("getOwnAcademyAccess", () => {
     const execute = getOwnAcademyAccess({
       isAcademySalesActivationAllowed: () => true,
       now: () => NOW,
-      ownAcademyRenewalReader: { getOwnAcademyRenewalStatus: vi.fn(async () => "none" as const) },
+      ownAcademyRenewalReader: { getOwnAcademyRenewal: vi.fn(async () => ({ lastPaymentRejected: false, status: "none" as const })) },
       ownVerificationStatesReader: {
         listOwnVerificationStates: vi.fn(async () => ["verified" as const]),
       },
@@ -66,7 +68,7 @@ describe("getOwnAcademyAccess", () => {
     const execute = getOwnAcademyAccess({
       isAcademySalesActivationAllowed: () => false,
       now: () => NOW,
-      ownAcademyRenewalReader: { getOwnAcademyRenewalStatus: vi.fn(async () => "none" as const) },
+      ownAcademyRenewalReader: { getOwnAcademyRenewal: vi.fn(async () => ({ lastPaymentRejected: false, status: "none" as const })) },
       ownVerificationStatesReader: {
         listOwnVerificationStates: vi.fn(async () => ["verified" as const]),
       },
@@ -80,11 +82,31 @@ describe("getOwnAcademyAccess", () => {
     });
   });
 
+  it("offers a free join to a member blocked by payment before admission control, and reports a rejected payment", async () => {
+    const execute = getOwnAcademyAccess({
+      isAcademySalesActivationAllowed: () => true,
+      now: () => NOW,
+      ownAcademyRenewalReader: { getOwnAcademyRenewal: vi.fn(async () => ({ lastPaymentRejected: true, status: "active" as const })) },
+      ownVerificationStatesReader: { listOwnVerificationStates: vi.fn(async () => ["verified" as const]) },
+      productAccessRepository: buildRepository({
+        readOwnAccessSnapshot: vi.fn(async () => ({
+          ...verifiedSnapshot,
+          membership: { role: "tribemate", status: "blocked" },
+          membershipDetail: { commercialRecoveryStatus: "muted" as const, statusReason: "payment_blocked" },
+        })),
+      }),
+    });
+
+    await expect(execute({ tribeSlug: "matematica-pro" })).resolves.toMatchObject({
+      access: { lastPaymentRejected: true, membershipRecovery: "free_join", nextAction: "contact_support" },
+    });
+  });
+
   it("reports not found for an unknown or hidden tribe", async () => {
     const execute = getOwnAcademyAccess({
       isAcademySalesActivationAllowed: () => true,
       now: () => NOW,
-      ownAcademyRenewalReader: { getOwnAcademyRenewalStatus: vi.fn() },
+      ownAcademyRenewalReader: { getOwnAcademyRenewal: vi.fn() },
       ownVerificationStatesReader: { listOwnVerificationStates: vi.fn() },
       productAccessRepository: buildRepository(),
     });

@@ -33,9 +33,19 @@ async function walkToReview(page: Page) {
   while (await page.getByRole("checkbox", { name: CONFIRMATION_LABEL, exact: true }).count() === 0) { await next.click(); await settleGuidedStep(page); }
 }
 
-/** @param page - Owned page. @returns Once the rules editor is open at its contact step. */
+/** @param page - Owned page. @returns The accessible name of the guided progress, «Paso N de M». */
+function readGuidedProgress(page: Page) {
+  return page.getByRole("navigation", { name: /^Paso \d+ de \d+$/ }).getAttribute("aria-label");
+}
+
+/** @param page - Owned page. @returns Once the rules editor is open at its contact step, after a real click on Atrás kept the first step open. */
 async function openContactStep(page: Page) {
   await page.getByRole("button", { name: "Editar reglas", exact: true }).click(); await settleGuidedStep(page);
+  await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
+  // Atrás leaves on the first step; a real click used to turn its node into the submit button and advance again.
+  await page.getByRole("button", { name: "Atrás", exact: true }).click(); await settleGuidedStep(page);
+  expect(await readGuidedProgress(page)).toBe("Paso 1 de 3");
+  expect(await page.getByRole("button", { name: "Atrás", exact: true }).count()).toBe(0);
   await page.getByRole("button", { name: "Continuar", exact: true }).click(); await settleGuidedStep(page);
   await page.getByRole("checkbox", { name: VERIFICATION_LABEL, exact: true }).waitFor({ state: "visible" });
 }

@@ -10,6 +10,8 @@ import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, requiresAdm
 import { proposeAdmissionPolicyActivation, type AdmissionPolicyActivationReason } from "../../domain/policies/admission-policy-activation";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { AdmissionPolicyRequirementError } from "../../domain/errors/admission-policy-requirement-error";
+import { classifyMessagingPlatformSecurityFailure } from "@/src/modules/messaging/infrastructure/config/messaging-platform-security-failure";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_POLICY_ACTIVATION_ERROR, ADMISSION_POLICY_AUDIT, ADMISSION_POLICY_CONFIGURATION_ERROR, ADMISSION_POLICY_EDITABLE_FIELDS, ADMISSION_POLICY_CHANGE_OUTCOME } from "../../constants/admission-policy";
 import { ADMISSION_PROOF_STATUS, ADMISSION_VERIFICATION_PURPOSE } from "../../constants/admission-eligibility";
@@ -25,11 +27,20 @@ import { readAdmissionPolicyWithControlMarker } from "./postgres-admission-polic
 import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
+import { convertCommercialMembershipsOnActivation } from "./postgres-commercial-membership-conversion";
 import { readSelectedMessagingResource } from "@/src/modules/messaging/infrastructure/repositories/postgres-selected-messaging-resource-reader";
 
 /** @param code - Unmet requirement. @returns The `admission_ineligible` outcome carrying the requirement as its private, loggable cause. */
-function requirementUnmet(code: AdmissionPolicyActivationReason): AdmissionOperationError {
-  return new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionPolicyRequirementError(code) });
+function requirementUnmet(code: AdmissionPolicyActivationReason, cause?: unknown): AdmissionOperationError {
+  return new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible, { cause: new AdmissionPolicyRequirementError(code, { cause }) });
+}
+
+/**
+ * @param cause - Hosting security failure the ledger rejected a new original with.
+ * @returns The rules requirement that names it: a recovery lock, or security the platform has not configured or enrolled yet.
+ */
+function policyPlatformRequirement(cause: unknown): AdmissionPolicyActivationReason {
+  return classifyMessagingPlatformSecurityFailure(cause) === PLATFORM_SECURITY_REQUIREMENT.recoveryLocked ? ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked : ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured;
 }
 
 /**
@@ -95,15 +106,26 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(intent.context, (database) => withReusedAdmissionLeaderAuthority(database, () => work(database))), async (database) => { await authorizeAdmissionPolicy(database, intent.context, operation); return true; }, this.readSecurityConfig);
     try { return await ledger.run(command, admissionPolicyMutationResultSchema, async (database, ledgerId) => { await this.academy(database, intent.context.tribeId); return mutate(database, ledgerId); }); }
     catch (error) {
-      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved) {
-        try { const recovered = await ledger.read(command, admissionPolicyMutationResultSchema); if (recovered?.state === OPERATION_STATE.completed) return recovered; }
-        catch (recoveryError) {
-          if (recoveryError instanceof AdmissionOperationError) throw recoveryError;
-          throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: intent.operationId, cause: new AggregateError([error, recoveryError], "Admission policy original commit reconciliation failed", { cause: error }) });
-        }
-      }
+      // The ledger rejects a new original it cannot protect before registering anything; the rules page names that platform requirement.
+      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable) throw requirementUnmet(policyPlatformRequirement(error.cause), error.cause);
+      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved) return this.recoverUnresolved(ledger, command, error);
       throw error;
     }
+  }
+
+  /**
+   * A commit may have succeeded before its response was lost: the original is read before reporting it unresolved.
+   * @param ledger - Same original ledger. @param command - Original command. @param error - Unresolved outcome of the write.
+   * @returns The completed original when the registry proves it.
+   * @throws The unresolved outcome, a typed recovery failure, or an unresolved outcome carrying both causes.
+   */
+  private async recoverUnresolved(ledger: PostgresAdmissionOperationRepository, command: AdmissionOperationCommand, error: AdmissionOperationError): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
+    try { const recovered = await ledger.read(command, admissionPolicyMutationResultSchema); if (recovered?.state === OPERATION_STATE.completed) return recovered; }
+    catch (recoveryError) {
+      if (recoveryError instanceof AdmissionOperationError) throw recoveryError;
+      throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, recoveryError], "Admission policy original commit reconciliation failed", { cause: error }) });
+    }
+    throw error;
   }
 
   /** @param intent - Explicit first configuration, with no caller version/defaults. @returns Existing configuration unchanged, or version1 closed draft bound to the current messaging selection; never activates control. */
@@ -183,7 +205,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return this.run(intent, REAUTHENTICATION_OPERATION.updateAdmissionPolicy, { confirmed: intent.confirmed, expectedVersion: intent.expectedVersion, patch: intent.patch }, (database, ledgerId) => this.change(database, intent, ledgerId, intent.patch));
   }
 
-  /** @param intent - Explicit original activation intent. @returns Policy and monotonic marker committed at one authoritative instant, with no membership or messaging effects. */
+  /** @param intent - Explicit original activation intent. @returns Policy and monotonic marker committed at one authoritative instant; commercial memberships with member history become free active members in the same commit, with no messaging effects. */
   async activate(intent: AdmissionPolicyActivationIntent): Promise<AdmissionOperationResult<AdmissionPolicyMutationResult>> {
     return this.run(intent, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, { confirmed: intent.confirmed, expectedVersion: intent.expectedVersion }, async (database, ledgerId) => {
       const current = await this.current(database, intent.context.tribeId);
@@ -197,6 +219,8 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw requirementUnmet(proposal.reason);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(proposal.policy, true, false);
       const changedAt = await this.save(database, proposal.policy, current.policy.version, intent.context.userId);
+      // Commercial memberships become free members before the marker protects the tribe, in this same commit.
+      await convertCommercialMembershipsOnActivation(database, intent.context, ledgerId);
       const updated = (await database.execute(sql`update public.tribes set admissions_control_activated_at=${proposal.controlActivatedAt} where id=${intent.context.tribeId} and admissions_control_activated_at is null returning id`)).rows[0];
       if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
       await this.audit(database, intent, { ledgerId, previousPolicy: current.policy, policy: proposal.policy, createdAt: changedAt });

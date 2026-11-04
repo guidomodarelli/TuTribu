@@ -10,7 +10,7 @@ function setupCatalog() {
   const now = new Date("2026-10-11T12:00:00Z"), tribeId = randomUUID(), actorUserId = randomUUID();
   const account: MessagingAuthenticatedAccount = { userId: actorUserId, session: { id: randomUUID(), expiresAt: new Date(now.getTime() + 60_000) }, googleAccount: null};
   const leadership: MessagingLeadershipFacts = { tribeId, leaderUserId: actorUserId, membership: { userId: actorUserId, role: "leader", status: "active" } };
-  const item = { id: randomUUID(), version: 3, state: "unknown" as const, connectionId: randomUUID(), createdAt: now.toISOString(), deadlineAt: new Date(now.getTime() + 60_000).toISOString(), recoveryDeliveryId: null };
+  const item = { id: randomUUID(), version: 3, state: "unknown" as const, connectionId: randomUUID(), createdAt: now.toISOString(), deadlineAt: new Date(now.getTime() + 60_000).toISOString(), recoveryDeliveryId: null, dispatchUnresolved: true };
   let catalog: unknown = { items: [item], nextCursor: null }, reads = 0;
   let afterRead: (() => void) | undefined;
   const management = new ResolveMessagingTribeManagementUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentLeadership: async () => leadership }, () => now);
@@ -24,18 +24,25 @@ describe("notification delivery catalog", () => {
     expect(await fixture.useCase.execute(fixture.query)).toEqual({ ok: true, value: { items: [fixture.item], nextCursor: null } });
     expect(fixture.reads).toBe(1);
   });
+  it("should keep a queued notice whose earlier attempt may have left marked as pending confirmation", async () => {
+    const fixture = setupCatalog(), queued = { ...fixture.item, state: "queued" as const, dispatchUnresolved: true };
+    fixture.replace({ items: [queued], nextCursor: null });
+    expect(await fixture.useCase.execute(fixture.query)).toEqual({ ok: true, value: { items: [queued], nextCursor: null } });
+  });
   it("should preserve a genuinely empty catalog without creating a notification", async () => {
     const fixture = setupCatalog(); fixture.replace({ items: [], nextCursor: null });
     expect(await fixture.useCase.execute(fixture.query)).toEqual({ ok: true, value: { items: [], nextCursor: null } });
     expect(fixture.reads).toBe(1);
   });
-  it.each(["private_field", "bad_version", "same_child", "bad_cursor"] as const)("should reject unusable own %s facts safely", async (scenario) => {
+  it.each(["private_field", "bad_version", "same_child", "bad_cursor", "unknown_marked_resolved", "delivered_marked_unresolved"] as const)("should reject unusable own %s facts safely", async (scenario) => {
     const fixture = setupCatalog();
     /** @returns The catalog page that is unusable only in this scenario's fact. */
     const unusablePage = () => {
       if (scenario === "private_field") return { items: [{ ...fixture.item, recipient: "private" }], nextCursor: null };
       if (scenario === "bad_version") return { items: [{ ...fixture.item, version: 0 }], nextCursor: null };
       if (scenario === "same_child") return { items: [{ ...fixture.item, recoveryDeliveryId: fixture.item.id.toUpperCase() }], nextCursor: null };
+      if (scenario === "unknown_marked_resolved") return { items: [{ ...fixture.item, dispatchUnresolved: false }], nextCursor: null };
+      if (scenario === "delivered_marked_unresolved") return { items: [{ ...fixture.item, state: "delivered" }], nextCursor: null };
       return { items: [fixture.item], nextCursor: { deliveryId: randomUUID(), createdAt: fixture.item.createdAt } };
     };
     fixture.replace(unusablePage());

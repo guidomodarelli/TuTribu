@@ -35,7 +35,7 @@ describe("policy browser transport", () => {
 
   it("should keep read failures distinct from mutations and cancel before starting an already aborted request", async () => {
     const data = fixture();
-    data.transport.mockResolvedValueOnce(Response.json({ prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } }));
+    data.transport.mockResolvedValueOnce(Response.json({ prepared: false, reasons: ["preflight_runtime_unavailable"] }));
     expect(await data.client.readPreflight("synthetic-academy", data.signal)).toMatchObject({ status: "ready", value: { prepared: false } });
     data.transport.mockResolvedValueOnce(Response.json({ unexpected: true }));
     expect(await data.client.readPolicy("synthetic-academy", data.signal)).toMatchObject({ status: "failed", uncertain: false });

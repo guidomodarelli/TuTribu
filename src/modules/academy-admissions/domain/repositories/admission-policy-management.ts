@@ -4,11 +4,18 @@ import type { AuthorizedAdmissionContext } from "./admission-authorization-reade
 import type { AdmissionOperationResult } from "../entities/admission-operation";
 import type { AdmissionMessagingUsagePolicy } from "./messaging-usage-policy-reader";
 import type { AdmissionPolicyActivationFacts } from "../policies/admission-policy-activation";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Absence has no version; a policy read never initializes or activates the resource. */
 export type AdmissionPolicyState = { policy: AdmissionPolicy | null; controlActivated: boolean; usage: AdmissionMessagingUsagePolicy | null };
 /** Counts and preparation are current private owner projections for an informational leader query. */
-export type AdmissionPolicyViewFacts = { pendingRequestCount: number; preparation: Omit<AdmissionPolicyActivationFacts, "now"> | null };
+export type AdmissionPolicyViewFacts = {
+  pendingRequestCount: number; preparation: Omit<AdmissionPolicyActivationFacts, "now"> | null;
+  /** Commercial memberships the first activation will turn into free active members; absent once control is active. */
+  freeConversionMemberCount?: number;
+  /** Why the platform cannot protect admission ledger writes right now (the same checks a write runs), or null when it can. */
+  platformSecurity: PlatformSecurityRequirement | null;
+};
 export interface AdmissionPolicyViewFactsReader {
   /** @param context - Current leader scope. @param policy - Current stored policy or true absence. @returns Current impact and evaluated preparation, or explicit unevaluated preparation. */
   read(context: AuthorizedAdmissionContext, policy: AdmissionPolicy | null): Promise<AdmissionPolicyViewFacts>;

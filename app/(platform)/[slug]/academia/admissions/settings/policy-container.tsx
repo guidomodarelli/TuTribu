@@ -8,33 +8,27 @@ import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/a
 import { createAdmissionPolicyDraft, validateAdmissionPolicyBrowserDraft, type AdmissionPolicyBrowserIntent } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
 import { AdmissionPolicyForm, type AdmissionPolicyActivationBlock, type AdmissionPolicyFailure, admissionPolicyStepIds  } from "@/components/academy-admissions/admission-policy-form";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
+import { resolveAdmissionRouteRecovery } from "@/lib/academy-admissions/admission-route-recovery";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
 import { admissionApiClient } from "@/lib/academy-admissions/admission-api-client";
 import { ADMISSION_POLICY_BROWSER_PHASE as PHASE, ADMISSION_POLICY_BROWSER_COPY as COPY, ADMISSION_POLICY_DRAFT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
-import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_ENTRY_STEP, ADMISSION_POLICY_STEP, isAdmissionPolicyPlatformReason, type AdmissionPolicyEntryStep  } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
+import { ADMISSION_POLICY_ACTION, ADMISSION_POLICY_FLOW_STAGE as STAGE, type AdmissionPolicyAction, type AdmissionPolicyFlowStage, ADMISSION_POLICY_STEP, isAdmissionPolicyPlatformReason, type AdmissionPolicyEntryStep  } from "@/src/modules/academy-admissions/constants/admission-policy-flow";
 import { ADMISSION_POLICY_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ALLOWLIST_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 import { MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-usage";
 import { MESSAGING_CONNECTIONS_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-connections-browser";
-import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
-import type { CommercialMembershipReviewPageState } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-page-state";
-import { COMMERCIAL_MEMBERSHIP_REVIEW_COPY, commercialMembershipReviewDoneMessage } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 import { withPolicyReviewReturn } from "@/src/modules/academy-admissions/constants/admission-settings-navigation";
 import { ROUTES } from "@/src/constants/routes";
-import { CommercialMembershipReview } from "@/components/academy-admissions/commercial-membership-review";
-import { useCommercialMembershipReview } from "./use-commercial-membership-review";
-import { blockReasons, createInitialDraft, draftBlock, hasCommercialReason, markPolicyFresh, pausePolicyWrites, policyValidationMessage, readPolicyCurrent, resumePolicyWrites, retryPolicyOriginal, runFinalPolicyWrites, runPolicyWrite, startPolicyRecheck, type PolicyControls, type PolicyPhase, type PolicyReady, type PolicySession } from "./policy-workflow";
+import { blockReasons, createInitialDraft, draftBlock, markPolicyFresh, pausePolicyWrites, platformSecurityBlock, policyPlatformSecurity, policyValidationMessage, readPolicyCurrent, resumePolicyWrites, retryPolicyOriginal, runFinalPolicyWrites, runPolicyWrite, startPolicyRecheck, type PolicyControls, type PolicyPhase, type PolicyReady, type PolicySession } from "./policy-workflow";
 import { startPrivateReadLifecycle } from "../private-read-lifecycle";
 
 /** Only application props and own ports enter the workflow; no SDK identity is serialized. */
 type PolicyContainerProps = {
   initialState: AdmissionPolicyPageState; client?: AdmissionPolicyBrowserClient;
-  /** Server-read review of memberships blocked by payment; absent where the page does not load it. */
-  initialCommercialReview?: CommercialMembershipReviewPageState;
   /** Server-read informational preflight of a saved, not activated draft; null when it could not be read. */
   initialPreflight?: AdmissionPolicyPreflightDto | null;
   /** Allowlisted step opened by a link (guide, return from another settings page). */
   entryStep?: AdmissionPolicyEntryStep | null;
-  reviewClient?: CommercialMembershipReviewBrowserClient;
 };
 /** Server snapshot and the step the guided flow opens on. */
 type PolicyInitialView = { ready: PolicyReady | null; client: AdmissionPolicyBrowserClient; savedDraft: boolean; initialStep: number; entryStep: AdmissionPolicyEntryStep | null; initialPreflight: AdmissionPolicyPreflightDto | null | undefined };
@@ -45,7 +39,7 @@ function usePolicyFlowState({ ready, client, savedDraft, initialStep, entryStep,
   const [draft, setDraft] = useState<AdmissionPolicyDraft | null>(ready ? createInitialDraft(ready.policy) : null);
   const [phase, setPhase] = useState<PolicyPhase>(PHASE.checking);
   const [step, setStep] = useState(initialStep), [editing, setEditing] = useState(false);
-  /** True while saved rules are being published from the draft notice, a return link or the membership review. */
+  /** True while saved rules are being published from the draft notice or a return link. */
   const [publishing, setPublishing] = useState(savedDraft && entryStep !== null);
   const [rechecking, setRechecking] = useState(false);
   const [confirmed, setConfirmed] = useState(false), [retryConfirmed, setRetryConfirmed] = useState(false);
@@ -85,70 +79,52 @@ function usePolicyFlowState({ ready, client, savedDraft, initialStep, entryStep,
   return { state, draft, phase, step, editing, publishing, setPublishing, rechecking, confirmed, retryConfirmed, pauseOpen, pauseReason, errorMessage, statusMessage, failure, activationBlock, stage, pendingAction, permissionDenied, fresh, canRetry, privateVisible, launchRead, controls };
 }
 
-/** @param props - Container props. @returns The readable snapshot, the server-read review list and the step and publishing state the flow opens with. */
+/** @param props - Container props. @returns The readable snapshot and the step and publishing state the flow opens with. */
 function policyInitialView(props: PolicyContainerProps) {
   const ready = props.initialState.kind === "ready" ? props.initialState : null, entryStep = props.entryStep ?? null;
   const savedDraft = Boolean(ready?.policy.policy) && !ready?.policy.controlActivated;
-  const initialReviewList = props.initialCommercialReview?.kind === "ready" ? props.initialCommercialReview.list : null;
-  return { ready, initialReviewList, savedDraft, entryStep, initialStep: initialPolicyStep(savedDraft, entryStep, savedDraft && (initialReviewList?.pendingCount ?? 0) > 0) };
+  return { ready, savedDraft, entryStep, initialStep: initialPolicyStep(savedDraft, entryStep) };
 }
 
-/** @param savedDraft - Whether saved rules wait for activation. @param entryStep - Step a link opened. @param memberships - Whether memberships wait for a decision. @returns The step the guided flow opens on. */
-function initialPolicyStep(savedDraft: boolean, entryStep: AdmissionPolicyEntryStep | null, memberships: boolean): number {
+/** @param savedDraft - Whether saved rules wait for activation. @param entryStep - Step a link opened. @returns The step the guided flow opens on. */
+function initialPolicyStep(savedDraft: boolean, entryStep: AdmissionPolicyEntryStep | null): number {
   if (!savedDraft || !entryStep) return 0;
-  return admissionPolicyStepIds(false, memberships).indexOf(entryStep === ADMISSION_POLICY_ENTRY_STEP.memberships && memberships ? ADMISSION_POLICY_STEP.memberships : ADMISSION_POLICY_STEP.review);
-}
-
-/** @param block - Current requirements block. @returns The block without the reasons the membership review resolved, or null when nothing else is missing. */
-function withoutCommercialReasons(block: AdmissionPolicyActivationBlock | null): AdmissionPolicyActivationBlock | null {
-  if (!block) return null;
-  const next = { ...block, preflightReasons: block.preflightReasons.filter((reason) => !hasCommercialReason([reason])), unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
-  return blockReasons(next).length ? next : null;
+  return admissionPolicyStepIds(false).indexOf(ADMISSION_POLICY_STEP.review);
 }
 
 /** @param props - Safe SSR state and an optional own transport port. @returns A current account-scoped guided flow that retains draft/UUID through conflict and uncertainty. */
-export function AdmissionPolicyContainer({ client = admissionApiClient, reviewClient = admissionApiClient, ...props }: PolicyContainerProps) {
-  const { initialState, initialCommercialReview } = props, { ready, initialReviewList, ...initial } = policyInitialView(props);
-  const flow = usePolicyFlowState({ ready, client, ...initial, initialPreflight: props.initialPreflight });
+export function AdmissionPolicyContainer({ client = admissionApiClient, ...props }: PolicyContainerProps) {
+  const { initialState } = props, { ready, ...initial } = policyInitialView(props);
+  const flow = usePolicyFlowState({ ready, client, ...initial, initialPreflight: props.initialPreflight }), location = useAdmissionRouteLocation();
   const { state, draft, phase, editing, publishing, setPublishing, confirmed, errorMessage, failure, fresh, canRetry, privateVisible, launchRead, controls } = flow;
-  /** Final index of the flow with the membership review step; the review step only exists before activation. */
-  const finalStepWithMemberships = admissionPolicyStepIds(false, true).length - 1;
-  const review = useCommercialMembershipReview({
-    slug: ready?.slug ?? "", viewerId: ready?.viewerId ?? "", client: reviewClient, initialList: initialReviewList,
-    initialError: initialCommercialReview?.kind === "unavailable" ? initialCommercialReview.message : null,
-    onAllResolved: useCallback(() => {
-      controls.setActivationBlock(withoutCommercialReasons);
-      setPublishing(true); controls.setStep(finalStepWithMemberships); controls.setErrorMessage(null);
-      controls.setStatusMessage(commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow));
-    }, [finalStepWithMemberships, controls, setPublishing]),
-  });
-
-  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} retry={() => window.location.reload()} />;
+  if (!ready || !state || !draft) return <AdmissionRouteError embedded message={initialState.kind === "unavailable" ? initialState.message : COPY.storageFailed} {...resolveAdmissionRouteRecovery(initialState.kind === "unavailable" ? initialState.code : null, location)} />;
   if (phase === PHASE.changedViewer) return <AdmissionRouteError embedded message={COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!privateVisible && (phase === PHASE.checking || phase === PHASE.reading)) return <p role="status">{COPY.reading}</p>;
   if (!privateVisible) return <AdmissionRouteError embedded message={errorMessage ?? COPY.storageFailed} retry={launchRead} />;
-  const session: PolicySession = { ready, client, controls, reloadReview: review.reload };
+  const session: PolicySession = { ready, client, controls };
   const validationMessage = policyValidationMessage(validateAdmissionPolicyBrowserDraft(draft, state));
   const uncertain = phase === PHASE.uncertain;
   const isBusy = phase === PHASE.checking || phase === PHASE.reading || phase === PHASE.writing;
   /** New writes stay closed while an original is unresolved or the configuration needs authorized review. */
   const writesOpen = !isBusy && !uncertain && state.state !== ADMISSION_POLICY_PUBLIC_STATE.unavailable;
-  const view = policyFormView({ ready, state, draft, editing, review, isBusy, activationBlock: flow.activationBlock });
+  const view = policyFormView({ ready, state, draft, editing, activationBlock: flow.activationBlock });
+  /** A rules read that names the platform security closes every new policy write; «Volver a comprobar» stays available. */
+  const newWritesOpen = writesOpen && !view.writesBlocked;
 
   /** Guardar y activar / Guardar cambios: creates the policy if missing, saves the rules, checks requirements and activates, stopping where something fails. */
   const runFinal = (action: AdmissionPolicyAction = ADMISSION_POLICY_ACTION.final) => {
-    if (!writesOpen || controls.pending.current || !confirmed || validationMessage) return;
+    if (!newWritesOpen || controls.pending.current || !confirmed || validationMessage) return;
     const plan = { proposed: draft, activating: !editing, previousFailure: failure };
     void runPolicyWrite(session, action, (signal) => runFinalPolicyWrites(session, plan, signal));
   };
   /** Closes new requests with the reason the contract requires; the saved draft closes too. */
   const pause = (action: AdmissionPolicyAction = ADMISSION_POLICY_ACTION.pause) => {
-    if (!writesOpen || controls.pending.current || !flow.pauseReason.trim()) return;
+    if (!newWritesOpen || controls.pending.current || !flow.pauseReason.trim()) return;
     void runPolicyWrite(session, action, (signal) => pausePolicyWrites(session, flow.pauseReason, signal));
   };
   /** Reopens new requests by saving the current rules with intake enabled; the server rechecks readiness. */
   const resume = (action: AdmissionPolicyAction = ADMISSION_POLICY_ACTION.resume) => {
-    if (!writesOpen || controls.pending.current) return;
+    if (!newWritesOpen || controls.pending.current) return;
     void runPolicyWrite(session, action, (signal) => resumePolicyWrites(session, signal));
   };
   /** Retries the failed sub-step with a new operation; completed sub-steps are skipped because the state already reflects them. */
@@ -169,11 +145,11 @@ export function AdmissionPolicyContainer({ client = admissionApiClient, reviewCl
   const restart = (next: AdmissionPolicyDraft) => { controls.setStep(0); controls.setDraft(next); controls.setConfirmed(false); clearFeedback(); };
 
   return <AdmissionPolicyForm state={state} draft={draft} savedRules={view.savedRules} editing={editing} step={flow.step} confirmed={confirmed} busy={isBusy} stage={flow.stage} pendingAction={flow.pendingAction}
-    validationMessage={validationMessage} statusMessage={flow.statusMessage} errorMessage={errorMessage} failure={failure} activationBlock={flow.activationBlock} permissionDenied={flow.permissionDenied} links={view.links}
+    validationMessage={validationMessage} statusMessage={flow.statusMessage} errorMessage={errorMessage} failure={failure} activationBlock={view.activationBlock} permissionDenied={flow.permissionDenied} links={view.links}
     pauseOpen={flow.pauseOpen} pauseReason={flow.pauseReason} uncertain={uncertain} canRetryOriginal={canRetry && fresh} retryConfirmed={flow.retryConfirmed}
-    membershipStep={view.membershipStep} finalLabel={publishing && state.policy && !editing ? ADMISSION_POLICY_DRAFT_COPY.activateNow : undefined} platformBlocked={view.platformBlocked} rechecking={flow.rechecking}
+    finalLabel={publishing && state.policy && !editing ? ADMISSION_POLICY_DRAFT_COPY.activateNow : undefined} platformBlocked={view.platformBlocked} writesBlocked={view.writesBlocked} rechecking={flow.rechecking}
     onReviewDraft={() => { controls.setDraft(createAdmissionPolicyDraft(state)); controls.setConfirmed(false); setPublishing(true); controls.setStep(view.stepIds.length - 1); controls.setErrorMessage(null); controls.setStatusMessage(null); controls.setFailure(null); }}
-    onReviewCommercial={view.membershipsVisible ? () => controls.setStep(view.stepIds.indexOf(ADMISSION_POLICY_STEP.memberships)) : undefined} onRecheck={() => { if (!controls.busy.current && writesOpen) startPolicyRecheck(session); }}
+    onRecheck={() => { if (!controls.busy.current && writesOpen) startPolicyRecheck(session, editing); }}
     onChange={(next) => { controls.setDraft(next); controls.setConfirmed(false); setPublishing(false); clearFeedback(); }}
     onStepChange={controls.setStep} onConfirm={controls.setConfirmed} onRunFinal={() => runFinal()}
     onEdit={() => { controls.setEditing(true); controls.setPauseOpen(false); restart(createAdmissionPolicyDraft(state)); }}
@@ -182,24 +158,21 @@ export function AdmissionPolicyContainer({ client = admissionApiClient, reviewCl
     onRetry={retry} onReloadCurrent={launchRead} onRetryConfirm={controls.setRetryConfirmed} onRetryOriginal={retryOriginal} />;
 }
 
-/** Render facts of the rules form derived from the current state and membership review. */
-type PolicyFormViewInput = { ready: PolicyReady; state: AdmissionPolicyStateDto; draft: AdmissionPolicyDraft; editing: boolean; review: ReturnType<typeof useCommercialMembershipReview>; isBusy: boolean; activationBlock: AdmissionPolicyActivationBlock | null };
+/** Render facts of the rules form derived from the current state. */
+type PolicyFormViewInput = { ready: PolicyReady; state: AdmissionPolicyStateDto; draft: AdmissionPolicyDraft; editing: boolean; activationBlock: AdmissionPolicyActivationBlock | null };
 
-/** @param input - Current state, draft, review and busy state. @returns Saved rules, settings links, the membership step and the step ids of the flow. */
-function policyFormView({ ready, state, draft, editing, review, isBusy, activationBlock }: PolicyFormViewInput) {
+/**
+ * @param input - Current state, draft and requirements block.
+ * @returns Saved rules, settings links, the step ids of the flow, the block to show (the one a write or recheck found, else the platform
+ * security the current read names, kept while the draft changes) and whether only the platform can unblock publishing or any write.
+ */
+function policyFormView({ ready, state, draft, editing, activationBlock }: PolicyFormViewInput) {
   const routeBase = `/${encodeURIComponent(ready.slug)}`;
   /** Before activation, channel and quota pages offer the way back to the final step. */
   const returning = (path: string) => state.controlActivated ? path : withPolicyReviewReturn(path);
   const links = { usage: returning(`${routeBase}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`), connection: returning(`${routeBase}/${MESSAGING_CONNECTIONS_SETTINGS_SEGMENT}`), allowlist: `${routeBase}/${ALLOWLIST_SETTINGS_SEGMENT}`, academy: ROUTES.tribes.academyManage(ready.slug) };
-  const currentReasons = blockReasons(activationBlock);
-  const pendingMemberships = (review.list?.pendingCount ?? 0) > 0;
-  /** The membership review joins the flow while memberships wait for a decision or were just decided. */
-  const membershipsVisible = !state.controlActivated && !editing && (pendingMemberships || review.resolvedThisSession > 0 || hasCommercialReason(currentReasons));
-  const membershipStep = membershipsVisible ? {
-    blockedReason: pendingMemberships || review.phase === "failed" ? COMMERCIAL_MEMBERSHIP_REVIEW_COPY.pendingBlocked : null,
-    content: <CommercialMembershipReview phase={review.phase} list={review.list} drafts={review.drafts} pendingMemberId={review.pendingMemberId} busy={review.busy || isBusy} uncertain={review.uncertain}
-      statusMessage={review.statusMessage} errorMessage={review.errorMessage} doneMessage={commercialMembershipReviewDoneMessage(ADMISSION_POLICY_DRAFT_COPY.activateNow)}
-      onDraftChange={review.setDraft} onResolve={review.resolve} onReload={review.reload} onReadOriginal={review.readOriginal} />,
-  } : null;
-  return { savedRules: state.policy ? createAdmissionPolicyDraft(state) : draft, links, membershipsVisible, membershipStep, stepIds: admissionPolicyStepIds(editing, membershipsVisible), platformBlocked: currentReasons.some(isAdmissionPolicyPlatformReason) };
+  const shownBlock = activationBlock ?? platformSecurityBlock(state, editing);
+  const currentReasons = blockReasons(shownBlock);
+  return { savedRules: state.policy ? createAdmissionPolicyDraft(state) : draft, links, stepIds: admissionPolicyStepIds(editing), activationBlock: shownBlock,
+    platformBlocked: currentReasons.some(isAdmissionPolicyPlatformReason), writesBlocked: policyPlatformSecurity(state) !== null };
 }

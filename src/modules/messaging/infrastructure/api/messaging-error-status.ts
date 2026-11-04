@@ -17,6 +17,7 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.verificationCodeIncorrect]: HTTP_STATUS.unprocessableEntity,
   [MESSAGING_ERROR_CODE.challengeExpired]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.challengeInvalidated]: HTTP_STATUS.conflict,
+  [MESSAGING_ERROR_CODE.challengeAlreadySent]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.verificationAttemptsExceeded]: HTTP_STATUS.tooManyRequests,
   [MESSAGING_ERROR_CODE.reauthenticationRequired]: HTTP_STATUS.unauthorized,
   [MESSAGING_ERROR_CODE.connectionIncomplete]: HTTP_STATUS.conflict,
@@ -32,4 +33,9 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.upstreamPayloadUnusable]: HTTP_STATUS.badGateway,
   [MESSAGING_ERROR_CODE.publicContractUnusable]: HTTP_STATUS.serverError,
   [MESSAGING_ERROR_CODE.unexpectedFailure]: HTTP_STATUS.serverError,
+  // Definitive and below 5xx: nothing was registered, so the browser must not keep the write as uncertain.
+  [MESSAGING_ERROR_CODE.platformSecurityUnavailable]: HTTP_STATUS.conflict,
+  // Definitive business rejections whose effect rolled back: the browser releases the write instead of keeping it uncertain.
+  [MESSAGING_ERROR_CODE.connectionRetirementBlocked]: HTTP_STATUS.conflict,
+  [MESSAGING_ERROR_CODE.originalDispatchUnresolved]: HTTP_STATUS.conflict,
 } as const;

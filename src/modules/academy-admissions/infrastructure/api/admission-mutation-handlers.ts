@@ -14,6 +14,7 @@ import { type AdmissionRouteBoundary, readAdmissionRouteInput, readAdmissionBody
 import { admissionTribeParamsSchema, admissionRequestParamsSchema, admissionEmptyQuerySchema, admissionSubmissionSchema, admissionCancellationSchema, admissionDecisionSchema, admissionRetryEligibilitySchema } from "./admission-request-schemas";
 import { ADMISSION_HTTP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-http";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { respondToAdmissionSubmission } from "./admission-submission-response";
 import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
@@ -36,6 +37,22 @@ type MutationContext = { params: Promise<{ slug: string; requestId?: string }> }
 const startedSchema = z.object({ state: z.literal(OPERATION_STATE.started), operationId: z.uuid() });
 /** One request mutation target after its params were validated. */
 type MutationTarget = { boundary: AdmissionRouteBoundary; slug: string; admissionRequestId: string };
+
+/** @param cause - Private failure cause. @returns Whether any link of its chain is a closed cryptographic failure, never an authorization verdict. */
+function hasCryptographyCause(cause: unknown): boolean {
+  for (let current = cause; current instanceof Error; current = current.cause) if (current instanceof MessagingCryptographyError) return true;
+  return false;
+}
+
+/**
+ * @param failure - Failure of the own-request cancellation.
+ * @returns Whether it only says the request is not the actor's own (no registered original, no security failure behind it), so the
+ * management authority may try to cancel it instead.
+ */
+function deniesOwnRequest(failure: AdmissionFailure): boolean {
+  if (failure.code !== ADMISSION_ERROR_CODE.permissionDenied && failure.code !== ADMISSION_ERROR_CODE.resourceUnavailable) return false;
+  return !failure.operation && !hasCryptographyCause(failure.cause);
+}
 
 /** @param boundary - Current request boundary. @returns A safe contract failure without publishing an unrelated original. */
 function unusableMutation(boundary: AdmissionRouteBoundary): Response {
@@ -100,9 +117,13 @@ export function createAdmissionMutationHandlers(open: () => Promise<AdmissionMut
     if ("response" in command) return command.response;
     const { body, services, scope } = command;
     const input = { ...body, tribeId: scope.tribeId, admissionRequestId, requestId: scope.requestId };
-    let result = await services.cancelOwn.execute(input);
-    if (!result.ok && (result.failure.code === ADMISSION_ERROR_CODE.permissionDenied || result.failure.code === ADMISSION_ERROR_CODE.resourceUnavailable)) result = await services.cancelByManagement.execute(input);
-    if (!result.ok) return boundary.failure(result.failure);
+    const own = await services.cancelOwn.execute(input);
+    if (own.ok) return respondToTransition({ boundary, operationId: body.operationId, admissionRequestId, expectedStatus: ADMISSION_REQUEST_STATUS.cancelled, value: own.value });
+    // A platform, ledger or security failure is the answer itself: retrying as management would only mask it as a permission denial.
+    if (!deniesOwnRequest(own.failure)) return boundary.failure(own.failure);
+    const result = await services.cancelByManagement.execute(input);
+    // Both denials stay in the log: the management one is the answer, the own-request one explains why it was tried.
+    if (!result.ok) return boundary.failure({ ...result.failure, cause: new AggregateError([result.failure.cause, own.failure.cause], "Admission cancellation by management failed after the own-request denial", { cause: result.failure.cause }) });
     return respondToTransition({ boundary, operationId: body.operationId, admissionRequestId, expectedStatus: ADMISSION_REQUEST_STATUS.cancelled, value: result.value });
   }
 

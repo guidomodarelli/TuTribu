@@ -1,0 +1,38 @@
+@use "../../../src/styles/workspace-panel";
+
+// Same callout as the rules page platform block, so the leader recognizes one "Depende del equipo de TuTribu" everywhere.
+.PlatformSecurityNotice {
+  @include workspace-panel.callout;
+
+  border-inline-start-color: var(--warning, var(--accent));
+
+  &__title {
+    @include workspace-panel.subtitle;
+  }
+
+  &__reason {
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  &__note {
+    @include workspace-panel.note;
+  }
+
+  &__diagnostic {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  &__code {
+    font-family: var(--font-mono, monospace);
+    overflow-wrap: anywhere;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

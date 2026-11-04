@@ -1,6 +1,7 @@
 "use client";
 /** Owns account-bound personal confirmation and original reference recovery without automatic writes. @module use-personal-invitation */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { PersonalInvitationPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-page-state";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import { personalInvitationApiClient } from "@/lib/academy-admissions/personal-invitation-api-client";
@@ -10,13 +11,14 @@ import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draf
 import { omitKeys } from "@/lib/object-omit";
 import { PERSONAL_INVITATION_UI_PHASE, PERSONAL_INVITATION_UI_COPY, PERSONAL_INVITATION_UI_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/personal-invitation-ui";
 import { PERSONAL_INVITATION_OVERVIEW_STATE } from "@/src/modules/academy-admissions/constants/personal-invitation-overview";
-import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
+import { applicantRefusalMessage, isAdmissionStateChangedRefusal } from "@/src/modules/academy-admissions/application/results/admission-applicant-refusal";
 import { interruptedObservationMessage, readRecoveryFailureMessage, readSubmissionBlock, readSubmissionTarget, retirePersonalInvitation, settlePersonalInitialization, settlePersonalRequest, type PersonalPhase, type PersonalSubmissionInput } from "@/hooks/use-personal-invitation-support";
 
 type PersonalInvitationOptions = { initialState: PersonalInvitationPageState; token: string; client?: PersonalInvitationBrowserClient };
@@ -29,10 +31,12 @@ function usePersonalInvitationState(options: PersonalInvitationOptions) {
   const [state, setState] = useState(options.initialState), [phase, setPhase] = useState<PersonalPhase>(PERSONAL_INVITATION_UI_PHASE.idle);
   const [ready, setReady] = useState(false), [personalScope, setPersonalScope] = useState<string | null>(null), [confirmed, setConfirmed] = useState(false), [accountChanged, setAccountChanged] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [feedback, setFeedback] = useState<string | null>(null), [hasPending, setHasPending] = useState(false);
+  /** The last consult proved the original absent or answered `started`: the reference holds no request data to resend it, so it may be discarded. */
+  const [originalDiscardable, setOriginalDiscardable] = useState(false);
   const currentRef = useRef(state), scopeRef = useRef<string | null>(null), pendingRef = useRef<PersonalInvitationSubmissionIntent | null>(null), activeRef = useRef(false), busyRef = useRef(false), accountClosedRef = useRef(false), controllerRef = useRef<AbortController | null>(null);
   const live = useCallback((signal: AbortSignal) => activeRef.current && !signal.aborted, []);
   const publish = useCallback((next: PersonalInvitationPageState) => { currentRef.current = next; setState(next); }, []);
-  return { client, token: options.token, state, phase, setPhase, ready, setReady, personalScope, setPersonalScope, confirmed, setConfirmed, accountChanged, setAccountChanged, errorMessage, setErrorMessage, feedback, setFeedback, hasPending, setHasPending, currentRef, scopeRef, pendingRef, activeRef, busyRef, accountClosedRef, controllerRef, live, publish };
+  return { client, token: options.token, state, phase, setPhase, ready, setReady, personalScope, setPersonalScope, confirmed, setConfirmed, accountChanged, setAccountChanged, errorMessage, setErrorMessage, feedback, setFeedback, hasPending, setHasPending, originalDiscardable, setOriginalDiscardable, currentRef, scopeRef, pendingRef, activeRef, busyRef, accountClosedRef, controllerRef, live, publish };
 }
 type PersonalInvitationState = ReturnType<typeof usePersonalInvitationState>;
 
@@ -89,24 +93,25 @@ type PersonalInvitationCore = ReturnType<typeof usePersonalInvitationCore>;
 
 /** @param workflow - Workflow state. @param core - Shared steps. @returns Read-only recovery of the original and serialized observations. */
 function usePersonalInvitationRecovery(workflow: PersonalInvitationState, core: PersonalInvitationCore) {
-  const { client, live, currentRef, scopeRef, pendingRef, activeRef, busyRef, controllerRef, setPhase, setErrorMessage, setFeedback, setConfirmed, setReady } = workflow;
+  const { client, live, currentRef, scopeRef, pendingRef, activeRef, busyRef, controllerRef, setPhase, setErrorMessage, setFeedback, setConfirmed, setReady, setOriginalDiscardable } = workflow;
   const { authorize, clear, applyOutcome, refresh, restoreReference } = core;
   /** @param intent - Stored original. @param signal - Read lifetime. @returns The completed original, or whether the read still counts as an observation. */
   const readOriginal = useCallback(async (intent: PersonalInvitationSubmissionIntent, signal: AbortSignal) => {
     const result = await client.operation(intent.slug, intent.operationId, signal);
     if (!live(signal) || !await authorize(signal) || !live(signal)) return UNOBSERVED;
-    if (result.status !== "ready") { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(readRecoveryFailureMessage(result)); return UNOBSERVED; }
+    if (result.status !== "ready") { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(readRecoveryFailureMessage(result)); setOriginalDiscardable(result.status === "failed" && result.code === ADMISSION_ERROR_CODE.resourceUnavailable); return UNOBSERVED; }
     const parsed = admissionOperationRecoverySchema.safeParse(result.value);
     if (!parsed.success || parsed.data.type !== ADMISSION_OPERATION_TYPE.submit || parsed.data.operationId.toLowerCase() !== intent.operationId.toLowerCase()) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return UNOBSERVED; }
-    if (parsed.data.state === OPERATION_STATE.started) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); return OBSERVED; }
+    if (parsed.data.state === OPERATION_STATE.started) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.started); setOriginalDiscardable(true); return OBSERVED; }
     const original = parsed.data.result;
     if (original.outcome !== ADMISSION_OUTCOME.denied && original.operationId.toLowerCase() !== intent.operationId.toLowerCase() || original.outcome === ADMISSION_OUTCOME.denied && original.admissionRequestId !== null) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return UNOBSERVED; }
     return { kind: "completed", original } as const;
-  }, [authorize, client, live, setErrorMessage, setPhase]);
+  }, [authorize, client, live, setErrorMessage, setOriginalDiscardable, setPhase]);
   /** Reads exactly the original namespace/id without a new POST or an invented accepted result. */
   const recover = useCallback(async (signal: AbortSignal) => {
     const intent = pendingRef.current;
     if (!intent || !await authorize(signal) || !live(signal)) return false;
+    setOriginalDiscardable(false);
     const read = await readOriginal(intent, signal);
     if (read.kind === "settled") return read.observed;
     const { original } = read;
@@ -116,7 +121,7 @@ function usePersonalInvitationRecovery(workflow: PersonalInvitationState, core: 
     await refresh(signal);
     if (live(signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
     return live(signal);
-  }, [applyOutcome, authorize, clear, live, pendingRef, readOriginal, refresh, setErrorMessage, setFeedback, setPhase]);
+  }, [applyOutcome, authorize, clear, live, pendingRef, readOriginal, refresh, setErrorMessage, setFeedback, setOriginalDiscardable, setPhase]);
   /** Serializes observations with the same deadline/cancellation owner as explicit mutation actions. */
   const observe = useCallback(async (proofId?: string) => {
     if (busyRef.current || !activeRef.current) return;
@@ -132,7 +137,7 @@ function usePersonalInvitationRecovery(workflow: PersonalInvitationState, core: 
       if (await authorize(request.signal) && live(request.signal)) setReady(true);
       if (!pendingRef.current && live(request.signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
     }
-    catch { if (live(request.signal)) setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); }
+    catch { if (live(request.signal)) setErrorMessage(BROWSER_REQUEST_TRANSPORT_MESSAGE); }
     finally { window.clearTimeout(deadline); settlePersonalRequest({ controllerRef, busyRef, activeRef, pendingRef }, { request, runningPhase: PERSONAL_INVITATION_UI_PHASE.reading, abortedMessage: interruptedObservationMessage, setPhase, setErrorMessage }); }
   }, [activeRef, authorize, busyRef, controllerRef, currentRef, live, pendingRef, recover, refresh, restoreReference, scopeRef, setConfirmed, setErrorMessage, setFeedback, setPhase, setReady]);
   return { recover, observe };
@@ -174,6 +179,16 @@ function usePersonalInvitationLifecycle(workflow: PersonalInvitationState, core:
 function usePersonalInvitationActions(workflow: PersonalInvitationState, core: PersonalInvitationCore) {
   const { client, token, ready, confirmed, live, currentRef, scopeRef, pendingRef, activeRef, busyRef, controllerRef, setPhase, setErrorMessage, setFeedback, setConfirmed, setHasPending, setReady } = workflow;
   const { authorize, restoreReference, clear, applyOutcome, refresh } = core;
+  /**
+   * @param result - Confirmed refusal of the original. @param signal - Request lifetime. Clears the original and shows the refusal; when the rules,
+   * the invitation or the proof changed after the page loaded, the page reads them again and asks for a new confirmation, so another try never resends the refused version.
+   */
+  const settleRefusal = useCallback(async (result: Extract<SubmissionResult, { status: "failed" }>, signal: AbortSignal) => {
+    if (!clear()) return;
+    if (isAdmissionStateChangedRefusal(result.code)) { setConfirmed(false); await refresh(signal); }
+    if (!live(signal)) return;
+    setErrorMessage(applicantRefusalMessage(result.code, result.message)); setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
+  }, [clear, live, refresh, setConfirmed, setErrorMessage, setPhase]);
   /** @param result - Reply to the dispatched original. @param operationId - Its identity. @param signal - Request lifetime. Publishes an owned outcome, clears a definite failure and keeps anything else uncertain. */
   const applySubmissionResult = useCallback(async (result: SubmissionResult, operationId: string, signal: AbortSignal) => {
     if (result.status === "ready" && result.value.operationId.toLowerCase() !== operationId.toLowerCase()) { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
@@ -182,9 +197,9 @@ function usePersonalInvitationActions(workflow: PersonalInvitationState, core: P
       applyOutcome(result.value.outcome, result.value.outcome === ADMISSION_OUTCOME.pending ? result.value.request : undefined);
       setConfirmed(false); setFeedback(result.value.safeMessage);
       await refresh(signal); if (live(signal)) setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
-    } else if (result.status === "failed" && !result.uncertain) { if (!clear()) return; setErrorMessage(result.message); setPhase(PERSONAL_INVITATION_UI_PHASE.idle); }
+    } else if (result.status === "failed" && !result.uncertain) await settleRefusal(result, signal);
     else { setPhase(PERSONAL_INVITATION_UI_PHASE.uncertain); setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); }
-  }, [applyOutcome, clear, live, refresh, setConfirmed, setErrorMessage, setFeedback, setPhase]);
+  }, [applyOutcome, clear, live, refresh, setConfirmed, setErrorMessage, setFeedback, setPhase, settleRefusal]);
   /** @param scope - Viewer, tribe and route scope of the submission. @param input - Requested submission. @param signal - Request lifetime. Saves original metadata before dispatch. */
   const dispatchSubmission = useCallback(async (scope: Omit<PersonalInvitationSubmissionIntent, "operationId">, input: PersonalSubmissionInput, signal: AbortSignal) => {
     if (!await authorize(signal) || !live(signal)) return;
@@ -218,8 +233,8 @@ function usePersonalInvitationActions(workflow: PersonalInvitationState, core: P
       const result = await client.changeAccount(request.signal);
       if (!live(request.signal)) return false;
       if (result.status === "ready") { setReady(false); return true; }
-      setErrorMessage(result.status === "failed" ? result.message : ADMISSION_ERROR_MESSAGE.dependency_unavailable); return false;
-    } catch { if (live(request.signal)) setErrorMessage(ADMISSION_ERROR_MESSAGE.dependency_unavailable); return false; }
+      setErrorMessage(result.status === "failed" ? result.message : BROWSER_REQUEST_TRANSPORT_MESSAGE); return false;
+    } catch { if (live(request.signal)) setErrorMessage(BROWSER_REQUEST_TRANSPORT_MESSAGE); return false; }
     finally { window.clearTimeout(deadline); if (controllerRef.current === request) { busyRef.current = false; controllerRef.current = null; if (activeRef.current) setPhase(PERSONAL_INVITATION_UI_PHASE.idle); } }
   }, [activeRef, busyRef, client, controllerRef, live, setConfirmed, setErrorMessage, setPhase, setReady]);
   const changeConfirmation = useCallback((value: boolean) => { setConfirmed(value); setErrorMessage(null); setFeedback(null); }, [setConfirmed, setErrorMessage, setFeedback]);
@@ -233,6 +248,16 @@ export function usePersonalInvitation(options: PersonalInvitationOptions) {
   const { recover, observe } = usePersonalInvitationRecovery(workflow, core);
   usePersonalInvitationLifecycle(workflow, core, { recover, observe });
   const { submit, changeAccount, changeConfirmation } = usePersonalInvitationActions(workflow, core);
-  const { state, ready, personalScope, confirmed, accountChanged, phase, errorMessage, feedback, hasPending } = workflow;
-  return { state, ready, personalScope, confirmed, setConfirmed: changeConfirmation, accountChanged, phase, errorMessage, feedback, hasPending, authorize: core.authorize, read: observe, submit, changeAccount };
+  const { state, ready, personalScope, confirmed, accountChanged, phase, errorMessage, feedback, hasPending, originalDiscardable, setOriginalDiscardable, setErrorMessage, setFeedback, setPhase, busyRef, pendingRef } = workflow;
+  /**
+   * Forgets an original the last consult proved absent or still `started`. Its reference holds no request data, so it cannot be resent:
+   * the invitation is read again, which shows whether that original registered the admission.
+   */
+  const discardOriginal = useCallback(async () => {
+    if (busyRef.current || !pendingRef.current || !originalDiscardable || !core.clear()) return;
+    setOriginalDiscardable(false); setErrorMessage(null); setPhase(PERSONAL_INVITATION_UI_PHASE.idle);
+    await observe();
+    setFeedback(PERSONAL_INVITATION_UI_COPY.discarded);
+  }, [busyRef, core, observe, originalDiscardable, pendingRef, setErrorMessage, setFeedback, setOriginalDiscardable, setPhase]);
+  return { state, ready, personalScope, confirmed, setConfirmed: changeConfirmation, accountChanged, phase, errorMessage, feedback, hasPending, originalDiscardable: hasPending && originalDiscardable, discardOriginal, authorize: core.authorize, read: observe, submit, changeAccount };
 }

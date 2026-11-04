@@ -1,12 +1,37 @@
 /** @vitest-environment node */
 /** Exercises reviewer form, UTC range and route boundary contracts without platform doubles. @module admission-review-filters-tests */
 import { describe, expect, it } from "vitest";
-import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute } from "@/lib/academy-admissions/admission-review-filters";
+import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute, describeAdmissionReviewDialogFilters, discardAdmissionReviewDialogEdits, removeAdmissionReviewDialogFilter } from "@/lib/academy-admissions/admission-review-filters";
 import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { admissionReviewPageInputSchema } from "@/src/modules/academy-admissions/constants/admission-review-page-input";
 import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 
 describe("reviewer selection continuity", () => {
+  it("should describe only the dialog filters that differ from the initial pending selection, in the dialog order", () => {
+    expect(describeAdmissionReviewDialogFilters(DEFAULT_ADMISSION_REVIEW_SELECTION)).toEqual([]);
+    // The search stays visible in the toolbar, so it never becomes a chip.
+    expect(describeAdmissionReviewDialogFilters({ ...DEFAULT_ADMISSION_REVIEW_SELECTION, search: "Ana" })).toEqual([]);
+    // Without a status the selection reads every status, which already differs from pending.
+    expect(describeAdmissionReviewDialogFilters({ limit: 25, source: "common", needsVerification: false, submittedUntil: "2026-10-01T11:00:00Z" })).toEqual([
+      { id: "status", label: "Estado", value: "Todos los estados" },
+      { id: "source", label: "Origen", value: "Solicitud común" },
+      { id: "needsVerification", label: "Comprobación de contacto", value: "Sin ese requisito actual" },
+      { id: "submittedUntil", label: "Hasta", value: "01/10/2026 08:00" },
+    ]);
+  });
+
+  it("should remove one dialog filter back to the pending default and keep the typed search and the other filters", () => {
+    const applied = { ...DEFAULT_ADMISSION_REVIEW_SELECTION, source: "common" as const, requiresExceptionReason: true };
+    const edited = { ...createAdmissionReviewFilterDraft(applied), search: "Sin aplicar", needsVerification: "true" };
+    expect(removeAdmissionReviewDialogFilter(edited, applied, "source")).toEqual({ ...createAdmissionReviewFilterDraft({ ...DEFAULT_ADMISSION_REVIEW_SELECTION, requiresExceptionReason: true }), search: "Sin aplicar" });
+  });
+
+  it("should put the dialog fields back on the applied selection and keep the typed search", () => {
+    const applied = { ...DEFAULT_ADMISSION_REVIEW_SELECTION, source: "common" as const, submittedUntil: "2026-10-08T15:30:00Z" };
+    const edited = { ...createAdmissionReviewFilterDraft(applied), search: "Sin aplicar", source: "personal", submittedUntil: "", needsVerification: "true" };
+    expect(discardAdmissionReviewDialogEdits(edited, applied)).toEqual({ ...createAdmissionReviewFilterDraft(applied), search: "Sin aplicar" });
+  });
+
   it("should preserve the original sub-millisecond cutoff when editing another filter", () => {
     const selection = { ...DEFAULT_ADMISSION_REVIEW_SELECTION, submittedUntil: "2026-10-07T00:00:00.123500Z" };
     const draft = { ...createAdmissionReviewFilterDraft(selection), search: "Primer" };

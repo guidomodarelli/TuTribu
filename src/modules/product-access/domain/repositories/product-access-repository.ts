@@ -19,12 +19,22 @@ export type TribeSlugQuery = {
   tribeSlug: string;
 };
 
+/** Reason and pre-block readable state of the own membership, used to decide its recovery. */
+export type OwnMembershipStateDetail = {
+  commercialRecoveryStatus: "active" | "muted" | null;
+  statusReason: string;
+};
+
 export type OwnAcademyAccessSnapshot = {
   accessModel: TribeAccessModel;
+  /** The tribe activated admission control: new entries go through an admission request. */
+  admissionControlActive: boolean;
   admissionEnabled: boolean;
   firstActivatedAt: Date | null;
   grants: AccessGrantInterval[];
   membership: AccessMembershipSnapshot;
+  /** Present together with `membership`. */
+  membershipDetail: OwnMembershipStateDetail | null;
   /** Sales enabled and a current academy price synchronized with the provider. */
   offerPurchasable: boolean;
   salesEnabled: boolean;

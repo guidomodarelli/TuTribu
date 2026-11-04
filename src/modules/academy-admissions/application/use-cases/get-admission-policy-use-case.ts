@@ -9,6 +9,8 @@ import { admissionOperationFailure } from "../results/admission-operation-failur
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import type { AdmissionPolicyActivationReason } from "../../domain/policies/admission-policy-activation";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 
 /** Each owner performs its own current authorization; query facts are never a reusable permission token. */
 export class GetAdmissionPolicyUseCase {
@@ -38,12 +40,12 @@ export class GetAdmissionPolicyUseCase {
       const configuration = preparation?.configuration ?? { tribeId: query.tribeId, channelPrepared: false, verificationQuotaPositive: false, usagePolicy: current.usage, lockedContactType: policy?.activatedAt ? policy.contactType : null };
       const structural = policy ? validateAdmissionPolicyDraftConfiguration(policy, configuration) : null;
       const operational = policy && preparation ? validateAdmissionPolicyConfiguration(policy, configuration) : null;
-      const requirements = activationRequirements({ policy, preparation, consistent, controlActivated: current.controlActivated, structural, operational });
+      const requirements = activationRequirements({ policy, preparation, consistent, controlActivated: current.controlActivated, structural, operational, platformSecurity: view.platformSecurity });
       const usage = current.usage ? { version: current.usage.version, allowedCountries: [...current.usage.allowedCountries] } : null;
       const value = admissionPolicyStateResultSchema.parse({ state, controlActivated: current.controlActivated,
         policy: policy ? projectAdmissionPolicy(policy, usage, validationReasons(structural, operational)) : null,
         usage, preparation: { state: preparation ? ADMISSION_POLICY_PREPARATION_STATE.evaluated : ADMISSION_POLICY_PREPARATION_STATE.notEvaluated, requirements: [...new Set(requirements)] },
-        impact: { pendingRequestCount: view.pendingRequestCount, contactTypeLocked: Boolean(policy?.activatedAt) || current.controlActivated, historicalLinksProtected: current.controlActivated, warnings: structural?.warnings ?? [] } });
+        impact: { pendingRequestCount: view.pendingRequestCount, ...(view.freeConversionMemberCount === undefined || current.controlActivated ? {} : { freeConversionMemberCount: view.freeConversionMemberCount }), contactTypeLocked: Boolean(policy?.activatedAt) || current.controlActivated, historicalLinksProtected: current.controlActivated, warnings: structural?.warnings ?? [] } });
       return { ok: true as const, value };
     } catch (error) { return admissionOperationFailure(error); }
   }
@@ -69,8 +71,10 @@ function admissionPolicyPublicState(consistent: boolean, policy: AdmissionPolicy
 }
 
 /** @returns Every reason that currently blocks activation, in display order. */
-function activationRequirements({ policy, preparation, consistent, controlActivated, structural, operational }: { policy: AdmissionPolicyState["policy"]; preparation: AdmissionPolicyPreparation | null; consistent: boolean; controlActivated: boolean; structural: DraftValidation | null; operational: OperationalValidation | null }): AdmissionPolicyActivationReason[] {
+function activationRequirements({ policy, preparation, consistent, controlActivated, structural, operational, platformSecurity }: { policy: AdmissionPolicyState["policy"]; preparation: AdmissionPolicyPreparation | null; consistent: boolean; controlActivated: boolean; structural: DraftValidation | null; operational: OperationalValidation | null; platformSecurity: PlatformSecurityRequirement | null }): AdmissionPolicyActivationReason[] {
   const requirements: AdmissionPolicyActivationReason[] = [];
+  // Every policy write signs its intent with the hosting messaging security: while the platform cannot protect it, nothing can be saved or activated.
+  if (platformSecurity) requirements.push(platformSecurity === PLATFORM_SECURITY_REQUIREMENT.recoveryLocked ? ADMISSION_POLICY_ACTIVATION_ERROR.recoveryLocked : ADMISSION_POLICY_ACTIVATION_ERROR.securityUnconfigured);
   if (!policy) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.policyMissing);
   if (!consistent || preparation && (!preparation.preflightComplete || preparation.controlActivated !== controlActivated)) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.preflightIncomplete);
   if (preparation && !preparation.isAcademy) requirements.push(ADMISSION_POLICY_ACTIVATION_ERROR.notAcademy);

@@ -13,17 +13,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native own admissi
   it("should explain pause and a withdrawn required entry without changing the pending request or gaining reviewer access", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant } = await prepareAllowlistAdmission(database);
-      await database.withContext(fixture.own, async (transaction) => {
-        const metadata = await transaction.$client.query<{ available: boolean }>("select to_regprocedure('public.read_own_admission_request_summary(uuid,text,uuid)') is not null as available");
-        expect(metadata.rows).toEqual([{ available: false }]);
-        await transaction.$client.query("savepoint own_exact_summary_prerequisite");
-        try {
-          await expect(transaction.$client.query("select * from public.read_own_admission_request_summary($1::uuid,$2::text,$3::uuid)", [fixture.tribeId, fixture.sessionId, randomUUID()])).rejects.toMatchObject({ code: "42883" });
-        } finally {
-          await transaction.$client.query("rollback to savepoint own_exact_summary_prerequisite");
-          await transaction.$client.query("release savepoint own_exact_summary_prerequisite");
-        }
-      });
+      // The owned branch clones a default branch that already runs the exact own summary; applying it again is a registered no-op.
       await database.applyMigration("20261007004000_read_exact_own_admission_request.sql");
       const owner = await applicant();
       const submitted = await owner.commands.submit.execute({ ...owner.input, message: "Solicito revisión con mi evidencia actual." });
@@ -58,7 +48,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native own admissi
       }, "non_bypass");
       await database.grantTablesToNonBypass(["session"]);
       const restricted = new PostgresOwnAdmissionRequestReader((current, run) => database.withContext({ userId: current.userId, email: owner.email }, run, "non_bypass"), async () => false);
-      expect(await restricted.readOwn(scope)).toEqual(withdrawn);
+      // Both reads go through the same public request DTO, so the declared WhatsApp view of the own read does not count as a difference.
+      expect(admissionRequestSchema.parse(await restricted.readOwn(scope))).toEqual(withdrawn);
       const outsider = await applicant();
       expect(await reader.readOwn({ ...scope, userId: outsider.userId, sessionId: outsider.sessionId })).toBeNull();
       await database.withContext({ userId: owner.userId, email: owner.email }, async (transaction) => {

@@ -22,7 +22,7 @@ export class GetAdmissionReviewUseCases {
     if (record.request.tribeId !== tribeId || record.review.tribe.id !== tribeId || record.review.reviewer?.userId !== userId || record.review.reviewer.tribeId !== tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   }
 
-  /** @param query - Boundary-validated tenant-local filters/cursor and correlation. @returns Bounded oldest-first own reviewer DTOs or a safe current denial. */
+  /** @param query - Boundary-validated tenant-local filters/cursor and correlation. @returns Bounded oldest-first own reviewer DTOs with the platform requirement that closes every decision, or a safe current denial. */
   async list(query: AdmissionReviewListQuery) {
     try {
       const command = { tribeId: query.tribeId, requestId: query.requestId, action: ADMISSION_ACTION.readInbox };
@@ -34,7 +34,7 @@ export class GetAdmissionReviewUseCases {
       if (!current.allowed) return { ok: false as const, failure: current.failure };
       if (current.context.userId !== scope.userId || current.context.sessionId !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       for (const record of page.records) this.assertScope(record, scope.tribeId, scope.userId);
-      return { ok: true as const, value: admissionReviewPageSchema.parse({ items: page.records.map(projectAdmissionReview), nextCursor: page.nextCursor }) };
+      return { ok: true as const, value: admissionReviewPageSchema.parse({ items: page.records.map((record) => projectAdmissionReview(record, page.platformRequirement)), nextCursor: page.nextCursor, platformRequirement: page.platformRequirement }) };
     } catch (error) { return admissionOperationFailure(error); }
   }
 
@@ -45,14 +45,14 @@ export class GetAdmissionReviewUseCases {
       const first = await this.resolver.execute(command);
       if (!first.allowed) return { ok: false as const, failure: first.failure };
       const scope = { tribeId: query.tribeId, requestId: query.requestId, userId: first.context.userId, sessionId: first.context.sessionId };
-      const record = await this.reader.readDetail(scope, query.admissionRequestId);
+      const detail = await this.reader.readDetail(scope, query.admissionRequestId);
       const current = await this.resolver.execute(command);
       if (!current.allowed) return { ok: false as const, failure: current.failure };
       if (current.context.userId !== scope.userId || current.context.sessionId !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      if (!record) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      this.assertScope(record, scope.tribeId, scope.userId);
-      if (record.request.id !== query.admissionRequestId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      return { ok: true as const, value: projectAdmissionReview(record) };
+      if (!detail) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      this.assertScope(detail.record, scope.tribeId, scope.userId);
+      if (detail.record.request.id !== query.admissionRequestId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+      return { ok: true as const, value: projectAdmissionReview(detail.record, detail.platformRequirement) };
     } catch (error) { return admissionOperationFailure(error); }
   }
 }

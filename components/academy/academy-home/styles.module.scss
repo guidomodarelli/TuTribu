@@ -117,6 +117,16 @@ $academy-home-wide: 48rem;
       margin-top: 0.2rem;
       color: var(--primary);
     }
+
+    // A notice the member must act on (a rejected payment).
+    &--warning {
+      border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+      background-color: color-mix(in oklab, var(--destructive) 8%, transparent);
+
+      .AcademyHome__icon {
+        color: var(--destructive);
+      }
+    }
   }
 
   &__inlineLink {

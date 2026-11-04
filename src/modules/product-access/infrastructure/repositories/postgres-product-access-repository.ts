@@ -305,13 +305,17 @@ async function revokeReplacedBonus(
 function buildOwnAccessSnapshotStatement(tribeSlug: string): SQL {
   return sql`
         with target_tribe as (
-          select tribes.id
+          select tribes.id, tribes.admissions_control_activated_at is not null as admission_control_active
           from public.tribes
           where tribes.slug = ${tribeSlug}
           limit 1
         ),
         viewer_membership as (
-          select tribe_members.role, tribe_members.status
+          select
+            tribe_members.role,
+            tribe_members.status,
+            tribe_members.status_reason,
+            tribe_members.commercial_recovery_status
           from public.tribe_members
           inner join target_tribe
             on target_tribe.id = tribe_members.tribe_id
@@ -326,11 +330,14 @@ function buildOwnAccessSnapshotStatement(tribeSlug: string): SQL {
         )
         select
           (select id from target_tribe) as tribe_id,
+          coalesce((select admission_control_active from target_tribe), false) as admission_control_active,
           coalesce((select access_model from settings), ${TRIBE_ACCESS_MODEL.legacy}) as access_model,
           coalesce((select admission_enabled from settings), false) as admission_enabled,
           coalesce((select sales_enabled from settings), false) as sales_enabled,
           (select role from viewer_membership) as membership_role,
           (select status from viewer_membership) as membership_status,
+          (select status_reason from viewer_membership) as membership_status_reason,
+          (select commercial_recovery_status from viewer_membership) as membership_commercial_recovery_status,
           (
             select member_product_enrollments.first_activated_at
             from public.member_product_enrollments
@@ -537,11 +544,14 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
       const result = await database.execute(buildOwnAccessSnapshotStatement(tribeSlug));
       const row = (result.rows[0] ?? null) as {
         access_model: TribeAccessModel;
+        admission_control_active: boolean;
         admission_enabled: boolean;
         first_activated_at: string | Date | null;
         grants: GrantJsonRow[] | null;
+        membership_commercial_recovery_status: "active" | "muted" | null;
         membership_role: string | null;
         membership_status: string | null;
+        membership_status_reason: string | null;
         offer_purchasable: boolean | null;
         sales_enabled: boolean;
         tribe_id: string | null;
@@ -555,8 +565,11 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
         return null;
       }
 
+      const hasMembership = Boolean(row.membership_role && row.membership_status);
+
       return {
         accessModel: row.access_model,
+        admissionControlActive: row.admission_control_active,
         admissionEnabled: row.admission_enabled,
         firstActivatedAt: toOptionalDate(row.first_activated_at),
         grants: (row.grants ?? []).map((grant) => {
@@ -573,6 +586,12 @@ export class PostgresProductAccessRepository implements ProductAccessRepository 
           row.membership_role && row.membership_status
             ? { role: row.membership_role, status: row.membership_status }
             : null,
+        membershipDetail: hasMembership
+          ? {
+              commercialRecoveryStatus: row.membership_commercial_recovery_status,
+              statusReason: row.membership_status_reason ?? "",
+            }
+          : null,
         offerPurchasable: row.offer_purchasable === true,
         salesEnabled: row.sales_enabled,
       };

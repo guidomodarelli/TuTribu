@@ -92,7 +92,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission b
         expect((await transaction.execute(sql`select (select count(*)::int from public.academy_admission_decisions where tribe_id=${fixture.tribeId}) as decisions,(select count(*)::int from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId}) as memberships,(select count(*)::int from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId}) as notices`)).rows[0]).toEqual({ decisions: 0, memberships: 0, notices: 0 });
         expect((await transaction.execute(sql`select state,public_result from public.academy_admission_operations where tribe_id=${fixture.tribeId} and idempotency_key=${input.operationId}`)).rows[0]).toEqual({ state: "started", public_result: null });
       });
-      expect(await fixture.writer.decideBatch(input)).toEqual({ state: "started", operationId: input.operationId });
+      // The rolled back effect released its own lease: resending the same original reruns it at once and meets the same failure.
+      await expect(fixture.writer.decideBatch(input)).rejects.toMatchObject({ code: "operation_unresolved", operationId: input.operationId });
+
+      // Once the failure is gone, the same original completes every decision exactly once.
+      await database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql`drop trigger synthetic_admission_batch_failure on public.academy_admission_decisions`); });
+      expect(await fixture.writer.decideBatch(input)).toMatchObject({ state: "completed", operationId: input.operationId, replayed: false });
+      expect(await fixture.writer.decideBatch(input)).toMatchObject({ state: "completed", operationId: input.operationId, replayed: true });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select count(*)::int as decisions from public.academy_admission_decisions where tribe_id=${fixture.tribeId}`)).rows[0]).toEqual({ decisions: 2 });
+      });
     });
   }, 1_200_000);
 

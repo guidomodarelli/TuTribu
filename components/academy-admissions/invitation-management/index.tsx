@@ -1,8 +1,12 @@
 "use client";
 /** Presents the guided invitation actions and their private history without adapters or session lookups. @module invitation-management */
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Button, EmptyState, Input, Label } from "@golfo/ui";
 import { GuidedSteps, GuidedStepsDisclosure } from "@/components/forms/guided-steps";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import { AdmissionSetupPrerequisite } from "@/components/academy-admissions/admission-setup-prerequisite";
+import { readPersonalInvitationIssuePrerequisite } from "@/src/modules/academy-admissions/application/queries/admission-setup-prerequisites";
+import { admissionSetupPrerequisiteHref, type AdmissionSetupPrerequisiteId } from "@/src/modules/academy-admissions/constants/admission-setup-prerequisite";
 import type { PersonalInvitationManagementDraft } from "@/src/modules/academy-admissions/application/commands/personal-invitation-management-intent";
 import type { PersonalInvitationManagementResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import { PERSONAL_INVITATION_MANAGEMENT_COPY as COPY, PERSONAL_INVITATION_MANAGEMENT_MODE as MODE, PERSONAL_INVITATION_MANAGEMENT_STATUS_LABEL } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
@@ -24,20 +28,35 @@ function InvitationHistoryItem({ item, disabled, onSelect }: { item: PersonalInv
 /** @param props - Listed invitations, paging state and callbacks. @param id - Prefix of the field ids. @param disabled - Whether controls wait. @returns The private invitation history with its reads collapsed. */
 function InvitationHistory({ props, id, disabled }: { props: InvitationManagementProps; id: string; disabled: boolean }) {
   return <section className={styles.InvitationManagement__history} aria-labelledby={`${id}-history`}><h2 id={`${id}-history`}>Historial de invitaciones</h2>
-    {props.items.length === 0 ? <EmptyState label="Historial de invitaciones vacío" title="Todavía no hay invitaciones en esta vista." description="Emití una invitación personal para que una persona pueda pedir ingreso con su enlace." /> : <ul className={styles.InvitationManagement__list}>{props.items.map((item) => <InvitationHistoryItem key={item.id} item={item} disabled={disabled || props.conflict} onSelect={props.onSelect} />)}</ul>}
+    {props.items.length === 0 ? <EmptyState label="Historial de invitaciones vacío" title="Todavía no hay invitaciones en esta vista." description="Emití una invitación personal para que una persona pueda pedir ingreso con su enlace." /> : <ul className={styles.InvitationManagement__list}>{props.items.map((item) => <InvitationHistoryItem key={item.id} item={item} disabled={disabled || props.conflict || Boolean(props.platformRequirement)} onSelect={props.onSelect} />)}</ul>}
     <GuidedStepsDisclosure summary="Consultar y ver más">
       {!(props.selectionBlocked || props.needsCurrent) && <Button type="button" variant="secondary" size="sm" disabled={props.busy || props.pending} onClick={props.onReadCurrent}>Consultar estado actual</Button>}
-      {props.hasNext && <Button type="button" variant="secondary" size="sm" loading={props.loadingMore} disabled={disabled && !props.loadingMore} onClick={props.onNext}>Ver más invitaciones</Button>}
+      {/* Paging never touches a pending original, so it stays available while one waits. */}
+      {props.hasNext && <Button type="button" variant="secondary" size="sm" loading={props.loadingMore} disabled={(!props.ready || props.busy) && !props.loadingMore} onClick={props.onNext}>Ver más invitaciones</Button>}
       {props.moreError && <p role="alert" className={styles.InvitationManagement__error}>{props.moreError}</p>}
     </GuidedStepsDisclosure>
   </section>;
 }
 
-/** @param props - Controlled current state and explicit callbacks. @returns One guided action at a time, then the history it acts on; reads stay collapsed. */
+/**
+ * @param props - Editor state, the prerequisite that blocks the chosen action (only issuing has one) and the guided steps.
+ * @returns The platform block first (nothing can be saved), then the missing prerequisite with its link, else the steps.
+ */
+function InvitationEditorBody({ props, prerequisite, children }: { props: InvitationManagementProps; prerequisite: AdmissionSetupPrerequisiteId | null; children: ReactNode }) {
+  if (props.platformRequirement) return <>{props.errorMessage && <p role="alert" className={styles.InvitationManagement__error}>{props.errorMessage}</p>}<PlatformSecurityNotice requirement={props.platformRequirement} consequence={COPY.platformConsequence} /></>;
+  return prerequisite ? <AdmissionSetupPrerequisite prerequisite={prerequisite} href={admissionSetupPrerequisiteHref(props.slug, prerequisite)} /> : children;
+}
+
+/**
+ * @param props - Controlled current state and explicit callbacks.
+ * @returns One guided action at a time, then the history it acts on; reads stay collapsed. While the rules do not allow issuing, a new
+ * invitation shows the missing prerequisite with its link to Reglas instead of the steps; renaming and revoking stay available.
+ */
 export function InvitationManagement(props: InvitationManagementProps) {
   const id = useId(), feedback = useRef<HTMLParagraphElement>(null), disabled = !props.ready || props.busy || props.pending, draft = props.draft;
   const create = draft.mode === MODE.create, revoke = draft.mode === MODE.revoke, replacing = create && draft.replaceSelected;
-  const cannotCreate = !props.contactType || props.contactType === "phone" && !props.requiresAdditionalVerification;
+  // The same rules facts the writer checks: without saved rules, or with a phone and no code, a new invitation would be rejected.
+  const issuePrerequisite = readPersonalInvitationIssuePrerequisite(props), cannotCreate = issuePrerequisite !== null;
   const change = (patch: Partial<PersonalInvitationManagementDraft>) => props.onDraftChange({ ...draft, ...patch });
   useEffect(() => { if (props.errorMessage || props.fieldError) feedback.current?.focus(); }, [props.errorMessage, props.fieldError]);
   // A write in flight is not an unresolved original yet; only a settled one blocks the flow.
@@ -54,10 +73,12 @@ export function InvitationManagement(props: InvitationManagementProps) {
       <section className={styles.InvitationManagement__editor} aria-labelledby={`${id}-editor`}>
         <h2 id={`${id}-editor`}>{title}</h2>
         {props.statusMessage && <p role="status" className={styles.InvitationManagement__help}>{props.statusMessage}</p>}
-        {unresolved && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.pendingBlocked}</p><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button></div>}
+        {unresolved && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.pendingBlocked}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>{(props.originalAbsent || props.originalStarted) && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onDiscardOriginal}>{props.originalAbsent ? "Descartar la operación sin registrar" : "Descartar la operación pendiente"}</Button>}</div></div>}
         {!unresolved && (props.selectionBlocked || props.needsCurrent) && <div className={styles.InvitationManagement__callout}><p role="status">{COPY.currentRequired}</p><div className={styles.InvitationManagement__actions}><Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadCurrent}>Consultar estado actual</Button>{props.selectionBlocked && <Button type="button" variant="secondary" disabled={props.busy || props.pending} onClick={props.onDiscardSelection}>Descartar selección</Button>}</div></div>}
-        <GuidedSteps label={title} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
-          finalAction={{ label: finalLabel, loading: props.writing, disabled: Boolean(reviewReason), onRun: props.onSave }} />
+        <InvitationEditorBody props={props} prerequisite={create ? issuePrerequisite : null}>
+          <GuidedSteps label={title} steps={steps} current={props.step} onCurrentChange={props.onStepChange} busy={disabled}
+            finalAction={{ label: finalLabel, loading: props.writing, disabled: Boolean(reviewReason), onRun: props.onSave }} />
+        </InvitationEditorBody>
       </section>
       <InvitationHistory props={props} id={id} disabled={disabled} />
     </>}

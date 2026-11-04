@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 
 import { AcademyHome } from "@/components/academy/academy-home";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
@@ -31,9 +31,36 @@ type RequestModules = Awaited<ReturnType<typeof resolveTribePageAccess>>["module
 
 type AcademyPageData = {
   access: AcademyAccessStatusDto | null;
+  canConfigureOffer: boolean;
   canManage: boolean;
   offer: AcademyOfferDto | null;
 };
+
+type AcademySearchParams = Record<string, string | string[] | undefined>;
+
+/**
+ * Canonical form of a tribe slug (slugs are stored lowercase). A URL typed
+ * with other casing renders the same tribe, but every action and role check
+ * compares canonical slugs, so the page redirects to the canonical URL.
+ */
+function toCanonicalSlug(slug: string): string {
+  return slug.trim().toLowerCase();
+}
+
+/** Canonical academy URL keeping the query (for example the checkout return id). */
+function buildCanonicalAcademyPath(slug: string, searchParams: AcademySearchParams): string {
+  const query = new URLSearchParams();
+
+  for (const [name, value] of Object.entries(searchParams)) {
+    for (const item of [value ?? []].flat()) {
+      query.append(name, item);
+    }
+  }
+
+  const queryString = query.toString();
+
+  return queryString ? `${ROUTES.tribes.academy(slug)}?${queryString}` : ROUTES.tribes.academy(slug);
+}
 
 /**
  * Loads the offer and, for members, the own status and management role.
@@ -72,6 +99,8 @@ async function loadAcademyPageData(
             toAcademyAccessStatusDto(ownAccess.access, ownAccess.accessModel)
           )
         : null,
+    // Guardians manage the academy, but only the active leader edits its offer.
+    canConfigureOffer: isActiveLeader,
     canManage,
     offer: offer ? academyOfferDtoSchema.parse(toAcademyOfferDto(offer)) : null,
   };
@@ -89,10 +118,16 @@ export default async function TribeAcademyPage({
   params: Promise<{ slug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ slug }, resolvedSearchParams] = await Promise.all([
+  const [{ slug: requestedSlug }, resolvedSearchParams] = await Promise.all([
     params,
-    searchParams ?? Promise.resolve({} as Record<string, string | string[] | undefined>),
+    searchParams ?? Promise.resolve({} as AcademySearchParams),
   ]);
+  const slug = toCanonicalSlug(requestedSlug);
+
+  if (slug !== requestedSlug) {
+    permanentRedirect(buildCanonicalAcademyPath(slug, resolvedSearchParams));
+  }
+
   const access = await resolveTribePageAccess({
     allowWithoutCommunityAccess: true,
     operation: ACADEMY_PAGE.operation,
@@ -140,6 +175,7 @@ export default async function TribeAcademyPage({
   return (
     <AcademyHome
       access={data.access}
+      canConfigureOffer={data.canConfigureOffer}
       canManage={data.canManage}
       isCheckoutReturn={Boolean(resolvedSearchParams[ACADEMY_PAGE.preapprovalQueryParam])}
       offer={data.offer}

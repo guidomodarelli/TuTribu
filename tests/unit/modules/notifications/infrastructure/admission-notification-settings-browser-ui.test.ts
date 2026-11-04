@@ -51,7 +51,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
           const capture = (page: Page, name: string, actor = "leader") => captureAdmissionReview(page, name, forbidden, `notification-settings-${actor}-captures.json`, { selector: 'section[aria-label="Avisos de admisión"]' });
           {
             stage = `${scenario.name}_${scenario.width}_initial`;
-            const current = await fixture.repository.get(fixture.read);
+            const current = (await fixture.repository.get(fixture.read)).settings;
             const reset = await fixture.repository.change(fixture.change, fixture.command(current.version, false));
             expect(reset).toMatchObject({ state: "completed" });
             const browser = await scenario.engine.launch({ headless: true });
@@ -140,7 +140,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Consultar estado actual" && !button.disabled));
                   await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText(/Conservamos el cambio original/).waitFor(); expect(forwardingFailed).toBe(false); expect(completionObserved).toBe(true);
                   await capture(page, "notification-settings-response-lost");
-                  const original = await fixture.repository.get(fixture.read); originalVersion = original.version;
+                  const original = (await fixture.repository.get(fixture.read)).settings; originalVersion = original.version;
                   expect(original).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" });
                   expect(await fixture.repository.change(fixture.change, fixture.command(original.version, false, "UTC"))).toMatchObject({ state: "completed" });
                   stage = "recover_original";
@@ -148,7 +148,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.", { exact: true }).waitFor();
                   await page.getByRole("button", { name: "Atrás", exact: true }).click(); await page.getByRole("button", { name: "Atrás", exact: true }).click();
                   expect(await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).isChecked()).toBe(false);
-                  recoveredVersion = (await fixture.repository.get(fixture.read)).version;
+                  recoveredVersion = (await fixture.repository.get(fixture.read)).settings.version;
                   expect(recoveredVersion).toBe(original.version + 1); expect(emailWrites).toBe(1);
                   await capture(page, "notification-settings-recovered-current");
 
@@ -157,7 +157,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   expect(await page.getByLabel("Zona horaria de la tribu", { exact: true }).inputValue()).toBe("UTC");
                   await reviewAndSave();
                   await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
-                  expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, version: recoveredVersion + 1 });
+                  expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ enabled: true, version: recoveredVersion + 1 });
                   expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
                   expect(emailWrites).toBe(2); await capture(page, "notification-settings-saved-after-recovery");
 
@@ -184,11 +184,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   stage = `${scenario.name}_${scenario.width}_email_confirmed_result`;
                   await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                   stage = `${scenario.name}_${scenario.width}_verify_native_email_settings`;
-                  expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" }); expect(emailWrites).toBe(1);
+                  expect((await fixture.repository.get(fixture.read)).settings).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" }); expect(emailWrites).toBe(1);
                 }
                 stage = `${scenario.name}_${scenario.width}_verify_no_route_refresh`;
                 expect(documentNavigationsAfterReady).toBe(0); expect(routeReadsAfterReady).toBe(0); expect(errors).toEqual([]);
-                matrix.push({ engine: scenario.name, width: scenario.width, emailVersion: (await fixture.repository.get(fixture.read)).version, preferenceWrites, emailWrites, historyEvents: navigations, documentNavigationsAfterReady, routeReadsAfterReady });
+                matrix.push({ engine: scenario.name, width: scenario.width, emailVersion: (await fixture.repository.get(fixture.read)).settings.version, preferenceWrites, emailWrites, historyEvents: navigations, documentNavigationsAfterReady, routeReadsAfterReady });
                 completed = true;
               } finally {
                 try {

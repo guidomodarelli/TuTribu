@@ -3,30 +3,29 @@ import "server-only";
 import type { GetPersonalInvitationManagementPageUseCase } from "../../application/use-cases/get-personal-invitation-management-page-use-case";
 import type { PersonalInvitationManagementPageState } from "../../application/results/personal-invitation-management-page-state";
 import { personalInvitationManagementPageStateSchema, PERSONAL_INVITATION_MANAGEMENT_PAGE_OPERATION, PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC } from "../../constants/personal-invitation-management-page";
-import { ADMISSION_DIAGNOSTIC_FEATURE } from "../../constants/admission-diagnostics";
 import { admissionInvitationPageInputSchema } from "../../constants/admission-route-input";
-import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE, type AdmissionErrorCode } from "../../constants/admission-errors";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
+import { createAdmissionPageDiagnostics, loadAdmissionPageRead, unavailableAdmissionPage } from "./admission-page-diagnostics";
 
-/** @param input - Untrusted resolved params/query. @param open - Native server-selected read-only entrypoint. @returns Safe current leader state with no raw exception or partial metadata. */
-export async function loadPersonalInvitationManagementPageState(input: unknown, open: () => Promise<Pick<GetPersonalInvitationManagementPageUseCase, "execute"> & { publicOrigin?: () => string }>): Promise<PersonalInvitationManagementPageState> {
+/** @param value - Page result. @returns Whether it is a ready state, the only one that carries the public origin of its links. */
+function isReadyState(value: unknown): value is { kind: "ready" } {
+  return typeof value === "object" && value !== null && "kind" in value && value.kind === "ready";
+}
+
+/**
+ * @param input - Untrusted resolved params/query. @param open - Native server-selected read-only entrypoint.
+ * @param requestHeaders - Incoming request headers, for native correlation.
+ * @returns Safe current leader state with no raw exception or partial metadata.
+ */
+export async function loadPersonalInvitationManagementPageState(input: unknown, open: () => Promise<Pick<GetPersonalInvitationManagementPageUseCase, "execute"> & { publicOrigin?: () => string }>, requestHeaders?: Pick<Headers, "get">): Promise<PersonalInvitationManagementPageState> {
   const parsed = admissionInvitationPageInputSchema.safeParse(input);
-  const failure = (code: AdmissionErrorCode): PersonalInvitationManagementPageState => ({ kind: "unavailable", code, message: ADMISSION_ERROR_MESSAGE[code] });
-  if (!parsed.success) return failure(ADMISSION_ERROR_CODE.invalidInput);
-  const context = resolveRequestContext(new Headers()), logger = createServerLogger({ feature: ADMISSION_DIAGNOSTIC_FEATURE, operation: PERSONAL_INVITATION_MANAGEMENT_PAGE_OPERATION, ...context });
-  try {
-    const reader = await open(), result = await reader.execute({ slug: parsed.data.params.slug, filters: parsed.data.query, requestId: context.requestId });
-    if (!result.ok) {
-      if (result.failure.code === ADMISSION_ERROR_CODE.unexpectedFailure || result.failure.code === ADMISSION_ERROR_CODE.publicContractUnusable) logger.error({ message: PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC.readFailure, metadata: { code: result.failure.code } });
-      return failure(result.failure.code);
-    }
-    const state = personalInvitationManagementPageStateSchema.safeParse(result.value.kind === "ready" && reader.publicOrigin ? { ...result.value, publicOrigin: new URL(reader.publicOrigin()).origin } : result.value);
-    if (state.success) return state.data;
-    logger.error({ message: PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC.contractFailure, metadata: { code: ADMISSION_ERROR_CODE.publicContractUnusable } });
-    return failure(ADMISSION_ERROR_CODE.publicContractUnusable);
-  } catch {
-    logger.error({ message: PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC.loadFailure, metadata: { code: ADMISSION_ERROR_CODE.unexpectedFailure } });
-    return failure(ADMISSION_ERROR_CODE.unexpectedFailure);
-  }
+  if (!parsed.success) return unavailableAdmissionPage(ADMISSION_ERROR_CODE.invalidInput);
+  const diagnostics = createAdmissionPageDiagnostics(PERSONAL_INVITATION_MANAGEMENT_PAGE_OPERATION, requestHeaders);
+  let publicOrigin: (() => string) | undefined;
+  return loadAdmissionPageRead({
+    diagnostics, stateSchema: personalInvitationManagementPageStateSchema, messages: PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC,
+    read: async () => { const reader = await open(); publicOrigin = reader.publicOrigin; return reader.execute({ slug: parsed.data.params.slug, filters: parsed.data.query, requestId: diagnostics.context.requestId }); },
+    // The public origin of one-time links is composed on the server, never read from the request.
+    project: (value) => isReadyState(value) && publicOrigin ? { ...value, publicOrigin: new URL(publicOrigin()).origin } : value,
+  });
 }

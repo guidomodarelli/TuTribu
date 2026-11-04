@@ -35,11 +35,19 @@ describe("AutoSignInWithGoogle", () => {
     });
   });
 
+  it("asks Google for its account chooser when the sign-in follows an account change", async () => {
+    render(<AutoSignInWithGoogle callbackUrl="/admissions/matematica-pro" selectAccount />);
+
+    await waitFor(() => {
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/admissions/matematica-pro", { selectAccount: true });
+    });
+  });
+
   it("starts Google sign-in when the component mounts", async () => {
     render(<AutoSignInWithGoogle callbackUrl="/" />);
 
     await waitFor(() => {
-      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/", { selectAccount: false });
     });
 
     expect(screen.getByText(/te estamos redirigiendo a google/i)).toBeInTheDocument();
@@ -56,7 +64,7 @@ describe("AutoSignInWithGoogle", () => {
     render(<AutoSignInWithGoogle callbackUrl="/auth/error" />);
 
     await waitFor(() => {
-      expect(startGoogleSignInMock).toHaveBeenCalledWith("/auth/error");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/auth/error", { selectAccount: false });
     });
 
     await user.click(
@@ -66,7 +74,7 @@ describe("AutoSignInWithGoogle", () => {
     );
 
     expect(startGoogleSignInMock).toHaveBeenCalledTimes(2);
-    expect(startGoogleSignInMock).toHaveBeenLastCalledWith("/auth/error");
+    expect(startGoogleSignInMock).toHaveBeenLastCalledWith("/auth/error", { selectAccount: false });
   });
 
   it("redirects to the auth error page when Better Auth rejects the OAuth start", async () => {
@@ -96,6 +104,6 @@ describe("AutoSignInWithGoogle", () => {
       })
     );
 
-    expect(startGoogleSignInMock).toHaveBeenCalledWith("/matematica-pro");
+    expect(startGoogleSignInMock).toHaveBeenCalledWith("/matematica-pro", { selectAccount: false });
   });
 });

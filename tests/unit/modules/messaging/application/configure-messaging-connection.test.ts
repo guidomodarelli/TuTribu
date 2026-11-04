@@ -46,4 +46,18 @@ describe("immutable resource configuration",()=>{
     const fixture=configurationFixture();fixture.resolve.mockResolvedValueOnce({allowed:true,context:fixture.context}).mockResolvedValueOnce({allowed:true,context:{...fixture.context,sessionId:randomUUID()}});
     expect(await fixture.useCase.execute(fixture.input,new AbortController().signal)).toMatchObject({ok:false,failure:{code:"authentication_required"}});expect(fixture.transport.receipts).toHaveLength(0);expect(fixture.commit).not.toHaveBeenCalled();
   });
+  it("should name the unmet template requirement as the typed cause of a definitive missing capability",async()=>{
+    const fixture=configurationFixture("whatsapp"),outcome=await fixture.useCase.execute({...fixture.input,templateLanguage:"en"},new AbortController().signal);
+    expect(outcome).toMatchObject({ok:false,failure:{code:"missing_capability",definitive:true,cause:{code:"missing_capability",cause:{name:"MessagingRequirementError",code:"template_language_mismatch"}}}});
+  });
+  it("should report a Zavu outage before the commit as definitive, since this original registered nothing",async()=>{
+    const fixture=configurationFixture(),unavailable=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:`/v1/senders/${fixture.senderId}`,method:"GET",respond:()=>Response.json({error:"synthetic outage"},{status:503})}]);
+    const useCase=new ConfigureMessagingConnectionUseCase({execute:fixture.resolve},{prepare:fixture.prepare,commit:fixture.commit},{loadAuthorizedSecret:fixture.loadAuthorizedSecret},{create:(scope,key)=>new ZavuConnectionInspector({...scope,credential:key},unavailable.fetch)});
+    expect(await useCase.execute(fixture.input,new AbortController().signal)).toMatchObject({ok:false,failure:{code:"dependency_unavailable",definitive:true}});expect(fixture.commit).not.toHaveBeenCalled();
+  });
+  it("should keep a failure of the commit itself uncertain, since the original may be registered",async()=>{
+    const fixture=configurationFixture();fixture.commit.mockRejectedValueOnce(new Error("synthetic commit loss"));
+    const outcome=await fixture.useCase.execute(fixture.input,new AbortController().signal);
+    expect(outcome).toMatchObject({ok:false,failure:{code:"unexpected_failure"}});expect(outcome.ok?null:outcome.failure.definitive).toBeUndefined();
+  });
 });

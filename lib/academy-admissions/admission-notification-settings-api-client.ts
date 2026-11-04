@@ -1,11 +1,12 @@
 "use client";
 /** Consumes only same-origin own settings DTOs bound to their actual native viewer. @module admission-notification-settings-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import type { z } from "zod";
 import type { AdmissionNotificationSettingsBrowserClient, AdmissionNotificationSettingsBrowserResult, AdmissionNotificationSettingsBoundResult } from "@/src/modules/notifications/application/ports/admission-notification-settings-browser-client";
 import { ADMISSION_NOTIFICATION_SETTINGS_API as API, ADMISSION_NOTIFICATION_SETTINGS_BROWSER_STATUS as STATUS } from "@/src/modules/notifications/constants/admission-notification-settings-page";
 import { ADMISSION_NOTIFICATION_PREFERENCE_STATUS as PREFERENCE_STATUS } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_EMAIL_SETTINGS_STATUS as EMAIL_STATUS } from "@/src/modules/notifications/constants/admission-notification-email-settings";
-import { admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsViewSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationEmailSettingsOperationSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
+import { admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsReadResultSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationEmailSettingsOperationSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
 import { PERSONAL_INVITATION_VIEWER_HEADER, personalInvitationViewerMetadataSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
@@ -50,12 +51,12 @@ export function createAdmissionNotificationSettingsApiClient(options: { fetch?: 
       const ownError = admissionPublicErrorSchema.safeParse(value);
       if (ownError.success) return failure(ownError.data.operation && command?.operationId && ownError.data.operation.operationId !== command.operationId ? ADMISSION_ERROR_CODE.publicContractUnusable : ownError.data.code, Boolean(command));
       return readViewerBoundValue(response, schema.safeParse(value), Boolean(command));
-    } catch { return signal.aborted ? { status: STATUS.aborted } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, Boolean(command)); }
+    } catch { return signal.aborted ? { status: STATUS.aborted } : failure(ADMISSION_ERROR_CODE.dependencyUnavailable, Boolean(command), BROWSER_REQUEST_TRANSPORT_MESSAGE); }
   }
   return {
     viewer: options.viewer ?? admissionApiClient.viewer,
     readPreference: (slug, signal) => request(`${base(slug)}/${API.preference}`, admissionNotificationPreferenceReadResultSchema, signal),
-    readEmail: (slug, signal) => request(`${base(slug)}/${API.email}`, admissionNotificationEmailSettingsViewSchema, signal),
+    readEmail: (slug, signal) => request(`${base(slug)}/${API.email}`, admissionNotificationEmailSettingsReadResultSchema, signal),
     changePreference: async (slug, input, signal) => {
       const parsed = admissionNotificationPreferenceChangeSchema.safeParse(input);
       if (!parsed.success) return failure(ADMISSION_ERROR_CODE.invalidInput);

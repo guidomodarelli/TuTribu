@@ -20,6 +20,9 @@ import { readAllowlistAdmissionFacts } from "./postgres-allowlist-admission-fact
 import { PostgresAdmissionSubmissionProofReader } from "./postgres-admission-submission-proof-reader";
 import { PostgresAdmissionOverviewReader } from "./postgres-admission-overview-reader";
 import { assertPersonalInvitationTokenCurrent } from "./postgres-personal-invitation-redemption";
+import { rejectWithoutPlatformSecurity } from "./admission-platform-security-rejection";
+import { assertMessagingAuthenticatedMacKeyMaterials } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
+import { ADMISSION_OPERATION_MAC_KEY_PURPOSES } from "../../constants/admission-operation";
 
 /** Preview authority is fixed to the actual account/session by the composition root. */
 type PreviewScope = Pick<AdmissionCommandScope, "userId" | "sessionId">;
@@ -51,11 +54,17 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
     return await codec.verify(token, reference) ? { row, reference } : null;
   }
 
-  /** @param query - Opaque token/correlation and optional own available proof. @param scope - Actual account/session. @returns Current private preview facts or generic absence, never a persisted operation or contact disclosure. */
+  /**
+   * @param query - Opaque token/correlation and optional own available proof. @param scope - Actual account/session.
+   * @returns Current private preview facts or generic absence, never a persisted operation or contact disclosure.
+   * @throws AdmissionOperationError platform_security_unavailable before the token lookup when the platform cannot protect the submission the
+   * preview would offer (the same import and enrolled-proof checks the ledger claim runs), so the page never offers a write that always fails.
+   */
   async readOverview(query: { token: string; requestId: string; proofId?: string }, scope: PreviewScope): Promise<PersonalInvitationOverviewFacts | null> {
-    return this.execute(scope, async (database) => {
+    return rejectWithoutPlatformSecurity(() => this.execute(scope, async (database) => {
       await this.authorize(database, scope);
       const security = await this.readSecurityConfig(), codec = createPersonalInvitationTokenCodec(security);
+      await assertMessagingAuthenticatedMacKeyMaterials(database, security, ADMISSION_OPERATION_MAC_KEY_PURPOSES);
       const verified = await this.readTokenInvitation(database, codec, query.token);
       if (!verified) { await this.authorize(database, scope); return null; }
       const { row, reference } = verified;
@@ -85,7 +94,7 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
       await assertPersonalInvitationTokenCurrent({ invitation, reference, environment: security.environment, securityEpoch: security.securityEpoch }, query.token, await this.readSecurityConfig());
       await this.authorize(database, scope);
       return { overview, eligibility, tokenAvailable: isInvitationTokenAvailable(invitation, now), recipientMatchesAccount, redeemedByUserId: invitation.redeemedByUserId, redeemedRequestId: invitation.redeemedRequestId };
-    });
+    }));
   }
 }
 

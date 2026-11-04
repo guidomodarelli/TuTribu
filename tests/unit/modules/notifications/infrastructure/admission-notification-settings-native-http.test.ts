@@ -40,7 +40,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
 
           const settings = await runPrivateBrowserRequest("read_current_admission_email_settings", () => client.get(`${prefix}/email-settings`));
           expect(settings.status()).toBe(200);
-          expect(await settings.json()).toEqual({ enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" });
+          expect(await settings.json()).toEqual({ settings: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null });
           await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.read.sessionId}`));
           const expiredSession = await runPrivateBrowserRequest("deny_admission_email_change_after_session_expiry", () => client.post(`${prefix}/email-settings`, { data: fixture.command(0, false, "UTC") }));
           expect(expiredSession.status()).toBe(401);

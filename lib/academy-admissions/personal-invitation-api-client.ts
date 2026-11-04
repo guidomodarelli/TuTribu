@@ -1,5 +1,6 @@
 "use client";
 /** Adapts same-origin personal preview and native sign-out to safe own application contracts. @module personal-invitation-api-client */
+import { BROWSER_REQUEST_TRANSPORT_MESSAGE } from "@/src/constants/browser-request";
 import { createAdmissionApiClient } from "./admission-api-client";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionBrowserClient, AdmissionBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
@@ -12,7 +13,7 @@ import { personalInvitationPreviewParamsSchema, personalInvitationPreviewQuerySc
 /** @param options - Own controlled HTTP/viewer boundaries or the actual installed native adapters. @returns A cancelable application port; private SDK data never enters its values. */
 export function createPersonalInvitationApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): PersonalInvitationBrowserClient {
   const transport = options.fetch ?? globalThis.fetch, admission = createAdmissionApiClient(options);
-  const failed = (code: AdmissionErrorCode): AdmissionBrowserResult<never> => ({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain: false });
+  const failed = (code: AdmissionErrorCode, message: string = ADMISSION_ERROR_MESSAGE[code]): AdmissionBrowserResult<never> => ({ status: "failed", code, message, uncertain: false });
   return {
     viewer: admission.viewer, operation: admission.operation, submit: admission.submit, changeAccount: admission.changeAccount,
     async overview(token, proofId, signal) {
@@ -35,7 +36,7 @@ export function createPersonalInvitationApiClient(options: { fetch?: typeof glob
         if (!viewer.success) return failed(ADMISSION_ERROR_CODE.publicContractUnusable);
         const preview = personalInvitationBrowserOverviewSchema.safeParse({ preview: value, viewerId: viewer.data.viewerId });
         return preview.success ? { status: "ready", value: preview.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable);
-      } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+      } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
     },
   };
 }

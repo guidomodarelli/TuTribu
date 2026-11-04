@@ -48,6 +48,22 @@ describe("Better Auth client", () => {
     });
   });
 
+  it("asks Better Auth for the authorization URL without its own redirect when the account chooser is requested", async () => {
+    socialSignInMock.mockResolvedValue({ data: { redirect: false }, error: null });
+    const { startGoogleSignIn } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/client"
+    );
+
+    // Without an authorization URL there is nothing to open, so the start fails instead of staying on the page.
+    await expect(startGoogleSignIn("/admissions/matematica-pro", { selectAccount: true })).rejects.toThrow("Better Auth returned no Google authorization URL.");
+    expect(socialSignInMock).toHaveBeenCalledWith({
+      callbackURL: "/admissions/matematica-pro",
+      disableRedirect: true,
+      errorCallbackURL: "/auth/error",
+      provider: "google",
+    });
+  });
+
   it("throws when Better Auth rejects the OAuth start without a network failure", async () => {
     socialSignInMock.mockResolvedValue({
       data: null,

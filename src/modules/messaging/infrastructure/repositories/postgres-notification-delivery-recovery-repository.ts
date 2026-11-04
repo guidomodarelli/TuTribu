@@ -16,7 +16,8 @@ import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/
 import { MESSAGING_PUBLIC_CHANNEL, MESSAGING_CAPABILITY_PUBLIC_STATE, MESSAGING_CREDENTIAL_PUBLIC_STATE } from "../../constants/messaging-public-contract";
 import { MESSAGING_CONNECTION_STATE } from "../../constants/messaging-connection";
 import { MESSAGE_DELIVERY_STATE, MESSAGE_ATTEMPT_STATE } from "../../constants/message-delivery";
-import { NOTIFICATION_DELIVERY_RECOVERY_AUDIT, NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON, NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "../../constants/notification-delivery-recovery";
+import { NOTIFICATION_DELIVERY_RECOVERY_AUDIT, NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON, NOTIFICATION_DELIVERY_RECOVERY_PURPOSE, NOTIFICATION_DELIVERY_RECOVERY_REASON } from "../../constants/notification-delivery-recovery";
+import { MessagingRequirementError } from "../../domain/errors/messaging-requirement-error";
 import type { NotificationDeliveryRecoveryContext, NotificationDeliveryRecoveryInput, NotificationDeliveryRecoveryRepository } from "../../domain/repositories/notification-delivery-recovery";
 import type { MessageDelivery } from "../../domain/entities/message-delivery";
 import type { MessageDeliveryAttempt } from "../../domain/entities/message-delivery-attempt";
@@ -95,6 +96,24 @@ function recoveryTimestamps(group: PreparedNotificationGroupRecoveryContent | nu
 }
 
 /** Uses the original durable ledger and repeats native authority after every relevant wait. */
+/** @returns The rejection of a notice whose recovery deadline passed, naming that reason as its typed cause. */
+function recoveryDeadlineExpired(): AdmissionOperationError {
+  return new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired, { cause: new MessagingRequirementError(NOTIFICATION_DELIVERY_RECOVERY_REASON.expired) });
+}
+
+/**
+ * @param config - Current platform messaging security.
+ * @param original - Original notice, with the security scope it was prepared under.
+ * @returns Nothing while the platform can protect the recovery and the notice belongs to its current scope.
+ * @throws AdmissionOperationError platform_security_unavailable while the platform is locked for recovery, or resource_unavailable for a notice
+ * prepared under another environment or security epoch, which can never be recovered.
+ */
+function assertRecoverySecurityScope(config: MessagingSecurityConfig, original: Pick<OriginalRow, "environment" | "security_epoch">): void {
+  if (config.recoveryLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.platformSecurityUnavailable);
+  const reason = NOTIFICATION_DELIVERY_RECOVERY_REASON.securityScopeChanged;
+  if (config.environment !== original.environment || config.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON[reason], { cause: new MessagingRequirementError(reason) });
+}
+
 export class PostgresNotificationDeliveryRecoveryRepository implements NotificationDeliveryRecoveryRepository<NotificationDeliveryRecoveryResult> {
   /** @param execute - Original server principal's guarded native executor. @param readSecurityConfig - Current external epoch/keyring/recovery state; no SDK or remote call under locks. @param groupContent - Explicit complete-group source owner; absent composition closes group recovery without falling back to individual references. */
   constructor(private readonly execute: RecoveryDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly groupContent?: NotificationGroupRecoveryContent) {}
@@ -143,12 +162,12 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
   private async assertStagedCurrent(database: RequestDatabase, context: NotificationDeliveryRecoveryContext, staged: { original: OriginalRow; group: StagedRecoveryGroup | null; authorizeGroup: GroupAuthority }): Promise<void> {
     const { original, group, authorizeGroup } = staged;
     const currentSecurity = await this.readSecurityConfig();
-    if (currentSecurity.recoveryLocked || currentSecurity.environment !== original.environment || currentSecurity.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    assertRecoverySecurityScope(currentSecurity, original);
     if (group && this.groupContent) await this.groupContent.assertCurrent(database, group.command, group.prepared, authorizeGroup);
     else if (!await this.obligationCurrent(database, context, original)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     await this.authorize(database, context);
     const now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-    if (now >= new Date(original.deadline_at)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
+    if (now >= new Date(original.deadline_at)) throw recoveryDeadlineExpired();
   }
 
   /**
@@ -188,7 +207,7 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
   private async decideRecovery(database: RequestDatabase, context: NotificationDeliveryRecoveryContext, rows: RecoveryRows): Promise<RecoveryDecision> {
     const { target, version, capability, email, original, attempts } = rows;
     const config = await this.readSecurityConfig();
-    if (config.recoveryLocked || config.environment !== original.environment || config.securityEpoch !== original.security_epoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+    assertRecoverySecurityScope(config, original);
     await this.authorize(database, context);
     const grouped = original.notification_group_id !== null;
     const obligationCurrent = email?.enabled === true && (grouped ? this.groupContent !== undefined : await this.obligationCurrent(database, context, original));
@@ -201,7 +220,7 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
       target: recoveryTargetFacts(context, { target, version, capability }),
       obligationCurrent, now,
     });
-    if (!decision.allowed) throw new AdmissionOperationError(NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON[decision.reason]);
+    if (!decision.allowed) throw new AdmissionOperationError(NOTIFICATION_DELIVERY_RECOVERY_ERROR_BY_REASON[decision.reason], { cause: new MessagingRequirementError(decision.reason) });
     return { config, now, originalAttempt };
   }
 
@@ -225,7 +244,7 @@ export class PostgresNotificationDeliveryRecoveryRepository implements Notificat
     const payload = group ?? await createNotificationRecoveryPayloadMac(config).sign(payloadContext);
     await this.authorize(database, context);
     const finalNow = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
-    if (finalNow >= payloadContext.deadlineAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeExpired);
+    if (finalNow >= payloadContext.deadlineAt) throw recoveryDeadlineExpired();
     if (group && this.groupContent) await this.groupContent.assertCurrent(database, groupCommand, group, authorizeGroup);
     else if (!await this.obligationCurrent(database, context, original)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const state = attempts.length === 0 ? MESSAGE_DELIVERY_STATE.cancelled : MESSAGE_DELIVERY_STATE.failed;

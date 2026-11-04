@@ -42,6 +42,8 @@ export const ADMISSION_POLICY_CHANGE_OUTCOME = { changed: "changed", unchanged: 
 export const ADMISSION_POLICY_ACTIVATION_ERROR = {
   policyMissing: "policy_unavailable", notAcademy: "academy_unavailable", preflightIncomplete: "admission_preflight_incomplete",
   evaluatorUnavailable: "admission_evaluator_unavailable", recoveryLocked: "admission_recovery_locked", clockInvalid: "admission_clock_invalid",
+  /** The deployment lacks the hosting messaging security every admission ledger operation signs its intent with. */
+  securityUnconfigured: "admission_security_unconfigured",
 } as const;
 
 /** Original ledger namespaces keep creation, edit, activation and pause intents distinct. */

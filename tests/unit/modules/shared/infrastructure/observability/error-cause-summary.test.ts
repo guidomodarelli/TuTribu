@@ -3,7 +3,7 @@
 /** Covers the safe cause chain summary recorded by server diagnostics. */
 import { describe, expect, it } from "vitest";
 import { summarizeErrorCauses } from "@/src/modules/shared/infrastructure/observability/error-cause-summary";
-import { ERROR_CAUSE_SUMMARY_MAX_ENTRIES } from "@/src/modules/shared/constants/error-cause-summary";
+import { CLOSED_FAILURE_CAUSE, ERROR_CAUSE_SUMMARY_MAX_ENTRIES } from "@/src/modules/shared/constants/error-cause-summary";
 
 describe("summarizeErrorCauses", () => {
   it("should return no entries when the failure has no cause", () => {
@@ -19,6 +19,13 @@ describe("summarizeErrorCauses", () => {
 
     expect(summaries).toEqual([{ name: "Error" }, { name: "AggregateError" }, { name: "Error" }, { name: "Error", code: "23514" }, { name: "UnnamedError" }]);
     expect(JSON.stringify(summaries)).not.toMatch(/hunter2|violates|boom|outer/);
+  });
+
+  it("should follow a plain closed failure by its code into its own cause, ignoring its other fields", () => {
+    const usageFailure = { code: "dependency_unavailable", message: "secret provider text", cause: Object.assign(new Error("connection refused 10.0.0.1"), { name: "MessagingDeliveryStorageError", code: "dependency_unavailable" }) };
+    const summaries = summarizeErrorCauses(usageFailure);
+    expect(summaries).toEqual([{ name: CLOSED_FAILURE_CAUSE, code: "dependency_unavailable" }, { name: "MessagingDeliveryStorageError", code: "dependency_unavailable" }]);
+    expect(JSON.stringify(summaries)).not.toMatch(/secret|refused|10.0/);
   });
 
   it("should record a thrown non-error value only by its type", () => {

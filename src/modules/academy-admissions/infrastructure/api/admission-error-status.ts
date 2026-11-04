@@ -23,6 +23,8 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.contactBindingConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.challengeExpired]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.challengeInvalidated]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.challengeAlreadySent]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.requestExpired]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.proofUnavailable]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.verificationAttemptsExceeded]: HTTP_STATUS.tooManyRequests,
   [ADMISSION_ERROR_CODE.usageLimitReached]: HTTP_STATUS.tooManyRequests,
@@ -44,4 +46,8 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.upstreamPayloadUnusable]: HTTP_STATUS.badGateway,
   [ADMISSION_ERROR_CODE.publicContractUnusable]: HTTP_STATUS.serverError,
   [ADMISSION_ERROR_CODE.unexpectedFailure]: HTTP_STATUS.serverError,
+  // Definitive and below 5xx: nothing was registered, so the browser must not keep the write as uncertain.
+  [ADMISSION_ERROR_CODE.platformSecurityUnavailable]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.connectionRetirementBlocked]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.originalDispatchUnresolved]: HTTP_STATUS.conflict,
 } as const;

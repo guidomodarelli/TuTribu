@@ -48,16 +48,46 @@ export const ACADEMY_ELIGIBILITY = {
   verified: "verified",
 } as const satisfies Record<string, AcademyEligibility>;
 
-/** Renewal state of the academy subscription, as confirmed locally. */
-export type AcademyRenewalStatus = "active" | "canceled" | "canceling" | "none" | "pending";
+/**
+ * Renewal state of the academy subscription, as confirmed locally. `pending`
+ * waits for the payment of a checkout that reached the provider; `paused` is a
+ * live recurrence the provider stopped charging for now.
+ */
+export type AcademyRenewalStatus = "active" | "canceled" | "canceling" | "none" | "paused" | "pending";
 
 export const ACADEMY_RENEWAL_STATUS = {
   active: "active",
   canceled: "canceled",
   canceling: "canceling",
   none: "none",
+  paused: "paused",
   pending: "pending",
 } as const satisfies Record<string, AcademyRenewalStatus>;
+
+/**
+ * How a member whose membership became inactive for a commercial reason can
+ * enter the academy again: a free join before the tribe activates admission
+ * control, or an admission request afterwards.
+ */
+export type AcademyMembershipRecovery = "admission_request" | "free_join";
+
+export const ACADEMY_MEMBERSHIP_RECOVERY = {
+  admissionRequest: "admission_request",
+  freeJoin: "free_join",
+} as const satisfies Record<string, AcademyMembershipRecovery>;
+
+/** Membership roles and states that an academy entry can recover. */
+export const ACADEMY_RECOVERABLE_MEMBERSHIP = {
+  /** Before admission control the free join also recovers a guardian (as a tribemate). */
+  freeJoinRoles: ["guardian", "tribemate"],
+  /** After admission control only a tribemate with a known pre-block state is recovered. */
+  admissionRequestRole: "tribemate",
+  /** Status and reason pairs left by an inactive subscription. */
+  commercialStates: [
+    { status: "blocked", statusReason: "payment_blocked" },
+    { status: "removed", statusReason: "subscription_inactive" },
+  ],
+} as const;
 
 /** Next step suggested to the member on the academy page. */
 export type AcademyNextAction =

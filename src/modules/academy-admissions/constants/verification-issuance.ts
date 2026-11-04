@@ -1,8 +1,8 @@
 /** Names ledger intents and irreversible local resend effects. @module verification-issuance-constants */
 /** Separates initial issuance and explicit replacement in the actor/tenant operation namespace. */
 export const VERIFICATION_ISSUANCE_OPERATION = { issue: "issue_contact_challenge", resend: "resend_contact_challenge" } as const;
-/** Distinguishes a stored local issuance from a closed business denial. */
-export const VERIFICATION_ISSUANCE_OUTCOME = { denied: "denied", issued: "issued" } as const;
+/** Distinguishes a stored local issuance, a reused live admission code for the same destination and a closed business denial. */
+export const VERIFICATION_ISSUANCE_OUTCOME = { denied: "denied", issued: "issued", current: "current" } as const;
 /** Records the deliberate replacement cause without treating it as an external-send cancellation. */
 export const VERIFICATION_RESEND_REASON = "explicit_resend";
 /** Separates the protected verification-delivery tuple from other operation payloads. */

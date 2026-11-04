@@ -19,9 +19,17 @@ export interface AdmissionNotificationProducer {
   /** @returns The commit-confirmed number of new three-day logical reminders; zero does not assert no locked or remaining work. */
   materializeReminders(): Promise<number>;
 }
+/** A host stop that rejected a step inside its own transaction before any effect: the host deadline, its job authority or its recovery lock. */
+export type AdmissionNotificationProducerStop = "deadline_reached" | "authority_unavailable" | "recovery_locked";
 /** Keeps host clocks and IDs outside business rules, with safe context for private diagnostics. */
 export type AdmissionNotificationProducerRuntime = {
   readonly now: () => number;
   readonly createId: () => string;
   readonly report: (error: unknown, context: { readonly phase: string; readonly tribeId?: string; readonly operationId?: string }) => void;
+  /**
+   * Recognizes a host stop behind an owner failure, which owners otherwise wrap as unresolved; absent when the host has no such guard.
+   * @param error - Failure of one producer step.
+   * @returns The host stop, or null for any other failure.
+   */
+  readonly classifyStop?: (error: unknown) => AdmissionNotificationProducerStop | null;
 };

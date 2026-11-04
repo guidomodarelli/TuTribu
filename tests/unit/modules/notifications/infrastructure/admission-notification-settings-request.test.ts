@@ -11,15 +11,16 @@ import { buildAdmissionNotificationSettingsModule } from "@/src/modules/notifica
 import { PostgresAuthenticatedAccountProvider, type CurrentGlobalSessionIdentity } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import { createAdmissionNotificationSettingsHandlers } from "@/src/modules/notifications/infrastructure/api/admission-notification-settings-handlers";
+import { createAdmissionPlatformSecurityReader } from "@/src/modules/academy-admissions/infrastructure/composition/admission-platform-security";
 
-/** @param database - Confirmed owned branch. @param fixture - Real synthetic prerequisite metadata. @param identity - Server-session selection only, never request body or authority facts. @returns Actual module composition with live SQL identity and a local security read counter. */
+/** @param database - Confirmed owned branch. @param fixture - Real synthetic prerequisite metadata. @param identity - Server-session selection only, never request body or authority facts. @returns Actual module composition with live SQL identity and a counter of the security reads made for email writes (the read of the platform requirement is composed apart). */
 function compose(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareAdmissionEmailSettings>>, identity: CurrentGlobalSessionIdentity) {
   const accounts = new PostgresAuthenticatedAccountProvider(async () => identity, (selected, run) => database.withContext({ userId: selected.userId, email: null }, run));
   const dependencies: AuthenticatedFeatureDependencies = { accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) };
   const admissions = buildAcademyAdmissionsModule(dependencies);
   const routing = admissions.createQueryModule({ executePublic: (run) => database.withContext({ userId: null, email: null }, run), readRecoveryLock: async () => fixture.config.recoveryLocked }).useCases;
   let securityReads = 0;
-  const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: async () => { securityReads++; return fixture.config; } });
+  const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: async () => { securityReads++; return fixture.config; }, readPlatformSecurity: createAdmissionPlatformSecurityReader(async () => fixture.config) });
   return { handlers: createAdmissionNotificationSettingsHandlers(async () => ({ resolveTribe: routing.resolveTribe, ...notifications.useCases })), securityReads: () => securityReads };
 }
 
@@ -41,7 +42,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       expect(await own.json()).toEqual({ preference: { mode: "grouped", version: 0, source: "implicit" }, canConfigureEmail: true });
       const settings = await leader.handlers.readEmailSettings(request(), context);
       expect(settings.status).toBe(200);
-      expect(await settings.json()).toEqual({ enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" });
+      expect(await settings.json()).toEqual({ settings: { enabled: false, version: 0, timeZone: "America/Argentina/Buenos_Aires" }, platformRequirement: null });
       expect(leader.securityReads()).toBe(0);
 
       // A guardian has independent own preferences and no authority over the leader's email settings.
@@ -77,7 +78,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       const replay = await leader.handlers.changeEmailSettings(request(enabled), context);
       expect(await replay.json()).toEqual({ state: "completed", operationId: enabled.operationId, replayed: true, result: { status: "changed", settings: { enabled: true, version: 1, timeZone: "Asia/Kolkata" } } });
       expect(await (await leader.handlers.changeEmailSettings(request(unavailable), context)).json()).toMatchObject({ state: "completed", operationId: unavailable.operationId, replayed: true, result: { status: "rejected", reason: "email_capability_unavailable" } });
-      expect(await (await leader.handlers.readEmailSettings(request(), context)).json()).toEqual({ enabled: true, version: 1, timeZone: "Asia/Kolkata" });
+      expect(await (await leader.handlers.readEmailSettings(request(), context)).json()).toEqual({ settings: { enabled: true, version: 1, timeZone: "Asia/Kolkata" }, platformRequirement: null });
 
       // Current SQL role/session loss closes both APIs; historical data cannot become a browser permission.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${tribeId} and user_id=${guardianId}`));

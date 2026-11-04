@@ -10,7 +10,6 @@ import { PostgresContactVerificationRepository } from "@/src/modules/academy-adm
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import { MessagingDiagnosticOperationError } from "@/src/modules/messaging/domain/errors/messaging-diagnostic-operation-error";
-import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { CONNECTION_DIAGNOSTIC_VERIFY_OPERATION } from "@/src/modules/messaging/constants/connection-diagnostic";
@@ -19,6 +18,7 @@ import { authorizeConnectionDiagnostic } from "./postgres-connection-diagnostic-
 import { PostgresVerificationFailureBudget } from "./postgres-verification-failure-budget";
 import { PostgresConnectionDiagnosticRepository } from "./postgres-connection-diagnostic-repository";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import { closedAdmissionFailureCode, knownConnectionFailureCode } from "./messaging-operation-failure-code";
 
 /** Holds one explicit server-derived actor context per guarded checkout. */
 type DiagnosticDatabaseExecutor = <Result>(context: AuthorizedMessagingContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -64,11 +64,8 @@ export class PostgresConnectionDiagnosticOperations implements ConnectionDiagnos
         }
       });
     } catch (error) {
-      if (error instanceof AdmissionOperationError) {
-        const ownCode = Object.values(MESSAGING_ERROR_CODE).find((code) => code === error.code) ?? MESSAGING_ERROR_CODE.unexpectedFailure;
-        throw new MessagingDiagnosticOperationError(ownCode, { cause: error, ...(error.code === ADMISSION_ERROR_CODE.operationUnresolved && error.operationId ? { operationId: error.operationId } : {}) });
-      }
-      throw new MessagingDiagnosticOperationError(MESSAGING_ERROR_CODE.unexpectedFailure, { cause: error });
+      if (error instanceof AdmissionOperationError) throw new MessagingDiagnosticOperationError(closedAdmissionFailureCode(error), { cause: error, ...(error.code === ADMISSION_ERROR_CODE.operationUnresolved && error.operationId ? { operationId: error.operationId } : {}) });
+      throw new MessagingDiagnosticOperationError(knownConnectionFailureCode(error), { cause: error });
     }
   }
 }

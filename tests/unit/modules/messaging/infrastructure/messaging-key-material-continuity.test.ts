@@ -54,9 +54,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native immutable k
       }));
       const before = await snapshot();
       const repository = new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), async (transaction) => Boolean((await transaction.execute(sql`select id from public.tribes where id=${fixture.scope.tribeId}`)).rows[0]), async () => changed);
-      await expect(repository.read(command, contactVerificationIssuanceSnapshotSchema)).rejects.toMatchObject({ code: "resource_unavailable", cause: { code: "messaging_crypto_key_continuity_unproven" } });
+      // Material changed under an enrolled id is a platform requirement: the registered original stays unresolved, never discarded.
+      await expect(repository.read(command, contactVerificationIssuanceSnapshotSchema)).rejects.toMatchObject({ code: "operation_unresolved", operationId, cause: { code: "messaging_crypto_key_continuity_unproven" } });
       let mutations = 0;
-      await expect(repository.run({ ...command, idempotencyKey: randomUUID() }, contactVerificationIssuanceSnapshotSchema, async () => { mutations += 1; return issued.result; })).rejects.toMatchObject({ code: "resource_unavailable" });
+      await expect(repository.run({ ...command, idempotencyKey: randomUUID() }, contactVerificationIssuanceSnapshotSchema, async () => { mutations += 1; return issued.result; })).rejects.toMatchObject({ code: "platform_security_unavailable", cause: { code: "messaging_crypto_key_continuity_unproven" } });
       expect(mutations).toBe(0);
       expect(await snapshot()).toEqual(before);
       expect(await fixture.ledger.read(command, contactVerificationIssuanceSnapshotSchema)).toMatchObject({ state: "completed", replayed: true });

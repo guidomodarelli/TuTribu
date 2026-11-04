@@ -31,6 +31,12 @@
   }
 
   // One quiet bar; it turns green only when every required step is done.
+  // The single platform notice keeps the header and progress gutters.
+  &__platform {
+    min-width: 0;
+    padding: 0 1.25rem 1rem;
+  }
+
   &__progress {
     display: grid;
     gap: 0.5rem;

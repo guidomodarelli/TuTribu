@@ -24,15 +24,14 @@ import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/a
 import {ADMISSION_CONTACT_TYPE} from "@/src/modules/academy-admissions/constants/admission-contact";
 import {ADMISSION_CONTACT_MASK,ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH} from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
 import {connectionDiagnosticIssuanceSchema} from "@/src/modules/messaging/application/results/connection-diagnostic-issuance-result";
-import {closedAdmissionFailureCode,type MessagingContextDatabaseExecutor} from "./messaging-operation-failure-code";
+import {knownConnectionFailureCode,type MessagingContextDatabaseExecutor} from "./messaging-operation-failure-code";
 
 /** Every callback is a short protected native transaction; none invokes the provider. */
 export type DiagnosticIssuanceDatabaseExecutor=MessagingContextDatabaseExecutor<AuthorizedMessagingContext>;
 /** Reuses issuance primitives while keeping diagnostic authority, proof isolation and transport ownership in messaging. */
-/** @param error - Failure of the operation. @returns Its messaging code when known, otherwise an unexpected failure. */
+/** @param error - Failure of the operation. @returns Its budget code, or the connection code of a ledger or hosting security failure, otherwise an unexpected failure. */
 function knownFailureCode(error:unknown){
-  if(error instanceof AdmissionOperationError)return closedAdmissionFailureCode(error);
-  return error instanceof MessagingUsageBudgetError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure;
+  return error instanceof MessagingUsageBudgetError?error.code:knownConnectionFailureCode(error);
 }
 
 export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosticIssueOperations{
@@ -66,7 +65,8 @@ export class PostgresConnectionDiagnosticIssuance implements ConnectionDiagnosti
         const contacts=new PostgresMessagingContactBudgetRepository(database,authorize,this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,async(transaction,budgetCommand)=>ownsScope(transaction,budgetCommand.scope),contacts);
         const result=await new PostgresContactVerificationIssuer(database,ownsScope,this.readSecurityConfig,budget).issue({scope,operationId:input.operationId,ledgerId,expectedCurrentChallengeId:input.currentChallengeId??null});
         if(result.outcome===VERIFICATION_ISSUANCE_OUTCOME.denied)return{outcome:"denied",code:Object.values(MESSAGING_ERROR_CODE).find((code)=>code===result.code)??MESSAGING_ERROR_CODE.unexpectedFailure};
-        if(!result.diagnosticId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+        // The issuer reuses a live code only for admissions; a connection test always gets a fresh diagnostic or a denial.
+        if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued||!result.diagnosticId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
         const maskedDestination=scope.contact.type===ADMISSION_CONTACT_TYPE.phone?`${ADMISSION_CONTACT_MASK}${scope.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`:`${Array.from(scope.contact.value)[0]??""}${ADMISSION_CONTACT_MASK}@${scope.contact.value.split("@").at(-1)??""}`;
         return{outcome:"issued",diagnosticId:result.diagnosticId,challengeId:result.challengeId,deliveryId:result.deliveryId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,channel:input.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString()};
       });

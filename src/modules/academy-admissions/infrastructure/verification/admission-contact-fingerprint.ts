@@ -2,15 +2,18 @@
 import "server-only";
 import type { AdmissionContact } from "../../domain/value-objects/admission-contact";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
-import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MESSAGING_CRYPTO, MESSAGING_CRYPTO_ERROR, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { CONTACT_BUDGET_FINGERPRINT_DOMAIN } from "@/src/modules/messaging/constants/contact-budget";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 
-/** @param contact - Exact canonical own contact, never a browser permission. @param config - Current private independent keyring/recovery snapshot. @param keyId - Active or deliberately retained key used to recognize minimized reservations. @returns A protected digest and retained key id without reserving the contact. @throws AdmissionOperationError when the local security material is unavailable. */
+/** @param contact - Exact canonical own contact, never a browser permission. @param config - Current private independent keyring/recovery snapshot. @param keyId - Active or deliberately retained key used to recognize minimized reservations. @returns A protected digest and retained key id without reserving the contact. @throws AdmissionOperationError: platform_security_unavailable while the platform is locked for recovery, resource_unavailable for a retained key id that is gone. */
 export async function createAdmissionContactFingerprint(contact: AdmissionContact, config: MessagingSecurityConfig, keyId = config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].activeKeyId) {
   const ring = config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint], key = ring.keys.get(keyId);
-  if (config.recoveryLocked || !key) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+  // A platform recovery lock is not a business rejection of this contact; a retained key id that is gone only cannot be recognized.
+  if (config.recoveryLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.platformSecurityUnavailable, { cause: new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked) });
+  if (!key) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
   const bytes = new TextEncoder().encode(JSON.stringify([CONTACT_BUDGET_FINGERPRINT_DOMAIN, keyId, contact.type, contact.value]));
   return { keyId, digest: new Uint8Array(await crypto.subtle.sign(MESSAGING_CRYPTO.macAlgorithm, key, bytes)) };
 }

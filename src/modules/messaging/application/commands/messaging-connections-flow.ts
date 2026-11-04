@@ -18,9 +18,10 @@ export const messagingConnectionsStepId=(kind:MessagingConnectionsStepKind,chann
  * @param input - Current selection and candidate, saved usage (a test consumes its daily code quota) and the observation time used to tell a test that expired; the unchanged active selection is not retested daily.
  * @returns Every step with its blocked reason; activation is last and its own action checks the requirements.
  */
-/** @param candidate - Current candidate, if any. @returns Why the credential step is blocked, or null once the key is valid. */
+/** @param candidate - Current candidate, if any. @returns Why the credential step is blocked, or null once the key is valid under the current platform security. */
 function credentialBlockReason(candidate:MessagingConfigurationConnection|null):string|null{
   if(!candidate)return FLOW_COPY.keyRequired;
+  if(!candidate.securityCurrent)return FLOW_COPY.securityOutdated;
   return candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid?FLOW_COPY.credentialRequired:null;
 }
 

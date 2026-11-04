@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
-import type { AdmissionContact } from "../../domain/value-objects/admission-contact";
+import { admissionContactStoredValues, type AdmissionContact } from "../../domain/value-objects/admission-contact";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ALLOWLIST_ENTRY_STATUS } from "../../constants/admission-resources";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
@@ -21,8 +21,10 @@ export async function readAllowlistAdmissionFacts(database: RequestDatabase, sco
   const capture = account.identityEvidence;
   const baseEvidence = capture ? { id: capture.id, verifiedAt: capture.verifiedAt, userId: capture.userId, accountId: capture.accountId, subject: capture.subject, normalizedEmail: capture.normalizedEmail, authority: capture.classification, invalidated: capture.invalidatedAt !== null } : null;
   if (!contact) return { account: { userId: account.userId, normalizedEmail: account.normalizedEmail, googleAccount: account.googleAccount }, baseEvidence, allowlistEntry: null, contactBinding: null };
-  const binding = (await database.execute<{ owner_user_id: string }>(sql`select owner_user_id from public.academy_admission_contact_bindings where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value}`)).rows[0];
-  const entry = (await database.execute<{ id: string; version: number; status: string }>(sql`select id,version,status from public.academy_allowlist_entries where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value} for share`)).rows[0];
+  // Rows saved before an Argentine mobile took its 9 still match; the canonical row comes first.
+  const stored = sql.param(admissionContactStoredValues(contact));
+  const binding = (await database.execute<{ owner_user_id: string }>(sql`select owner_user_id from public.academy_admission_contact_bindings where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=any(${stored}::text[]) order by normalized_contact=${contact.value} desc limit 1`)).rows[0];
+  const entry = (await database.execute<{ id: string; version: number; status: string }>(sql`select id,version,status from public.academy_allowlist_entries where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=any(${stored}::text[]) order by normalized_contact=${contact.value} desc limit 1 for share`)).rows[0];
   return { account: { userId: account.userId, normalizedEmail: account.normalizedEmail, googleAccount: account.googleAccount }, baseEvidence,
     allowlistEntry: entry ? { id: entry.id, version: entry.version, tribeId: scope.tribeId, contact, enabled: entry.status === ALLOWLIST_ENTRY_STATUS.enabled, boundUserId: binding?.owner_user_id ?? null } : null,
     contactBinding: binding ? { ownerUserId: binding.owner_user_id, contact } : null };

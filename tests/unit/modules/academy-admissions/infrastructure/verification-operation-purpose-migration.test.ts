@@ -30,7 +30,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("verification purpose
         }
       });
       const snapshot=()=>database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id,state,version,public_result,lease_owner,lease_until,completed_at from public.academy_admission_operations where tribe_id=${tribeId} order by id`)).rows),before=await snapshot();
-      await database.applyMigration("20261007231500_bind_verification_operation_purpose.sql");expect(await snapshot()).toEqual(before);
+      // The owned branch clones a default branch that already runs this artifact, so its backfill never saw the history seeded above:
+      // rewind exactly what the artifact creates and run the committed SQL again on that history.
+      await database.withContext(fixture.own,async(transaction)=>{
+        await transaction.execute(sql`drop trigger admission_operation_verification_purpose_guard on public.academy_admission_operations`);
+        await transaction.execute(sql`drop function public.guard_admission_operation_verification_purpose()`);
+        await transaction.execute(sql`alter table public.academy_admission_operations drop column verification_purpose`);
+      });
+      await database.rerunMigration("20261007231500_bind_verification_operation_purpose.sql");expect(await snapshot()).toEqual(before);
       const purposes=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id,verification_purpose from public.academy_admission_operations where tribe_id=${tribeId} order by id`)).rows);
       expect(purposes).toEqual(expect.arrayContaining([{id:good.ledgerId,verification_purpose:"connection_diagnostic"},{id:wrong.ledgerId,verification_purpose:null},{id:startedId,verification_purpose:null},{id:deniedId,verification_purpose:null}]));
       await expect(database.withContext(fixture.own,(transaction)=>transaction.execute(sql`update public.academy_admission_operations set verification_purpose='admission' where id=${good.ledgerId}`))).rejects.toMatchObject({cause:{code:"23514"}});

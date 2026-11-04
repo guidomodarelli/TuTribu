@@ -4,7 +4,7 @@ import {z} from "zod";
 import type {ReadMessageDeliveryUseCase} from "@/src/modules/messaging/application/use-cases/read-message-delivery-use-case";
 import type {AdmissionFailure} from "@/src/modules/academy-admissions/application/results/admission-errors";
 import {messageDeliverySchema} from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
-import {messagingFailure} from "@/src/modules/messaging/application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_DIAGNOSTIC_HTTP_OPERATION} from "@/src/modules/messaging/constants/messaging-http";
 import {createMessagingRouteBoundary} from "./messaging-route-http";
@@ -23,7 +23,7 @@ export function createMessageDeliveryHandler(open:()=>Promise<MessageDeliverySer
       const params=boundary.input("params",messagingDeliveryParamsSchema,await context.params);if(!params.usable)return params.response;
       const query=boundary.input("query",deliveryQuerySchema,Object.fromEntries(new URL(request.url).searchParams));if(!query.usable)return query.response;
       const services=await open(),requestId=boundary.requestContext.requestId,routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-      if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+      if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
       const outcome=await services.delivery.execute({tribeId:routing.value.tribeId,deliveryId:params.value.deliveryId,requestId});if(!outcome.ok)return boundary.failure(outcome.failure);
       if(outcome.value.id.toLowerCase()!==params.value.deliveryId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));
       return boundary.success(messageDeliverySchema,outcome.value);

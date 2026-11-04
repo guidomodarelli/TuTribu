@@ -101,7 +101,8 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
         {state.kind === "unavailable" && state.code === "authentication_required" && <Link href={signInHref}>{ADMISSION_UI_COPY.signIn}</Link>}
         {offersUnavailableRetry && <Button type="button" variant="primary" onClick={onRetryUnavailable}>{ADMISSION_UI_COPY.retryUnavailable}</Button>}
         {ready && state.overview.state === ADMISSION_OVERVIEW_STATE.alreadyMember && !accountChanged && <Link href={ROUTES.tribes.academy(state.overview.tribe.slug)}>{ADMISSION_UI_COPY.openAcademy}</Link>}
-        {offersAccountChange && <Button type="button" variant="primary" loading={changingAccount} disabled={busy || !formReady} onClick={onChangeAccount}>{changingAccount ? ADMISSION_UI_COPY.changingAccount : ADMISSION_UI_COPY.changeAccount}</Button>}
+        {/* An unresolved original keeps the account: the change waits for it, like every other action of this page. */}
+        {offersAccountChange && <Button type="button" variant="primary" loading={changingAccount} disabled={blocked} onClick={onChangeAccount}>{changingAccount ? ADMISSION_UI_COPY.changingAccount : ADMISSION_UI_COPY.changeAccount}</Button>}
         {ready && <Button type="button" variant="secondary" disabled={busy || accountChanged} onClick={onRead}>{phase === ADMISSION_UI_PHASE.checking ? ADMISSION_UI_COPY.reading : ADMISSION_UI_COPY.read}</Button>}
         {retryOriginal && <Button type="button" variant="secondary" disabled={busy || accountChanged} onClick={onRetryOriginal}>{ADMISSION_UI_COPY.retryOriginal}</Button>}
         {accountChanged && <Button type="button" variant="secondary" onClick={onReloadAccount}>{ADMISSION_UI_COPY.reloadAccount}</Button>}

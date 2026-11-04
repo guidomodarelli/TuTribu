@@ -7,7 +7,7 @@ import {createAdmissionOperationStateSchema} from "@/src/modules/academy-admissi
 import {messagingCredentialValidationSchema} from "@/src/modules/messaging/application/results/messaging-credential-validation-result";
 import {messagingConnectionParamsSchema,messagingConnectionValidateSchema} from "./messaging-request-schemas";
 import {createMessagingRouteBoundary,messagingOperationHttpStatus} from "./messaging-route-http";
-import {messagingFailure} from "@/src/modules/messaging/application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_HTTP_OPERATION} from "@/src/modules/messaging/constants/messaging-http";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
@@ -29,7 +29,7 @@ export function createMessagingCredentialValidationHandler(open:()=>Promise<Mess
       const query=boundary.input("query",validationQuerySchema,Object.fromEntries(new URL(request.url).searchParams));if(!query.usable)return query.response;
       const body=await boundary.readBody(messagingConnectionValidateSchema);if(!body.usable)return body.response;
       const services=await open(),requestId=boundary.requestContext.requestId,routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-      if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+      if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
       const outcome=await services.validation.execute({...body.value,tribeId:routing.value.tribeId,connectionId:params.value.connectionId,requestId},request.signal);
       if(!outcome.ok)return boundary.failure(outcome.failure);
       const schema=createAdmissionOperationStateSchema(messagingCredentialValidationSchema),parsed=schema.safeParse(outcome.value);

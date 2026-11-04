@@ -2,7 +2,7 @@
 import type { AdmissionRequest } from "./admission-request";
 
 /** Unknown retained producer labels are represented by a safe recorded event. */
-export type AdmissionReviewHistoryEventKind = "pending_created" | "proof_attached" | "approved" | "rejected" | "cancelled" | "expired" | "retry_allowed" | "unclassified";
+export type AdmissionReviewHistoryEventKind = "pending_created" | "proof_attached" | "approved" | "rejected" | "cancelled" | "expired" | "retry_allowed" | "whatsapp_number_changed" | "unclassified";
 /** An absent reference can reflect erasure or a process; it never proves an automated action. */
 export type AdmissionReviewHistoryActorKind = "account" | "unattributed";
 /** Every retained item remains bound to one request and tribe until application projection. */

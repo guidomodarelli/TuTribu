@@ -6,7 +6,7 @@ import type { PersonalInvitationManagementPageState } from "@/src/modules/academ
 
 /** @returns A deterministic current server proposal with no fabricated confirmation or existing resource. */
 function fixture() {
-  const state: Extract<PersonalInvitationManagementPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic", tribeId: randomUUID(), viewerId: randomUUID(), renderedAt: "2026-10-09T12:00:00Z", contactType: "email", requiresAdditionalVerification: false, hasUsableAllowlist: true, allowedCountries: ["AR"], page: { items: [], nextCursor: null }, query: { limit: 25 } };
+  const state: Extract<PersonalInvitationManagementPageState, { kind: "ready" }> = { kind: "ready", slug: "synthetic", tribeId: randomUUID(), viewerId: randomUUID(), renderedAt: "2026-10-09T12:00:00Z", contactType: "email", platformRequirement: null, requiresAdditionalVerification: false, hasUsableAllowlist: true, allowedCountries: ["AR"], page: { items: [], nextCursor: null }, query: { limit: 25 } };
   const draft = { ...emptyPersonalInvitationManagementDraft(state), internalName: " Grupo ", identity: " Recipient.Name+tag@Example.Test " };
   return { state, draft, operationId: randomUUID(), now: new Date(state.renderedAt) };
 }

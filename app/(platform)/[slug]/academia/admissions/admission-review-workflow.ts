@@ -21,6 +21,7 @@ import { invalidateAdmissionNotificationRefresh } from "@/lib/notifications/admi
 import { readVisibleAdmissionReviewSnapshot } from "@/lib/academy-admissions/admission-review-refresh-client";
 import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
 import type { useAdmissionReviewBatchSelection } from "@/hooks/use-admission-review-batch-selection";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Browser phase of the reviewer inbox. */
 export type ReviewPhase = "idle" | "reading" | "writing" | "uncertain" | "changed_viewer";
@@ -39,6 +40,8 @@ export type ReviewControls = {
   setFresh: (value: boolean) => void; setConfirmed: (value: boolean) => void; setCanRetry: (value: boolean) => void; setPrivateVisible: (value: boolean) => void;
   setInternalReason: (value: string) => void; setExternalMessage: (value: string) => void; setStatusMessage: (value: string | null) => void;
   setBatchManifest: (value: AdmissionBatchReviewSelection[]) => void; setBatchPending: (value: boolean) => void; setBatchResult: (value: AdmissionBatchResultDto | null) => void;
+  /** Publishes the platform requirement of the latest inbox read; its ref is what recovery reads. */
+  setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void; platformRequirement: RefObject<PlatformSecurityRequirement | null>;
   pending: RefObject<AdmissionStoredReviewIntent | null>; currentSelected: RefObject<AdmissionReviewDto | null>; loaded: RefObject<boolean>; busy: RefObject<boolean>;
   currentItems: RefObject<AdmissionReviewDto[]>; readController: RefObject<AbortController | null>; writeController: RefObject<AbortController | null>;
   consumedSnapshotAt: RefObject<string | null>; visibleReadRevision: RefObject<number>; loadedPageCount: RefObject<number>;
@@ -88,7 +91,18 @@ function recoverBatchOriginal(session: ReviewSession, original: BatchIntent, ope
   // The authorized original remains visible if the separate inbox read fails; freshness still blocks new decisions.
   session.controls.setPrivateVisible(true);
   if (projected.state === OPERATION_STATE.completed) completeBatch(session, projected);
+  else offerStartedOriginalRetry(session);
   return true;
+}
+
+/**
+ * A registered original that did not finish (its effect rolled back or is still running) can be resent as is: the ledger reclaims it once
+ * nobody works on it and never applies it twice. While the platform cannot protect a decision the resend would stay unresolved, so it is not offered.
+ * @param session - Current route session.
+ * @returns Nothing after offering the retry of the same original.
+ */
+function offerStartedOriginalRetry(session: ReviewSession): void {
+  if (!session.controls.platformRequirement.current) session.controls.setCanRetry(true);
 }
 
 /** @param original - Stored decision. @param result - Recovered transition. @returns Whether it is the exact transition the decision expected. */
@@ -100,7 +114,7 @@ function isExpectedTransition(original: DecisionIntent, result: AdmissionTransit
 /** @param session - Current route session. @param original - Stored decision. @param operation - Recovered operation. @returns Whether the read may continue. */
 function recoverDecisionOriginal(session: ReviewSession, original: DecisionIntent, operation: RecoveredOperation): boolean {
   if (operation.type !== ADMISSION_OPERATION_TYPE.decide || operation.operationId !== original.input.operationId.toLowerCase()) { session.setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return false; }
-  if (operation.state !== OPERATION_STATE.completed) return true;
+  if (operation.state !== OPERATION_STATE.completed) { offerStartedOriginalRetry(session); session.controls.setStatusMessage(ADMISSION_REVIEW_UI_COPY.started); return true; }
   if ("code" in operation.result) {
     if (operation.result.admissionRequestId !== original.requestId.toLowerCase()) { session.setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return false; }
     forgetReviewIntent(session);
@@ -112,6 +126,19 @@ function recoverDecisionOriginal(session: ReviewSession, original: DecisionInten
   return true;
 }
 
+/**
+ * An absent original never registered. While the platform cannot protect a decision every resend would be rejected the same way, so
+ * the original is released instead of offered again, and the reviewer reads why; nothing was recorded.
+ * @param session - Current route session.
+ * @param original - Stored original the registry does not have.
+ * @returns Nothing after forgetting it.
+ */
+function releaseUnprotectedOriginal(session: ReviewSession, original: AdmissionStoredReviewIntent): void {
+  forgetReviewIntent(session);
+  if (isAdmissionBatchReviewIntent(original)) { session.controls.setBatchPending(false); session.controls.setBatchManifest([]); }
+  session.setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.platformSecurityUnavailable]);
+}
+
 /** @param session - Current route session. @param original - Stored original. @param signal - Current read. @returns Whether the read may continue to the inbox window. */
 async function recoverReviewOriginal(session: ReviewSession, original: AdmissionStoredReviewIntent, signal: AbortSignal): Promise<boolean> {
   const { ready, client, controls } = session;
@@ -120,7 +147,11 @@ async function recoverReviewOriginal(session: ReviewSession, original: Admission
   if (signal.aborted || recovery.status === "aborted") return false;
   if (!await session.checkViewer(signal)) return false;
   if (recovery.status === "ready") return isAdmissionBatchReviewIntent(original) ? recoverBatchOriginal(session, original, recovery.value) : recoverDecisionOriginal(session, original, recovery.value);
-  if (recovery.code === ADMISSION_ERROR_CODE.resourceUnavailable) { controls.setCanRetry(true); return true; }
+  if (recovery.code === ADMISSION_ERROR_CODE.resourceUnavailable) {
+    if (controls.platformRequirement.current) releaseUnprotectedOriginal(session, original);
+    else controls.setCanRetry(true);
+    return true;
+  }
   session.handleResourceFailure(recovery);
   return false;
 }
@@ -145,7 +176,7 @@ async function readReviewWindow(session: ReviewSession, signal: AbortSignal, { s
   const existing = new Set(controls.currentItems.current.map((item) => item.id));
   session.publishItems(append ? [...controls.currentItems.current, ...page.value.items.filter((item) => !existing.has(item.id))] : page.value.items);
   controls.loadedPageCount.current = append ? controls.loadedPageCount.current + 1 : 1;
-  controls.setCursor(page.value.nextCursor);
+  controls.setCursor(page.value.nextCursor); controls.setPlatformRequirement(page.value.platformRequirement);
   const selectedValue = detail?.status === "ready" ? detail.value : null;
   controls.setSelected(selectedValue); controls.currentSelected.current = selectedValue; controls.setPrivateVisible(true); controls.setFresh(true); session.clearReadError();
   return true;
@@ -197,7 +228,7 @@ export async function refreshVisibleReviewWindow(session: ReviewSession, signal:
     if (!await session.checkViewer(signal, true)) return quietViewerFailure(controls, signal);
     if (!current()) return NOTIFICATION_REFRESH_OUTCOME.skipped;
     session.publishItems(snapshot.value.items);
-    controls.setCursor(snapshot.value.nextCursor);
+    controls.setCursor(snapshot.value.nextCursor); controls.setPlatformRequirement(snapshot.value.platformRequirement);
     if (JSON.stringify(controls.currentSelected.current) !== JSON.stringify(snapshot.value.selected)) { controls.setSelected(snapshot.value.selected); controls.currentSelected.current = snapshot.value.selected; controls.setConfirmed(false); }
     controls.setFresh(true); session.clearReadError();
     return NOTIFICATION_REFRESH_OUTCOME.refreshed;
@@ -270,12 +301,10 @@ export async function sendReviewIntent(session: ReviewSession, focus: ReviewDeci
   }
 }
 
-/** @param items - Loaded window. @param selection - Selected batch rows. @returns Which batch decisions the selection allows and whether approving needs the shared reason. */
+/** @param items - Loaded window. @param selection - Selected batch rows. @returns Which batch decisions the selection allows; the shared internal reason is always optional. */
 export function batchAvailabilityFor(items: AdmissionReviewDto[], selection: readonly AdmissionBatchReviewSelection[]) {
   const visible = new Map(items.map((item) => [item.id, item]));
-  return { approve: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.approve)), reject: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.reject)),
-    /** One selected exception makes the shared reason necessary for approving the batch. */
-    approveRequiresReason: selection.some((selected) => visible.get(selected.requestId)?.restrictions.requiresExceptionReason === true) };
+  return { approve: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.approve)), reject: selection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.reject)) };
 }
 
 /** @param items - Loaded window. @param selection - Batch manifest. @param decision - Requested decision. @returns Whether every row is still pending at its selected version and at least one allows the decision. */

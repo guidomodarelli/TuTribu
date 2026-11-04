@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ManageMessagingUsageUseCases } from "../../application/use-cases/manage-messaging-usage-use-cases";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { messagingFailure } from "../../application/results/messaging-errors";
-import { messagingUsagePolicyStateSchema, messagingUsagePolicySchema } from "../../application/results/messaging-public-result-schemas";
+import { messagingUsageCurrentSchema, messagingUsagePolicySchema } from "../../application/results/messaging-public-result-schemas";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { createMessagingRouteBoundary, messagingOperationHttpStatus } from "./messaging-route-http";
 import { messagingTribeParamsSchema, messagingUsagePolicyCreateSchema, messagingUsagePolicyUpdateSchema } from "./messaging-request-schemas";
@@ -16,7 +16,7 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 /** The resolver is read-only; usage derives account and canonical leadership server-side. */
 export type MessagingUsagePolicyServices = {
   resolveTribe: { execute(query: { slug: string; requestId: string }): Promise<{ ok: true; value: { tribeId: string } } | { ok: false; failure: AdmissionFailure }> };
-  usage: Pick<ManageMessagingUsageUseCases, "read" | "initialize" | "update">;
+  usage: Pick<ManageMessagingUsageUseCases, "readPage" | "initialize" | "update">;
 };
 type UsageRouteContext = { params: Promise<{ slug: string }> };
 type UsageCommandScope = { tribeId: string; requestId: string };
@@ -59,7 +59,7 @@ export function createMessagingUsagePolicyHandlers(open: () => Promise<Messaging
   }
 
   return {
-    /** @param request - Native input. @param context - Current framework params. @returns True absence or the current own DTO, with no initialization. */
+    /** @param request - Native input. @param context - Current framework params. @returns True absence or the current own DTO with the platform requirement of its saves, with no initialization. */
     async read(request: Request, context: UsageRouteContext): Promise<Response> {
       const boundary = createMessagingRouteBoundary({ request, operation: MESSAGING_HTTP_OPERATION.usageRead });
       try {
@@ -70,8 +70,8 @@ export function createMessagingUsagePolicyHandlers(open: () => Promise<Messaging
         const services = await open(), requestId = boundary.requestContext.requestId;
         const identity = await resolveScope(services, params.value.slug, requestId);
         if (!identity.ok) return boundary.failure(identity.failure);
-        const result = await services.usage.read({ tribeId: identity.value.tribeId, requestId });
-        return result.ok ? boundary.success(messagingUsagePolicyStateSchema, result.value) : boundary.failure(result.failure);
+        const result = await services.usage.readPage({ tribeId: identity.value.tribeId, requestId });
+        return result.ok ? boundary.success(messagingUsageCurrentSchema, result.value) : boundary.failure(result.failure);
       } catch (error) { return boundary.unexpected(error); }
     },
     /** @param request - Explicit confirmed initialization. @param context - Canonical framework params. @returns Original defaults/existing resource without a caller-chosen version or reset. */

@@ -7,9 +7,9 @@ import type { AdmissionPolicyActivationReason } from "../policies/admission-poli
  * which reads the current requirements on its own.
  */
 export class AdmissionPolicyRequirementError extends Error {
-  /** @param code - Closed requirement code from the activation or configuration rules. */
-  constructor(public readonly code: AdmissionPolicyActivationReason) {
-    super(`AdmissionPolicy requirement unmet: ${code}`);
+  /** @param code - Closed requirement code from the activation or configuration rules. @param options - Original failure that proves the requirement, kept as the private cause. */
+  constructor(public readonly code: AdmissionPolicyActivationReason, options?: { cause?: unknown }) {
+    super(`AdmissionPolicy requirement unmet: ${code}`, options);
     this.name = "AdmissionPolicyRequirementError";
   }
 }

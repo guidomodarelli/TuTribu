@@ -8,7 +8,7 @@
     "section": null,
     "subflow": "Cambiar de cuenta"
   },
-  "description": "Cerrar la sesión actual para ingresar con otra cuenta desde el enlace de admisión.",
+  "description": "Cerrar la sesión actual para ingresar con otra cuenta desde el enlace de admisión o la solicitud propia: abre el selector de cuentas de Google y vuelve a la entrada de la academia.",
   "routes": [
     "/admissions/[slug]"
   ],

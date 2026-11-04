@@ -21,15 +21,19 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
-import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute, type AdmissionReviewDateFilter } from "@/lib/academy-admissions/admission-review-filters";
+import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute, describeAdmissionReviewDialogFilters, discardAdmissionReviewDialogEdits, removeAdmissionReviewDialogFilter, type AdmissionReviewDateFilter, type AdmissionReviewDialogField, type AdmissionReviewFilterDraft } from "@/lib/academy-admissions/admission-review-filters";
 import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/application/results/admission-review-selection";
 import { buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admission-review-history-routes";
 import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
 import { useAdmissionViewFeedback } from "@/hooks/use-admission-view-feedback";
+import { useAdmissionRouteLocation } from "@/hooks/use-admission-route-location";
+import { resolveAdmissionRouteRecovery, type AdmissionRouteLocation } from "@/lib/academy-admissions/admission-route-recovery";
+import { BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
 import { useReplacedActionFocus } from "@/hooks/use-replaced-action-focus";
 import { useAdmissionReviewBatchSelection } from "@/hooks/use-admission-review-batch-selection";
 import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
 import type { AdmissionNotificationRefreshOutcome } from "@/src/modules/notifications/application/results/notification-refresh-state";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { applyReviewTransitions, batchAvailabilityFor, closeReviewSelection, hideReviewPrivate, isBatchDecisionValid, publishReviewItems, readReviewCurrent, refreshVisibleReviewWindow, sendReviewIntent, startReviewLifecycle, startReviewRead, type ReviewControls, type ReviewPhase, type ReviewReader, type ReviewReady, type ReviewSession } from "./admission-review-workflow";
 
 /** Public props contain the server snapshot and an optional own transport port for behavioral tests. */
@@ -45,17 +49,21 @@ function useReviewState(ready: ReviewReady | null) {
   const [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
   const [internalReason, setInternalReason] = useState(""), [externalMessage, setExternalMessage] = useState("");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // A link to a request this tribe does not have keeps the inbox and explains why nothing is open.
+  const [statusMessage, setStatusMessage] = useState<string | null>(ready?.selectionUnavailable ? ADMISSION_REVIEW_UI_COPY.selectionUnavailable : null);
   const [batchManifest, setBatchManifest] = useState<AdmissionBatchReviewSelection[]>([]), [batchPending, setBatchPending] = useState(false);
   const [batchResult, setBatchResult] = useState<AdmissionBatchResultDto | null>(null);
+  const [platformRequirement, setPlatformRequirementState] = useState<PlatformSecurityRequirement | null>(ready?.page.platformRequirement ?? null);
+  const currentPlatformRequirement = useRef<PlatformSecurityRequirement | null>(ready?.page.platformRequirement ?? null);
   const pending = useRef<AdmissionStoredReviewIntent | null>(null), currentSelected = useRef(selected), loaded = useRef(false), busy = useRef(false);
   const currentItems = useRef<AdmissionReviewDto[]>(ready?.page.items ?? []);
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
   const consumedSnapshotAt = useRef<string | null>(null);
   const visibleReadRevision = useRef(0), loadedPageCount = useRef(1);
   /** Setters and refs never change identity, so one stable bundle serves every read and write. */
-  const controls = useMemo<ReviewControls>(() => ({ setItems, setCursor, setSelected, setPhase, setWritingAction, setFresh, setConfirmed, setCanRetry, setPrivateVisible, setInternalReason, setExternalMessage, setStatusMessage, setBatchManifest, setBatchPending, setBatchResult, pending, currentSelected, loaded, busy, currentItems, readController, writeController, consumedSnapshotAt, visibleReadRevision, loadedPageCount }), []);
-  return { items, cursor, selected, phase, writingAction, fresh, confirmed, canRetry, privateVisible, internalReason, externalMessage, statusMessage, batchManifest, batchPending, batchResult, controls };
+  const controls = useMemo<ReviewControls>(() => ({ setItems, setCursor, setSelected, setPhase, setWritingAction, setFresh, setConfirmed, setCanRetry, setPrivateVisible, setInternalReason, setExternalMessage, setStatusMessage, setBatchManifest, setBatchPending, setBatchResult,
+    setPlatformRequirement: (value: PlatformSecurityRequirement | null) => { currentPlatformRequirement.current = value; setPlatformRequirementState(value); }, platformRequirement: currentPlatformRequirement, pending, currentSelected, loaded, busy, currentItems, readController, writeController, consumedSnapshotAt, visibleReadRevision, loadedPageCount }), []);
+  return { items, cursor, selected, phase, writingAction, fresh, confirmed, canRetry, privateVisible, internalReason, externalMessage, statusMessage, batchManifest, batchPending, batchResult, platformRequirement, controls };
 }
 
 /** Inputs of the shared read and write callbacks. */
@@ -71,7 +79,8 @@ function useReviewSession({ ready, client, controls, appliedFilters, batchAction
     if (!ready || signal.aborted) return false;
     const viewer = await client.viewer(signal);
     if (signal.aborted || viewer.status === "aborted") return false;
-    if (viewer.status === "failed") { if (!quiet) { controls.setPrivateVisible(false); controls.setFresh(false); setReadErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); } return false; }
+    // A session that could not be read proves no account change: the inbox stays, without fresh decisions, until it is checked again.
+    if (viewer.status === "failed") { if (!quiet) { controls.setFresh(false); setReadErrorMessage(BROWSER_SESSION_CHECK_MESSAGE); } return false; }
     if (viewer.value?.id !== ready.viewerId) { hideReviewPrivate({ controls, batchActions, setErrorMessage }, ADMISSION_REVIEW_UI_COPY.changedViewer, true); return false; }
     return true;
   }, [client, ready, controls, batchActions, setErrorMessage, setReadErrorMessage]);
@@ -101,9 +110,9 @@ function reviewFlags(view: ReviewView, { navigating, batchCount, errorMessage, r
   };
 }
 
-/** @param initialState - Server state. @param view - Inbox state. @param errorMessage - Page feedback. @param retry - Explicit reread of the open request. @returns The route error that replaces the inbox, or null when the inbox may render. */
-function reviewRouteError(initialState: AdmissionReviewPageState, view: ReviewView, errorMessage: string | null, retry: () => void) {
-  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} retry={() => window.location.reload()} />;
+/** @param initialState - Server state. @param view - Inbox state. @param recovery - Page feedback, the explicit reread of the open request and the current address (for the recovery of a server failure). @returns The route error that replaces the inbox, or null when the inbox may render. */
+function reviewRouteError(initialState: AdmissionReviewPageState, view: ReviewView, { errorMessage, retry, location }: { errorMessage: string | null; retry: () => void; location: AdmissionRouteLocation }) {
+  if (initialState.kind !== "ready") return <AdmissionRouteError embedded message={initialState.message} {...resolveAdmissionRouteRecovery(initialState.code, location)} />;
   if (view.phase === ADMISSION_REVIEW_PHASE.changedViewer) return <AdmissionRouteError embedded message={ADMISSION_REVIEW_UI_COPY.changedViewer} retry={() => window.location.reload()} />;
   if (!view.privateVisible && view.phase !== ADMISSION_REVIEW_PHASE.reading) return <AdmissionRouteError message={errorMessage ?? ADMISSION_REVIEW_UI_COPY.readFailed} retry={retry} />;
   return null;
@@ -111,8 +120,8 @@ function reviewRouteError(initialState: AdmissionReviewPageState, view: ReviewVi
 
 /** @param view - Inbox state. @param slug - Route scope. @param filters - Current inbox filters. @returns The private presenter facts, hidden while the private view is withheld. */
 function visibleReviewProps(view: ReviewView, slug: string, filters: AdmissionReviewSelection) {
-  if (!view.privateVisible) return { items: [], selected: null, hasMore: false, statusMessage: ADMISSION_REVIEW_UI_COPY.reading, historyHref: undefined };
-  return { items: view.items, selected: view.selected, hasMore: view.cursor !== null, statusMessage: view.statusMessage, historyHref: view.selected ? buildAdmissionReviewHistoryRoute(slug, view.selected.id, filters) : undefined };
+  if (!view.privateVisible) return { items: [], selected: null, hasMore: false, statusMessage: ADMISSION_REVIEW_UI_COPY.reading, historyHref: undefined, platformRequirement: null };
+  return { items: view.items, selected: view.selected, hasMore: view.cursor !== null, statusMessage: view.statusMessage, historyHref: view.selected ? buildAdmissionReviewHistoryRoute(slug, view.selected.id, filters) : undefined, platformRequirement: view.platformRequirement };
 }
 
 /** Everything the reviewer interactions read; it grants no authority. */
@@ -167,7 +176,7 @@ function reviewInteractions({ view, batchActions, setErrorMessage, flags, send, 
 /** @param props - Guarded deterministic server state and own client adapter. @returns A single route owner; presenters receive callbacks only. */
 export function AdmissionReviewContainer({ initialState, client = admissionApiClient }: ReviewContainerProps) {
   const ready = initialState.kind === "ready" ? initialState : null;
-  const router = useRouter(), [navigating, startNavigation] = useTransition();
+  const router = useRouter(), [navigating, startNavigation] = useTransition(), location = useAdmissionRouteLocation();
   const appliedFilters = ready?.filters ?? DEFAULT_ADMISSION_REVIEW_SELECTION;
   const [filterDraft, setFilterDraft] = useState(() => createAdmissionReviewFilterDraft(appliedFilters));
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -187,7 +196,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const launchRead = useCallback((selectionId?: string, append = false, after?: string | null) => startReviewRead(controls, batchActions, readCurrent, { selectionId, append, after }), [controls, batchActions, readCurrent]);
   useEffect(() => startReviewLifecycle(controls, ready?.renderedAt ?? null, readCurrent, launchRead), [readCurrent, launchRead, ready, controls]);
   const batchAvailability = useMemo(() => batchAvailabilityFor(view.items, batchSelection), [view.items, batchSelection]);
-  const routeError = reviewRouteError(initialState, view, errorMessage, () => launchRead(controls.currentSelected.current?.id));
+  const routeError = reviewRouteError(initialState, view, { errorMessage, retry: () => launchRead(controls.currentSelected.current?.id), location });
   if (routeError || !ready || !session) return routeError;
   const flags = reviewFlags(view, { navigating, batchCount: batchSelection.length, errorMessage, refreshUnavailable }), { uncertain, pendingAction, reading, formDisabled } = flags;
   /** @param intent - Exact individual or batch original. @param action - Control the reviewer pressed. @returns Nothing after the write settles. */
@@ -197,22 +206,33 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
    * Navigates after validation; the server entrypoint rechecks authority and owns the next initial read.
    * @param filters - The validated selection for the next server snapshot.
    * @param resetDraft - Whether explicit reset must discard unapplied edits even on the same route.
-   * @returns Nothing; blocked navigation preserves the current draft and reports its cause.
+   * @returns Whether the navigation started; blocked navigation preserves the current draft and reports its cause.
    */
-  const navigateFilters = (filters: AdmissionReviewSelection, resetDraft = false) => {
-    if (act.locked() || !fresh || phase !== ADMISSION_REVIEW_PHASE.idle || navigating) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.blocked); return; }
+  const navigateFilters = (filters: AdmissionReviewSelection, resetDraft = false): boolean => {
+    if (act.locked() || !fresh || phase !== ADMISSION_REVIEW_PHASE.idle || navigating) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.blocked); return false; }
     if (resetDraft) { setFilterDraft(createAdmissionReviewFilterDraft(filters)); editedDateFilters.current.clear(); }
     controls.readController.current?.abort(); controls.setConfirmed(false); setErrorMessage(null); controls.setStatusMessage(null); setFilterError(null); batchActions.clear(); controls.setBatchManifest([]); controls.setBatchResult(null);
     startNavigation(() => router.push(buildAdmissionReviewSelectionRoute(ready.slug, filters)));
+    return true;
   };
-  /** @returns Nothing after navigating to the parsed draft, or reporting an invalid one. */
-  const applyFilters = () => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, filterDraft, appliedFilters.limit, { original: appliedFilters, editedDates: editedDateFilters.current }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return; } navigateFilters(parsed.filters); };
+  /**
+   * @param draft - Editable strings to apply.
+   * @param editedDates - Date filters the reviewer edited, which replace their original instants.
+   * @returns Whether the parsed draft started its navigation; an invalid one is reported instead.
+   */
+  const applyDraft = (draft: AdmissionReviewFilterDraft, editedDates: ReadonlySet<AdmissionReviewDateFilter>) => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, draft, appliedFilters.limit, { original: appliedFilters, editedDates }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return false; } return navigateFilters(parsed.filters); };
+  /** @returns Whether the whole draft (search and dialog) started its navigation. */
+  const applyFilters = () => applyDraft(filterDraft, editedDateFilters.current);
+  /** @param field - Dialog filter whose chip was removed. @returns Nothing after applying the selection without it and with the typed search. */
+  const removeFilter = (field: AdmissionReviewDialogField) => { const draft = removeAdmissionReviewDialogFilter(filterDraft, appliedFilters, field); if (applyDraft(draft, new Set())) { setFilterDraft(draft); editedDateFilters.current.clear(); } };
+  /** @returns Nothing after putting the dialog fields back on the applied selection, so a dismissed dialog applies nothing later. */
+  const discardFilterEdits = () => { setFilterDraft((current) => discardAdmissionReviewDialogEdits(current, appliedFilters)); editedDateFilters.current.clear(); setFilterError(null); };
   /** @param field - Edited filter. @param value - New draft value. @returns Nothing after remembering edited dates and clearing the filter error. */
   const changeFilter: ComponentProps<typeof AdmissionReviewFilters>["onChange"] = (field, value) => { if (field === "submittedFrom" || field === "submittedUntil") editedDateFilters.current.add(field); setFilterDraft((current) => ({ ...current, [field]: value })); setFilterError(null); };
-  return <AdmissionReview statusRef={decisionStatusRef} filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} onChange={changeFilter} onApply={applyFilters} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} /> : undefined}
+  return <AdmissionReview statusRef={decisionStatusRef} filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} appliedFilters={describeAdmissionReviewDialogFilters(appliedFilters)} onChange={changeFilter} onApply={applyFilters} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} onDiscard={discardFilterEdits} onRemoveFilter={removeFilter} /> : undefined}
     recovery={batchPending ? null : undefined}
     batchSelection={{ ids: new Set(batchSelection.map((item) => item.requestId)), disabled: formDisabled || uncertain, onToggle: act.toggleBatchRow }}
-    batch={privateVisible && flags.batchContext ? <AdmissionBatchReview selection={batchSelection} manifest={view.batchManifest} result={batchResult} pending={batchPending} pendingAction={pendingAction} canRetry={canRetry} disabled={formDisabled} busy={reading} internalReason={internalReason} externalMessage={externalMessage} confirmed={batchConfirmed} errorMessage={flags.reviewError} allowApprove={batchAvailability.approve} allowReject={batchAvailability.reject} approveRequiresReason={batchAvailability.approveRequiresReason} onInternalReason={(value) => act.editBatchReason(() => controls.setInternalReason(value))} onExternalMessage={(value) => act.editBatchReason(() => controls.setExternalMessage(value))} onConfirm={act.confirmBatch} onClear={act.clearBatch} onRetry={act.retryOriginal} onDecision={act.decideBatch} /> : undefined}
+    batch={privateVisible && flags.batchContext ? <AdmissionBatchReview selection={batchSelection} manifest={view.batchManifest} result={batchResult} pending={batchPending} pendingAction={pendingAction} canRetry={canRetry} disabled={formDisabled} busy={reading} internalReason={internalReason} externalMessage={externalMessage} confirmed={batchConfirmed} errorMessage={flags.reviewError} allowApprove={batchAvailability.approve} allowReject={batchAvailability.reject} onInternalReason={(value) => act.editBatchReason(() => controls.setInternalReason(value))} onExternalMessage={(value) => act.editBatchReason(() => controls.setExternalMessage(value))} onConfirm={act.confirmBatch} onClear={act.clearBatch} onRetry={act.retryOriginal} onDecision={act.decideBatch} /> : undefined}
     {...visibleReviewProps(view, ready.slug, appliedFilters)} busy={reading} pendingAction={pendingAction} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={flags.batchContext ? null : flags.reviewError} uncertain={uncertain} canRetry={canRetry}
     onSelect={act.select} onClose={() => closeReviewSelection(controls)}
     onRead={() => launchRead(controls.currentSelected.current?.id)} onLoadMore={() => launchRead(undefined, true, view.cursor)} onConfirm={(value) => { controls.setConfirmed(value); setErrorMessage(null); }}

@@ -1,7 +1,7 @@
 "use client";
 /** Consumes own list DTOs and preserves original uncertainty without automatic retries or route refresh. @module allowlist-api-client */
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
-import { allowlistPageSchema } from "@/src/modules/academy-admissions/application/results/allowlist-query-schemas";
+import { allowlistListReadSchema } from "@/src/modules/academy-admissions/application/results/allowlist-query-schemas";
 import { allowlistEntrySchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
 import { allowlistMutationResultSchema } from "@/src/modules/academy-admissions/application/results/allowlist-mutation-schemas";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
@@ -18,7 +18,7 @@ export function createAllowlistApiClient(options: { fetch?: typeof fetch; viewer
   const base = (slug: string) => `${ALLOWLIST_BROWSER_PATH.prefix}/${encodeURIComponent(slug)}/${ALLOWLIST_BROWSER_PATH.segment}`;
   return {
     viewer: options.viewer ?? (async (signal) => { const result = await admissionApiClient.viewer(signal); return result.status === "failed" ? failure(result.code) : result; }),
-    list: (slug, query, signal) => { const search = new URLSearchParams({ limit: String(query.limit), ...(query.search ? { search: query.search } : {}), ...(query.status ? { status: query.status } : {}), ...(query.cursor ? { cursor: query.cursor } : {}) }); return request(`${base(slug)}/${ALLOWLIST_BROWSER_PATH.entries}?${search}`, allowlistPageSchema, signal); },
+    list: (slug, query, signal) => { const search = new URLSearchParams({ limit: String(query.limit), ...(query.search ? { search: query.search } : {}), ...(query.status ? { status: query.status } : {}), ...(query.cursor ? { cursor: query.cursor } : {}) }); return request(`${base(slug)}/${ALLOWLIST_BROWSER_PATH.entries}?${search}`, allowlistListReadSchema, signal); },
     read: async (slug, entryId, signal) => { const result = await request(`${base(slug)}/${ALLOWLIST_BROWSER_PATH.entries}/${encodeURIComponent(entryId)}`, allowlistEntrySchema, signal); return result.status === "ready" && result.value.id !== entryId.toLowerCase() ? failure(ADMISSION_ERROR_CODE.publicContractUnusable) : result; },
     operation: (slug, operationId, signal) => request(`${base(slug)}/${ALLOWLIST_BROWSER_PATH.operations}/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     write: async (slug, intent, signal) => {

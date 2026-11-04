@@ -35,6 +35,7 @@ import { authorizeAdmissionLeader, admissionDatabaseNow } from "./postgres-admis
 import { allowlistImportPreviewSnapshotSchema, allowlistImportDenialSchema, allowlistImportConfirmationSnapshotSchema } from "../../application/results/allowlist-import-operation-schemas";
 import { createAdmissionContactFingerprint } from "../verification/admission-contact-fingerprint";
 import type { AllowlistEntryRow } from "./allowlist-entry-row-mapper";
+import { assertAllowlistImportProtection } from "./allowlist-import-protection";
 import { mapAllowlistImport, type AllowlistImportRecord, type AllowlistImportStoredRow, type AllowlistImportValidation, type AllowlistImportObservedEntry } from "./allowlist-import-row-mapper";
 
 type ContextExecutor = <Result>(context: AuthorizedAdmissionContext, work: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -140,7 +141,8 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
   private async confirmStep(database: RequestDatabase, ledgerId: string, input: Parameters<AllowlistImportRepository["confirm"]>[0], selectedRows: number[]): Promise<{ completed: false } | { completed: true; result: AllowlistImportConfirmationResult }> {
     const policy = await this.policy(database, input.context), record = await this.record(database, input.context, input.importId, true);
     const config = await this.readSecurityConfig();
-    if (config.recoveryLocked || config.environment !== record.security_environment || config.securityEpoch !== record.security_epoch || !config.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].keys.has(record.fingerprint_key_id)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    // A platform lock keeps the original unresolved; a rotated environment, epoch or key invalidates this import for good.
+    assertAllowlistImportProtection(config, { environment: record.security_environment, securityEpoch: record.security_epoch, key: { purpose: MESSAGING_KEY_PURPOSE.operationPayload, keyId: record.fingerprint_key_id } });
     if (policy.version !== record.policy_version || policy.contact_type !== record.contact_type) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
     if (record.active_operation_id !== ledgerId) return this.acceptSelection(database, ledgerId, { input, selectedRows, record, policy });
     const pending = (await database.execute<AllowlistImportStoredRow>(sql`select * from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and row_number in (${sql.join(selectedRows.map((rowNumber) => sql`${rowNumber}`), sql`,`)}) and outcome is null order by row_number limit ${ALLOWLIST_IMPORT_BLOCK_SIZE} for update`)).rows;
@@ -175,8 +177,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
   /** @param database - One original transaction. @param ledgerId - Actual current claim. @param block - Immutable public command, locked own import, pending selected rows and the protected key snapshot. @returns Progress after confirming one bounded block. @throws AdmissionOperationError when protection or lifetime changed meanwhile. */
   private async confirmBlock(database: RequestDatabase, ledgerId: string, { input, record, pending, config }: { input: Parameters<AllowlistImportRepository["confirm"]>[0]; record: AllowlistImportRecord; pending: AllowlistImportStoredRow[]; config: MessagingSecurityConfig }): Promise<{ completed: false }> {
     for (const row of pending) await this.confirmRow(database, ledgerId, { record, row, config, context: input.context });
-    const currentConfig = await this.readSecurityConfig();
-    if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !currentConfig.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].keys.has(config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].activeKeyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    assertAllowlistImportProtection(await this.readSecurityConfig(), { environment: config.environment, securityEpoch: config.securityEpoch, key: { purpose: MESSAGING_KEY_PURPOSE.contactFingerprint, keyId: config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint].activeKeyId } });
     if (new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const completed = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and outcome is not null`)).rows[0].count;
     await database.execute(sql`update public.academy_allowlist_imports set completed_rows=${completed},version=version+1 where id=${record.id} and version=${record.version}`);
@@ -189,8 +190,7 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
     if (remaining === 0 && record.state !== ADMISSION_IMPORT_PUBLIC_STATE.completed) {
       await database.execute(sql`update public.academy_allowlist_import_rows set outcome=${ADMISSION_IMPORT_ROW_OUTCOME.skipped},confirmed_operation_id=${ledgerId},committed_at=clock_timestamp() where import_id=${record.id} and tribe_id=${record.tribe_id} and outcome is null and row_number not in (${sql.join(record.selected_rows.map((rowNumber) => sql`${rowNumber}`), sql`,`)})`);
       if (new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      const finalConfig = await this.readSecurityConfig();
-      if (finalConfig.recoveryLocked || finalConfig.environment !== record.security_environment || finalConfig.securityEpoch !== record.security_epoch || !finalConfig.keyrings[MESSAGING_KEY_PURPOSE.operationPayload].keys.has(record.fingerprint_key_id)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      assertAllowlistImportProtection(await this.readSecurityConfig(), { environment: record.security_environment, securityEpoch: record.security_epoch, key: { purpose: MESSAGING_KEY_PURPOSE.operationPayload, keyId: record.fingerprint_key_id } });
       const completed = (await database.execute<{ count: number }>(sql`select count(*)::int as count from public.academy_allowlist_import_rows where import_id=${record.id} and tribe_id=${record.tribe_id} and outcome is not null`)).rows[0].count;
       await database.execute(sql`update public.academy_allowlist_imports set state=${ADMISSION_IMPORT_PUBLIC_STATE.completed},completed_rows=${completed},version=version+1 where id=${record.id} and version=${record.version}`);
       return { completed: true, result: await this.confirmationResult(database, { ...record, version: record.version + 1, completed_rows: completed, state: ADMISSION_IMPORT_PUBLIC_STATE.completed }) };

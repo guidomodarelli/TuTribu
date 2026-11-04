@@ -6,6 +6,8 @@ import type { MessagingUsagePolicyResult, MessagingUsagePolicyStateResult } from
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { MessagingPublicError } from "./messaging-errors";
+import type { MessagingUsagePageRead } from "../../domain/repositories/messaging-usage-operations";
+import { PLATFORM_SECURITY_REQUIREMENT } from "@/src/modules/shared/constants/platform-security";
 
 export { messagingConnectionSchema, providerResourcePageSchema, verificationChallengeSchema, verificationResultSchema, messageDeliverySchema } from "./messaging-flow-result-schemas";
 
@@ -26,9 +28,15 @@ export const messagingUsagePolicyStateSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal(MESSAGING_USAGE_POLICY_STATE.configured), policy: messagingUsagePolicySchema }),
 ]) satisfies z.ZodType<MessagingUsagePolicyStateResult>;
 
+/** Current usage read of the browser: the configuration plus what only the TuTribu team can resolve before a save can be protected, from one authorized read. */
+export const messagingUsageCurrentSchema = z.object({
+  usage: messagingUsagePolicyStateSchema, platformRequirement: z.enum(PLATFORM_SECURITY_REQUIREMENT).nullable(),
+}) satisfies z.ZodType<MessagingUsagePageRead<MessagingUsagePolicyStateResult>>;
+
 /** Existing versioned policy and missing-resource state are separate own DTOs. */
 export type MessagingUsagePolicyDto = z.infer<typeof messagingUsagePolicySchema>;
 export type MessagingUsagePolicyStateDto = z.infer<typeof messagingUsagePolicyStateSchema>;
+export type MessagingUsageCurrentDto = z.infer<typeof messagingUsageCurrentSchema>;
 
 /** Error DTOs contain only catalogue copy and progress already authorized by its owner. */
 export const messagingPublicErrorSchema = z.object({

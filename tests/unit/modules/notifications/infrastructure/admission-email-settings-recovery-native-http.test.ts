@@ -32,7 +32,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
           expect(response.headers()["referrer-policy"]).toBe("no-referrer");
           const current = await runPrivateBrowserRequest("read_current_settings_after_original", () => client.get(`${prefix}/email-settings`));
           expect(current.status()).toBe(200);
-          expect(await current.json()).toEqual({ enabled: false, version: 2, timeZone: "UTC" });
+          expect(await current.json()).toEqual({ settings: { enabled: false, version: 2, timeZone: "UTC" }, platformRequirement: null });
           await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.read.sessionId}`));
           const mutation = await runPrivateBrowserRequest("deny_email_change_after_session_expiry", () => client.post(`${prefix}/email-settings`, { data: fixture.command(2, true) }));
           expect(mutation.status()).toBe(401);

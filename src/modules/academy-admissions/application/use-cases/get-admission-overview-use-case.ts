@@ -5,6 +5,7 @@ import { admissionOverviewSchema, admissionOwnRequestSchema } from "../results/a
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { ownAdmissionSnapshot } from "../results/own-admission-snapshot";
 import { readLiveAdmissionAccount, confirmSameAdmissionAccount } from "./admission-account-continuity";
+import { retryAdmissionReadRace } from "./admission-read-race";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -59,6 +60,13 @@ function presentAdmissionOverview({ facts, request, membershipEligibility, signe
   return { state: ADMISSION_OVERVIEW_STATE.available, nextAction: ADMISSION_NEXT_ACTION.requestAdmission, safeMessage: ADMISSION_OVERVIEW_MESSAGE.available };
 }
 
+/** @param candidate - Own request facts read for this account. @returns The own request DTO. @throws AdmissionOperationError when it breaks the own contract, with the rejection as cause. */
+function parseOwnRequest(candidate: unknown): ReturnType<typeof admissionOwnRequestSchema.parse> {
+  const parsed = admissionOwnRequestSchema.safeParse(candidate);
+  if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: parsed.error });
+  return parsed.data;
+}
+
 /** The application owns navigation hints; the writer rechecks real eligibility under locks. */
 export class GetAdmissionOverviewUseCase {
   /** @param accounts - Native current account; null is an explicit public read. @param reader - Own read-only fact projection, not a provider DTO. @param clock - Fresh time sampled after awaited facts. */
@@ -68,11 +76,12 @@ export class GetAdmissionOverviewUseCase {
     try {
       const first = await readLiveAdmissionAccount(this.accounts, this.clock);
       const scope = first ? { userId: first.userId, sessionId: first.session.id } : null;
-      const facts = await this.reader.readOverview(query, scope);
+      // Saving the rules or deciding the request between two statements of the read is a race, not a conflict: it is read once more.
+      const facts = await retryAdmissionReadRace(() => this.reader.readOverview(query, scope));
       const { now } = await confirmSameAdmissionAccount(this.accounts, first, this.clock);
       if (facts?.tribe.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       if (!scope && (facts.membership !== null || facts.request !== null)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      const request = facts.request === null ? null : admissionOwnRequestSchema.parse(facts.request);
+      const request = facts.request === null ? null : parseOwnRequest(facts.request);
       const membership = facts.membership;
       const membershipEligibility = evaluateAcademyMembershipEligibility(membership);
       const { state, nextAction, safeMessage } = presentAdmissionOverview({ facts, request, membershipEligibility, signedIn: scope !== null, now });

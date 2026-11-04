@@ -130,7 +130,7 @@ describe("browser request deadline", () => {
     it("ends a hung checkout with the timeout copy instead of leaving it open", async () => {
       vi.stubGlobal("fetch", hungFetch());
 
-      await expect(afterDeadline(startAcademyCheckout(SLUG, 3))).resolves.toEqual({ isSuccess: false, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, status: 0 });
+      await expect(afterDeadline(startAcademyCheckout(SLUG, { acceptedOfferVersion: 3, acceptedPrice: null }))).resolves.toEqual({ isSuccess: false, message: BROWSER_REQUEST_TIMEOUT_MESSAGE, status: 0 });
     });
 
     it("never reports success when the response body stalls past the deadline", async () => {

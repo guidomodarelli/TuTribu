@@ -107,9 +107,9 @@ export function getOwnAcademyAccess({
       return { status: "not_found" };
     }
 
-    const [verificationStates, renewalStatus] = await Promise.all([
+    const [verificationStates, renewal] = await Promise.all([
       ownVerificationStatesReader.listOwnVerificationStates({ tribeSlug: normalizedSlug }),
-      ownAcademyRenewalReader.getOwnAcademyRenewalStatus({ tribeSlug: normalizedSlug }),
+      ownAcademyRenewalReader.getOwnAcademyRenewal({ tribeSlug: normalizedSlug }),
     ]);
 
     return {
@@ -117,9 +117,18 @@ export function getOwnAcademyAccess({
         {
           firstActivatedAt: snapshot.firstActivatedAt,
           grants: snapshot.grants,
+          lastPaymentRejected: renewal.lastPaymentRejected,
           membership: snapshot.membership,
+          membershipRecoveryFacts: snapshot.membershipDetail
+            ? {
+                admissionControlActive: snapshot.admissionControlActive,
+                admissionEnabled: snapshot.admissionEnabled,
+                commercialRecoveryStatus: snapshot.membershipDetail.commercialRecoveryStatus,
+                statusReason: snapshot.membershipDetail.statusReason,
+              }
+            : null,
           offerPurchasable: snapshot.offerPurchasable && isAcademySalesActivationAllowed(),
-          renewalStatus,
+          renewalStatus: renewal.status,
           verificationStates,
         },
         now()

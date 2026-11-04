@@ -49,7 +49,9 @@ async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, co
       await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
       await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active')`);
       if (commercialMemberStatus) await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${applicantId},'tribemate',${commercialMemberStatus})`);
-      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},${contactType},true,${createdAt},${createdAt},${historicalSeed ? createdAt : sql`clock_timestamp()`})`);
+      // The phone stays optional, as before new policies required it; a migration-era snapshot predates the column, which later arrives optional.
+      if (historicalSeed) await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},${contactType},true,${createdAt},${createdAt},${createdAt})`);
+      else await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},false,${contactType},true,${createdAt},${createdAt},clock_timestamp())`);
       await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${createdAt} where id=${tribeId}`);
       if (commercialMemberStatus) await transaction.execute(sql`update public.tribe_members set status='removed',status_reason='subscription_inactive' where tribe_id=${tribeId} and user_id=${applicantId}`);
     });
@@ -119,18 +121,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
     }, { concurrentTransactions: 4 });
   }, 1_200_000);
 
-  it("should approve without an internal reason and store it as absent, while a reasonless rejection stays denied", async () => {
+  it.each([["approve", "approved"], ["reject", "rejected"]] as const)("should %s without an internal reason and store it as absent", async (decided, status) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareManualAdmission(database);
       const submitted = await fixture.repository.submit(fixture.submission);
       if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Reasonless approval did not produce its original pending request");
       const requestId = submitted.result.admissionRequestId;
       const decision = { ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, type: "decide_admission_request" as const, admissionRequestId: requestId, expectedVersion: 1, internalReason: "", externalMessage: null };
-      await expect(fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: "reject" })).rejects.toMatchObject({ code: "invalid_input" });
-      const outcome = await fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: "approve" });
-      expect(outcome).toMatchObject({ state: "completed", result: { status: "approved", version: 2 } });
+      const outcome = await fixture.repository.decide({ ...decision, operationId: randomUUID(), decision: decided });
+      expect(outcome).toMatchObject({ state: "completed", result: { status, version: 2 } });
       await database.withContext(fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select outcome,internal_reason from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ outcome: "approved", internal_reason: null }]);
+        expect((await transaction.execute(sql`select outcome,internal_reason from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ outcome: status, internal_reason: null }]);
       });
     });
   }, 1_200_000);
@@ -509,7 +510,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
           const instant = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;
           await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
           await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${fixture.leaderId},'leader','active')`);
-          await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${tribeId},true,${instant})`);
+          await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_whatsapp_number,is_open,activated_at) values (${tribeId},false,true,${instant})`);
           await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${instant} where id=${tribeId}`);
         });
         const created = await fixture.repository.submit({ ...fixture.submission, tribeId, operationId: randomUUID() });

@@ -8,11 +8,12 @@ import type { NotificationRecoverySnapshot } from "@/src/modules/messaging/appli
 import type { NotificationRecoveryBrowserClient } from "@/src/modules/messaging/application/ports/notification-recovery-browser-client";
 import { NOTIFICATION_RECOVERY_HISTORY_LIMIT } from "@/src/modules/messaging/constants/notification-recovery-intent";
 import { NOTIFICATION_RECOVERY_UI_COPY } from "@/src/modules/messaging/constants/notification-recovery-ui";
+import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 
 /** @returns Own metadata and controlled boundary ports; libraries and UI remain real. */
 function prepareContainer() {
-  const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2099-10-11T13:00:00Z", recoveryDeliveryId: null };
-  const target = { id: randomUUID(), name: "Conexión nueva", version: 8, configurationVersion: 2, state: "active" as const, credentialState: "valid" as const, credentialMode: "production" as const, maskedCredential: "••••••••" as const, capabilities: [{ channel: "email" as const, state: "prepared" as const, checkedAt: item.createdAt, testedAt: item.createdAt }] };
+  const item = { id: randomUUID(), version: 2, state: "suppressed" as const, connectionId: randomUUID(), createdAt: "2026-10-11T12:00:00Z", deadlineAt: "2099-10-11T13:00:00Z", recoveryDeliveryId: null, dispatchUnresolved: false };
+  const target = { id: randomUUID(), name: "Conexión nueva", version: 8, configurationVersion: 2, state: "active" as const, credentialState: "valid" as const, credentialMode: "production" as const, maskedCredential: "••••••••" as const, securityCurrent: true, capabilities: [{ channel: "email" as const, state: "prepared" as const, checkedAt: item.createdAt, testedAt: item.createdAt }] };
   const result = { originalDeliveryId: item.id, recoveryDeliveryId: randomUUID(), originalVersion: 3, targetConnectionId: target.id, targetConnectionVersion: 2 };
   let snapshot: NotificationRecoverySnapshot = { draft: { deliveryId: item.id, targetConnectionId: target.id }, reference: null };
   let persist = true;
@@ -30,11 +31,16 @@ function prepareContainer() {
 }
 
 describe("notification recovery container", () => {
-  it("should block blind recovery of an unknown original even with another prepared connection and renewed consent", async () => {
-    const fixture = prepareContainer(), user = userEvent.setup(); fixture.props.initialCatalog = { items: [{ ...fixture.item, state: "unknown" }], nextCursor: null };
+  it.each([["unknown", "unknown"], ["queued with an attempt that may have left", "queued"]] as const)("should show a %s original as pending confirmation and offer no recovery even with another prepared connection", async (_case, state) => {
+    const fixture = prepareContainer(); fixture.props.initialCatalog = { items: [{ ...fixture.item, state, dispatchUnresolved: true }], nextCursor: null };
     render(<NotificationRecoveryContainer {...fixture.props} />);
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled()); await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
-    expect(screen.getByRole("alert")).toHaveTextContent(/No se habilita otro envío a ciegas/); expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+    expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved)).toHaveAttribute("role", "status");
+    expect(screen.getByText(new RegExp(`Estado actual: ${NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolvedState}`))).toBeVisible();
+    expect(screen.queryByText(/Entrega fallida|En cola/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Revisé el aviso/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled();
+    expect(fixture.props.client!.recover).not.toHaveBeenCalled();
   });
   it("should block a fresh recovery when history is full and keep prior originals consultable", async () => {
     const fixture = prepareContainer(), user = userEvent.setup();
@@ -197,5 +203,71 @@ describe("notification recovery container", () => {
     expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeVisible();
     expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.expired, {}, { timeout: 3000 })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument(); expect(fixture.props.client!.recover).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["challenge_expired", "El código de la prueba venció. Solicitá uno nuevo cuando esté disponible.", NOTIFICATION_RECOVERY_UI_COPY.expired],
+    ["resource_unavailable", "El recurso solicitado no está disponible.", NOTIFICATION_RECOVERY_UI_COPY.unavailable],
+    ["connection_incomplete", "La academia todavía no tiene preparada la conexión necesaria.", NOTIFICATION_RECOVERY_UI_COPY.targetNotReady],
+  ] as const)("should explain a recovery rejected with %s in recovery terms, not with the copy of another flow", async (code, catalogue, expected) => {
+    const fixture = prepareContainer(), user = userEvent.setup();
+    vi.mocked(fixture.props.client!.recover).mockResolvedValue({ status: "failed", code, message: catalogue, uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(expected));
+    expect(screen.queryByText(catalogue)).not.toBeInTheDocument(); expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+  });
+  it("should show a previous send that may have left as a definitive answer, not as an unconfirmed recovery", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), message = "El envío anterior de este aviso puede haber salido y todavía no tiene un resultado confirmado. Consultá el estado de la entrega antes de recuperarlo.";
+    vi.mocked(fixture.props.client!.recover).mockResolvedValue({ status: "failed", code: "original_dispatch_unresolved", message, uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolvedRefused));
+    expect(screen.queryByText(NOTIFICATION_RECOVERY_UI_COPY.pending)).not.toBeInTheDocument();
+    // The refused notice now reads as pending confirmation; nothing was registered, so nothing can be resumed or resent blindly.
+    expect(screen.getByText(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved)).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reanudar intento original" })).not.toBeInTheDocument();
+    expect(fixture.snapshot.reference).toBeNull(); expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole("button", { name: "Actualizar avisos" }));
+    await waitFor(() => expect(fixture.props.client!.catalog).toHaveBeenCalledOnce());
+    // A later read where the earlier send resolved as rejected offers the recovery again.
+    expect(screen.queryByText(NOTIFICATION_RECOVERY_UI_COPY.dispatchUnresolved)).not.toBeInTheDocument();
+  });
+  it("should forget a recovery the platform rejected before registering it, with its copy and nothing to resume", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), message = "La mensajería depende del equipo de TuTribu: la plataforma todavía no puede proteger esta operación. No se registró ningún cambio.";
+    vi.mocked(fixture.props.client!.recover).mockResolvedValue({ status: "failed", code: "platform_security_unavailable", message, uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    expect(fixture.snapshot.reference).toBeNull();
+    expect(screen.queryByRole("button", { name: "Consultar recuperación original" })).not.toBeInTheDocument();
+    expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+  });
+  it("should ask the page to offer signing in again with Google when the session cannot register a recovery, keeping the original to consult", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), onSignInRequired = vi.fn(), message = MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.authenticationRequired];
+    vi.mocked(fixture.props.client!.recover).mockResolvedValue({ status: "failed", code: "authentication_required", message, uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} onSignInRequired={onSignInRequired} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ })); await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(message));
+    expect(onSignInRequired).toHaveBeenCalledOnce();
+    expect(fixture.snapshot.reference).not.toBeNull(); expect(fixture.props.client!.recover).toHaveBeenCalledOnce();
+  });
+  it("should keep reading notices but withhold recoveries while the platform cannot protect them, and forget an unregistered original", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(), original = { operationId: randomUUID(), deliveryId: fixture.item.id, expectedVersion: 2, targetConnectionId: fixture.target.id, expectedTargetVersion: 8 };
+    fixture.setSnapshot({ draft: { deliveryId: fixture.item.id, targetConnectionId: fixture.target.id }, reference: original });
+    vi.mocked(fixture.props.client!.operation).mockResolvedValue({ status: "failed", code: "resource_unavailable", message: "El recurso solicitado no está disponible.", uncertain: false });
+    render(<NotificationRecoveryContainer {...fixture.props} platformRequirement="recovery_locked" />);
+    await user.click(await screen.findByRole("button", { name: "Consultar recuperación original" }));
+    await waitFor(() => expect(screen.getByText(NOTIFICATION_RECOVERY_UI_COPY.platformForgotten)).toBeInTheDocument());
+    expect(fixture.snapshot.reference).toBeNull();
+    expect(screen.queryByRole("button", { name: /Reanudar/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled()); await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
+    expect(fixture.props.client!.recover).not.toHaveBeenCalled();
   });
 });

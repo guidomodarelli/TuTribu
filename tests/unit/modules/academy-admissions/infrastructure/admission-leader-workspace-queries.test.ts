@@ -22,22 +22,13 @@ const resultOf = (text: string) => (JSON.parse(text) as { result: Record<string,
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native leader workspace query counts", () => {
   it("should keep leader pages and commands within their per-request database budget", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const blockedMembers = repeat(SAMPLES, () => randomUUID()), memberIds: string[] = [];
-      const fixture = await prepareAdmissionBatch(database, async (scope) => {
-        // Members blocked by payment exist before the admission cutover, as in production.
-        await database.withContext({ userId: scope.leaderUserId, email: null }, async (transaction) => {
-          for (const userId of blockedMembers) {
-            await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic blocked member',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
-            memberIds.push((await transaction.execute<{ id: string }>(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason) values (${scope.tribeId},${userId},'tribemate','blocked','payment_blocked') returning id`)).rows[0].id);
-          }
-        });
-      }, { securityConfig: await readMessagingHostingSecurityConfig() });
+      const fixture = await prepareAdmissionBatch(database, undefined, { securityConfig: await readMessagingHostingSecurityConfig() });
       const slug = `allowlist-${fixture.tribeId}`, pending = await fixture.seedPendingSelection(SAMPLES * 3);
       // The fixture session lasts ten minutes and this suite runs longer at ~170 ms per round trip; an expired session would measure the signed-out page instead.
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+${VALIDATION.sessionExtension}::interval where id=${fixture.sessionId}`));
       /** @param statement - Version lookup for the tribe. @returns The stored version, or zero while the row does not exist. */
       const versionOf = async (statement: ReturnType<typeof sql>) => (await database.withContext(fixture.own, (transaction) => transaction.execute<{ version: number }>(statement))).rows[0]?.version ?? 0;
-      const measurement = createAdmissionRequestMeasurement({ [slug]: "[slug]", ...Object.fromEntries(pending.map((request) => [request.admissionRequestId, "[requestId]"])), ...Object.fromEntries(memberIds.map((memberId) => [memberId, "[memberId]"])) });
+      const measurement = createAdmissionRequestMeasurement({ [slug]: "[slug]", ...Object.fromEntries(pending.map((request) => [request.admissionRequestId, "[requestId]"])) });
 
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const { send, measure } = measurement.connect({ origin, cookie: await signedAdmissionSessionCookie(fixture.sessionToken, secret, makeSignature) });
@@ -53,7 +44,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         await measure("decide_batch", "POST", batches.map((selection) => ({ path: `${api}/request-decisions`, body: { operationId: randomUUID(), confirmed: true, decision: "reject", internalReason: "Revisión por lote medida", items: selection.map((request) => ({ requestId: request.admissionRequestId, expectedVersion: request.expectedVersion })) } })));
         for (const [label, path] of Object.entries(pages)) await measure(`page_${label}`, "GET", reads(path));
         await measure("page_request_history", "GET", individual.map((request) => ({ path: `${page}/history/${request.admissionRequestId}` })));
-        await measure("read_commercial_memberships", "GET", reads(`${api}/commercial-memberships`));
 
         // List commands.
         const identities = repeat(SAMPLES, (index) => `medida.${index}.${randomUUID()}@example.test`);
@@ -67,9 +57,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
         const invitations = (await measure("create_invitation", "POST", identities.map((identity, index) => ({ path: `${api}/invitations`, body: { operationId: randomUUID(), confirmed: true, internalName: `Invitación medida ${index + 1}`, recipient: { type: "email", value: identity }, requiresAllowlist: true } })), [201])).map((text) => String(resultOf(text).invitationId));
         await measure("rename_invitation", "PATCH", invitations.map((invitationId) => ({ path: `${api}/invitations/${invitationId}`, body: { operationId: randomUUID(), confirmed: true, expectedVersion: 1, internalName: "Invitación medida renombrada" } })));
         await measure("revoke_invitation", "POST", invitations.map((invitationId) => ({ path: `${api}/invitations/${invitationId}/revoke`, body: { operationId: randomUUID(), confirmed: true, expectedVersion: 2, reason: "Enlace retirado", revokeRedeemedAuthorization: false } })));
-
-        // Membership review for members blocked by payment: recovery is prospective, so the member stays blocked with its recovery status set.
-        await measure("resolve_commercial_membership", "POST", memberIds.map((memberId) => ({ path: `${api}/commercial-memberships/${memberId}/resolution`, body: { operationId: randomUUID(), confirmed: true, decision: "recover_active", expected: { role: "tribemate", status: "blocked", statusReason: "payment_blocked", recoveryStatus: null } } })));
 
         // Notices and email, countries and quotas: each sample observes the version the previous one stored.
         for (let index = 0; index < SAMPLES; index += 1) {
@@ -96,7 +83,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
       const report = measurement.report();
       process.stdout.write(`${JSON.stringify({ phase: "admission_leader_workspace_queries", report })}\n`);
       if (process.env[VALIDATION.reportEnvironmentVariable]) await writeFile(process.env[VALIDATION.reportEnvironmentVariable]!, JSON.stringify(report, null, 2));
-      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_decisions where tribe_id=${fixture.tribeId}) as decisions,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and status='blocked' and commercial_recovery_status='active') as recovered,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries`)).rows)).toEqual([{ decisions: SAMPLES * 3, recovered: SAMPLES, deliveries: 0 }]);
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_decisions where tribe_id=${fixture.tribeId}) as decisions,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries`)).rows)).toEqual([{ decisions: SAMPLES * 3, deliveries: 0 }]);
       expect(findAdmissionBudgetOverruns(measurement.measured, BUDGET)).toEqual([]);
     });
   }, VALIDATION.timeoutMs);

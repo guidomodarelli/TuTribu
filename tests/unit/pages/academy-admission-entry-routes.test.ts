@@ -41,12 +41,39 @@ describe("compatibility academy entry boundary", () => {
     expect(request.bodyUsed).toBe(true);
   });
 
-  it("should reject an empty old client after cutover instead of granting or inventing a request", async () => {
+  it("should answer an empty old client after cutover that a request is now required, without granting or inventing one", async () => {
     const data = fixture(), response = await data.handler(new Request(data.url, { method: "POST" }), data.context);
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ code: "invalid_input" });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: "request_required", message: "Esta academia ahora pide una solicitud de ingreso." });
     expect(data.services.joinLegacy).not.toHaveBeenCalled();
     expect(data.services.joinEntry).not.toHaveBeenCalled();
+  });
+
+  it("should answer request_required when the activation commits between the offer read and the historical entry", async () => {
+    const data = fixture();
+    const unprotected = { admissionEnabled: true, admissionRequiresRequest: false, title: "Academia", description: "", benefits: [], offerVersion: 1, price: null, salesEnabled: false, tribeName: "Academia" };
+    data.services.offer.mockResolvedValueOnce(unprotected);
+    data.services.joinLegacy.mockResolvedValueOnce({ status: "admission_closed" });
+    const closedBySelector = await data.handler(new Request(data.url, { method: "POST" }), data.context);
+    expect(closedBySelector.status).toBe(409);
+    expect(await closedBySelector.json()).toMatchObject({ code: "request_required" });
+
+    data.services.offer.mockResolvedValueOnce(unprotected);
+    data.services.joinLegacy.mockRejectedValueOnce(Object.assign(new Error("protected membership requires a prospective source"), { code: "23514" }));
+    const refusedByGuard = await data.handler(new Request(data.url, { method: "POST" }), data.context);
+    expect(refusedByGuard.status).toBe(409);
+    expect(await refusedByGuard.json()).toMatchObject({ code: "request_required" });
+  });
+
+  it("should answer a failed historical entry with retry copy and keep its cause private", async () => {
+    const data = fixture(); data.services.offer.mockResolvedValue(null);
+    data.services.joinLegacy.mockRejectedValueOnce(new Error("Synthetic database outage"));
+    const response = await data.handler(new Request(data.url, { method: "POST" }), data.context);
+    const body = await response.json();
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({ code: "join_unavailable", message: "No pudimos sumarte a la tribu. Intentá de nuevo en unos minutos." });
+    expect(JSON.stringify(body)).not.toContain("Synthetic database outage");
+    expect(JSON.stringify(body)).not.toContain("Conservá los datos");
   });
 
   it("should retain guarded historical entry before cutover and deny missing native identity", async () => {

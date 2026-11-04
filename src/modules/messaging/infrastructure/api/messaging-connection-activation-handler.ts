@@ -5,7 +5,7 @@ import type {ActivateMessagingConnectionUseCase} from "@/src/modules/messaging/a
 import type {AdmissionFailure} from "@/src/modules/academy-admissions/application/results/admission-errors";
 import {createAdmissionOperationStateSchema} from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import {messagingConnectionActivationSchema} from "@/src/modules/messaging/application/results/messaging-connection-activation-result";
-import {messagingFailure} from "@/src/modules/messaging/application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
@@ -28,7 +28,7 @@ export function createMessagingConnectionActivationHandler(open:()=>Promise<Mess
       const query=boundary.input("query",activationQuerySchema,Object.fromEntries(new URL(request.url).searchParams));if(!query.usable)return query.response;
       const body=await boundary.readBody(messagingConnectionActivateSchema);if(!body.usable)return body.response;
       const services=await open(),requestId=boundary.requestContext.requestId,routing=await services.resolveTribe.execute({slug:params.value.slug,requestId});
-      if(!routing.ok){const code=Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===routing.failure.code)??MESSAGING_ERROR_CODE.resourceUnavailable;return boundary.failure(messagingFailure(code));}
+      if(!routing.ok)return boundary.failure(messagingTribeRoutingFailure(routing.failure));
       const outcome=await services.activation.execute({...body.value,tribeId:routing.value.tribeId,connectionId:params.value.connectionId,requestId});if(!outcome.ok)return boundary.failure(outcome.failure);
       const schema=createAdmissionOperationStateSchema(messagingConnectionActivationSchema),parsed=schema.safeParse(outcome.value);
       if(!parsed.success||parsed.data.operationId.toLowerCase()!==body.value.operationId.toLowerCase())return boundary.failure(messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable));

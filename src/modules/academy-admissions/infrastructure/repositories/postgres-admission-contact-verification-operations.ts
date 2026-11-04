@@ -9,6 +9,7 @@ import type {AdmissionContactVerificationOperations,AdmissionVerificationAccount
 import type { AdmissionCurrentChallengeReader, AdmissionCurrentChallengeQuery } from "../../domain/repositories/admission-current-challenge-reader";
 import { admissionCurrentChallengeSelectionSchema } from "../../application/results/admission-current-challenge-schemas";
 import type {VerificationChallengeScope} from "../../domain/entities/contact-verification-challenge";
+import {isSameAdmissionContact} from "../../domain/value-objects/admission-contact";
 import type {AdmissionPolicy} from "../../domain/entities/admission-policy";
 import type {AdmissionVerificationProof} from "../../domain/entities/admission-verification-proof";
 import {createAdmissionResourceAuditEvent} from "../../domain/entities/admission-resource-audit-event";
@@ -19,6 +20,7 @@ import type {AdmissionProofApplicationOperations,AdmissionProofApplicationIntent
 import type {MessagingSecurityConfig} from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import {authorizeAdmissionApplicant,withAdmissionApplicantSavepointSection,withReusedAdmissionApplicantAuthority} from "./postgres-admission-applicant-authority";
 import {PostgresAdmissionOperationRepository} from "./postgres-admission-operation-repository";
+import { rejectWithoutPlatformSecurity } from "./admission-platform-security-rejection";
 import {PostgresAdmissionAuditRepository} from "./postgres-admission-audit-repository";
 import {PostgresContactVerificationIssuer} from "./postgres-contact-verification-issuer";
 import {PostgresContactVerificationRepository} from "./postgres-contact-verification-repository";
@@ -43,14 +45,18 @@ import {VERIFICATION_TRANSITION_OUTCOME,VERIFICATION_CHALLENGE_REASON,VERIFICATI
 import {ADMISSION_LIMIT} from "../../constants/admission-limits";
 import {MESSAGE_DELIVERY_STATE} from "@/src/modules/messaging/constants/message-delivery";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
-import {MESSAGING_KEY_PURPOSE} from "@/src/modules/messaging/constants/messaging-cryptography";
+import {MESSAGING_CRYPTO_ERROR, MESSAGING_KEY_PURPOSE} from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import {TRIBE_ACCESS_MODEL} from "@/src/modules/product-access/constants/product-access";
-import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page-access";
+import {evaluateAcademyMembershipEligibility,type AcademyMembershipStateFacts} from "@/src/modules/tribes/domain/value-objects/academy-membership-eligibility";
+import {ACADEMY_MEMBERSHIP_ELIGIBILITY} from "@/src/modules/tribes/constants/academy-membership";
 import {resolvePersonalInvitationForRedemption,assertPersonalInvitationTokenCurrent,type ResolvedPersonalInvitation} from "./postgres-personal-invitation-redemption";
 import {authorizePersonalContactIssuance} from "./authorize-personal-contact-issuance";
 
 /** Each checkout binds the actual server actor and never trusts a client-selected database context. */
 export type AdmissionVerificationDatabaseExecutor=<Result>(scope:AdmissionVerificationAccountScope,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
+/** Only the basic membership facts of the shared eligibility rule are read; the row is not schema-validated. */
+type AcademyMembershipStateRow={role:AcademyMembershipStateFacts["role"];status:AcademyMembershipStateFacts["status"];status_reason:string;commercial_recovery_status:AcademyMembershipStateFacts["commercialRecoveryStatus"]};
 /** Only immutable scope fields are consumed; PostgreSQL rows are not schema-revalidated. */
 type ChallengeScopeRow={id:string;user_id:string;tribe_id:string;purpose:string;contact_type:"email"|"phone";normalized_contact:string;recipient_country:string|null;channel:"email"|"sms"|"whatsapp";verification_epoch:number;connection_id:string;connection_version:number;security_epoch:string};
 /** Only the current pending contact/source/time facts are consumed; requesting a code cannot mutate them. */
@@ -83,8 +89,22 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     if(settings?.access_model!==TRIBE_ACCESS_MODEL.academy||!settings.admission_enabled||!marker||!policy?.activatedAt)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionsPaused);
     if(!policy.requiresAdditionalVerification)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(sending&&!policy.isOpen)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionsPaused);
-    if(sending){const member=(await database.execute<{status:string}>(sql`select status from public.tribe_members where tribe_id=${context.tribeId} and user_id=${context.userId} for share`)).rows[0];if(member)throw new AdmissionOperationError(member.status===TRIBE_MEMBERSHIP_STATUS.active||member.status===TRIBE_MEMBERSHIP_STATUS.muted?ADMISSION_ERROR_CODE.admissionIneligible:ADMISSION_ERROR_CODE.membershipRecoveryRequired);}
+    if(sending)await this.assertCodeMembershipEligible(database,context);
     return policy;
+  }
+
+  /**
+   * Applies the same basic membership rule as the overview and the request writer: a member needs no code, a known commercial
+   * tribemate recovers its access through the request, and any other restriction needs authorized help.
+   * @param database - Transaction whose applicant authority was just checked. @param context - Exact native scope.
+   * @returns Nothing for an applicant without membership or with a recoverable one.
+   * @throws AdmissionOperationError when the account is already a member or its membership cannot be recovered by admission.
+   */
+  private async assertCodeMembershipEligible(database:RequestDatabase,context:AdmissionVerificationAccountScope):Promise<void>{
+    const member=(await database.execute<AcademyMembershipStateRow>(sql`select role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${context.tribeId} and user_id=${context.userId} for share`)).rows[0];
+    const eligibility=evaluateAcademyMembershipEligibility(member?{role:member.role,status:member.status,statusReason:member.status_reason,commercialRecoveryStatus:member.commercial_recovery_status}:null);
+    if(eligibility.outcome===ACADEMY_MEMBERSHIP_ELIGIBILITY.alreadyMember)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+    if(eligibility.outcome===ACADEMY_MEMBERSHIP_ELIGIBILITY.blocked)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.membershipRecoveryRequired);
   }
 
   /** @param context - Original native account scope. @returns Real ledger whose authorizer retains current actor/session authority before replay, claim and mutation. */
@@ -122,7 +142,7 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param input - Own canonical contact and prior request proposed by the native use case. @returns Safe exact-contact original only after terminal/cadence/context checks, without claiming work or consuming quota. */
   async readCurrent(input: AdmissionCurrentChallengeQuery) {
-    return this.execute(input, async (database) => {
+    return rejectWithoutPlatformSecurity(() => this.execute(input, async (database) => {
       const prepared = await this.issuanceScope(database, { ...input, confirmed: true, admissionRequestId: null, source: { kind: ADMISSION_REQUEST_SOURCE.common } });
       const previous = (await database.execute<{ id: string; status: "pending" | "approved" | "rejected" | "cancelled" | "expired"; source: string; submitted_at: Date | string; expires_at: Date | string; resolved_at: Date | string | null; retry_allowed_at: Date | string | null }>(sql`select request.id,request.status,request.source,request.submitted_at,request.expires_at,(select decided_at from public.academy_admission_decisions where id=request.decision_id) as resolved_at,request.retry_allowed_at from public.academy_admission_requests request where request.tribe_id=${input.tribeId} and request.user_id=${input.userId} order by request.submitted_at desc,request.id desc limit 1 for share of request`)).rows[0];
       const now = new Date((await database.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
@@ -131,13 +151,15 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
       const row = (await database.execute<{ challenge_id: string; operation_id: string; channel: "email" | "sms" | "whatsapp"; expires_at: Date | string; created_at: Date | string; state: "queued" | "accepted" | "delivered" | "failed" | "unknown" | "suppressed" | "cancelled"; delivery_id: string; verification_epoch: number; connection_id: string; connection_version: number; security_epoch: string; personal_invitation_id: string | null; challenge_state: string; failed_attempts: number; has_mac: boolean; mac_key_id: string }>(sql`select challenge.id as challenge_id,operation.idempotency_key as operation_id,challenge.channel,challenge.expires_at,challenge.created_at,challenge.state as challenge_state,challenge.failed_attempts,challenge.code_mac is not null as has_mac,challenge.mac_key_id,delivery.state,delivery.id as delivery_id,challenge.verification_epoch,challenge.connection_id,challenge.connection_version,challenge.security_epoch,to_jsonb(challenge)->>'personal_invitation_id' as personal_invitation_id from public.contact_verification_challenges challenge join public.message_deliveries delivery on delivery.id=challenge.delivery_id and delivery.tribe_id=challenge.tribe_id join public.academy_admission_operations operation on operation.id=delivery.idempotency_key and operation.actor_user_id=challenge.user_id and operation.tribe_id=challenge.tribe_id and operation.state=${OPERATION_STATE.completed} and to_jsonb(operation)->>'verification_purpose'=${ADMISSION_VERIFICATION_PURPOSE.admission} and operation.operation_type in (${VERIFICATION_ISSUANCE_OPERATION.issue},${VERIFICATION_ISSUANCE_OPERATION.resend}) where challenge.user_id=${input.userId} and challenge.tribe_id=${input.tribeId} and challenge.purpose=${ADMISSION_VERIFICATION_PURPOSE.admission} and challenge.contact_type=${input.contact.type} and challenge.normalized_contact=${input.contact.value} and challenge.is_current`)).rows[0];
       if (!row) return { current: null };
       const currentConfig = await this.readSecurityConfig();
-      if (currentConfig.recoveryLocked || currentConfig.securityEpoch !== prepared.scope.securityEpoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeInvalidated);
+      // A platform recovery lock blocks every new code until the TuTribu team lifts it; it does not invalidate this challenge.
+      if (currentConfig.recoveryLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.platformSecurityUnavailable, { cause: new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked) });
       const channelAllowed = input.contact.type === ADMISSION_CONTACT_TYPE.email ? row.channel === MESSAGING_PUBLIC_CHANNEL.email : row.channel === prepared.policy.phoneChannel || row.channel === MESSAGING_PUBLIC_CHANNEL.sms && prepared.policy.phoneChannel === MESSAGING_PUBLIC_CHANNEL.whatsapp && prepared.policy.allowSmsAlternative;
-      if (row.personal_invitation_id || !channelAllowed || row.verification_epoch !== prepared.scope.verificationEpoch || row.connection_id !== prepared.scope.connectionId || row.connection_version !== prepared.scope.connectionVersion || row.security_epoch !== prepared.scope.securityEpoch) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.challengeInvalidated);
+      // A code from another origin (a personal invitation), a channel the rules no longer allow or an earlier connection, epoch or protection is no candidate: the next original issuance replaces it.
+      if (row.personal_invitation_id || !channelAllowed || currentConfig.securityEpoch !== prepared.scope.securityEpoch || row.verification_epoch !== prepared.scope.verificationEpoch || row.connection_id !== prepared.scope.connectionId || row.connection_version !== prepared.scope.connectionVersion || row.security_epoch !== prepared.scope.securityEpoch) return { current: null };
       await this.authorize(database, input);
       const maskedDestination = input.contact.type === ADMISSION_CONTACT_TYPE.phone ? `${ADMISSION_CONTACT_MASK}${input.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}` : `${Array.from(input.contact.value)[0] ?? ""}${ADMISSION_CONTACT_MASK}@${input.contact.value.split("@").at(-1) ?? ""}`;
       return admissionCurrentChallengeSelectionSchema.parse({ current: { operationId: row.operation_id, requiresReplacement: row.challenge_state !== VERIFICATION_CHALLENGE_STATE.issued || !row.has_mac || !currentConfig.keyrings[MESSAGING_KEY_PURPOSE.verificationMac].keys.has(row.mac_key_id) || row.failed_attempts >= ADMISSION_LIMIT.verificationChallengeFailureCount || new Date(row.expires_at) <= new Date((await database.execute<{now: Date | string}>(sql`select clock_timestamp() as now`)).rows[0].now), challenge: { challengeId: row.challenge_id, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, channel: row.channel, maskedDestination, expiresAt: new Date(row.expires_at).toISOString(), resendAllowedAt: new Date(new Date(row.created_at).getTime() + ADMISSION_LIMIT.verificationResendWaitMs).toISOString(), deliveryState: row.state, deliveryId: row.delivery_id } } });
-    });
+    }));
   }
 
   /** @param database - Original authorized transaction. @param context - Native own account/tribe. @param requestId - Explicit own pending reference. @param contact - Canonical proposed contact. @returns Nothing while the common request remains live and contact-compatible after its lock. @throws AdmissionOperationError before creating a code for a missing, terminal, expired, foreign-source or changed-contact request. */
@@ -147,7 +169,8 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
     if(request.status!==ADMISSION_REQUEST_STATUS.pending||now>=new Date(request.expires_at))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
     if(request.source!==ADMISSION_REQUEST_SOURCE.common&&request.source!==ADMISSION_REQUEST_SOURCE.legacy)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
-    if(request.normalized_contact!==null&&(request.contact_type!==contact.type||request.normalized_contact!==contact.value))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
+    // A request saved before an Argentine mobile took its 9 keeps naming the same phone.
+    if(request.normalized_contact!==null&&!isSameAdmissionContact({type:request.contact_type??"",value:request.normalized_contact},contact))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
   }
 
   /** @param database - Native authorized transaction. @param context - Exact own account. @param challengeId - Original resource whose immutable contact cannot be replaced by the caller. @returns Original scope without taking an early shared challenge lock that would need an upgrade. */
@@ -169,9 +192,11 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     return withAdmissionApplicantSavepointSection(database,async()=>{
     await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.begin));
     const nativeOwns=this.ownsScope(database,context,scope),owns=async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{if(!await nativeOwns(current,candidate))return false;if(personalInvitationId)await authorizePersonalContactIssuance(current,context,{invitationId:personalInvitationId,contact:scope.contact,security:await this.readSecurityConfig()});else if(context.admissionRequestId)await this.assertPendingIssuance(current,context,context.admissionRequestId,scope.contact);return true;},contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous,...(personalInvitationId?{personalInvitationId,...(context.admissionRequestId?{personalRequestId:context.admissionRequestId}:{})}:{})});
-    if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued){await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.rollback));await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.denied,code:result.code};}
+    if(result.outcome===VERIFICATION_ISSUANCE_OUTCOME.denied){await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.rollback));await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.denied,code:result.code};}
     await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));
     const maskedDestination=scope.contact.type===ADMISSION_CONTACT_TYPE.phone?`${ADMISSION_CONTACT_MASK}${scope.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`:`${Array.from(scope.contact.value)[0]??""}${ADMISSION_CONTACT_MASK}@${scope.contact.value.split("@").at(-1)??""}`;
+    // A live code of the same origin (another tab or device) is returned as is: the person enters it or asks for its explicit resend.
+    if(result.outcome===VERIFICATION_ISSUANCE_OUTCOME.current)return{challengeId:result.challengeId,deliveryId:result.deliveryId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,channel:result.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString(),deliveryState:result.deliveryState,reusedCurrent:true as const};
     return{challengeId:result.challengeId,deliveryId:result.deliveryId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,channel:scope.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString(),deliveryState:MESSAGE_DELIVERY_STATE.queued};
     });
   }
@@ -188,7 +213,8 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   async issue(input:AdmissionChallengeIssuanceIntent){
     const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,expectedPolicyVersion:input.expectedPolicyVersion,contact:input.contact,channel:input.channel,admissionRequestId:input.admissionRequestId,source:input.source,confirmed:input.confirmed}},ledger=this.ledger(input),original=await ledger.read(command,admissionIssuanceSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return this.issuanceResult(original);
-    if(!original)await this.execute(input,(database)=>this.issuanceScope(database,input));
+    // Nothing is registered yet: a platform that cannot protect the code is a definitive rejection, not an unexpected failure.
+    if(!original)await rejectWithoutPlatformSecurity(()=>this.execute(input,(database)=>this.issuanceScope(database,input)));
     return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>{
       const prepared=await this.issuanceScope(database,input),result=await this.issueInside(database,input,{scope:prepared.scope,operationId:input.operationId,ledgerId,previous:null,personalInvitationId:prepared.personal?.invitation.id});
       if(prepared.personal&&input.source.kind===ADMISSION_REQUEST_SOURCE.personal)await assertPersonalInvitationTokenCurrent(prepared.personal,input.source.token,await this.readSecurityConfig());
@@ -247,7 +273,7 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   async apply(input:AdmissionProofApplicationIntent){
     const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:ADMISSION_PROOF_OPERATION,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,admissionRequestId:input.admissionRequestId,proofId:input.proofId,expectedRequestVersion:input.expectedRequestVersion}},ledger=this.ledger(input),original=await ledger.read(command,admissionProofApplicationSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return original;
-    if(!original)await this.execute(input,(database)=>this.proofScope(database,input));
+    if(!original)await rejectWithoutPlatformSecurity(()=>this.execute(input,(database)=>this.proofScope(database,input)));
     return this.run(ledger,command,admissionProofApplicationSnapshotSchema,async(database,ledgerId)=>{
       const scope=await this.proofScope(database,input),owns=this.ownsScope(database,input,scope);
       return new PostgresAdmissionVerificationProofWriter(database,owns,this.readSecurityConfig).applyToPending({scope,requestId:input.admissionRequestId,proofId:input.proofId,expectedRequestVersion:input.expectedRequestVersion,operationId:input.operationId,ledgerId});

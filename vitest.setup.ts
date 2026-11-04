@@ -7,6 +7,12 @@ import { installReactWarningGuard } from "./tests/support/react-warning-guard";
 
 installReactWarningGuard();
 
+/** Browser suites settle Sonner toasts before unmounting, so no removal timer outlives the jsdom environment. */
+if (typeof document !== "undefined") {
+  const { installToastSettling } = await import("./tests/support/toast-settling");
+  installToastSettling();
+}
+
 /** Native browser suites launch WebKit directly; on Windows its leftover network process would otherwise hang `browser.close()` after every test passed. */
 if (process.env.RUN_ADMISSION_BROWSER_TESTS === "1") {
   const { webkit } = await import("@playwright/test");

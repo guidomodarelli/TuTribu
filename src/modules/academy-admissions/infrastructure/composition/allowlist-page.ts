@@ -7,11 +7,11 @@ import { admissionTribeParamsSchema, admissionAllowlistQuerySchema } from "../ap
 import { loadAdmissionLeaderPageState } from "./admission-page-loading";
 
 const pageInputSchema = z.strictObject({ params: admissionTribeParamsSchema, query: admissionAllowlistQuerySchema });
-/** @param input - Untrusted resolved framework values. @param open - Server-selected inward loader. @returns Current leader state or safe Spanish failure without raw diagnostics. */
-export async function loadAllowlistPageState(input: unknown, open: () => Promise<Pick<GetAllowlistPageUseCase, "execute">>): Promise<AllowlistPageState> {
+/** @param input - Untrusted resolved framework values. @param open - Server-selected inward loader. @param requestHeaders - Incoming request headers, for native correlation. @returns Current leader state or safe Spanish failure without raw diagnostics. */
+export async function loadAllowlistPageState(input: unknown, open: () => Promise<Pick<GetAllowlistPageUseCase, "execute">>, requestHeaders?: Pick<Headers, "get">): Promise<AllowlistPageState> {
   return loadAdmissionLeaderPageState({
-    input, inputSchema: pageInputSchema, open, stateSchema: allowlistPageStateSchema,
+    input, inputSchema: pageInputSchema, open, stateSchema: allowlistPageStateSchema, requestHeaders,
     read: (page, { params, query }, requestId) => page.execute({ slug: params.slug, filters: query, requestId }),
-    diagnostic: { operation: "load_allowlist_page", readFailed: "Allowlist page read failed", loadFailed: "Allowlist page could not load safe current state" },
+    diagnostic: { operation: "load_allowlist_page", readFailed: "Allowlist page read failed", contractRejected: "Allowlist page returned an unusable own state", loadFailed: "Allowlist page could not load safe current state" },
   });
 }

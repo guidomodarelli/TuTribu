@@ -18,7 +18,7 @@ function activationFixture(){
 describe("sensitive candidate activation",()=>{
   it("should resolve exact current activation authority and pass only original confirmation/CAS to the owner",async()=>{
     const fixture=activationFixture();expect(await fixture.useCase.execute(fixture.input)).toMatchObject({ok:true,value:{state:"completed",result:{version:4,state:"active"}}});
-    expect(fixture.resolve).toHaveBeenCalledExactlyOnceWith({tribeId:fixture.context.tribeId,connectionId:fixture.context.connectionId,requestId:fixture.context.requestId,operation:"activate_messaging_connection"});expect(fixture.activate).toHaveBeenCalledExactlyOnceWith(fixture.context,fixture.input);
+    expect(fixture.resolve).toHaveBeenCalledExactlyOnceWith({tribeId:fixture.context.tribeId,connectionId:fixture.context.connectionId,requestId:fixture.context.requestId,operationId:fixture.input.operationId,operation:"activate_messaging_connection"});expect(fixture.activate).toHaveBeenCalledExactlyOnceWith(fixture.context,fixture.input);
   });
   it("should preserve a genuinely unresolved original operation without turning it into another activation",async()=>{
     const fixture=activationFixture();fixture.activate.mockRejectedValueOnce(new MessagingConnectionOperationError("operation_unresolved",{operationId:fixture.input.operationId}));

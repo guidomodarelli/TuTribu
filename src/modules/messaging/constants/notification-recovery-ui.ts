@@ -20,5 +20,16 @@ export const NOTIFICATION_RECOVERY_UI_COPY = {
   currentRequired: "La sesión cambió. Volvé a abrir esta pantalla con tu cuenta actual antes de continuar.",
   historyFull: "El historial de esta pestaña está lleno. Conservá y consultá las referencias anteriores; no se borrará un intento para iniciar otro.",
   expired: "Este aviso ya no se puede recuperar: venció su plazo. Elegí otro aviso con plazo vigente.",
+  /** A notice already delivered, no longer owed, or prepared under an earlier platform security: no recovery can apply to it. */
+  unavailable: "Este aviso ya no se puede recuperar: ya se entregó, dejó de corresponder o se preparó con una seguridad anterior de la plataforma. Consultá los avisos otra vez.",
+  targetNotReady: "La conexión de destino tiene que estar seleccionada, activa y con el correo probado antes de recuperar un aviso.",
+  /** State shown, instead of the delivery state, for a notice whose earlier send may have left without a confirmed result. */
+  dispatchUnresolvedState: "Envío anterior sin confirmar",
+  /** Why such a notice offers no recovery, and what clears it. */
+  dispatchUnresolved: "El envío anterior de este aviso puede haber salido y todavía no tiene un resultado confirmado. No se habilita otro envío a ciegas: actualizá los avisos para consultar su estado antes de recuperarlo.",
+  /** The server refused a recovery because of that earlier send: nothing was registered and the notice now shows as pending confirmation. */
+  dispatchUnresolvedRefused: "No se registró la recuperación: el envío anterior de este aviso quedó pendiente de confirmar.",
   archived: "La referencia quedó conservada en el historial. El servidor puede continuar; revisá el estado actual antes de otra acción.",
+  /** Shown once an unregistered original is forgotten because the platform cannot protect a recovery: nothing is left to resume. */
+  platformForgotten: "La recuperación anterior no quedó registrada y no hace falta reanudarla. Vas a poder recuperar avisos cuando el equipo de TuTribu resuelva la seguridad de la plataforma.",
 } as const;

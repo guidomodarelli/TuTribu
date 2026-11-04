@@ -7,6 +7,7 @@ import {messagingResourcePageSchema,type MessagingResourcePageResult} from "../r
 import {MessagingSecretAccessError} from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import {MessagingConnectionInspectionError} from "@/src/modules/messaging/domain/errors/messaging-connection-inspection-error";
 import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
+import {MessagingPlatformSecurityError} from "@/src/modules/messaging/domain/errors/messaging-platform-security-error";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import {MESSAGING_RESOURCE_KIND} from "@/src/modules/messaging/constants/messaging-resources";
 import {MESSAGING_RESOURCE_READINESS,MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
@@ -69,7 +70,7 @@ export class ReadMessagingResourcesUseCase{
       signal.throwIfAborted();
       return{ok:true,value:parsed.data};
     }catch(error){
-      const known=error instanceof MessagingSecretAccessError||error instanceof MessagingConnectionInspectionError||error instanceof MessagingConnectionOperationError;
+      const known=error instanceof MessagingSecretAccessError||error instanceof MessagingConnectionInspectionError||error instanceof MessagingConnectionOperationError||error instanceof MessagingPlatformSecurityError;
       return{ok:false,failure:messagingFailure(known?error.code:abortedOrUnexpectedCode(signal),{cause:error})};
     }
   }

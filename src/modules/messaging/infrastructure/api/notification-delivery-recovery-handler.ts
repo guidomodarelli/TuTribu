@@ -9,7 +9,7 @@ import { hasAllowedRequestOrigin } from "@/src/modules/shared/infrastructure/htt
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
 import { notificationDeliveryRecoveryInputSchema, notificationRecoveryEmptyQuerySchema, NOTIFICATION_DELIVERY_RECOVERY_HTTP_OPERATION } from "../../constants/notification-delivery-recovery-http";
-import { messagingFailure } from "../../application/results/messaging-errors";
+import { messagingFailure, messagingTribeRoutingFailure } from "../../application/results/messaging-errors";
 import { createMessagingRouteBoundary, messagingOperationHttpStatus } from "./messaging-route-http";
 import { messagingDeliveryParamsSchema } from "./messaging-request-schemas";
 
@@ -34,7 +34,7 @@ export function createNotificationDeliveryRecoveryHandler(open: () => Promise<No
       if (!body.usable) return body.response;
       const services = await open(), requestId = boundary.requestContext.requestId;
       const routing = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
-      if (!routing.ok) return boundary.failure(messagingFailure(Object.values(MESSAGING_ERROR_CODE).find((code) => code === routing.failure.code) ?? MESSAGING_ERROR_CODE.resourceUnavailable));
+      if (!routing.ok) return boundary.failure(messagingTribeRoutingFailure(routing.failure));
       // The validated single cause is recorded by the native writer; it grants no readiness or retry authority.
       const outcome = await services.recovery.execute({
         tribeId: routing.value.tribeId, deliveryId: params.value.deliveryId, requestId,

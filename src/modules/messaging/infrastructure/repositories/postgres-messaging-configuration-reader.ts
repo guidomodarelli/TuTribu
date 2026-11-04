@@ -14,6 +14,7 @@ import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page
 import {readMessagingUsageSnapshot} from "./postgres-messaging-usage-projection";
 import {MESSAGING_GUARD_OUTCOME} from "@/src/modules/messaging/constants/messaging-leader-guard";
 import type {MessagingSecurityFacts} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type {MessagingPlatformRequirementReader} from "./messaging-platform-requirement-reader";
 
 /** Each callback uses the actual current native account's protected transaction. */
 export type MessagingConfigurationExecutor=<Result>(context:MessagingConfigurationContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -28,8 +29,12 @@ function storedCredentialMode(status:string,isTestMode:boolean|null){
 }
 
 export class PostgresMessagingConfigurationReader implements MessagingConfigurationReader<MessagingConfigurationResult>{
-  /** @param execute - Guarded native principal. @param readSecurityFacts - Current non-secret external identity/recovery state, without loading keyrings. */
-  constructor(private readonly execute:MessagingConfigurationExecutor,private readonly readSecurityFacts:()=>Promise<MessagingSecurityFacts>){}
+  /**
+   * @param execute - Guarded native principal.
+   * @param readSecurityFacts - Current non-secret external identity/recovery state, without loading keyrings.
+   * @param readPlatformRequirement - The same import and enrolled-proof checks the ledger runs before a leader write.
+   */
+  constructor(private readonly execute:MessagingConfigurationExecutor,private readonly readSecurityFacts:()=>Promise<MessagingSecurityFacts>,private readonly readPlatformRequirement:MessagingPlatformRequirementReader){}
   /** @param database - Existing protected transaction. @param context - Server-derived audience and exact scope. @returns Current canonical leader after session/audience checks, locked for this projection. */
   private async authorize(database:RequestDatabase,context:MessagingConfigurationContext):Promise<string>{
     // One call keeps the former order: actor, live session, tribe and memberships FOR SHARE, then liveness again.
@@ -45,13 +50,19 @@ export class PostgresMessagingConfigurationReader implements MessagingConfigurat
     if(leaders.length!==1||membership?.role !== role||membership.status!==TRIBE_MEMBERSHIP_STATUS.active||context.audience===TRIBE_MEMBER_ROLE.leader&&leaders[0].user_id!==actor)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.permissionDenied);
     return leaders[0].user_id;
   }
-  /** @param database - Authorized leader transaction. @param context - Exact current tenant. @param row - Exact slot holder. @param configurationVersion - Its fixed selected/candidate version. @returns Minimal current version/capability metadata or absence for retired resources. */
-  private async connection(database:RequestDatabase,context:MessagingConfigurationContext,row:ConnectionRow|undefined,configurationVersion:number|null|undefined):Promise<MessagingConfigurationConnection|null>{
+  /**
+   * @param database - Authorized leader transaction. @param context - Exact current tenant.
+   * @param slot - Exact slot holder and its fixed selected/candidate version.
+   * @param security - Current platform environment and epoch; a connection sealed under others needs a new key.
+   * @returns Minimal current version/capability metadata or absence for retired resources.
+   */
+  private async connection(database:RequestDatabase,context:MessagingConfigurationContext,slot:{row:ConnectionRow|undefined;configurationVersion:number|null|undefined},security:MessagingSecurityFacts):Promise<MessagingConfigurationConnection|null>{
+    const{row,configurationVersion}=slot;
     if(!row||!configurationVersion)return null;
     const version=(await database.execute<{credential_validation_status:MessagingConfigurationConnection["credentialState"];is_test_mode:boolean|null}>(sql`select credential_validation_status,is_test_mode from public.messaging_connection_versions where connection_id=${row.id} and tribe_id=${context.tribeId} and version=${configurationVersion} and retired_at is null for share`)).rows[0];
     if(!version)return null;
     const capabilities=(await database.execute<{channel:MessagingConfigurationConnection["capabilities"][number]["channel"];state:MessagingConfigurationConnection["capabilities"][number]["state"];checked_at:Date|string|null;tested_at:Date|string|null}>(sql`select channel,state,checked_at,tested_at from public.messaging_connection_capabilities where connection_id=${row.id} and tribe_id=${context.tribeId} and connection_version=${configurationVersion} order by channel for share`)).rows;
-    return{id:row.id,name:row.name,version:row.version,configurationVersion,state:row.state,credentialState:version.credential_validation_status,credentialMode:storedCredentialMode(version.credential_validation_status,version.is_test_mode),maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,capabilities:capabilities.map((capability)=>({channel:capability.channel,state:capability.state,checkedAt:capability.checked_at?new Date(capability.checked_at).toISOString():null,testedAt:capability.tested_at?new Date(capability.tested_at).toISOString():null}))};
+    return{id:row.id,name:row.name,version:row.version,configurationVersion,state:row.state,credentialState:version.credential_validation_status,credentialMode:storedCredentialMode(version.credential_validation_status,version.is_test_mode),maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,securityCurrent:row.environment===security.environment&&row.security_epoch===security.securityEpoch,capabilities:capabilities.map((capability)=>({channel:capability.channel,state:capability.state,checkedAt:capability.checked_at?new Date(capability.checked_at).toISOString():null,testedAt:capability.tested_at?new Date(capability.tested_at).toISOString():null}))};
   }
   /** @param context - Exact current native audience. @returns Own guarded metadata, without state changes, keyring/secret or provider access. */
   async read(context:MessagingConfigurationContext):Promise<MessagingConfigurationResult>{
@@ -59,14 +70,14 @@ export class PostgresMessagingConfigurationReader implements MessagingConfigurat
       const currentLeaderUserId=await this.authorize(database,context);
       const rows=(await database.execute<ConnectionRow>(sql`select id,name,contributed_by_user_id,version,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version from public.tenant_messaging_connections where tribe_id=${context.tribeId} and retired_at is null and (is_selected or is_candidate) order by id for share`)).rows;
       const selectedRow=rows.find((row)=>row.is_selected),candidateRow=rows.find((row)=>row.is_candidate);
-      const selected=await this.connection(database,context,selectedRow,selectedRow?.selected_version);
+      const security=await this.readSecurityFacts(),selected=await this.connection(database,context,{row:selectedRow,configurationVersion:selectedRow?.selected_version},security);
       let value:MessagingConfigurationResult;
       if(context.audience===TRIBE_MEMBER_ROLE.guardian){
         const ready=selectedRow?.contributed_by_user_id===currentLeaderUserId&&selected?.state===MESSAGING_CONNECTION_STATE.active&&selected.credentialState===MESSAGING_CREDENTIAL_PUBLIC_STATE.valid&&selected.credentialMode===MESSAGING_CREDENTIAL_MODE.production&&selected.capabilities.some((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.prepared&&capability.testedAt!==null);
-        const security=await this.readSecurityFacts(),current=!security.recoveryLocked&&selectedRow?.environment===security.environment&&selectedRow.security_epoch===security.securityEpoch;
+        const current=!security.recoveryLocked&&selectedRow?.environment===security.environment&&selectedRow.security_epoch===security.securityEpoch;
         const healthy=ready&&current?"available":"attention_required";
         value={audience:"guardian",operationalAlert:selectedRow?healthy:"not_configured"};
-      }else value={audience:"leader",selected,candidate:await this.connection(database,context,candidateRow,candidateRow?.candidate_version),usage:await readMessagingUsageSnapshot(database,context.tribeId)};
+      }else value={audience:"leader",selected,candidate:await this.connection(database,context,{row:candidateRow,configurationVersion:candidateRow?.candidate_version},security),usage:await readMessagingUsageSnapshot(database,context.tribeId),platformRequirement:await this.readPlatformRequirement(database)};
       await this.authorize(database,context);
       const parsed=messagingConfigurationSchema.safeParse(value);if(!parsed.success)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.publicContractUnusable);return parsed.data;
     });

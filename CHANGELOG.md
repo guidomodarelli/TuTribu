@@ -8,6 +8,167 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Los botones, casillas y listas de la app vuelven a funcionar con el mismo motor que antes de la 1.10.0. Las páginas descargan un poco más de código (unos 31 KB), a cambio de que los controles respondan de forma confiable.
 
+## [1.14.0] - 2026-11-03
+
+### Changed
+
+- En Solicitudes, los filtros quedan más ordenados: arriba está solo la búsqueda (se aplica con Enter) y el botón «Filtros», que abre una ventana con el estado, el origen, la excepción a la lista, la comprobación de contacto y el rango de fechas. Al lado aparece una etiqueta por cada filtro aplicado, que se puede quitar con su «×», y el botón muestra cuántos hay. En la computadora la ventana muestra los filtros en dos columnas, y en el teléfono en una. Cerrar la ventana sin aplicar descarta lo que cambiaste en ella. La fila se acomoda sola al ancho de la pantalla.
+
+### Fixed
+
+- En todas las pantallas que se completan por pasos (Reglas, Avisos, Invitaciones, Habilitados, la importación de habilitados, Países y cupos, Conexión y la solicitud de ingreso), «Atrás» vuelve al primer paso y se queda ahí. Hasta ahora el formulario avanzaba otra vez y no dejaba regresar.
+
+## [1.13.4] - 2026-11-03
+
+### Changed
+
+- En Reglas, el paso «Cómo se contactan» explica cada opción sin dejar lugar a interpretación: para qué se usa el tipo de contacto (reconocer a cada persona en sus solicitudes y en Habilitados), por qué no se puede cambiar después de la primera activación, qué recibe la persona al comprobar el contacto con un código y qué hace «Exigir el teléfono del solicitante» (un dato aparte que se compara a mano con el grupo de WhatsApp, sin códigos ni envíos). Si al guardar se intenta cambiar el tipo de contacto ya fijado, el aviso dice qué hacer.
+
+## [1.13.3] - 2026-11-02
+
+### Changed
+
+- La guía «Configurá las admisiones» muestra primero los pasos necesarios y al final los opcionales, con el mismo orden de siempre dentro de cada grupo. Un paso opcional que ya está listo sigue entre los opcionales.
+- En la guía «Configurá las admisiones», el botón de un paso que depende de otro abre primero lo que falta: «Conectá el envío de mensajes» lleva a «Elegir países y cupos» mientras no estén guardados, y «Elegí cómo recibir los avisos» lleva a «Preparar el correo» en Conexión mientras no haya un correo preparado.
+- En «Avisos», si el líder todavía no tiene un correo preparado en la conexión de mensajería, la pestaña muestra «Primero conectá el envío de mensajes» con «Ir a Conexión», en lugar de un formulario que fallaba al guardar.
+- En «Invitaciones», sin reglas de admisión guardadas, o con reglas que piden teléfono sin comprobarlo con un código, la pestaña explica qué falta y lleva a «Reglas» en lugar de mostrar los pasos para emitir bloqueados. Renombrar y revocar las invitaciones existentes sigue disponible.
+
+### Fixed
+
+- En «Avisos», después de que el servidor rechazara habilitar el correo de la tribu por falta de un correo preparado, la revisión quedaba bloqueada con «Consultá el estado actual antes de guardar otro cambio.» aunque volvieras atrás y corrigieras los pasos. Ahora podés volver, dejar el correo apagado y guardar tu frecuencia. Si consultás el estado actual y sigue sin haber un correo preparado, la pestaña muestra «Primero conectá el envío de mensajes».
+
+## [1.13.2] - 2026-11-02
+
+### Fixed
+
+- En «Países y cupos» y «Conexión», si un guardado de la mensajería se rechaza porque tu sesión necesita volver a ingresar con Google, la pantalla ya no pide «Iniciá sesión» como si no hubieras entrado: explica que tenés que volver a ingresar con Google y ofrece «Volver a ingresar con Google», que te trae de vuelta a la misma pantalla. En «Países y cupos» los valores que elegiste quedan abiertos para guardarlos de nuevo.
+- Las pantallas de mensajería ya no muestran el título «No podemos mostrar esta admisión», propio del ingreso a la academia, cuando no pueden mostrar su contenido: ahora dicen «No podemos mostrar la mensajería de la academia».
+
+## [1.13.1] - 2026-11-02
+
+### Changed
+
+- El motivo interno al aprobar o rechazar una solicitud de ingreso ahora es opcional, en la revisión individual y en lote, también en las excepciones a la lista y cuando la persona se agregó a la lista después de pedir entrar. Un motivo vacío o con espacios se guarda sin motivo.
+- En la bandeja de solicitudes, el filtro «Motivo de excepción» pasa a llamarse «Excepción a la lista», con las opciones «Excepciones a la lista» y «Sin excepción».
+- En la guía «Configurá las admisiones», el paso «Conectá el envío de mensajes» explica qué lo hace necesario: los códigos de verificación de tus reglas, los avisos por correo que recibís o ambos.
+
+### Fixed
+
+- La guía «Configurá las admisiones» ya no marca como necesarios la conexión de mensajería ni «Países y cupos» cuando no se envía nada: con el correo de la tribu apagado, o con contacto por teléfono sin comprobación con código, esos pasos quedan como «Opcional».
+- En «Países y cupos», si un guardado anterior nunca llegó a registrarse, la pantalla ya no queda trabada pidiendo reintentarlo con los mismos datos: avisa que no se registró, deja abiertos los valores que habías elegido y te deja guardarlos de nuevo.
+- En «Países y cupos», el aviso de un guardado anterior que todavía no terminó aparece junto a la acción para reintentarlo, en «Recuperar operación original».
+- En «Avisos», si un cambio anterior del correo de la tribu nunca llegó a registrarse, la pantalla ya no muestra un error ni obliga a reintentarlo con la misma referencia: avisa que no se registró y deja los valores elegidos listos para guardarlos de nuevo.
+
+## [1.13.0] - 2026-11-02
+
+### Added
+
+- En la academia, una suscripción que todavía espera el pago muestra «Continuar el pago» para retomar el mismo pago en Mercado Pago, sin generar otro.
+- Si Mercado Pago rechazó el último cobro de la academia, la página lo avisa y pide revisar el medio de pago, en lugar de seguir diciendo que se está confirmando.
+- Quien quedó con la membresía inactiva por una suscripción puede volver a ingresar desde la página de la academia («Ingresar gratis» o «Solicitar ingreso»), en lugar de que se le pida contactar a la gestión.
+
+### Changed
+
+- Al volver a ingresar gratis con una membresía inactiva por una suscripción, quien estaba silenciado sigue silenciado y un guardián vuelve como integrante.
+- Contratar la academia compara el precio que viste con el vigente: si cambió, avisa que la oferta cambió antes de abrir Mercado Pago.
+- Si la conexión de la tribu con Mercado Pago no está disponible, contratar, actualizar el estado o cancelar lo dicen y explican qué hacer, en lugar de pedir que vuelvas a intentar en unos minutos.
+- «Cambiar de cuenta» en la solicitud de ingreso o en una invitación personal abre el selector de cuentas de Google, para que puedas elegir otra cuenta aunque tengas una sola sesión abierta.
+- Los celulares argentinos escritos sin el 9 (por ejemplo «+54 11 1234 5678») se guardan como +54 9 11 1234 5678, el número que reciben los códigos por SMS o WhatsApp, y siguen coincidiendo con la lista de habilitados, las invitaciones, las solicitudes pendientes y los contactos reservados guardados antes. Los ejemplos de teléfono ahora usan un celular argentino.
+- Si las reglas, la invitación o la solicitud cambian mientras tenés la página abierta, al enviar, confirmar, pedir un código o cancelar la página lee los datos actuales y te pide confirmar de nuevo, en lugar de repetir el mismo rechazo.
+- El límite del archivo CSV para importar habilitados pasa de 5 MiB a 3 MiB, para que la vista previa siempre llegue a guardarse.
+- El reporte descargado de una importación de habilitados nombra sus columnas en español (Fila, Contacto, Nombre, Resultado, Errores, Versión de entrada).
+
+### Fixed
+
+- Cuando una página de admisiones o mensajería no se puede mostrar, el mensaje explica por qué (no pudo cargarse, el enlace no es válido o falta iniciar sesión) y ofrece la salida que sirve: «Iniciar sesión» si venció la sesión, «Volver a la vista inicial» si el enlace tenía filtros o una selección inválida, y «Reintentar» solo cuando volver a intentar puede funcionar. Ya no pide conservar datos ni confirmar una operación que no existe, y un permiso denegado no ofrece un reintento que vuelve a fallar.
+- Si no se puede comprobar tu sesión por un momento (corte de red, servidor lento), Habilitados, Importación, Invitaciones, Revisión, Actividad y Conexión ya no dicen que la cuenta cambió ni cierran lo que estabas viendo: avisan que no se pudo comprobar y te dejan reintentar, y una invitación recién emitida conserva su enlace. Mientras Conexión comprueba la sesión muestra «Comprobando tu sesión…».
+- Una falla de conexión, una respuesta inesperada del servidor o un cierre de sesión fallido ya no muestran «La mensajería no está disponible temporalmente», sino un mensaje sobre la conexión o la sesión.
+- Guardar las reglas o decidir una solicitud mientras otra persona abre la solicitud o la bandeja ya no le muestra «La configuración cambió» o «No tenés permiso»: la página vuelve a leer o permite reintentar.
+- Abrir la bandeja de Revisión con un enlace a una solicitud que ya no existe muestra la bandeja con un aviso, en lugar de ocultarla.
+- En Actividad, el detalle de cada hecho muestra en español las reglas, causas, estados, canales y demás valores registrados, en lugar de identificadores técnicos.
+- En Actividad, las acciones de una cuenta eliminada se muestran como «Sin atribución disponible» en lugar de atribuirse a «Sistema».
+- Después de «Ingresar gratis», la academia muestra al instante tu acceso y el aviso de ingreso, en lugar de seguir mostrando la vista de visitante hasta recargar.
+- Un pago de la academia que no llegó a abrirse en Mercado Pago ya no deja la página trabada en «Estamos confirmando tu suscripción»: vuelve a ofrecer «Contratar academia» y, si quedó sin confirmar, un nuevo intento abre otro pago a los pocos minutos.
+- Dos contrataciones casi simultáneas de la academia ya no responden «La venta de la academia está pausada».
+- Una renovación pausada en Mercado Pago se muestra como pausada y se puede cancelar, en lugar de aparecer como cancelada.
+- Una cancelación que quedó pendiente de confirmación ahora se puede reintentar, y «Actualizar estado» la completa si Mercado Pago sigue cobrando.
+- Una cancelación confirmada por Mercado Pago ya no se revierte por una falla al consultarla después; si Mercado Pago no responde, el pedido queda registrado y se confirma más tarde.
+- Mientras se cancela la renovación el diálogo ya no se puede cerrar, así que el resultado siempre se ve; si ya no había nada para cancelar, la página muestra el estado actual.
+- El diálogo de cancelación ya no promete conservar un acceso pago que todavía no se confirmó.
+- Si la academia empieza a pedir solicitud con la página abierta, «Ingresar gratis» lo explica y muestra «Solicitar ingreso», en lugar de pedir que revises los datos.
+- Una falla al ingresar gratis muestra «No pudimos sumarte a la tribu. Intentá de nuevo en unos minutos.» en lugar del mensaje de las solicitudes de admisión.
+- Abrir la academia con mayúsculas en la dirección lleva a la dirección correcta, así que ingresar y gestionar funcionan.
+- Una persona bloqueada o dada de baja ya no ve «Ver cursos básicos», que la llevaba a una página inexistente.
+- Un guardián ya no ve «Todavía no cargaste la oferta» ni «Configurar la oferta»: ve que quien lidera la tribu todavía no la cargó.
+- Cuando la plataforma todavía no puede proteger las admisiones (falta su seguridad o está pausada mientras recupera un servicio), guardar cambios en Habilitados, Importación, Invitaciones, Avisos, Conexión o Países y cupos, enviar o cancelar una solicitud, corregir el WhatsApp, pedir o validar un código, aceptar una invitación personal y decidir solicitudes ya no deja la pantalla trabada esperando «el resultado de la operación anterior» ni muestra «El recurso solicitado no está disponible» o «No tenés permiso para realizar esta operación.»: avisa que depende del equipo de TuTribu, no registra nada y no ofrece reintentar lo mismo.
+- Si salir de la academia, eliminar la tribu, guardar un cambio de Conexión o validar, configurar, probar o activar la conexión ya se había registrado y se vuelve a enviar mientras la plataforma no puede protegerlo, ya no dice que no se registró ningún cambio: queda pendiente de confirmar para recuperarlo cuando la plataforma vuelva a estar disponible.
+- Las pantallas de Reglas, Habilitados, Importación, Invitaciones, Avisos, Conexión, Países y cupos y la bandeja de solicitudes avisan antes de empezar, con «Depende del equipo de TuTribu» y su código de diagnóstico, cuando la plataforma no puede proteger lo que se guarda ahí, y deshabilitan esos guardados en lugar de dejar completar formularios que iban a fallar. La bandeja no ofrece aprobar ni rechazar mientras tanto. Cuando el equipo de TuTribu lo resuelve, en Países y cupos, Habilitados, Importación y la bandeja alcanza con tocar «Volver a comprobar» en el aviso, sin recargar la página, aunque todavía no haya cupos, entradas ni una vista previa de importación guardada.
+- La guía «Configurá las admisiones» deja de invitar a definir reglas, conectar mensajería o elegir países y cupos mientras la plataforma no puede proteger esos cambios, sin mencionar un borrador que no existe, y en Solicitudes la guía y la bandeja muestran un único aviso «Depende del equipo de TuTribu», en lugar de dos seguidos.
+- La página para pedir el ingreso y el enlace heredado aparecen cerrados mientras la plataforma no puede proteger las admisiones, en lugar de ofrecer el formulario, el paso del código o el cambio de cuenta.
+- Una invitación personal que no se puede mostrar porque la plataforma no puede proteger las admisiones ya no ofrece «Reintentar» en un bucle.
+- En Avisos, un cambio del correo de la tribu que no se pudo registrar ya no impide guardar tu frecuencia de avisos ni oculta toda la sección.
+- En Países y cupos, un guardado rechazado ya no oculta la página ni deja pendiente un intento que nunca se registró.
+- En Conexión, salir de un guardado rechazado por la plataforma ya no exige volver a escribir la clave de Zavu; configurar un canal ya no consulta a Zavu antes de comprobar que la plataforma puede proteger el cambio, y una conexión guardada con una seguridad anterior de la plataforma ya no se muestra como activa: indica que necesita la clave otra vez.
+- En Reglas de admisión, pausar sin la seguridad de la plataforma muestra que las admisiones siguen abiertas y que depende del equipo de TuTribu, en lugar de un texto pensado para postulantes y un reintento que fallaba; el bloqueo ya no dice que se guardó un borrador cuando no se guardó nada; reintentar una operación muestra el bloqueo de esa misma acción; si no se puede volver a leer la configuración se muestra ese error en lugar de un aviso vacío, y «Volver a comprobar» informa el motivo real del bloqueo, sin confundir una configuración faltante con una pausa.
+- Pedir el código de ingreso desde otra pestaña, otro navegador o el celular muestra el código que ya está vigente para ese destino, listo para escribirlo o reenviarlo, en lugar de «Ese código ya no está vigente».
+- Retomar una solicitud con un código anterior que ya no sirve (de una invitación personal o de un canal que la academia desactivó) ya no deja la pantalla esperando: se puede pedir un código nuevo.
+- En la prueba de un canal de mensajería, enviar otra prueba al mismo destino mientras la anterior sigue vigente explica que ya se envió un código, en lugar de decir que no está vigente.
+- El enlace del correo sobre tu solicitud de ingreso abre la solicitud; los enlaces enviados antes, sin la academia, también funcionan después de iniciar sesión.
+- Un enlace de invitación clásico a una academia que todavía no activó el control de admisión lleva a su página de academia, con el ingreso gratuito, en lugar de mostrar las admisiones cerradas.
+- Quien recupera una membresía comercial ya puede recibir el código de ingreso, en lugar de que se le pida asistencia autorizada.
+- Una invitación personal durante la espera para volver a presentar muestra cuándo se puede, en lugar de ofrecer «Confirmar invitación» y rechazarla siempre.
+- Si la comprobación inicial de una invitación personal tarda demasiado, el aviso dice que no se pudo consultar, en lugar de hablar de una operación que no existe.
+- Cancelar o corregir el teléfono de una solicitud que acaba de vencer explica que venció, en lugar de no hacer nada o mostrar «Falta un requisito actual».
+- El historial de una solicitud muestra «Teléfono de WhatsApp actualizado» cuando el solicitante corrige su teléfono, en lugar de «Evento conservado» con Pendiente → Pendiente.
+- «Cambiar de cuenta» desde la página de tu solicitud lleva la cuenta nueva a la entrada de la academia, en lugar de una solicitud que no puede ver.
+- «Cambiar de cuenta» queda deshabilitado mientras hay una operación anterior sin confirmar, y después de cerrar la sesión no se vuelve a habilitar mientras se abre el inicio de sesión.
+- En la revisión, una solicitud sin teléfono cuando las reglas lo exigen explica por qué no se puede aprobar.
+- Aprobar como excepción, en la revisión individual o en lote, una solicitud que no coincide con la lista de habilitados sin escribir el motivo interno pide corregir los datos, en lugar de decir que falta un requisito actual de la solicitud.
+- Una operación de admisión que no llegó a registrarse o que quedó registrada sin terminar (Reglas, Países y cupos, la revisión individual y en lote, la solicitud de ingreso, Habilitados, la importación, Invitaciones y la invitación personal) ya no deja la pantalla trabada: se puede reintentar con los mismos datos sin que se aplique dos veces y, en Habilitados, Importación e Invitaciones, descartar sin perder el borrador ni el archivo. Buscar y «Ver más» siguen disponibles mientras tanto.
+- Una vista previa de importación que ya no se puede confirmar, por ejemplo porque se creó antes de cambiar las Reglas, ya no entra en un bucle de «La configuración cambió»: pide crear otra con el mismo archivo y la configuración actual.
+- Una importación vencida con confirmaciones pendientes se puede cerrar para elegir otro archivo; las filas ya importadas siguen en Habilitados.
+- Emitir una invitación a alguien que ya tiene una activa explica que hay que reemitirla desde el historial, y una lista de habilitados sin entradas utilizables se explica como tal, en lugar de «La invitación cambió».
+- Las entradas de Habilitados de un tipo de contacto que las reglas ya no usan dejan de ofrecer «Editar», que siempre fallaba.
+- Activar las admisiones ya no queda sin confirmar si la tribu cambió mientras se convertían las membresías comerciales: se informa el conflicto para revisar la configuración.
+- En Conexión, reanudar una operación cuya respuesta se pierde o sigue en curso ya no muestra «La operación original se reanudó.»: avisa que no se pudo confirmar el reintento y la operación sigue pendiente.
+- Una comprobación de credencial que terminó con Zavu caído o con una respuesta inválida muestra su resultado, en lugar de quedar pendiente de «Consultar guardado».
+- Si Zavu no responde al guardar la configuración de un canal, la pantalla dice que no se cambió nada y permite reintentar, en lugar de bloquear los pasos hasta consultar el guardado.
+- El aviso de una operación pendiente en Conexión nombra lo que quedó sin confirmar (comprobación, canal, prueba, activación, suspensión o retiro), también al recargar, en lugar de hablar siempre del guardado de la clave.
+- Desconectar la conexión seleccionada mientras la usan las Reglas o los avisos por correo explica qué resolver antes, en lugar de decir que la conexión no está preparada.
+- Después de activar una conexión, volver a Conexión ya no muestra cada vez «La prueba original corresponde a otra configuración».
+- Al volver con Atrás a Conexión, una prueba que espera su código se vuelve a abrir aunque la página recuerde una configuración anterior, y la pantalla avisa si no pudo actualizar los datos.
+- Los errores del paso Canales están escritos para quien lidera: dicen si Zavu no respondió, si rechazó la clave o qué revisar del remitente o la plantilla.
+- El paso Canales ya no dice que Zavu no devolvió remitentes cuando todavía hay más páginas: invita a usar «Ver más remitentes».
+- Si la activación se rechaza porque faltan países para un canal telefónico o un canal que usan las Reglas o los avisos, la pantalla dice qué completar, en lugar de hablar del país de un teléfono.
+- Recuperar un aviso vencido, ya entregado o que dejó de corresponder muestra un mensaje de avisos, en lugar del texto del código de una prueba o de una conexión sin preparar.
+- En Recuperación de avisos, un aviso cuyo envío anterior puede haber salido se muestra como «Envío anterior sin confirmar» y no ofrece recuperarlo hasta que ese envío se confirme, en lugar de aparecer como fallido o en cola y rechazar la recuperación.
+- Si la creación inicial de Países y cupos se confirmó pero su respuesta se perdió, al consultarla los pasos siguen abiertos con los países y cupos que elegiste para guardarlos, en lugar de cerrarse con los valores iniciales.
+
+### Security
+
+- Una solicitud de ingreso que llegó por un enlace de invitación anterior a la admisión solo se puede rechazar: aprobarla ya no se acepta aunque se envíe por fuera de la bandeja de Revisión.
+
+## [1.12.0] - 2026-10-31
+
+### Fixed
+
+- En Reglas de admisión, si la plataforma todavía no tiene configurada la seguridad que protege las admisiones, guardar o activar las reglas ya no deja la pantalla trabada esperando «el resultado de la operación anterior»: avisa que depende del equipo de TuTribu, con su código de diagnóstico, y conserva lo que elegiste.
+
+## [1.11.0] - 2026-10-31
+
+### Changed
+
+- Al activar las admisiones de la academia, las personas que eran integrantes y estaban bloqueadas por pago o dadas de baja por la suscripción pasan solas a ser integrantes gratuitas: vuelven a la tribu sin acceso al contenido pago, y las guardianas quedan sin ese rol. Quienes abrieron un pago y nunca lo completaron no se agregan, pero si lo completan después de la activación entran como integrantes.
+- El último paso de Reglas de admisión avisa cuántas membresías bloqueadas por pago van a pasar a integrantes gratuitas antes de activar.
+
+### Removed
+
+- Se quitó de Reglas de admisión el paso «Revisá membresías bloqueadas por pago» y de la guía de configuración su paso: ya no hace falta decidir cada membresía antes de activar. Después de activar, se gestionan desde Integrantes.
+
+### Fixed
+
+- Una integrante que pasó a gratuita al activar las admisiones ya no vuelve a quedar bloqueada o dada de baja por un aviso tardío de Mercado Pago sobre su suscripción anterior.
+
 ## [1.10.5] - 2026-10-31
 
 ### Fixed

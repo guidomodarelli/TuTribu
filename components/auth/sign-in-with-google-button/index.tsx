@@ -10,9 +10,16 @@ import styles from "./styles.module.scss";
 
 type SignInWithGoogleButtonProps = {
   callbackUrl: string;
+  /** An explicit account change asks Google for its account chooser. */
+  selectAccount?: boolean;
+  /** Idle label; the sign-in page keeps its default, and a page that asks to sign in again names that instead. */
+  label?: string;
+  /** Whether the button fills its card, as on the sign-in page; inline it sits among other actions at the default size. */
+  fullWidth?: boolean;
 };
 const SIGN_IN_WITH_GOOGLE_BUTTON = {
-  size: "lg",
+  fullWidthSize: "lg",
+  inlineSize: "md",
   type: "button",
 } as const;
 
@@ -38,6 +45,9 @@ const PAGE_SHOW_EVENT = "pageshow";
  */
 export function SignInWithGoogleButton({
   callbackUrl,
+  selectAccount = false,
+  label = SIGN_IN_WITH_GOOGLE_COPY.idle,
+  fullWidth = true,
 }: SignInWithGoogleButtonProps) {
   const { push } = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -61,7 +71,7 @@ export function SignInWithGoogleButton({
     }
 
     setIsRedirecting(true);
-    void startGoogleSignIn(callbackUrl).catch(() => {
+    void startGoogleSignIn(callbackUrl, { selectAccount }).catch(() => {
       setIsRedirecting(false);
       push(ROUTES.auth.error);
     });
@@ -73,15 +83,15 @@ export function SignInWithGoogleButton({
       type={SIGN_IN_WITH_GOOGLE_BUTTON.type}
       onClick={handleGoogleSignIn}
       disabled={isRedirecting}
-      size={SIGN_IN_WITH_GOOGLE_BUTTON.size}
-      className={styles.SignInWithGoogleButton}
+      size={fullWidth ? SIGN_IN_WITH_GOOGLE_BUTTON.fullWidthSize : SIGN_IN_WITH_GOOGLE_BUTTON.inlineSize}
+      className={fullWidth ? `${styles.SignInWithGoogleButton} ${styles["SignInWithGoogleButton--fullWidth"]}` : styles.SignInWithGoogleButton}
     >
       <PresenceSwap
         as="span"
         mode="popLayout"
         presenceKey={isRedirecting ? SIGN_IN_LABEL_KEY.redirecting : SIGN_IN_LABEL_KEY.idle}
       >
-        {isRedirecting ? SIGN_IN_WITH_GOOGLE_COPY.redirecting : SIGN_IN_WITH_GOOGLE_COPY.idle}
+        {isRedirecting ? SIGN_IN_WITH_GOOGLE_COPY.redirecting : label}
       </PresenceSwap>
     </Button>
   );

@@ -6,7 +6,7 @@ import {describe,expect,it,vi} from "vitest";
 import {MessagingConnections} from "@/components/academy-admissions/messaging-connections";
 
 /** @returns Controlled own view state without session, SDK, HTTP adapter or a stored credential. */
-function presenterFixture(){return{configuration:{audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},name:"",apiKey:"",confirmed:false,busy:false,canSave:false,validationConfirmed:false,canValidate:false,fieldErrors:{},message:null,onNameChange:vi.fn(),onApiKeyChange:vi.fn(),onConfirmationChange:vi.fn(),onSave:vi.fn(),onValidationConfirmationChange:vi.fn(),onValidate:vi.fn()};}
+function presenterFixture(){return{configuration:{audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null},platformRequirement:null},name:"",apiKey:"",confirmed:false,busy:false,canSave:false,validationConfirmed:false,canValidate:false,fieldErrors:{},message:null,onNameChange:vi.fn(),onApiKeyChange:vi.fn(),onConfirmationChange:vi.fn(),onSave:vi.fn(),onValidationConfirmationChange:vi.fn(),onValidate:vi.fn()};}
 describe("messaging connection first step",()=>{
   it("should show only the operational alert to a guardian without credential controls",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} configuration={{audience:"guardian",operationalAlert:"attention_required"}} />);
@@ -23,7 +23,7 @@ describe("messaging connection first step",()=>{
     expect(screen.getByText("Ingresá la clave antes de guardar.")).toBeVisible();expect(screen.getByLabelText("Clave de Zavu")).toHaveAccessibleDescription(expect.stringContaining("Ingresá la clave antes de guardar."));expect(screen.getByRole("button",{name:/Guardar conexión/i})).toBeDisabled();
   });
   it("should keep the pressed credential check busy with its own label while the check is pending",()=>{
-    const props=presenterFixture(),candidate={id:randomUUID(),name:"Candidata",version:1,configurationVersion:1,state:"draft" as const,credentialState:"not_validated" as const,credentialMode:"unknown" as const,maskedCredential:"••••••••" as const,capabilities:[]};
+    const props=presenterFixture(),candidate={id:randomUUID(),name:"Candidata",version:1,configurationVersion:1,state:"draft" as const,credentialState:"not_validated" as const,credentialMode:"unknown" as const,maskedCredential:"••••••••" as const,securityCurrent:true,capabilities:[]};
     render(<MessagingConnections {...props} configuration={{...props.configuration,candidate}} busy validating />);
     expect(screen.getByRole("button",{name:"Comprobar credencial"})).toHaveAttribute("aria-busy","true");expect(screen.getByRole("button",{name:"Comprobar credencial"})).not.toBeDisabled();expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/})).toBeDisabled();
   });

@@ -11,6 +11,7 @@ import {MESSAGING_CREDENTIAL_MODE} from "../../constants/messaging-credential-va
 export function assessMessagingActivationRequirements(candidate:MessagingConfigurationConnection,usage:MessagingUsagePolicyStateDto,renderedAt:string):{eligible:boolean;messages:string[]}{
   const messages:string[]=[],nowMs=Date.parse(renderedAt);
   if(candidate.state===MESSAGING_CONNECTION_STATE.suspended||candidate.state===MESSAGING_CONNECTION_STATE.disconnected)messages.push(MESSAGING_ACTIVATION_UI_COPY.suspended);
+  if(!candidate.securityCurrent)messages.push(MESSAGING_ACTIVATION_UI_COPY.securityOutdated);
   if(candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid)messages.push(MESSAGING_ACTIVATION_UI_COPY.credentialRequired);
   else if(candidate.credentialMode!==MESSAGING_CREDENTIAL_MODE.production)messages.push(MESSAGING_ACTIVATION_UI_COPY.productionRequired);
   if(candidate.capabilities.length===0)messages.push(MESSAGING_ACTIVATION_UI_COPY.channelRequired);

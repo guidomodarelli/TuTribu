@@ -6,6 +6,10 @@ import { POST as postActivation } from "@/app/api/tribes/[slug]/academy/activati
 import { POST as postBonus } from "@/app/api/tribes/[slug]/academy/bonuses/route";
 import { POST as postCheckout } from "@/app/api/tribes/[slug]/academy/checkout/route";
 import { POST as postJoin } from "@/app/api/tribes/[slug]/academy/join/route";
+import { POST as postReconcile } from "@/app/api/tribes/[slug]/academy/reconcile/route";
+import { DELETE as deleteCurrentSubscription } from "@/app/api/tribes/[slug]/subscriptions/current/route";
+import { AcademySubscriptionProviderError } from "@/src/modules/subscriptions/domain/errors/academy-subscription-provider-error";
+import { MercadoPagoRequestError } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { PATCH as patchVerification } from "@/app/api/tribes/[slug]/verifications/[verificationId]/route";
 import { createRequestModules } from "@/src/modules/setup";
 
@@ -17,11 +21,13 @@ const IDEMPOTENCY_KEY = "7f5c9a0e-8d1b-4c3e-9a2f-1b2c3d4e5f60";
 
 const useCases = {
   activateAcademy: vi.fn(),
+  cancelOwnAcademyRenewal: vi.fn(),
   getAuthenticatedMember: vi.fn(),
   getOwnAcademyAccess: vi.fn(),
   grantAcademyBonus: vi.fn(),
   joinTribeAcademyAdmission: vi.fn(),
   getAcademyPublicOffer: vi.fn(async () => null),
+  reconcileOwnAcademyCoverage: vi.fn(),
   reviewMemberVerification: vi.fn(),
   startAcademySubscription: vi.fn(),
 };
@@ -57,7 +63,13 @@ beforeEach(() => {
         getAcademyPublicOffer: useCases.getAcademyPublicOffer,
       },
     },
-    subscriptions: { useCases: { startAcademySubscription: useCases.startAcademySubscription } },
+    subscriptions: {
+      useCases: {
+        cancelOwnAcademyRenewal: useCases.cancelOwnAcademyRenewal,
+        reconcileOwnAcademyCoverage: useCases.reconcileOwnAcademyCoverage,
+        startAcademySubscription: useCases.startAcademySubscription,
+      },
+    },
     tribes: { useCases: { joinTribeAcademyAdmission: useCases.joinTribeAcademyAdmission } },
   });
 });
@@ -82,7 +94,9 @@ describe("GET /academy/access", () => {
         hasBonusCoverage: true,
         hasPaidCoverage: false,
         isLeaderPreview: false,
+        lastPaymentRejected: false,
         level: "academy",
+        membershipRecovery: null,
         nextAction: "continue_learning",
         renewalStatus: "none",
       },
@@ -103,7 +117,9 @@ describe("GET /academy/access", () => {
       hasBonusCoverage: true,
       hasPaidCoverage: false,
       isLeaderPreview: false,
+      lastPaymentRejected: false,
       level: "academy",
+      membershipRecovery: null,
       nextAction: "continue_learning",
       renewalStatus: "none",
     });
@@ -206,6 +222,99 @@ describe("POST /academy/checkout", () => {
     const response = await postCheckout(buildRequest({ acceptedOfferVersion: 1 }), slugContext());
 
     expect(response.status).toBe(409);
+  });
+
+  it("forwards the accepted price and rejects a malformed one at the boundary", async () => {
+    useCases.startAcademySubscription.mockResolvedValue({ status: "offer_changed" });
+
+    await postCheckout(buildRequest({ acceptedOfferVersion: 1, acceptedPrice: { amountCents: 300_000, currency: "ARS" } }), slugContext());
+    const malformed = await postCheckout(buildRequest({ acceptedOfferVersion: 1, acceptedPrice: { amountCents: -1, currency: "pesos" } }), slugContext());
+
+    expect(useCases.startAcademySubscription).toHaveBeenCalledTimes(1);
+    expect(useCases.startAcademySubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ acceptedPrice: { amountCents: 300_000, currency: "ARS" } })
+    );
+    expect(malformed.status).toBe(400);
+  });
+
+  it("answers a broken seller integration as a definite 409 that does not promise a retry, and logs its cause chain", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    useCases.startAcademySubscription.mockResolvedValue({
+      cause: new AcademySubscriptionProviderError("integration_unavailable", "start_checkout", {
+        cause: new MercadoPagoRequestError("Rejected", 400, "refresh-mercado-pago-access-token"),
+      }),
+      status: "integration_unavailable",
+    });
+
+    const response = await postCheckout(buildRequest({ acceptedOfferVersion: 2 }), slugContext());
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload.message).toContain("volver a conectar Mercado Pago");
+    expect(payload.message).not.toContain("Intentá de nuevo");
+    expect(JSON.stringify(warn.mock.calls)).toContain("refresh-mercado-pago-access-token:400");
+    expect(JSON.stringify(payload)).not.toContain("refresh-mercado-pago-access-token");
+  });
+});
+
+describe("POST /academy/reconcile", () => {
+  it("answers a broken seller integration as 409 without promising a retry", async () => {
+    useCases.reconcileOwnAcademyCoverage.mockResolvedValue({
+      appliedInvoices: 0,
+      cause: new AcademySubscriptionProviderError("integration_unavailable", "reconcile_coverage"),
+      status: "integration_unavailable",
+    });
+
+    const response = await postReconcile(buildRequest({}), slugContext());
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).message).toContain("Tu acceso confirmado se mantiene");
+  });
+});
+
+describe("DELETE /subscriptions/current?product=academy", () => {
+  const academyUrl = "https://tutribu.example/api/tribes/matematica-pro/subscriptions/current?product=academy";
+
+  function buildDeleteRequest() {
+    return new Request(academyUrl, { headers: { "x-request-id": "request-1" }, method: "DELETE" });
+  }
+
+  it.each([
+    ["canceled", 200],
+    ["cancel_unconfirmed", 202],
+    ["integration_unavailable", 409],
+    ["provider_rejected", 422],
+    ["provider_unavailable", 503],
+    ["not_found", 404],
+  ] as const)("maps %s to %i", async (status, httpStatus) => {
+    useCases.cancelOwnAcademyRenewal.mockResolvedValue({ status });
+
+    const response = await deleteCurrentSubscription(buildDeleteRequest(), slugContext());
+
+    expect(response.status).toBe(httpStatus);
+    expect((await response.json()).message).toEqual(expect.any(String));
+  });
+
+  it("answers a recorded but unconfirmed cancellation with its own status, never as canceled", async () => {
+    useCases.cancelOwnAcademyRenewal.mockResolvedValue({ status: "cancel_unconfirmed" });
+
+    const response = await deleteCurrentSubscription(buildDeleteRequest(), slugContext());
+
+    await expect(response.json()).resolves.toEqual({
+      message: "Registramos tu pedido de cancelación, pero Mercado Pago todavía no lo confirmó. Tocá «Actualizar estado» en unos minutos para confirmarlo.",
+      status: "cancel_unconfirmed",
+    });
+  });
+
+  it("answers a logged JSON 500 when the composition or the session read fails", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    (createRequestModules as Mock).mockRejectedValueOnce(new Error("Synthetic pool outage"));
+
+    const response = await deleteCurrentSubscription(buildDeleteRequest(), slugContext());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ message: "No pudimos cancelar la suscripción. Intentá de nuevo." });
+    expect(JSON.stringify(error.mock.calls)).toContain("request-1");
   });
 });
 

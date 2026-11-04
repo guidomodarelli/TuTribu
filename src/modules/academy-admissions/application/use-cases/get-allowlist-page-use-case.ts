@@ -7,6 +7,7 @@ import type { GetAdmissionPolicyUseCase } from "./get-admission-policy-use-case"
 import type { ResolveAdmissionTribeUseCase } from "./resolve-admission-tribe-use-case";
 import type { AllowlistQuery } from "../../domain/repositories/allowlist-management";
 import { allowlistPageStateSchema } from "../results/allowlist-page-state";
+import { readAdmissionPlatformRequirement } from "../results/admission-platform-requirement";
 import { ALLOWLIST_CURSOR_SEPARATOR } from "../../constants/allowlist-management";
 
 /** The SSR loader is the primary list entry point; no write or provider dependency is introduced. */
@@ -23,7 +24,7 @@ export class GetAllowlistPageUseCase {
       if (!page.ok) return page;
       const { current, now } = await confirmSameAdmissionAccount(this.accounts, first, this.clock);
       const { cursor, ...filters } = query.filters;
-      return { ok: true as const, value: allowlistPageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: scope.tribeId, viewerId: current.userId, renderedAt: now.toISOString(), contactType: policy.value.policy?.contactType ?? null, page: page.value, query: { ...filters, ...(cursor ? { cursor: [cursor.createdAt, cursor.id].join(ALLOWLIST_CURSOR_SEPARATOR) } : {}) } }) };
+      return { ok: true as const, value: allowlistPageStateSchema.parse({ kind: "ready", slug: query.slug, tribeId: scope.tribeId, viewerId: current.userId, renderedAt: now.toISOString(), contactType: policy.value.policy?.contactType ?? null, platformRequirement: readAdmissionPlatformRequirement(policy.value), page: page.value, query: { ...filters, ...(cursor ? { cursor: [cursor.createdAt, cursor.id].join(ALLOWLIST_CURSOR_SEPARATOR) } : {}) } }) };
     });
   }
 }

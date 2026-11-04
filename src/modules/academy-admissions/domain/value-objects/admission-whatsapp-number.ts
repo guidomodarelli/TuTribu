@@ -39,7 +39,8 @@ export function proposeAdmissionWhatsappNumberChange(input: {
   const denied = (code: AdmissionErrorCode): AdmissionWhatsappNumberChange => ({ outcome: ADMISSION_WHATSAPP_CHANGE_OUTCOME.denied, code });
   if (request.userId !== input.actorUserId || request.tribeId !== input.policy.tribeId) return denied(ADMISSION_ERROR_CODE.permissionDenied);
   if (request.status !== ADMISSION_REQUEST_STATUS.pending || request.version !== input.expectedVersion) return denied(ADMISSION_ERROR_CODE.requestConflict);
-  if (!Number.isFinite(input.now.getTime()) || input.now >= request.expiresAt || input.now < request.submittedAt) return denied(ADMISSION_ERROR_CODE.admissionIneligible);
+  if (!Number.isFinite(input.now.getTime()) || input.now < request.submittedAt) return denied(ADMISSION_ERROR_CODE.admissionIneligible);
+  if (input.now >= request.expiresAt) return denied(ADMISSION_ERROR_CODE.requestExpired);
   if (input.policy.requiresWhatsappNumber && !input.whatsappNumber) return denied(ADMISSION_ERROR_CODE.whatsappNumberRequired);
   if ((request.whatsappNumber ?? null) === input.whatsappNumber) return { outcome: ADMISSION_WHATSAPP_CHANGE_OUTCOME.unchanged, request };
   return { outcome: ADMISSION_WHATSAPP_CHANGE_OUTCOME.changed, request: { ...request, whatsappNumber: input.whatsappNumber, version: request.version + 1 } };

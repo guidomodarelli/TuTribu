@@ -166,6 +166,44 @@ describe("contact verification workflow hook", () => {
     expect(fixture.client.verify).not.toHaveBeenCalled();
   });
 
+  it("should drop a stored selection the server rejected for good and let the applicant request a new code", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), selectedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, previousRequestId, selectedOperationId, issuedOperationId: null, verifiedOperationId: null, pending: null });
+    vi.mocked(fixture.client.current).mockResolvedValueOnce({ status: "failed", code: "request_conflict", message: "La solicitud cambió. Revisala antes de confirmar.", uncertain: false });
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.recoveryRequired).toBe(false);
+    expect(result.current.errorMessage).toBe("La solicitud cambió. Revisala antes de confirmar.");
+    expect(Object.values(sessionStorage).some((stored) => stored.includes(selectedOperationId))).toBe(false);
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).toHaveBeenCalledOnce();
+    expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+  });
+
+  it("should show a code already sent from another tab after the browser lost its references, ready to enter or resend", async () => {
+    const fixture = hookFixture();
+    vi.mocked(fixture.client.issue).mockImplementation(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { ...fixture.challenge, reusedCurrent: true } } }));
+    const first = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(first.result.current.ready).toBe(true));
+    act(() => first.result.current.setConfirmed(true));
+    await act(async () => { await first.result.current.issue(); });
+    first.unmount();
+    // A new tab starts without the original references.
+    window.sessionStorage.clear();
+    const second = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(second.result.current.ready).toBe(true));
+    act(() => second.result.current.setConfirmed(true));
+    await act(async () => { await second.result.current.issue(); });
+    expect(fixture.client.issue).toHaveBeenCalledTimes(2);
+    expect(second.result.current.errorMessage).toBeNull();
+    expect(second.result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+    expect(second.result.current.phase).toBe("idle");
+    act(() => second.result.current.setCode("123456"));
+    await act(async () => { await second.result.current.verify(); });
+    expect(vi.mocked(fixture.client.verify).mock.calls[0][1]).toBe(fixture.challenge.challengeId);
+  });
+
   it("should preserve all proof references when partial restoration fails and recover the checked proof on the next readonly attempt", async () => {
     const fixture = hookFixture(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID();
     writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId, verifiedOperationId, pending: null });

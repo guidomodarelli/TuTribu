@@ -55,8 +55,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging l
 
       // Connection configuration metadata, guarded at its start and again before it returns.
       const security = async () => ({ recoveryLocked: false, environment: "synthetic", securityEpoch: randomUUID() });
+      // The guard parity is about leadership; the platform requirement port answers that nothing blocks the writes.
+      const noPlatformRequirement = async () => null;
       const configuration = (context: Partial<MessagingConfigurationContext>) => async (transaction: RequestDatabase) => {
-        const result = await new PostgresMessagingConfigurationReader((_context, run) => run(transaction), security).read({ actorUserId: leaderId, sessionId: leader.sessionId, tribeId: leader.tribeId, requestId: randomUUID(), audience: "leader", ...context });
+        const result = await new PostgresMessagingConfigurationReader((_context, run) => run(transaction), security, noPlatformRequirement).read({ actorUserId: leaderId, sessionId: leader.sessionId, tribeId: leader.tribeId, requestId: randomUUID(), audience: "leader", ...context });
         throw Object.assign(new Error("Configuration audience"), { code: `audience:${result.audience}` });
       };
       expect({
@@ -107,7 +109,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging l
       // Lock order: while a guard waits on one row it already holds every earlier row and none of the later ones.
       const lockScenarios: { name: string; order: readonly GuardLockedRow[]; guard: (transaction: RequestDatabase) => Promise<unknown>; exclusive: boolean }[] = [
         { name: "leadership", order: VALIDATION.leadershipLockOrder, guard: (transaction) => new PostgresMessagingAuthorizationReader(transaction, leader.sessionId).getCurrentLeadership(leader.tribeId, leaderId), exclusive: false },
-        { name: "configuration", order: VALIDATION.configurationLockOrder, guard: (transaction) => new PostgresMessagingConfigurationReader((_context, run) => run(transaction), security).read({ actorUserId: leaderId, sessionId: leader.sessionId, tribeId: leader.tribeId, requestId: randomUUID(), audience: "leader" }), exclusive: false },
+        { name: "configuration", order: VALIDATION.configurationLockOrder, guard: (transaction) => new PostgresMessagingConfigurationReader((_context, run) => run(transaction), security, noPlatformRequirement).read({ actorUserId: leaderId, sessionId: leader.sessionId, tribeId: leader.tribeId, requestId: randomUUID(), audience: "leader" }), exclusive: false },
         { name: "management", order: VALIDATION.managementLockOrder, guard: management(usage), exclusive: false },
         { name: "sensitive_usage", order: VALIDATION.sensitiveManagementLockOrder, guard: management(sensitiveUsage), exclusive: false },
         { name: "suspend_connection", order: VALIDATION.sensitiveManagementLockOrder, guard: management(suspendConnection), exclusive: true },

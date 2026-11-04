@@ -11,7 +11,7 @@ function ownQuery() {
   const account: AuthenticatedAccount = { userId: randomUUID(), normalizedEmail: "applicant@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-07T12:00:00Z") }, googleAccount: null, identityEvidence: null};
   const request = { id: randomUUID(), status: "pending", version: 1, submittedAt: now.toISOString(), expiresAt: "2026-11-05T12:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [], contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" }, internalReason: "Synthetic reviewer-only reason", secretReference: randomUUID() };
   const accounts = { getAuthenticatedAccount: vi.fn(async (): Promise<AuthenticatedAccount | null> => account) };
-  const reader = { readOwn: vi.fn(async (): Promise<unknown> => request) };
+  const reader = { readOwn: vi.fn(async (): Promise<unknown> => request), readOwnTribeSlug: vi.fn(async (): Promise<string | null> => "synthetic-academy") };
   return { accounts, account, reader, request, now, query: { tribeId: randomUUID(), requestId: randomUUID() } };
 }
 
@@ -30,6 +30,17 @@ describe("own admission application query", () => {
     expect(result).toMatchObject({ ok: true, value: { status: "pending", version: 1, contact: { evidenceKind: "declared" } } });
     if (result.ok && result.value) { expect(result.value).not.toHaveProperty("internalReason"); expect(result.value).not.toHaveProperty("secretReference"); }
     expect(fixture.reader.readOwn).toHaveBeenCalledWith({ ...fixture.query, userId: fixture.account.userId, sessionId: fixture.account.session.id });
+  });
+
+  it("should resolve the tribe of an own request link only for a signed-in account", async () => {
+    const fixture = ownQuery(), admissionRequestId = randomUUID(), useCases = new GetOwnAdmissionUseCases(fixture.accounts, fixture.reader, () => fixture.now);
+    expect(await useCases.findOwnTribeSlug({ requestId: randomUUID(), admissionRequestId })).toEqual({ ok: true, value: "synthetic-academy" });
+    expect(fixture.reader.readOwnTribeSlug).toHaveBeenCalledWith({ userId: fixture.account.userId, sessionId: fixture.account.session.id, admissionRequestId });
+    fixture.reader.readOwnTribeSlug.mockResolvedValueOnce(null);
+    expect(await useCases.findOwnTribeSlug({ requestId: randomUUID(), admissionRequestId })).toMatchObject({ ok: false, failure: { code: "resource_unavailable" } });
+    fixture.accounts.getAuthenticatedAccount.mockResolvedValueOnce(null);
+    expect(await useCases.findOwnTribeSlug({ requestId: randomUUID(), admissionRequestId })).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
+    expect(fixture.reader.readOwnTribeSlug).toHaveBeenCalledTimes(2);
   });
 
   it("should preserve absence without a resource version or durable operation", async () => {

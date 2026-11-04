@@ -1,9 +1,13 @@
 /** Owns bounded notification catalog contracts and stable chronological pagination. @module notification-delivery-catalog */
 import { z } from "zod";
 import type { NotificationDeliveryCatalogResult } from "../application/results/notification-delivery-catalog-result";
-import { MESSAGE_DELIVERY_STATE } from "./message-delivery";
+import { MESSAGE_ATTEMPT_STATE, MESSAGE_DELIVERY_STATE } from "./message-delivery";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "./messaging-errors";
 
+/** Delivery states that already say an earlier send may have left; an attempt still in flight says it too. */
+export const UNRESOLVED_DELIVERY_STATES: ReadonlySet<string> = new Set([MESSAGE_DELIVERY_STATE.accepted, MESSAGE_DELIVERY_STATE.unknown]);
+/** Attempt states whose send may have left without a confirmed result, the same ones that refuse a recovery. */
+export const UNRESOLVED_ATTEMPT_STATES = [MESSAGE_ATTEMPT_STATE.inFlight, MESSAGE_ATTEMPT_STATE.accepted, MESSAGE_ATTEMPT_STATE.unknown] as const;
 /** Limits one owned leader projection without hiding earlier notices behind an unbounded query. */
 export const NOTIFICATION_DELIVERY_CATALOG_PAGE_SIZE = 50;
 /** Names the readonly own route; no provider or arbitrary recipient identifier can be supplied. */
@@ -14,7 +18,10 @@ const notificationDeliveryCatalogCursorSchema = z.strictObject({ deliveryId: z.u
 export const notificationDeliveryCatalogQuerySchema = z.strictObject({ cursorId: z.uuid().optional(), cursorCreatedAt: z.iso.datetime({ offset: true }).optional() }).refine((query) => Boolean(query.cursorId) === Boolean(query.cursorCreatedAt));
 /** Guards only own projection fields and coherent lineage/pagination, never database rows. */
 export const notificationDeliveryCatalogSchema: z.ZodType<NotificationDeliveryCatalogResult> = z.strictObject({
-  items: z.array(z.strictObject({ id: z.uuid(), version: z.int().positive(), state: z.enum(MESSAGE_DELIVERY_STATE), connectionId: z.uuid(), createdAt: z.iso.datetime({ offset: true }), deadlineAt: z.iso.datetime({ offset: true }), recoveryDeliveryId: z.uuid().nullable() }).refine((item) => item.recoveryDeliveryId?.toLowerCase() !== item.id.toLowerCase())).max(NOTIFICATION_DELIVERY_CATALOG_PAGE_SIZE),
+  items: z.array(z.strictObject({ id: z.uuid(), version: z.int().positive(), state: z.enum(MESSAGE_DELIVERY_STATE), connectionId: z.uuid(), createdAt: z.iso.datetime({ offset: true }), deadlineAt: z.iso.datetime({ offset: true }), recoveryDeliveryId: z.uuid().nullable(), dispatchUnresolved: z.boolean() })
+    .refine((item) => item.recoveryDeliveryId?.toLowerCase() !== item.id.toLowerCase())
+    // An accepted or unknown delivery is itself an unresolved send; a delivered one can no longer be.
+    .refine((item) => item.dispatchUnresolved ? item.state !== MESSAGE_DELIVERY_STATE.delivered : !UNRESOLVED_DELIVERY_STATES.has(item.state))).max(NOTIFICATION_DELIVERY_CATALOG_PAGE_SIZE),
   nextCursor: notificationDeliveryCatalogCursorSchema.nullable(),
 }).refine((catalog) => {
   const last = catalog.items.at(-1);

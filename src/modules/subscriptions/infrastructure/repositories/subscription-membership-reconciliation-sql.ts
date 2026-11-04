@@ -50,7 +50,9 @@ export function buildReconciledSubscriptionsSql() {
 /**
  * Updates only basic membership rows affected by the membership product.
  * @returns An UPDATE fragment scoped by the caller's affected_members CTE.
- * @remarks Role, identity and joining date stay with tribes; moderation stays closed.
+ * @remarks Role, identity and joining date stay with tribes; moderation stays closed. A membership the first
+ * admission activation converted into a free member is no longer governed by its legacy membership subscription,
+ * so a late provider status can neither block nor remove it.
  */
 export function buildSubscriptionMembershipUpdateSql() {
   const hasActive=sql`exists(select 1 from reconciled_subscriptions subscription where subscription.tribe_id=tribe_members.tribe_id and subscription.user_id=tribe_members.user_id and subscription.product_key=${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership} and subscription.status=${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active})`;
@@ -66,5 +68,6 @@ export function buildSubscriptionMembershipUpdateSql() {
       and (tribe_members.status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})
         or (tribe_members.status=${TRIBE_MEMBERSHIP_STATUS.blocked} and tribe_members.status_reason=${TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked})
         or (tribe_members.status=${TRIBE_MEMBERSHIP_STATUS.removed} and tribe_members.status_reason=${TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive}))
-      and not exists(select 1 from public.academy_admission_membership_effects basis where basis.id=tribe_members.admission_membership_effect_id and basis.tribe_id=tribe_members.tribe_id and basis.user_id=tribe_members.user_id and basis.member_id=tribe_members.id and basis.applied_at is not null and basis.revoked_at is null)`;
+      and not exists(select 1 from public.academy_admission_membership_effects basis where basis.id=tribe_members.admission_membership_effect_id and basis.tribe_id=tribe_members.tribe_id and basis.user_id=tribe_members.user_id and basis.member_id=tribe_members.id and basis.applied_at is not null and basis.revoked_at is null)
+      and not public.commercial_membership_converted_to_free(tribe_members.id)`;
 }

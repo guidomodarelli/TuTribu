@@ -122,7 +122,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         await transaction.execute(sql`insert into public.message_delivery_attempts(id,delivery_id,tribe_id,connection_id,connection_version,sequence,reservation_id,lease_token,send_authorized_at,authorized_usage_policy_version,state) values (${attemptId},${fixture.context.deliveryId},${fixture.context.tribeId},${fixture.originalConnectionId},1,1,${reservationId},${randomUUID()},clock_timestamp(),1,'unknown')`);
         await transaction.execute(sql`insert into public.messaging_usage_reservations(id,tribe_id,attempt_id,delivery_id,category,reserved_at) values (${reservationId},${fixture.context.tribeId},${attemptId},${fixture.context.deliveryId},'notification',clock_timestamp())`);
       });
-      await expect(fixture.repository.recover(fixture.context, fixture.input)).rejects.toMatchObject({ code: "delivery_unknown" });
+      // A definitive rejection that rolled back, naming the unresolved previous send as its typed cause.
+      await expect(fixture.repository.recover(fixture.context, fixture.input)).rejects.toMatchObject({ code: "original_dispatch_unresolved", cause: { name: "MessagingRequirementError", code: "notification_recovery_original_dispatch_unresolved" } });
       const state = await database.withContext(fixture.own, async (transaction) => ({
         original: (await transaction.execute(sql`select state,version from public.message_deliveries where id=${fixture.context.deliveryId}`)).rows[0],
         attempt: (await transaction.execute(sql`select state,version from public.message_delivery_attempts where id=${attemptId}`)).rows[0],
@@ -131,7 +132,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
       }));
       expect(state).toEqual({ original: { state: "unknown", version: 1 }, attempt: { state: "unknown", version: 1 }, reservation: { state: "consumed" }, effects: { children: 0, audits: 0 } });
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should recover an explicitly rejected original without releasing its charge or reusing its attempt", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -153,7 +154,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
       }));
       expect(state).toEqual({ original: { state: "failed", version: 2 }, attempt: { id: attemptId, state: "rejected", version: 1 }, reservations: [{ id: reservationId, state: "consumed" }], children: 1, audit: [{ actor_user_id: fixture.context.actorUserId, resource_version: 1, rule: "explicit_notification_recovery", cause: "authorized_connection_replacement", owner_clock: true, idempotency_key: fixture.input.operationId, metadata: { fromState: null, toState: "queued", previousVersion: null, connectionId: fixture.input.targetConnectionId, connectionVersion: fixture.targetConfigurationVersion, channel: "email", attemptId: null, authorizedUsagePolicyVersion: null, originalDeliveryId: fixture.context.deliveryId, targetConnectionId: fixture.input.targetConnectionId, originalConnectionId: fixture.originalConnectionId, originalConnectionVersion: 1, originalFromState: "failed", originalToState: "failed", previousOriginalVersion: 1, originalVersion: 2, originalAttemptId: attemptId, originalAuthorizedUsagePolicyVersion: 1 } }] });
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should roll back all staged effects when the external security epoch changes in the final ledger wait", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -165,7 +166,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         wait.setEpoch("changed-after-staging");
         wait.release();
         const outcome = await wait.outcome;
-        expect(outcome.error).toMatchObject({ code: "connection_incomplete" });
+        // A notice prepared under another security epoch can never be recovered.
+        expect(outcome.error).toMatchObject({ code: "resource_unavailable", cause: { name: "MessagingRequirementError", code: "notification_recovery_security_scope_changed" } });
         expect(outcome.result).toBeNull();
         const observed = await database.withContext(fixture.own, async (transaction) => ({
           original: (await transaction.execute(sql`select state,version from public.message_deliveries where id=${fixture.context.deliveryId}`)).rows[0],
@@ -175,7 +177,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         expect(fixture.transport.receipts).toHaveLength(sendsBefore);
       } finally { wait.release(); await wait.outcome; }
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should roll back all staged effects when the original deadline crosses during the final ledger wait", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -203,5 +205,5 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
         expect(observed).toEqual({ original: { state: "suppressed", version: 1 }, effects: { children: 0, audits: 0 } });
       } finally { wait.release(); await wait.outcome; }
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 });

@@ -26,7 +26,9 @@ const accessDto = {
   hasBonusCoverage: true,
   hasPaidCoverage: false,
   isLeaderPreview: false,
+  lastPaymentRejected: false,
   level: "academy",
+  membershipRecovery: null,
   nextAction: "continue_learning",
   renewalStatus: "none",
 };
@@ -93,7 +95,7 @@ describe("academy api client", () => {
   it("surfaces the safe route message of a failed checkout", async () => {
     respondWithJson({ message: "La venta de la academia está pausada.", status: "sales_closed" }, 409);
 
-    await expect(startAcademyCheckout("mi-tribu", 2)).resolves.toMatchObject({
+    await expect(startAcademyCheckout("mi-tribu", { acceptedOfferVersion: 2, acceptedPrice: null })).resolves.toMatchObject({
       isSuccess: false,
       message: "La venta de la academia está pausada.",
       status: 409,

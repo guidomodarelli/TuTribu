@@ -1,5 +1,6 @@
 /** Owns concise Spanish reviewer feedback and viewer-scoped local storage. @module admission-review-ui */
 import type { AdmissionRequest } from "../domain/entities/admission-request";
+import type { AdmissionDenialReason } from "../domain/policies/admission-eligibility";
 
 export const ADMISSION_REVIEW_STORAGE_PREFIX = "tutribu-admission-review-intent";
 
@@ -8,8 +9,10 @@ export const ADMISSION_REVIEW_STATUS_LABEL = { pending: "Pendiente", approved: "
 /** Source is historical provenance, never a verification claim or admission permission. */
 export const ADMISSION_REVIEW_SOURCE_LABEL = { common: "Solicitud común", personal: "Invitación personal", legacy: "Ingreso anterior" } as const satisfies Record<AdmissionRequest["source"], string>;
 
-/** Explains current review restrictions without changing permission, membership or request state. */
-export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Record<string, string | undefined>> = {
+/** Every reason a reviewer can meet: a signed-out applicant never reaches the review. */
+type AdmissionReviewEligibilityReason = Exclude<AdmissionDenialReason, "unauthenticated">;
+/** Explains current review restrictions without changing permission, membership or request state; every reviewer reason has its copy. */
+const REVIEW_ELIGIBILITY_COPY = {
   admission_closed: "Las admisiones no están disponibles para aprobar esta solicitud. Su plazo no cambia.",
   admission_scope_mismatch: "No se puede confirmar el alcance actual de la solicitud. Consultá su estado nuevamente.",
   contact_account_mismatch: "El contacto de la solicitud no coincide con la cuenta actual del solicitante.",
@@ -25,8 +28,10 @@ export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Record<string, string |
   evidence_revoked: "La prueba de contacto fue revocada. La persona necesita comprobar el contacto nuevamente.",
   request_expired: "La solicitud venció. No puede aprobarse y conserva su plazo original.",
   reviewer_unauthorized: "Tu permiso actual no permite decidir sobre esta solicitud.",
-  exception_reason_required: "La aprobación por excepción exige un motivo interno explícito.",
-};
+  whatsapp_number_required: "Las reglas actuales exigen el teléfono y esta solicitud no lo tiene. La persona puede completarlo desde su solicitud.",
+} as const satisfies Readonly<Record<AdmissionReviewEligibilityReason, string>>;
+/** Lookup by any received reason; one without copy (none today) is left out by the presenter. */
+export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Partial<Record<string, string>>> = REVIEW_ELIGIBILITY_COPY;
 /** Local phases never imply that unconfirmed work was accepted by the server. */
 export const ADMISSION_REVIEW_PHASE = { idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
 /** The review write a reviewer pressed: only that control shows progress while the others stay disabled. */
@@ -37,14 +42,17 @@ export const ADMISSION_REVIEW_PENDING_ACTION = { approve: "approve", reject: "re
 export const ADMISSION_REVIEW_UI_COPY = {
   title: "Solicitudes de ingreso", description: "Revisá las solicitudes más antiguas primero. Aprobar concede la membresía básica de la academia.",
   empty: "No hay solicitudes para estos filtros.", read: "Consultar estado actual", loadMore: "Ver más solicitudes", detail: "Revisar solicitud", close: "Volver a la bandeja",
-  internalReason: "Motivo interno (opcional al aprobar)", internalReasonRequired: "Motivo interno", internalOptionalHelp: "Hace falta para rechazar.", internalRequiredHelp: "Hace falta para aprobar esta excepción y para rechazar.", externalMessage: "Mensaje para el solicitante (opcional)", internalHelp: "Este motivo sólo lo ven quienes revisan las solicitudes.",
+  internalReason: "Motivo interno (opcional)", externalMessage: "Mensaje para el solicitante (opcional)", internalHelp: "Podés dejarlo vacío al aprobar o rechazar, también en una excepción. Este motivo sólo lo ven quienes revisan las solicitudes.",
   externalHelp: "El solicitante podrá ver este mensaje. No incluyas datos privados.", confirm: "Confirmo esta decisión sobre la solicitud seleccionada",
   approve: "Aprobar ingreso", reject: "Rechazar solicitud", reading: "Consultando…",
-  invalid: "Escribí un motivo interno y confirmá la decisión. Respetá los límites indicados.",
+  invalid: "Confirmá la decisión y respetá los límites indicados.",
   uncertain: "La decisión no está confirmada. Consultá la operación original antes de volver a intentar.", retry: "Reintentar la misma decisión", recovered: "Se confirmó la decisión original.",
-  complete: "La decisión quedó guardada.", readFailed: "No pudimos consultar la revisión actual. Volvé a consultar antes de decidir.",
+  started: "La decisión original todavía no terminó. Si no avanza, confirmala de nuevo y reintentá la misma decisión: no se aplica dos veces.",
+  complete: "La decisión quedó guardada.", readFailed: "No pudimos consultar la revisión actual. Volvé a consultar antes de decidir.", selectionUnavailable: "No encontramos la solicitud del enlace en esta academia. Elegí una de la bandeja.",
   changedViewer: "La cuenta cambió. Recargá la página para consultar la bandeja de esta cuenta.", storageFailed: "No pudimos conservar la decisión en este navegador. Habilitá el almacenamiento de sesión y volvé a consultar.",
   reload: "Recargar con la cuenta actual", declared: "Contacto declarado: no acredita verificación", none: "Solicitud sin contacto verificado",
   base: "Correo acreditado por Google para la cuenta", local: "Contacto verificado para esta solicitud de la academia",
   pendingAgeHighlight: "Pendiente hace tres días o más",
+  /** What stays unavailable while the platform cannot protect admission writes; it is the only notice of the screen, so it also covers the setup guide. */
+  platformConsequence: "Esto no es algo que puedas resolver desde tu academia. Mientras tanto podés revisar las solicitudes, pero no aprobarlas ni rechazarlas, ni configurar o guardar las reglas, la mensajería o los cupos. Lo que ya hayas guardado se conserva.",
 } as const;

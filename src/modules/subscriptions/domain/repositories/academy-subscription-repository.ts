@@ -6,36 +6,72 @@
  */
 
 import type { AcademySubscriptionRenewalStatus } from "@/src/modules/subscriptions/constants/subscriptions";
+import type { AcademySubscriptionProviderError } from "@/src/modules/subscriptions/domain/errors/academy-subscription-provider-error";
+
+/** Academy price the member saw before contracting. */
+export type AcademyAcceptedPrice = {
+  amountCents: number;
+  currency: string;
+};
 
 export type StartAcademyCheckoutCommand = {
+  /**
+   * Price the member saw; a different current price answers `offer_changed`.
+   * `undefined` comes from a page rendered before this field existed.
+   */
+  acceptedPrice?: AcademyAcceptedPrice | null;
   /** Offer version the member saw and accepted; a newer one must be re-read. */
   acceptedOfferVersion: number;
   correlationId: string;
   tribeSlug: string;
 };
 
+/** Private cause of a provider-dependent failure, logged by the route and never serialized. */
+type ProviderFailureCause = { cause?: AcademySubscriptionProviderError };
+
 export type StartAcademyCheckoutResult =
   | { checkoutUrl: string; status: "redirect" }
   | {
       status:
         | "already_subscribed"
-        | "checkout_unresolved"
         | "covered"
         | "forbidden"
         | "not_eligible"
         | "not_found"
         | "offer_changed"
-        | "provider_unavailable"
         | "sales_closed";
-    };
+    }
+  | ({
+      status:
+        | "checkout_unresolved"
+        | "integration_unavailable"
+        | "provider_rejected"
+        | "provider_unavailable";
+    } & ProviderFailureCause);
 
-export type CancelAcademyRenewalResult = {
-  status: "canceled" | "not_found" | "provider_unavailable";
-};
+export type CancelAcademyRenewalResult =
+  | { status: "canceled" | "not_found" }
+  | ({
+      /**
+       * `cancel_unconfirmed`: the provider may have applied the cancellation
+       * but did not confirm it; the request stays recorded (`canceling`) and
+       * the next reconciliation completes it.
+       */
+      status: "cancel_unconfirmed" | "integration_unavailable" | "provider_rejected" | "provider_unavailable";
+    } & ProviderFailureCause);
 
-export type AcademyCoverageReconciliationResult = {
-  appliedInvoices: number;
-  status: "not_found" | "provider_unavailable" | "reconciled" | "throttled";
+export type AcademyCoverageReconciliationResult =
+  | { appliedInvoices: number; status: "not_found" | "reconciled" | "throttled" }
+  | ({
+      appliedInvoices: number;
+      status: "integration_unavailable" | "provider_unavailable";
+    } & ProviderFailureCause);
+
+/** Renewal of the member's latest academy subscription that reached the provider. */
+export type OwnAcademyRenewal = {
+  /** The last recorded invoice of that subscription was rejected by the provider. */
+  lastPaymentRejected: boolean;
+  status: AcademySubscriptionRenewalStatus;
 };
 
 export type AcademyAuthorizedPaymentWebhookCommand = {
@@ -64,7 +100,7 @@ export type AcademySubscriptionRepository = {
     correlationId: string;
     tribeSlug: string;
   }): Promise<CancelAcademyRenewalResult>;
-  getOwnRenewalStatus(query: { tribeSlug: string }): Promise<AcademySubscriptionRenewalStatus>;
+  getOwnRenewal(query: { tribeSlug: string }): Promise<OwnAcademyRenewal>;
   handleAuthorizedPaymentWebhook(
     command: AcademyAuthorizedPaymentWebhookCommand
   ): Promise<AcademyAuthorizedPaymentWebhookResult>;

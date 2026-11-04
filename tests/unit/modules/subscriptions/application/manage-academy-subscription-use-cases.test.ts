@@ -8,7 +8,7 @@ function buildRepository(
 ): AcademySubscriptionRepository {
   return {
     cancelOwnRenewal: vi.fn(),
-    getOwnRenewalStatus: vi.fn(),
+    getOwnRenewal: vi.fn(),
     handleAuthorizedPaymentWebhook: vi.fn(),
     handlePaymentWebhook: vi.fn(),
     reconcileOwnCoverage: vi.fn(),

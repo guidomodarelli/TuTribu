@@ -83,8 +83,20 @@ export const academyRevokeBodySchema = z.object({
     .max(ACADEMY_BONUS_LIMITS.reasonMaxLength),
 });
 
+/** ISO 4217 code of the price the member saw. */
+const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
+const MAX_PRICE_AMOUNT_CENTS = 1_000_000_000;
+
 export const academyCheckoutBodySchema = z.object({
   acceptedOfferVersion: z.number().int().min(1).max(MAX_VERSION),
+  // Optional only for pages rendered before the field existed; they skip the price comparison.
+  acceptedPrice: z
+    .strictObject({
+      amountCents: z.number().int().min(0).max(MAX_PRICE_AMOUNT_CENTS),
+      currency: z.string().regex(CURRENCY_CODE_PATTERN),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const academyMembersQuerySchema = z.object({

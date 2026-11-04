@@ -19,12 +19,15 @@ import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request
 import {
   academyAccessStatusDtoSchema,
   academyBonusResultDtoSchema,
+  academyCancelRenewalDtoSchema,
   academyCheckoutDtoSchema,
   academyMembersPageDtoSchema,
   academyReconcileDtoSchema,
   academySettingsDtoSchema,
   type AcademyAccessStatusDto,
+  type AcademyCancelRenewalDto,
   type AcademyMembersPageDto,
+  type AcademyOfferDto,
   type AcademyReconcileDto,
   type AcademySettingsDto,
 } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
@@ -202,9 +205,16 @@ export function fetchOwnAcademyAccess(tribeSlug: string, signal?: AbortSignal) {
   });
 }
 
-export function startAcademyCheckout(tribeSlug: string, acceptedOfferVersion: number) {
+/**
+ * Starts or resumes the academy checkout with the offer version and the price
+ * the member saw; a different current offer or price answers 409.
+ */
+export function startAcademyCheckout(
+  tribeSlug: string,
+  acceptedOffer: { acceptedOfferVersion: number; acceptedPrice: Pick<NonNullable<AcademyOfferDto["price"]>, "amountCents" | "currency"> | null }
+) {
   return requestAcademyApi({
-    body: { acceptedOfferVersion },
+    body: acceptedOffer,
     method: HTTP_METHOD.post,
     path: tribePath(tribeSlug, API_PATH.academy + API_PATH.checkout),
     schema: academyCheckoutDtoSchema,
@@ -219,11 +229,12 @@ export function reconcileAcademyCoverage(tribeSlug: string) {
   });
 }
 
+/** Cancels the academy renewal; a 202 `cancel_unconfirmed` is recorded but not yet confirmed by the provider. */
 export function cancelAcademyRenewal(tribeSlug: string) {
-  return requestAcademyApi<MessageBody>({
+  return requestAcademyApi<AcademyCancelRenewalDto>({
     method: HTTP_METHOD.delete,
     path: `${tribePath(tribeSlug, API_PATH.currentSubscription)}?${ACADEMY_PRODUCT_QUERY}`,
-    schema: null,
+    schema: academyCancelRenewalDtoSchema,
   });
 }
 

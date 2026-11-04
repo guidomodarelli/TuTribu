@@ -20,6 +20,16 @@ describe("allow admission retry application", () => {
     expect(writer.allowRetry).toHaveBeenCalledWith({ ...input, userId: context.userId, sessionId: context.sessionId });
   });
 
+  it.each([undefined, "", "   "])("should hand the writer no internal reason when the leader leaves it as %j", async (internalReason) => {
+    const tribeId = randomUUID(), admissionRequestId = randomUUID(), operationId = randomUUID();
+    const context: AuthorizedAdmissionContext = { userId: randomUUID(), sessionId: randomUUID(), tribeId, requestId: randomUUID(), action: "allow_early_retry", role: "leader", membershipStatus: "active", resourceId: admissionRequestId, sensitiveOperation: "advance_admission_retry" };
+    const resolver = { execute: vi.fn(async () => ({ allowed: true as const, context })) };
+    const writer = { allowRetry: vi.fn(async () => ({ state: "completed" as const, operationId, replayed: false, result: { admissionRequestId, version: 3, retryAllowedAt: "2026-10-07T00:00:00Z" } })) };
+    const input = { tribeId, admissionRequestId, operationId, requestId: context.requestId, expectedVersion: 2, confirmed: true as const, ...(internalReason === undefined ? {} : { internalReason }) };
+    expect(await new AllowAdmissionRetryUseCase(resolver, writer).execute(input)).toMatchObject({ ok: true, value: { result: { version: 3 } } });
+    expect(writer.allowRetry).toHaveBeenCalledWith({ ...input, internalReason: null, userId: context.userId, sessionId: context.sessionId });
+  });
+
   it("should preserve a current permission denial before calling the writer", async () => {
     const writer = { allowRetry: vi.fn() };
     const resolver = { execute: vi.fn(async () => ({ allowed: false as const, failure: { code: "permission_denied" as const } })) };

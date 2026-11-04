@@ -33,6 +33,14 @@ describe("personal invitation read-only overview", () => {
     expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { state: "unavailable" } });
   });
 
+  it("should show the retry wait of an earlier request instead of a form the writer would refuse", async () => {
+    const data = fixture(), retryAllowedAt = new Date(data.now.getTime() + 3_600_000).toISOString(), earlier = { id: randomUUID(), status: "cancelled", version: 2, submittedAt: "2026-10-09T08:00:00.000Z", expiresAt: "2026-11-08T08:00:00.000Z", source: "common", needsVerification: false, eligibilityReasons: [], retryAllowedAt };
+    data.facts.overview.request = earlier;
+    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { state: "available", overview: { state: "closed", nextAction: "wait", safeMessage: "Todavía no terminó el plazo para volver a presentar una solicitud.", request: { id: earlier.id, retryAllowedAt } } } });
+    data.facts.overview.request = { ...earlier, retryAllowedAt: new Date(data.now.getTime() - 1).toISOString() };
+    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { overview: { state: "available", nextAction: "request_admission" } } });
+  });
+
   it("should reject a personal preview with a conflicting declared-number requirement", async () => {
     const data = fixture();
     data.facts.overview.policy = { ...data.facts.overview.policy!, requiresWhatsappNumber: true };

@@ -13,6 +13,7 @@ import { MESSAGING_CONNECTION_REPLACEMENT } from "../../constants/messaging-conn
 import { MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON } from "../../constants/messaging-connection-retirement";
 import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 import { assessMessagingConnectionRetirement } from "../../domain/policies/messaging-connection-retirement";
+import { MessagingRequirementError } from "../../domain/errors/messaging-requirement-error";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { authorizeMessagingLifecycleResource } from "./postgres-messaging-lifecycle-authorizer";
 import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
@@ -33,7 +34,9 @@ export class PostgresMessagingConnectionDisconnection implements Pick<MessagingC
       if(row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
       if(row.state===MESSAGING_CONNECTION_STATE.disconnected||row.retired_at!==null)return{id:row.id,version:row.version,state:MESSAGING_CONNECTION_STATE.disconnected,reason:null,changed:false};
       const dependencies=this.composeDependencies(database),facts=await dependencies.readRetirementFacts(context);
-      if(!assessMessagingConnectionRetirement({...facts,isSelected:row.is_selected}).allowed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+      const retirement=assessMessagingConnectionRetirement({...facts,isSelected:row.is_selected});
+      // A definitive rejection that names the dependency still using the selection, so the log says what the leader has to resolve.
+      if(!retirement.allowed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionRetirementBlocked,{cause:new MessagingRequirementError(retirement.reason)});
       const deliveries=(await database.execute<{id:string}>(sql`select id from public.message_deliveries where tribe_id=${context.tribeId} and connection_id=${context.connectionId} order by id for update`)).rows;
       await dependencies.retireReferences(context,ledgerId);
       await this.authorize(database,context);

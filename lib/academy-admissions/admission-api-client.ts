@@ -25,11 +25,9 @@ import { ADMISSION_POLICY_BROWSER_PATH } from "@/src/modules/academy-admissions/
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
 import { ADMISSION_WHATSAPP_ROUTE_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
-import type { CommercialMembershipReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/commercial-membership-review-browser-client";
-import { commercialMembershipResolutionResultSchema, commercialMembershipReviewListSchema } from "@/src/modules/academy-admissions/application/results/commercial-membership-review-schemas";
-import { COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/commercial-membership-review";
 import { boundBrowserRequest } from "@/lib/browser-request-deadline";
-import { BROWSER_REQUEST_TIMEOUT_MESSAGE } from "@/src/constants/browser-request";
+import { BROWSER_REQUEST_TIMEOUT_MESSAGE, BROWSER_REQUEST_TRANSPORT_MESSAGE, BROWSER_SESSION_CHECK_MESSAGE } from "@/src/constants/browser-request";
+import { SIGN_OUT_COPY } from "@/src/modules/auth/constants/sign-out";
 
 /** Own public progress cannot carry an unconfirmed result. */
 const startedSchema = z.object({ state: z.literal("started"), operationId: z.uuid() });
@@ -47,9 +45,12 @@ type AdmissionWrite = { body?: object; method?: "POST" | "PUT" };
 /** Own policy command: target path, original identity/counter and write method. */
 type AdmissionPolicyCommand = { path: string; input: { operationId: string; confirmed: true; expectedVersion?: number }; method?: "POST" | "PUT" };
 
-/** Converts a native rejection to safe copy without exposing a cause or claiming accepted work. */
-function failed(code: AdmissionErrorCodeValue, uncertain = false): AdmissionBrowserResult<never> {
-  return { status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain };
+/**
+ * Converts a native rejection to safe copy without exposing a cause or claiming accepted work.
+ * @param message - Browser-owned copy when the failure never reached an own route (network, session, sign-out); the catalogue copy otherwise.
+ */
+function failed(code: AdmissionErrorCodeValue, uncertain = false, message: string = ADMISSION_ERROR_MESSAGE[code]): AdmissionBrowserResult<never> {
+  return { status: "failed", code, message, uncertain };
 }
 
 /**
@@ -85,15 +86,18 @@ function readAdmissionFailure(response: Response, value: unknown, writing: boole
 async function send<Value>(transport: typeof globalThis.fetch, url: string, schema: z.ZodType<Value>, { signal, write }: { signal: AbortSignal; write: AdmissionWrite }): Promise<AdmissionBrowserResult<Value>> {
   const { body, method } = write;
   const writing = body !== undefined;
+  let response: Response;
   try {
-    const response = await transport(url, { method: writing ? method ?? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
-    const value: unknown = await response.json();
-    if (signal.aborted) return { status: "aborted" };
-    const failure = readAdmissionFailure(response, value, writing, body);
-    if (failure) return failure;
-    const parsed = schema.safeParse(value);
-    return parsed.success ? { status: "ready", value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
-  } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, writing); }
+    response = await transport(url, { method: writing ? method ?? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
+  } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, writing, BROWSER_REQUEST_TRANSPORT_MESSAGE); }
+  let value: unknown;
+  // A reply without own JSON (an edge HTML 502/504) is not the route's contract: a write may still have committed behind it.
+  try { value = await response.json(); } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing); }
+  if (signal.aborted) return { status: "aborted" };
+  const failure = readAdmissionFailure(response, value, writing, body);
+  if (failure) return failure;
+  const parsed = schema.safeParse(value);
+  return parsed.success ? { status: "ready", value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
 }
 
 /** @param snapshot - Confirmed own policy snapshot. @param command - Original command. @returns Whether the confirmed snapshot contradicts the original counter or intent. */
@@ -109,14 +113,14 @@ function createSessionViewer(auth: ReturnType<typeof createAuthClient>): Admissi
     try {
       const result = await auth.getSession({ query: { disableCookieCache: true }, fetchOptions: { signal } });
       if (signal.aborted) return { status: "aborted" };
-      if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable);
+      if (result.error) return result.error.status === HTTP_STATUS.unauthorized ? { status: "ready", value: null } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, false, BROWSER_SESSION_CHECK_MESSAGE);
       return { status: "ready", value: result.data ? { id: result.data.user.id } : null };
-    } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+    } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, false, BROWSER_SESSION_CHECK_MESSAGE); }
   });
 }
 
 /** @param options - Explicit own HTTP transport; the default viewer uses the installed native SDK. @returns A same-origin application client with cancellation and safe owned contracts. */
-export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionAccountBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient & CommercialMembershipReviewBrowserClient {
+export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fetch; viewer?: AdmissionBrowserClient["viewer"] } = {}): AdmissionBrowserClient & AdmissionAccountBrowserClient & AdmissionReviewBrowserClient & AcademyAdmissionBrowserEntry & AdmissionPolicyBrowserClient & AdmissionWhatsappNumberBrowserClient {
   const transport = options.fetch ?? globalThis.fetch;
   const viewer = options.viewer ?? createSessionViewer(createAuthClient());
   const signOutClient = createAuthClient({ fetchOptions: { customFetchImpl: transport } });
@@ -149,8 +153,8 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       try {
         const result = await signOutClient.signOut({ fetchOptions: { signal } });
         if (signal.aborted) return { status: "aborted" };
-        return result.error ? failed(ADMISSION_ERROR_CODE.dependencyUnavailable) : { status: "ready", value: null };
-      } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
+        return result.error ? failed(ADMISSION_ERROR_CODE.dependencyUnavailable, false, SIGN_OUT_COPY.failed) : { status: "ready", value: null };
+      } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable, false, SIGN_OUT_COPY.failed); }
     }),
     readPolicy: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.policy}`, admissionPolicyStateResultSchema, signal),
     readPreflight: (slug, signal) => request(`${base(slug)}/${ADMISSION_POLICY_BROWSER_PATH.preflight}`, admissionPreflightResultSchema, signal),
@@ -167,14 +171,6 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       const operation = result.value;
       if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && (operation.result.admissionRequestId.toLowerCase() !== requestId.toLowerCase() || operation.result.version !== input.expectedVersion + (operation.result.changed ? 1 : 0))) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return { status: "ready", value: operation.state === OPERATION_STATE.completed ? operation.result : operation };
-    },
-    readCommercialReviews: (slug, signal) => request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}`, commercialMembershipReviewListSchema, signal),
-    resolveCommercialReview: async (slug, memberId, input, signal) => {
-      const result = await request(`${base(slug)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.list}/${encodeURIComponent(memberId)}/${COMMERCIAL_MEMBERSHIP_REVIEW_BROWSER_PATH.resolutionSegment}`, createAdmissionOperationStateSchema(commercialMembershipResolutionResultSchema), signal, { body: input });
-      if (result.status !== "ready") return result;
-      const operation = result.value;
-      if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && operation.result.memberId !== memberId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-      return result;
     },
     operation: (slug, operationId, signal) => request(`${base(slug)}/operations/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     submit: async (slug, input, signal) => {

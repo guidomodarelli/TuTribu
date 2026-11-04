@@ -4,7 +4,7 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import type { AdmissionNotificationCollectionProgress } from "../../domain/repositories/admission-notification-collection-progress";
 import type { AdmissionNotificationGroupPreparation } from "../../domain/repositories/admission-notification-group-preparation";
 import type { AdmissionNotificationProducer, AdmissionNotificationProducerResult, AdmissionNotificationProducerRuntime, AdmissionNotificationProducerStep, AdmissionNotificationProducerTribeResult } from "../../domain/repositories/admission-notification-producer";
-import { ADMISSION_NOTIFICATION_PRODUCER_LIMITS, ADMISSION_NOTIFICATION_PRODUCER_PHASE, ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS } from "../../constants/admission-notification-producer";
+import { ADMISSION_NOTIFICATION_PRODUCER_LIMITS, ADMISSION_NOTIFICATION_PRODUCER_PHASE, ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS, ADMISSION_NOTIFICATION_PRODUCER_STOP } from "../../constants/admission-notification-producer";
 import { ADMISSION_NOTIFICATION_PREPARATION_STATUS } from "../../constants/admission-notification-email-intent";
 
 /** Ready-group preparation outcome for one fair tenant turn. */
@@ -34,8 +34,21 @@ export class PrepareAdmissionEmailNotificationsUseCase {
   /** @param error - Original private failure, never copied to a response. @param phase - Safe producer operation name. @param tribeId - Native selected scope, if one exists. @param operationId - Original collection page, if one was issued. @returns A closed failure code without inferring rollback or repeating work. */
   private failed(error: unknown, phase: string, tribeId?: string, operationId?: string): AdmissionNotificationProducerStep {
     this.runtime.report(error, { phase, ...(tribeId ? { tribeId } : {}), ...(operationId ? { operationId } : {}) });
+    // A host authority or recovery stop rejected the step before its commit, so it is a definitive failure rather than an uncertain one.
+    const stop = this.runtime.classifyStop?.(error) ?? null;
+    if (stop === ADMISSION_NOTIFICATION_PRODUCER_STOP.authorityUnavailable) return { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.failed, count: 0, code: ADMISSION_ERROR_CODE.permissionDenied };
+    if (stop === ADMISSION_NOTIFICATION_PRODUCER_STOP.recoveryLocked) return { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.failed, count: 0, code: ADMISSION_ERROR_CODE.connectionIncomplete };
     const code = error instanceof AdmissionOperationError ? error.code : ADMISSION_ERROR_CODE.unexpectedFailure;
     return { status: code === ADMISSION_ERROR_CODE.operationUnresolved ? ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.unresolved : ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.failed, count: 0, code };
+  }
+
+  /**
+   * The step checks the deadline before starting, but the host guard checks it again inside the step's transaction, so the deadline can
+   * pass in between; that rejection rolled the step back and only means the budget ran out.
+   * @param error - Failure of one step. @returns Whether the host deadline stopped the step before any effect.
+   */
+  private stoppedByDeadline(error: unknown): boolean {
+    return this.runtime.classifyStop?.(error) === ADMISSION_NOTIFICATION_PRODUCER_STOP.deadlineReached;
   }
 
   /** @param deadlineAtMilliseconds - Existing host-run deadline; it is never extended for this phase. @returns The original combined logical-reminder and email preparation workflow, without sending a message. */
@@ -60,7 +73,10 @@ export class PrepareAdmissionEmailNotificationsUseCase {
       if (this.runtime.now() >= deadlineAtMilliseconds) { stoppedAtDeadline = true; break; }
       let tribeId: string | null;
       try { tribeId = await this.producer.selectNextTribe(tribes.map((tribe) => tribe.tribeId)); }
-      catch (error) { selection = { ...this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.selection), count: selection.count }; break; }
+      catch (error) {
+        if (this.stoppedByDeadline(error)) { stoppedAtDeadline = true; break; }
+        selection = { ...this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.selection), count: selection.count }; break;
+      }
       if (tribeId === null) { selection = { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.completed, count: selection.count, code: null }; break; }
       selection = { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.completed, count: selection.count + 1, code: null };
       // Already certified windows get their turn before another potentially slow source page.
@@ -75,7 +91,7 @@ export class PrepareAdmissionEmailNotificationsUseCase {
   /** @returns The logical reminder step, keeping a failure private and closed. */
   private async materializeReminders(): Promise<AdmissionNotificationProducerStep> {
     try { return { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.completed, count: await this.producer.materializeReminders(), code: null }; }
-    catch (error) { return this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.reminders); }
+    catch (error) { return this.stoppedByDeadline(error) ? createNotRunStep() : this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.reminders); }
   }
 
   /** @param tribeId - Native selected scope. @param deadlineAtMilliseconds - Original host deadline. @param notRun - Step used when the phase never starts. @returns The ready-group preparation step, how many groups were examined and whether the deadline stopped it. */
@@ -91,7 +107,11 @@ export class PrepareAdmissionEmailNotificationsUseCase {
         groupsExamined++;
         preparation = applyGroupPreparationResult(preparation, result);
       }
-    } catch (error) { preparation = { ...this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.preparation, tribeId), count: preparation.count }; }
+    } catch (error) {
+      // A deadline stop keeps the groups already prepared and leaves the rest for the next run.
+      if (this.stoppedByDeadline(error)) stoppedAtDeadline = true;
+      else preparation = { ...this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.preparation, tribeId), count: preparation.count };
+    }
     return { preparation, groupsExamined, stoppedAtDeadline };
   }
 
@@ -108,6 +128,7 @@ export class PrepareAdmissionEmailNotificationsUseCase {
       hasContinuation = !page.sweepComplete;
       collection = { status: page.sweepHadUnavailable ? ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.deferred : ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.completed, count: page.collected, code: page.sweepHadUnavailable ? ADMISSION_ERROR_CODE.connectionIncomplete : null };
     } catch (error) {
+      if (this.stoppedByDeadline(error)) return { collection, operationId: null, hasContinuation, stoppedAtDeadline: true };
       collection = this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.collection, tribeId, operationId ?? undefined);
       if (collection.status === ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.unresolved) hasContinuation = null;
     }

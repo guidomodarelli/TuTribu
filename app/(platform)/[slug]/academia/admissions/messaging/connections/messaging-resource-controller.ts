@@ -8,7 +8,7 @@ import type {MessagingUsageBrowserResult} from "@/src/modules/messaging/applicat
 import {type MessagingChannelDraft,type MessagingChannelFieldErrors,validateMessagingChannelDraft} from "@/src/modules/messaging/application/commands/messaging-channel-draft";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MESSAGING_RESOURCE_KIND} from "@/src/modules/messaging/constants/messaging-resources";
-import {MESSAGING_RESOURCE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
+import {MESSAGING_RESOURCE_UI_COPY,MESSAGING_RESOURCE_FAILURE_UI_COPY} from "@/src/modules/messaging/constants/messaging-resources-browser";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 import type {MessagingProviderChannel} from "@/src/modules/messaging/application/ports/messaging-provider-catalog-reader";
 import type {MessagingResourceListState,MessagingResourceReading} from "@/components/academy-admissions/messaging-connection-resources";
@@ -63,7 +63,8 @@ export function useMessagingResourceController(options:ResourceControllerOptions
         }else if(outcome.status==="failed"){
           // A conflict is explained once by the page banner that asks to read the current connection.
           if(outcome.code===MESSAGING_ERROR_CODE.connectionConflict){apply({items:[]},{status:"unread"});options.conflict();}
-          else apply({items:[]},{status:"failed",message:outcome.message});
+          // The leader reads copy written for this step, not the shared catalogue applicants see.
+          else apply({items:[]},{status:"failed",message:MESSAGING_RESOURCE_FAILURE_UI_COPY[outcome.code as keyof typeof MESSAGING_RESOURCE_FAILURE_UI_COPY]??outcome.message});
         }
       });
     }finally{readingRef.current=false;setReading(null);}

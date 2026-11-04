@@ -49,6 +49,18 @@ export class ManageMessagingUsageUseCases {
   }
 
   /**
+   * Reads the usage page: the current configuration and what only the TuTribu team can resolve before its writes can be protected.
+   * @param query - Boundary-resolved tribe and server correlation id.
+   * @returns Both facts from one authorized read, or an expected safe failure.
+   */
+  async readPage(query: UsageQuery) {
+    try {
+      const context = await this.resolve(query);
+      return { ok: true as const, value: await this.operations.readPage(context) };
+    } catch (error) { return this.failure(error); }
+  }
+
+  /**
    * Starts configuration only after the explicit action under the current leader session.
    * @param input - Boundary-validated confirmation/idempotency, without countries, quotas or a client version.
    * @returns Original initialized/existing snapshot or registered unfinished work, without an SDK call.

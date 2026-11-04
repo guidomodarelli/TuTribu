@@ -4,13 +4,15 @@ import type { MessagingUsagePageState } from "@/src/modules/messaging/applicatio
 import type { MessagingUsageBrowserClient, MessagingUsageBrowserResult } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type { MessagingUsageDraft } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import type { MessagingErrorCode } from "@/src/modules/messaging/application/results/messaging-errors";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import { createMessagingUsageDraft, messagingUsageBrowserIntentSchema, type MessagingUsageBrowserIntent } from "@/src/modules/messaging/application/commands/messaging-usage-browser-intent";
 import { messagingUsagePolicyStateSchema, type MessagingUsagePolicyDto, type MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, MESSAGING_USAGE_WRITE_STEP as WRITE_STEP, type MessagingUsageBrowserPhase, type MessagingUsageWriteStep } from "@/src/modules/messaging/constants/messaging-usage";
+import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES, MESSAGING_USAGE_INTENT_KEEPING_FAILURES, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, MESSAGING_USAGE_WRITE_STEP as WRITE_STEP, type MessagingUsageBrowserPhase, type MessagingUsageWriteStep } from "@/src/modules/messaging/constants/messaging-usage";
 import { MESSAGING_USAGE_POLICY_STATE } from "@/src/modules/messaging/constants/messaging-limits";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
+import { isMessagingSignInRequired } from "@/lib/messaging/messaging-route-recovery";
 
 /** Server snapshot of a usage route the viewer may manage. */
 export type MessagingUsageReady = Extract<MessagingUsagePageState, { kind: "ready" }>;
@@ -18,8 +20,8 @@ export type MessagingUsageReady = Extract<MessagingUsagePageState, { kind: "read
 export type MessagingUsageValues = { allowedCountries: string[]; verificationDailyLimit: number; notificationDailyLimit: number };
 /** Outcome of one stored write: the confirmed policy, a reported failure, or a stop whose feedback is already shown. */
 type MessagingUsageWriteOutcome = { status: "completed"; policy: MessagingUsagePolicyDto } | { status: "failed"; code: MessagingErrorCode; uncertain: boolean } | { status: "stopped" };
-/** Whether a recovery consultation stops the read, recovered the original or lets the read continue. */
-type UsageRecoveryOutcome = "stop" | "recovered" | "continue";
+/** Whether a recovery consultation stops the read, recovered the original, forgot an unregistered one or lets the read continue. */
+type UsageRecoveryOutcome = "stop" | "recovered" | "forgotten" | "continue";
 
 /** Stable setters and refs of the usage container; their identity never changes between renders. */
 export type MessagingUsageControls = {
@@ -27,6 +29,12 @@ export type MessagingUsageControls = {
   setPhase: Dispatch<SetStateAction<MessagingUsageBrowserPhase>>; setFresh: (value: boolean) => void; setConfirmed: (value: boolean) => void; setCanRetry: (value: boolean) => void;
   setRetryConfirmed: (value: boolean) => void; setPrivateVisible: (value: boolean) => void; setEditing: (value: boolean) => void; setStep: (value: number) => void;
   setWriteStep: (value: MessagingUsageWriteStep | null) => void; setPartialSave: (value: boolean) => void; setErrorMessage: (value: string | null) => void; setStatusMessage: (value: string | null) => void;
+  /** Whether the last failure asks to sign in again with Google, so its message comes with that action. */
+  setSignInRequired: (value: boolean) => void;
+  /** Explains the original that is still unresolved inside «Recuperar operación original», next to its consult and retry actions. */
+  setRecoveryMessage: (value: string | null) => void;
+  /** Installs the platform requirement of the latest current read; its ref lets an asynchronous recovery see the newest value. */
+  setPlatformRequirement: (value: PlatformSecurityRequirement | null) => void; platformRequirement: RefObject<PlatformSecurityRequirement | null>;
   pending: RefObject<MessagingUsageBrowserIntent | null>; loaded: RefObject<boolean>; busy: RefObject<boolean>;
   readController: RefObject<AbortController | null>; writeController: RefObject<AbortController | null>;
 };
@@ -54,40 +62,103 @@ function settledUsagePhase(current: MessagingUsageBrowserPhase, pending: Messagi
   return pending ? PHASE.uncertain : PHASE.idle;
 }
 
-/** @param session - Current route session. @returns Nothing after loading the stored original once and reopening the review step for a stored update. */
+/** @param values - Countries and quotas the leader chose. @returns Them as an editable draft. */
+function draftOf(values: MessagingUsageValues): MessagingUsageDraft {
+  return { allowedCountries: [...values.allowedCountries], verificationDailyLimit: String(values.verificationDailyLimit), notificationDailyLimit: String(values.notificationDailyLimit) };
+}
+
+/** @param intent - Stored original command. @returns The values the leader chose with it: an update sends them, an initialization keeps them for the update that follows. */
+function chosenValuesOf(intent: MessagingUsageBrowserIntent): MessagingUsageValues | null {
+  return intent.type === OPERATION.update ? intent.input : intent.chosen ?? null;
+}
+
+/** @param controls - Stable controls. @param values - Values chosen before the response was lost. @returns Nothing after reopening the review step with them. */
+function reopenChosenValues(controls: MessagingUsageControls, values: MessagingUsageValues): void {
+  controls.setDraft(draftOf(values)); controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
+}
+
+/**
+ * @param controls - Stable controls. @param failure - Closed failure of a read or write.
+ * @returns Nothing after showing its safe copy and whether it is resolved by signing in again with Google.
+ */
+function reportUsageFailure(controls: MessagingUsageControls, failure: { code: MessagingErrorCode; message: string }): void {
+  controls.setErrorMessage(failure.message); controls.setSignInRequired(isMessagingSignInRequired(failure.code));
+}
+
+/** @param session - Current route session. @returns Nothing after loading the stored original once and reopening the review step with the values chosen with it. */
 function restoreStoredUsageIntent({ ready, controls }: MessagingUsageSession): void {
   if (controls.loaded.current) return;
   controls.pending.current = readMessagingUsageIntent(ready.viewerId, ready.slug); controls.loaded.current = true;
-  if (controls.pending.current?.type !== OPERATION.update) return;
-  controls.setDraft({ allowedCountries: [...controls.pending.current.input.allowedCountries], verificationDailyLimit: String(controls.pending.current.input.verificationDailyLimit), notificationDailyLimit: String(controls.pending.current.input.notificationDailyLimit) });
-  controls.setEditing(true); controls.setStep(REVIEW_STEP_INDEX);
+  const chosen = controls.pending.current ? chosenValuesOf(controls.pending.current) : null;
+  if (chosen) reopenChosenValues(controls, chosen);
+}
+
+/**
+ * A confirmed initialization only created the configuration with the server defaults: the values the leader chose still have
+ * to be saved, so the editor stays open with them instead of announcing the save as done.
+ * @param controls - Stable controls. @param intent - Recovered initialization. @returns Nothing after showing what is left.
+ */
+function settleRecoveredInitialization(controls: MessagingUsageControls, intent: Extract<MessagingUsageBrowserIntent, { type: typeof OPERATION.initialize }>): void {
+  if (intent.chosen) { reopenChosenValues(controls, intent.chosen); controls.setPartialSave(true); return; }
+  controls.setStatusMessage(COPY.initialized); controls.setEditing(true); controls.setStep(FIRST_STEP_INDEX);
+}
+
+/** @param session - Current route session. @returns Nothing after removing the stored original from storage and memory. */
+function forgetUsageIntent({ ready, controls }: MessagingUsageSession): void {
+  writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null;
+}
+
+/**
+ * An unregistered original applied nothing, and sending it late can never overwrite a newer save: an update carries its
+ * `expectedVersion` (the server answers a version conflict) and an initialization only creates a configuration that does not exist.
+ * So it is forgotten instead of asking for a retry with its same data, and the editor reopens with the values the leader chose,
+ * to be confirmed and saved again as a new operation. Its notice waits for the current read (see `announceForgottenUsageOriginal`).
+ * @param session - Current route session. @param intent - Unregistered original. @returns Nothing after reopening the chosen values.
+ */
+function forgetUnregisteredUsageOriginal(session: MessagingUsageSession, intent: MessagingUsageBrowserIntent): void {
+  forgetUsageIntent(session);
+  const chosen = chosenValuesOf(intent);
+  if (chosen) reopenChosenValues(session.controls, chosen);
+}
+
+/** @param controls - Stable controls, holding the platform requirement of the current read. @returns Nothing after showing the informative notice of a forgotten original. */
+function announceForgottenUsageOriginal(controls: MessagingUsageControls): void {
+  // While the platform cannot protect a save, the notice says saving waits for the TuTribu team instead of inviting a new save.
+  controls.setStatusMessage(controls.platformRequirement.current ? COPY.platformForgotten : COPY.unregistered);
 }
 
 /** @param session - Current route session. @param intent - Stored original command. @param signal - Current read. @returns Whether the read stops, recovered the original or continues to the current configuration. */
-async function recoverUsageOriginal({ ready, client, checkViewer, controls }: MessagingUsageSession, intent: MessagingUsageBrowserIntent, signal: AbortSignal): Promise<UsageRecoveryOutcome> {
+async function recoverUsageOriginal(session: MessagingUsageSession, intent: MessagingUsageBrowserIntent, signal: AbortSignal): Promise<UsageRecoveryOutcome> {
+  const { ready, client, checkViewer, controls } = session;
   controls.setPrivateVisible(false);
   const original = await client.operation(ready.slug, intent.input.operationId, signal);
   if (signal.aborted || original.status === "aborted") return "stop";
   if (!await checkViewer(signal) || signal.aborted) return "stop";
   if (original.status === "ready") {
-    if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId || original.value.state !== "completed") { controls.setErrorMessage(COPY.uncertain); return "stop"; }
-    writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null; controls.setStatusMessage(COPY.recovered);
+    if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return "stop"; }
+    // Registered but not finished (its effect rolled back or is still running): the current usage stays visible and the same original
+    // can be resent, which the ledger reclaims once nobody works on it. Its explanation stays beside that retry.
+    if (original.value.state !== "completed") { controls.setCanRetry(true); controls.setRecoveryMessage(COPY.started); return "continue"; }
+    forgetUsageIntent(session);
+    if (intent.type === OPERATION.initialize) { settleRecoveredInitialization(controls, intent); return "recovered"; }
+    controls.setStatusMessage(COPY.recovered);
     controls.setEditing(false); controls.setPartialSave(false); controls.setStep(FIRST_STEP_INDEX);
     return "recovered";
   }
-  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { controls.setCanRetry(true); controls.setErrorMessage(COPY.retry); return "continue"; }
-  controls.setErrorMessage(original.message);
+  if (original.code === MESSAGING_ERROR_CODE.resourceUnavailable) { forgetUnregisteredUsageOriginal(session, intent); return "forgotten"; }
+  reportUsageFailure(controls, original);
   return "stop";
 }
 
-/** @param session - Current route session. @param signal - Current read. @returns Whether the current configuration was read and installed. */
+/** @param session - Current route session. @param signal - Current read. @returns Whether the current configuration and the platform requirement of its saves were read and installed. */
 async function readUsageConfiguration({ ready, client, checkViewer, controls }: MessagingUsageSession, signal: AbortSignal): Promise<boolean> {
   const current = await client.read(ready.slug, signal);
   if (signal.aborted || current.status === "aborted") return false;
   if (!await checkViewer(signal) || signal.aborted) return false;
-  if (current.status === "failed") { controls.setErrorMessage(current.message); return false; }
-  controls.setState(current.value);
-  if (!current.value.policy) controls.setEditing(true);
+  if (current.status === "failed") { reportUsageFailure(controls, current); return false; }
+  // The same read lifts or imposes the platform block, so a resolved requirement re-enables saving without reloading the page.
+  controls.setState(current.value.usage); controls.setPlatformRequirement(current.value.platformRequirement);
+  if (!current.value.usage.policy) controls.setEditing(true);
   return true;
 }
 
@@ -96,28 +167,35 @@ export async function readUsageCurrent(session: MessagingUsageSession, signal: A
   const controls = session.controls;
   if (signal.aborted) return;
   if (!initial) controls.setPrivateVisible(false);
-  controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false);
-  let recovered = false;
+  controls.setPhase(PHASE.reading); controls.setFresh(false); controls.setConfirmed(false); controls.setRetryConfirmed(false); controls.setCanRetry(false); controls.setRecoveryMessage(null); controls.setSignInRequired(false);
+  let recovery: UsageRecoveryOutcome = "continue";
   try {
     if (!await session.checkViewer(signal) || signal.aborted) return;
     restoreStoredUsageIntent(session);
     if (controls.pending.current) {
-      const recovery = await recoverUsageOriginal(session, controls.pending.current, signal);
+      recovery = await recoverUsageOriginal(session, controls.pending.current, signal);
       if (recovery === "stop") return;
-      recovered = recovery === "recovered";
     }
-    if ((!initial || recovered || controls.pending.current) && !await readUsageConfiguration(session, signal)) return;
+    // A recovered or forgotten original may predate the server snapshot, so the reopened values are saved against the current version and limits.
+    if ((!initial || recovery !== "continue" || controls.pending.current) && !await readUsageConfiguration(session, signal)) return;
+    if (recovery === "forgotten") announceForgottenUsageOriginal(controls);
     controls.setFresh(true); controls.setPrivateVisible(true);
   } catch { if (!signal.aborted) controls.setErrorMessage(COPY.storageFailed); }
   finally { if (!signal.aborted) controls.setPhase((current) => settledUsagePhase(current, controls.pending.current)); }
 }
 
-/** @param session - Current route session. @param result - Failed write answer. @returns The failure, or a stop when private authority was lost; certain failures forget the stored original. */
-function usageWriteFailure({ ready, controls }: MessagingUsageSession, result: Extract<MessagingUsageBrowserResult<unknown>, { status: "failed" }>): MessagingUsageWriteOutcome {
-  controls.setErrorMessage(result.message);
+/**
+ * @param session - Current route session.
+ * @param result - Failed write answer.
+ * @returns The failure, or a stop when private authority was lost. A definitive rejection registered nothing, so its stored
+ * original is forgotten before any other outcome; only a session answer keeps it so signing in again with Google can still recover it
+ * and reopen the values chosen with it.
+ */
+function usageWriteFailure(session: MessagingUsageSession, result: Extract<MessagingUsageBrowserResult<unknown>, { status: "failed" }>): MessagingUsageWriteOutcome {
+  const { controls } = session;
+  reportUsageFailure(controls, result);
+  if (!result.uncertain && !MESSAGING_USAGE_INTENT_KEEPING_FAILURES.includes(result.code)) forgetUsageIntent(session);
   if (MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES.includes(result.code)) { controls.setPrivateVisible(false); controls.setCanRetry(false); return STOPPED; }
-  /** A legacy session-change answer keeps the original intent so reloading can still recover it. */
-  if (!result.uncertain && result.code !== MESSAGING_ERROR_CODE.reauthenticationRequired) { writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null; }
   return { status: "failed", code: result.code, uncertain: controls.pending.current !== null };
 }
 
@@ -142,13 +220,14 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
   if (signal.aborted || result.status === "aborted") return STOPPED;
   if (!await checkViewer(signal) || signal.aborted) return STOPPED;
   if (result.status === "failed") return usageWriteFailure(writer, result);
-  if (result.value.operationId !== intent.input.operationId || result.value.state !== "completed") { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
+  if (result.value.operationId !== intent.input.operationId) { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
+  if (result.value.state !== "completed") { controls.setRecoveryMessage(COPY.startedWrite); return UNRESOLVED; }
   if (result.value.replayed) { await writer.readCurrent(signal); return STOPPED; }
   const projected = messagingUsagePolicyStateSchema.parse({ state: MESSAGING_USAGE_POLICY_STATE.configured, policy: result.value.result });
   if (!projected.policy) return STOPPED;
   if (isUnexpectedUpdate(intent, base, projected.policy)) { controls.setErrorMessage(COPY.uncertain); return UNRESOLVED; }
   controls.setState(projected);
-  writeMessagingUsageIntent(ready.viewerId, ready.slug, null); controls.pending.current = null;
+  forgetUsageIntent(writer);
   return { status: "completed", policy: projected.policy };
 }
 
@@ -156,7 +235,7 @@ async function writeUsageIntent(writer: MessagingUsageWriter, intent: MessagingU
 async function runUsageWriteSession({ checkViewer, controls }: MessagingUsageSession, work: (signal: AbortSignal) => Promise<void>): Promise<void> {
   if (controls.busy.current) return;
   controls.busy.current = true; controls.readController.current?.abort(); const controller = new AbortController(); controls.writeController.current = controller;
-  controls.setPhase(PHASE.writing); controls.setFresh(false); controls.setCanRetry(false); controls.setRetryConfirmed(false); controls.setErrorMessage(null); controls.setStatusMessage(null);
+  controls.setPhase(PHASE.writing); controls.setFresh(false); controls.setCanRetry(false); controls.setRetryConfirmed(false); controls.setErrorMessage(null); controls.setSignInRequired(false); controls.setStatusMessage(null); controls.setRecoveryMessage(null);
   try {
     if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
     await work(controller.signal);
@@ -190,7 +269,8 @@ export function saveUsageValues(writer: MessagingUsageWriter, currentPolicy: Mes
     try {
       if (!base) {
         controls.setWriteStep(WRITE_STEP.creating);
-        const initialization = await writeUsageIntent(writer, messagingUsageBrowserIntentSchema.parse({ type: OPERATION.initialize, input: { operationId: newAdmissionOperationId(), confirmed: true } }), signal, null);
+        // The chosen values travel next to the initialization (never sent with it), so a lost response can still reopen them.
+        const initialization = await writeUsageIntent(writer, messagingUsageBrowserIntentSchema.parse({ type: OPERATION.initialize, input: { operationId: newAdmissionOperationId(), confirmed: true }, chosen: values }), signal, null);
         if (initialization.status !== "completed") return;
         base = initialization.policy; created = true;
         if (holdsValues(base, values)) { finishUsageSave(controls, base); return; }
@@ -212,6 +292,8 @@ export function retryUsageOriginal(writer: MessagingUsageWriter, currentPolicy: 
     const outcome = await writeUsageIntent(writer, intent, signal, currentPolicy);
     if (outcome.status !== "completed") return;
     if (intent.type === OPERATION.update) { finishUsageSave(writer.controls, outcome.policy); return; }
-    writer.controls.setFresh(true); writer.controls.setStatusMessage(COPY.initialized);
+    writer.controls.setFresh(true);
+    if (intent.chosen) { reopenChosenValues(writer.controls, intent.chosen); writer.controls.setPartialSave(true); }
+    else writer.controls.setStatusMessage(COPY.initialized);
   });
 }

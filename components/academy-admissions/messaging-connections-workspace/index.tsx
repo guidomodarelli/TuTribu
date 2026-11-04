@@ -6,9 +6,11 @@ import {ButtonLink} from "@/components/navigation/link";
 import {GuidedSteps,type GuidedStep,type GuidedStepsFinalAction} from "@/components/forms/guided-steps";
 import type {MessagingConnectionsNextAction} from "@/src/modules/messaging/application/commands/messaging-connections-next-action";
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
-import {MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_CONNECTION_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
+import {MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_CONNECTION_LABEL,MESSAGING_CONNECTION_SECURITY_OUTDATED_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {MESSAGING_CONNECTIONS_FLOW_COPY,MESSAGING_CONNECTIONS_NEXT_ACTION_COPY,MESSAGING_CONNECTIONS_NEXT_STEP} from "@/src/modules/messaging/constants/messaging-connections-workspace";
-import {MESSAGING_CREDENTIAL_CHECK_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import {MESSAGING_CONNECTIONS_UI_COPY,MESSAGING_CREDENTIAL_CHECK_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import {PlatformSecurityNotice} from "@/components/academy-admissions/platform-security-notice";
+import type {PlatformSecurityRequirement} from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import styles from "./styles.module.scss";
 
 /** Lifecycle, credential, account and capability facts keep distinct tones so a ready candidate never reads as active. */
@@ -17,13 +19,19 @@ const CREDENTIAL_STATE_TONE={not_validated:"neutral",valid:"success",invalid:"da
 const CREDENTIAL_MODE_TONE={production:"neutral",test:"warning",unknown:"neutral"} as const satisfies Record<keyof typeof MESSAGING_CREDENTIAL_MODE_LABEL,BadgeTone>;
 const CAPABILITY_STATE_TONE={unprepared:"neutral",prepared:"success",unavailable:"danger"} as const satisfies Record<keyof typeof MESSAGING_CAPABILITY_LABEL,BadgeTone>;
 
-/** @param props - One current connection and its role in the academy. @returns A compact row with its name and separately toned facts. */
+/** @param step - Advisory progress of the next action. @returns Success once active, a warning while the platform blocks every step, otherwise information. */
+function nextActionTone(step:MessagingConnectionsNextAction["step"]):"success"|"warning"|"info"{
+  if(step===MESSAGING_CONNECTIONS_NEXT_STEP.active)return"success";
+  return step===MESSAGING_CONNECTIONS_NEXT_STEP.platformBlocked?"warning":"info";
+}
+
+/** @param props - One current connection and its role in the academy. @returns A compact row with its name and separately toned facts; a connection sealed under a previous platform security never reads as active. */
 function ConnectionRow({connection,role}:{connection:MessagingConfigurationConnection;role:string}){
   return<li className={styles.MessagingConnectionsWorkspace__connection}>
     <h3 className={styles.MessagingConnectionsWorkspace__role}>{role}</h3>
     <p className={styles.MessagingConnectionsWorkspace__name}>{connection.name}</p>
     <ul className={styles.MessagingConnectionsWorkspace__badges} aria-label={`Estado de ${connection.name}`}>
-      <li><Badge tone={CONNECTION_STATE_TONE[connection.state]}>{MESSAGING_CONNECTION_LABEL[connection.state]}</Badge></li>
+      <li>{connection.securityCurrent?<Badge tone={CONNECTION_STATE_TONE[connection.state]}>{MESSAGING_CONNECTION_LABEL[connection.state]}</Badge>:<Badge tone="warning">{MESSAGING_CONNECTION_SECURITY_OUTDATED_LABEL}</Badge>}</li>
       <li><Badge tone={CREDENTIAL_STATE_TONE[connection.credentialState]}>{MESSAGING_CREDENTIAL_LABEL[connection.credentialState]}</Badge></li>
       <li><Badge tone={CREDENTIAL_MODE_TONE[connection.credentialMode]}>{MESSAGING_CREDENTIAL_MODE_LABEL[connection.credentialMode]}</Badge></li>
       <li><Badge>{`Configuración ${connection.configurationVersion}`}</Badge></li>
@@ -58,6 +66,8 @@ export function MessagingConnectionsPreservedAttempts({children}:{children:React
 /** The container owns every request, consent, recovery and toast; steps arrive already wired with their blocked reasons. */
 export type MessagingConnectionsWorkspaceProps={
   selected:MessagingConfigurationConnection|null;candidate:MessagingConfigurationConnection|null;
+  /** What only the TuTribu team can resolve before any write of this page can be protected; the container also disables every write. */
+  platformRequirement?:PlatformSecurityRequirement|null;
   /** The one highlighted action and why it is next. */
   nextAction:MessagingConnectionsNextAction;
   /** True when the open step already shows that action, so the highlight drops its button instead of competing with the step's own action. */
@@ -92,7 +102,6 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
   const instanceId=useId(),overviewId=`${instanceId}-overview`;
   const shared=props.selected&&props.selected.id===props.candidate?.id?props.selected:null;
   const rows=shared?[{connection:shared,role:"Conexión seleccionada y candidata"}]:[...(props.selected?[{connection:props.selected,role:"Conexión seleccionada"}]:[]),...(props.candidate?[{connection:props.candidate,role:"Conexión candidata"}]:[])];
-  const done=props.nextAction.step===MESSAGING_CONNECTIONS_NEXT_STEP.active;
   return<div className={styles.MessagingConnectionsWorkspace} data-beezping-ignore="true">
     <section className={styles.MessagingConnectionsWorkspace__overview} aria-labelledby={overviewId}>
       <div className={styles.MessagingConnectionsWorkspace__overviewHeader}>
@@ -102,9 +111,10 @@ export function MessagingConnectionsWorkspace(props:MessagingConnectionsWorkspac
       {props.currentReadFailed&&<Alert tone="danger" title={MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedTitle} action={<Button variant="secondary" size="sm" disabled={props.busy} onClick={props.onReadCurrent}>{MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadRetry}</Button>}>{MESSAGING_CREDENTIAL_CHECK_UI_COPY.currentReadFailedDetail}</Alert>}
       {rows.length>0?<ul className={styles.MessagingConnectionsWorkspace__connections}>{rows.map((row)=><ConnectionRow key={`${row.role}:${row.connection.id}`} {...row} />)}</ul>:<p className={styles.MessagingConnectionsWorkspace__empty}>Todavía no hay conexiones guardadas.</p>}
     </section>
+    {props.platformRequirement&&<PlatformSecurityNotice requirement={props.platformRequirement} consequence={MESSAGING_CONNECTIONS_UI_COPY.platformConsequence} />}
     {/* What is missing and why; its button jumps to the step that resolves it when the flow shows another one. */}
     <div className={styles.MessagingConnectionsWorkspace__nextAction} role="group" aria-label={MESSAGING_CONNECTIONS_NEXT_ACTION_COPY.region}>
-      <Alert tone={done?"success":"info"} title={props.nextAction.title} action={<NextActionButton nextAction={props.nextAction} inView={props.nextActionInView} busy={props.busy} usageHref={props.usageHref} onNextAction={props.onNextAction} />}>{props.nextAction.reason}</Alert>
+      <Alert tone={nextActionTone(props.nextAction.step)} title={props.nextAction.title} action={<NextActionButton nextAction={props.nextAction} inView={props.nextActionInView} busy={props.busy} usageHref={props.usageHref} onNextAction={props.onNextAction} />}>{props.nextAction.reason}</Alert>
     </div>
     {props.attention}
     <div className={styles.MessagingConnectionsWorkspace__stepActions}>

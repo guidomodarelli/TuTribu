@@ -2,6 +2,7 @@
 import type { AdmissionRequest } from "../entities/admission-request";
 import type { PendingAdmissionReviewFacts } from "../policies/admission-eligibility";
 import type { AdmissionCommandScope } from "./admission-repositories";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 
 /** Current request and evaluation facts remain private until an audience-specific application projection. */
 export type AdmissionReviewRecord = {
@@ -19,8 +20,18 @@ export type AdmissionReviewFilters = {
   search?: string; needsVerification?: boolean; requiresExceptionReason?: boolean; submittedFrom?: string; submittedUntil?: string;
 };
 
+/**
+ * Requirement read in the same reviewer transaction, with the checks every decision runs before signing: while it is present the
+ * platform cannot protect a decision, so none is offered. Null when decisions can be protected.
+ */
+type ReviewPlatformFact = { platformRequirement: PlatformSecurityRequirement | null };
+/** One bounded page of current records and the platform requirement that applies to all of them. */
+export type AdmissionReviewRecordPage = ReviewPlatformFact & { records: AdmissionReviewRecord[]; nextCursor: string | null };
+/** One current record and the platform requirement that applies to it. */
+export type AdmissionReviewRecordDetail = ReviewPlatformFact & { record: AdmissionReviewRecord };
+
 /** Read queries never create a request, decision, ledger, delivery or membership. */
 export interface AdmissionReviewReader {
-  readList(scope: AdmissionCommandScope, query: AdmissionReviewFilters): Promise<{ records: AdmissionReviewRecord[]; nextCursor: string | null }>;
-  readDetail(scope: AdmissionCommandScope, admissionRequestId: string): Promise<AdmissionReviewRecord | null>;
+  readList(scope: AdmissionCommandScope, query: AdmissionReviewFilters): Promise<AdmissionReviewRecordPage>;
+  readDetail(scope: AdmissionCommandScope, admissionRequestId: string): Promise<AdmissionReviewRecordDetail | null>;
 }

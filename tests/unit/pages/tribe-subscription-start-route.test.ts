@@ -123,4 +123,22 @@ describe("tribe subscription start route", () => {
     expect(failed.status).toBe(503);
     expect(await failed.json()).toEqual({ message: "No pudimos iniciar el pago. Intentá de nuevo.", requestId: "correlation-1" });
   });
+
+  it("logs the class and closed code of an unexpected checkout failure without its private message", async () => {
+    const own = fixture();
+    const privateDetail = "Provider token=private secret trace";
+    const providerFailure = Object.assign(new TypeError(privateDetail), { code: "provider_unavailable" });
+    own.startTribeMemberSubscription.mockRejectedValue(new Error("Checkout composition failed", { cause: providerFailure }));
+    const capture = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const response = await own.handler(buildRequest({ invitationToken: "token" }), context());
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ message: "No pudimos iniciar el pago. Intentá de nuevo.", requestId: "correlation-1" });
+      const entries = capture.mock.calls.map(([line]) => JSON.parse(String(line)) as { metadata?: { code?: string; causes?: unknown } });
+      expect(entries).toEqual([expect.objectContaining({ metadata: expect.objectContaining({ code: "payment_blocked", causes: [{ name: "Error" }, { name: "TypeError", code: "provider_unavailable" }] }) })]);
+      expect(JSON.stringify(entries)).not.toContain(privateDetail);
+    } finally {
+      capture.mockRestore();
+    }
+  });
 });

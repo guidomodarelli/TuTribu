@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
 type MutationResult = { ok: true; value: unknown } | { ok: false; failure: AdmissionFailure };
 import { createAdmissionMutationHandlers } from "@/src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers";
+import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
+import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { MESSAGING_CRYPTO_ERROR } from "@/src/modules/messaging/constants/messaging-cryptography";
 
 /** Creates only own application outcomes; historical request data is captured separately from current reads. */
 function mutationFixture() {
@@ -14,7 +18,7 @@ function mutationFixture() {
   const cancelOwn = vi.fn(async (): Promise<MutationResult> => ({ ok: true, value: { state: "completed", operationId, replayed: false, result: { admissionRequestId: requestId, version: 2, status: "cancelled" } } }));
   const decide = vi.fn(async (): Promise<MutationResult> => ({ ok: true, value: { state: "completed", operationId, replayed: false, result: { admissionRequestId: requestId, version: 2, status: "approved" } } }));
   const allowRetry = vi.fn(async (): Promise<MutationResult> => ({ ok: true, value: { state: "completed", operationId, replayed: false, result: { admissionRequestId: requestId, version: 3, retryAllowedAt: "2026-10-07T00:00:00Z" } } }));
-  const ports = { resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) }, submit: { execute: submit }, cancelOwn: { execute: cancelOwn }, cancelByManagement: { execute: vi.fn() }, decide: { execute: decide }, allowRetry: { execute: allowRetry } };
+  const ports = { resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) }, submit: { execute: submit }, cancelOwn: { execute: cancelOwn }, cancelByManagement: { execute: vi.fn(async (): Promise<MutationResult> => ({ ok: false, failure: { code: "permission_denied" } })) }, decide: { execute: decide }, allowRetry: { execute: allowRetry } };
   const open = vi.fn(async () => ports);
   const request = (body: object) => new Request("https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/submissions", { method: "POST", headers: { "content-type": "application/json", origin: "https://tutribu.example.invalid" }, body: JSON.stringify(body) });
   return { operationId, requestId, tribeId, snapshot, submit, cancelOwn, decide, ports, open, request, handlers: createAdmissionMutationHandlers(open) };
@@ -64,6 +68,30 @@ describe("admission mutation handlers", () => {
     expect(denied.status).toBe(403);
     expect(await denied.json()).toMatchObject({ code: "permission_denied" });
     expect(fixture.ports.cancelByManagement.execute).not.toHaveBeenCalled();
+  });
+
+  it("should answer a platform security rejection of the own cancellation as such, never as a management permission denial", async () => {
+    const fixture = mutationFixture(), context = { params: Promise.resolve({ slug: "synthetic-academy", requestId: fixture.requestId }) };
+    const body = { operationId: fixture.operationId, confirmed: true, expectedVersion: 1 };
+    fixture.cancelOwn.mockResolvedValueOnce({ ok: false, failure: { code: "platform_security_unavailable", cause: new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.recoveryLocked) } });
+    const platform = await fixture.handlers.cancel(fixture.request(body), context);
+    expect(platform.status).toBe(409);
+    expect(await platform.json()).toMatchObject({ code: "platform_security_unavailable", message: ADMISSION_ERROR_MESSAGE.platform_security_unavailable });
+    // An absent resource caused by a key attestation failure is not "this request is not yours" either.
+    fixture.cancelOwn.mockResolvedValueOnce({ ok: false, failure: { code: "resource_unavailable", cause: new AdmissionOperationError("resource_unavailable", { cause: new MessagingCryptographyError(MESSAGING_CRYPTO_ERROR.contextMismatch) }) } });
+    expect((await fixture.handlers.cancel(fixture.request(body), context)).status).toBe(404);
+    expect(fixture.ports.cancelByManagement.execute).not.toHaveBeenCalled();
+  });
+
+  it("should try the management cancellation only after an own-request denial and keep both denials as the private cause", async () => {
+    const fixture = mutationFixture(), context = { params: Promise.resolve({ slug: "synthetic-academy", requestId: fixture.requestId }) };
+    const ownDenial = new AdmissionOperationError("permission_denied"), managementDenial = new AdmissionOperationError("permission_denied");
+    fixture.cancelOwn.mockResolvedValueOnce({ ok: false, failure: { code: "permission_denied", cause: ownDenial } });
+    fixture.ports.cancelByManagement.execute.mockResolvedValueOnce({ ok: false, failure: { code: "permission_denied", cause: managementDenial } });
+    const response = await fixture.handlers.cancel(fixture.request({ operationId: fixture.operationId, confirmed: true, expectedVersion: 1 }), context);
+    expect(response.status).toBe(403);
+    expect(await response.json()).not.toHaveProperty("cause");
+    expect(fixture.ports.cancelByManagement.execute).toHaveBeenCalledOnce();
   });
 
   it("should return a stale decision conflict without presenting a transition or leaking its private cause", async () => {

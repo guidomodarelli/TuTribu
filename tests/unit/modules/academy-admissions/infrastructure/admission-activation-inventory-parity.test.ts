@@ -49,7 +49,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission a
         missing_settings: await inventory((transaction) => transaction.execute(sql`delete from public.tribe_academy_settings where tribe_id=${leader.tribeId}`)),
       };
       expect(outcomes).toEqual({
-        baseline: { ...baseline, settingsLocked: true, isAcademy: true, policyPresent: false, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: true, evaluatorEnabled: true, recoveryLocked: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 },
+        baseline: { ...baseline, settingsLocked: true, isAcademy: true, policyPresent: false, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: true, evaluatorEnabled: true, recoveryLocked: false },
         disabled_storage_trigger: { ...baseline, storagePrepared: false },
         disabled_ingress_trigger: { ...baseline, ingressProtected: false },
         dropped_ingress_policy: { ...baseline, ingressProtected: false },

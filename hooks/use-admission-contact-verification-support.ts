@@ -30,6 +30,16 @@ export function confirmsAbsence(result: AdmissionContactBrowserResult<unknown>):
   return result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && result.code === ADMISSION_ERROR_CODE.resourceUnavailable;
 }
 
+/** @param result - Own failed read or write. @returns Whether the platform refused it because it cannot protect admissions yet; only the TuTribu team can lift it. */
+export function isPlatformRefusal(result: AdmissionContactBrowserResult<unknown>): result is Extract<AdmissionContactBrowserResult<unknown>, { status: "failed" }> {
+  return result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && result.code === ADMISSION_ERROR_CODE.platformSecurityUnavailable;
+}
+
+/** @param result - Read of a stored code selection. @returns Whether the server confirmed a rejection that no later read can change: not uncertain, not a missing original and not a platform block. */
+export function isDefinitiveSelectionRefusal(result: AdmissionContactBrowserResult<unknown>): boolean {
+  return result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain && !confirmsAbsence(result) && !isPlatformRefusal(result);
+}
+
 /** @param code - Confirmed rejection of a code check. @param message - Its safe copy. @returns The alert to show, or null for an expired code, which the code step presents as a status beside its resend. */
 export const challengeAlert = (code: AdmissionErrorCode, message: string) => code === ADMISSION_ERROR_CODE.challengeExpired ? null : message;
 

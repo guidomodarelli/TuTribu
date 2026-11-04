@@ -15,10 +15,21 @@ function batchFixture() {
 }
 
 describe("reviewer own browser contracts", () => {
+  it("should refuse an inbox page that offers a decision while it names a platform requirement", async () => {
+    const review = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-07T00:00:00Z", expiresAt: "2026-11-06T00:00:00Z", source: "common", needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: "synthetic-applicant", name: "Solicitante" }, evidence: { kind: "declared" }, restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
+    const fetch = vi.fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(Response.json({ items: [{ ...review, eligibleActions: ["reject"] }], nextCursor: null, platformRequirement: "security_unconfigured" }))
+      .mockResolvedValueOnce(Response.json({ items: [{ ...review, eligibleActions: [] }], nextCursor: null, platformRequirement: "security_unconfigured" }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+
+    expect(await client.reviewList("synthetic-academy", null, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable" });
+    expect(await client.reviewList("synthetic-academy", null, new AbortController().signal)).toMatchObject({ status: "ready", value: { platformRequirement: "security_unconfigured", items: [{ eligibleActions: [] }] } });
+  });
+
   it("should reject a substituted detail id and strip provider fields from a valid review list", async () => {
     const requestId = randomUUID();
     const review = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-07T00:00:00Z", expiresAt: "2026-11-06T00:00:00Z", source: "common", needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: "synthetic-account", name: "Solicitante" }, evidence: { kind: "none" }, eligibleActions: ["reject"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, providerToken: "synthetic-private-field" };
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json(review)).mockResolvedValueOnce(Response.json({ items: [review], nextCursor: null }));
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json(review)).mockResolvedValueOnce(Response.json({ items: [review], nextCursor: null, platformRequirement: null }));
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
     expect(await client.reviewDetail("synthetic-academy", requestId, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
     const page = await client.reviewList("synthetic-academy", null, new AbortController().signal);
@@ -34,11 +45,11 @@ describe("reviewer own browser contracts", () => {
   });
 
   it.each(["pending", undefined] as const)("should retain explicit filters and false when reading another scanned page for status %s", async (status) => {
-    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ items: [], nextCursor: null }));
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ items: [], nextCursor: null, platformRequirement: null }));
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
     const signal = new AbortController().signal, cursor = `2026-10-07T00:00:00.123456Z${ADMISSION_REVIEW_CURSOR_SEPARATOR}${randomUUID()}`;
     const filters = { limit: 25, status, source: "common" as const, search: "Ana + García", needsVerification: false, requiresExceptionReason: true, submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z" };
-    expect(await client.reviewList("synthetic-academy", cursor, signal, filters)).toEqual({ status: "ready", value: { items: [], nextCursor: null } });
+    expect(await client.reviewList("synthetic-academy", cursor, signal, filters)).toEqual({ status: "ready", value: { items: [], nextCursor: null, platformRequirement: null } });
     expect(fetch).toHaveBeenCalledOnce();
     const [href, options] = fetch.mock.calls[0];
     const query = new URL(String(href), "https://tutribu.example.invalid").searchParams;

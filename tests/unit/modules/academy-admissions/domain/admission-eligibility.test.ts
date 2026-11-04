@@ -395,12 +395,12 @@ describe("current-policy review and permissions", () => {
     },
   );
 
-  it("should keep an allowed exception ineligible when the approval leaves the internal reason empty", () => {
+  it("should keep an allowed exception eligible for review without any internal reason and mark it as an exception", () => {
     const facts = submissionFacts();
     facts.policy!.mode = "allowlist"; facts.policy!.allowCommonExceptions = true;
     const review = { ...facts, allowlistEntry: null, request: { id: "pending-request", userId: facts.account!.userId, expiresAt: new Date(facts.now.getTime() + 60_000), source: facts.source, attachedEvidence: null as AdmissionSubmissionFacts["localProof"] }, reviewer: { userId: "leader", role: "leader" as const, status: "active" as const, tribeId: facts.tribe.id } };
-    expect(evaluatePendingAdmissionReview({ ...review, exceptionReason: "" })).toMatchObject({ eligible: false, reason: "exception_reason_required" });
-    expect(evaluatePendingAdmissionReview({ ...review, exceptionReason: "Motivo interno de excepción" }).eligible).toBe(true);
+    expect(evaluatePendingAdmissionReview(review)).toEqual({ eligible: true, requiresExplicitDecision: true, requiresExceptionReason: true });
+    expect(evaluatePendingAdmissionReview({ ...review, allowlistEntry: { tribeId: facts.tribe.id, contact: facts.contact!, enabled: true, boundUserId: null } })).toEqual({ eligible: true, requiresExplicitDecision: true, requiresExceptionReason: false });
   });
 
   it.each([

@@ -29,7 +29,7 @@ function request(index: number): AdmissionReviewDto {
 /** @param count - Visible initial rows. @returns The actual route input and doubles of its owned transport only. */
 function fixture(count = 2) {
   const items = Array.from({ length: count }, (_, index) => request(index));
-  const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-16T12:00:00Z", filters: { ...DEFAULT_ADMISSION_REVIEW_SELECTION, limit: 50 }, page: { items, nextCursor: null }, selected: null };
+  const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-16T12:00:00Z", filters: { ...DEFAULT_ADMISSION_REVIEW_SELECTION, limit: 50 }, page: { items, nextCursor: null, platformRequirement: null }, selected: null };
   const client = {
     viewer: vi.fn<AdmissionReviewBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
     reviewList: vi.fn<AdmissionReviewBrowserClient["reviewList"]>(async () => ({ status: "ready", value: state.page })),
@@ -119,6 +119,27 @@ describe("explicit reviewer batch decisions", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("should approve a selection that includes an exception without any internal reason", async () => {
+    // Given a visible selection where one request entered as an exception to the list.
+    const data = fixture();
+    data.items[1].restrictions.requiresExceptionReason = true;
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    for (const name of ["Persona 1", "Persona 2"]) {
+      const checkbox = await screen.findByRole("checkbox", { name: `Seleccionar solicitud de ${name}` });
+      await waitFor(() => expect(checkbox).toBeEnabled());
+      fireEvent.click(checkbox);
+    }
+    const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" });
+    fireEvent.click(within(form).getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" }));
+    // When the reviewer confirms and approves leaving the optional reason empty.
+    expect(within(form).getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Rechazar seleccionadas" })).toBeEnabled();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Aprobar seleccionadas" })));
+    // Then the original carries an empty reason instead of being blocked.
+    expect(data.client.decideBatch).toHaveBeenCalledTimes(1);
+    expect(data.client.decideBatch.mock.calls[0][1]).toMatchObject({ confirmed: true, decision: "approve", internalReason: "", items: data.items.map((item) => ({ requestId: item.id, expectedVersion: 1 })) });
+  });
+
   it("should keep the pressed batch decision busy while its write is pending and disable every other write", async () => {
     const data = fixture(); let resolveWrite!: (value: AdmissionBrowserResult<AdmissionBatchResultDto>) => void;
     data.client.decideBatch.mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));
@@ -166,7 +187,7 @@ describe("explicit reviewer batch decisions", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Aprobar seleccionadas" })));
     expect(readAdmissionReviewIntent(viewerId, slug)).not.toBeNull();
     // When the reviewer explicitly consults that original.
-    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [], nextCursor: null } });
+    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [], nextCursor: null, platformRequirement: null } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })));
     // Then both confirmed results survive and the immutable operation is not resent.
     const results = screen.getByRole("region", { name: "Resultados del lote" });
@@ -199,7 +220,7 @@ describe("explicit reviewer batch decisions", () => {
   it("should enforce fifty explicitly visible rows when another loaded page contains more candidates", async () => {
     const data = fixture(50), extra = request(50);
     data.state.page.nextCursor = "next-owned-page";
-    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [extra], nextCursor: null } });
+    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [extra], nextCursor: null, platformRequirement: null } });
     await act(async () => { render(data.node, { wrapper: Providers }); });
     await waitFor(() => expect(screen.getByRole("checkbox", { name: "Seleccionar solicitud de Persona 1" })).toBeEnabled());
     for (const item of data.items) fireEvent.click(screen.getByRole("checkbox", { name: `Seleccionar solicitud de ${item.applicant.name}` }));
@@ -320,7 +341,7 @@ describe("visible batch selection freshness", () => {
     const data = fixture();
     await act(async () => { render(data.node, { wrapper: Providers }); });
     await confirmBatch();
-    data.client.reviewList.mockResolvedValueOnce({ status: "ready", value: { items: [{ ...data.items[0], applicant: { ...data.items[0].applicant, name: "Nombre actualizado" } }, data.items[1]], nextCursor: null } });
+    data.client.reviewList.mockResolvedValueOnce({ status: "ready", value: { items: [{ ...data.items[0], applicant: { ...data.items[0].applicant, name: "Nombre actualizado" } }, data.items[1]], nextCursor: null, platformRequirement: null } });
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
     expect(screen.getByRole("checkbox", { name: "Seleccionar solicitud de Nombre actualizado" })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" })).not.toBeChecked();
@@ -330,18 +351,24 @@ describe("visible batch selection freshness", () => {
     expect(data.client.decideBatch).not.toHaveBeenCalled();
   });
 
-  it("should consult registered progress without enabling another POST while the batch remains started", async () => {
+  it("should offer resending a batch that remains started and complete it with the same operation after a renewed confirmation", async () => {
     const data = fixture();
-    data.client.decideBatch.mockImplementation(async (_slug, input) => ({ status: "ready", value: { operationId: input.operationId, state: "started", result: "incomplete", completedCount: 0, failedCount: 0, unresolvedCount: 2, items: data.items.map((item) => ({ requestId: item.id, status: "unresolved", code: "operation_unresolved", safeMessage: "Sin resolución confirmada." })) } }));
+    data.client.decideBatch.mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { operationId: input.operationId, state: "started", result: "incomplete", completedCount: 0, failedCount: 0, unresolvedCount: 2, items: data.items.map((item) => ({ requestId: item.id, status: "unresolved", code: "operation_unresolved", safeMessage: "Sin resolución confirmada." })) } }));
     data.client.operation.mockImplementation(async (_slug, operationId) => ({ status: "ready", value: { type: "decide_admission_requests_batch", operationId, state: "started" } }));
     await act(async () => { render(data.node, { wrapper: Providers }); });
     await confirmBatch();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Aprobar seleccionadas" })));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })));
-    await act(async () => { await vi.advanceTimersByTimeAsync(45000); });
+    const original = structuredClone(data.client.decideBatch.mock.calls[0][1]);
     expect(screen.queryByRole("button", { name: "Reintentar el mismo lote" })).not.toBeInTheDocument();
-    expect(data.client.operation).toHaveBeenCalledTimes(1);
-    expect(data.client.decideBatch).toHaveBeenCalledTimes(1);
-    expect(readAdmissionReviewIntent(viewerId, slug)).not.toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" })));
+    expect(screen.getByText(/Si no avanza, confirmá de nuevo y reintentá el mismo lote/)).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Reintentar el mismo lote" });
+    expect(retry).toBeDisabled();
+    const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" });
+    fireEvent.click(within(form).getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" }));
+    await act(async () => fireEvent.click(retry));
+    expect(data.client.decideBatch).toHaveBeenCalledTimes(2);
+    expect(data.client.decideBatch.mock.calls[1][1]).toEqual(original);
+    await waitFor(() => expect(readAdmissionReviewIntent(viewerId, slug)).toBeNull());
   });
 });

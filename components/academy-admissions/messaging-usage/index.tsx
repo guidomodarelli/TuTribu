@@ -2,11 +2,13 @@
 import { useId, type ReactNode } from "react";
 import { Button, Checkbox, Input, Select, UsageMeter } from "@golfo/ui";
 import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
+import { PlatformSecurityNotice } from "@/components/academy-admissions/platform-security-notice";
+import type { PlatformSecurityRequirement } from "@/src/modules/shared/domain/value-objects/platform-security-requirement";
 import type { MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import type { MessagingUsageDraft, MessagingUsageCountryChoice } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import type { MessagingQuotaChangeImpact, MessagingUsageChangeImpact } from "@/src/modules/messaging/application/results/messaging-usage-change-impact";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
-import { MESSAGING_USAGE_COUNT_PATTERN, MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, type MessagingUsageStepId } from "@/src/modules/messaging/constants/messaging-usage";
+import { MESSAGING_USAGE_COUNT_PATTERN, MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT, MESSAGING_USAGE_STEP, MESSAGING_USAGE_STEP_ORDER, MESSAGING_USAGE_UI_COPY, type MessagingUsageStepId } from "@/src/modules/messaging/constants/messaging-usage";
 import styles from "./styles.module.scss";
 
 /** Current state, proposed input, safe feedback and explicit interactions are owned by the route container. */
@@ -30,6 +32,10 @@ export type MessagingUsageProps = {
   canRetrySave?: boolean;
   impact?: MessagingUsageChangeImpact | null;
   uncertain?: boolean; canRetry?: boolean; retryConfirmed?: boolean;
+  /** What the unresolved original needs, shown inside its recovery, next to the consult and retry actions; null keeps the default. */
+  recoveryMessage?: string | null;
+  /** What only the TuTribu team can resolve before a save can be protected; the container also withholds every write while it is set. */
+  platformRequirement?: PlatformSecurityRequirement | null;
   onChange: (draft: MessagingUsageDraft) => void; onConfirm: (confirmed: boolean) => void; onStepChange: (step: number) => void;
   onStartEditing: () => void; onCancelEditing: () => void; onSave: () => void; onReloadCurrent: () => void;
   onRetryConfirm?: (confirmed: boolean) => void; onRetryOriginal?: () => void;
@@ -126,7 +132,7 @@ function SavedUsageSummary({ policy, countryChoices, savedNoticeWarning }: { pol
 /** @param props - Retry consent and the original operation actions. @param instanceId - Prefix of the field ids. @returns The recovery of a save whose result is unknown. */
 function UsageOriginalRecovery({ props, instanceId }: { props: MessagingUsageProps; instanceId: string }) {
   return <section className={styles.MessagingUsage__recovery} aria-label="Recuperar operación original">
-    <p role="status" className={styles.MessagingUsage__recoveryText}>Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.</p>
+    <p role="status" className={styles.MessagingUsage__recoveryText}>{props.recoveryMessage ?? "Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir."}</p>
     <Button variant="secondary" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>
     {props.canRetry && <>
       <Checkbox id={`${instanceId}-retry`} checked={props.retryConfirmed ?? false} disabled={props.busy} onCheckedChange={(checked) => props.onRetryConfirm?.(checked === true)} label="Confirmo reintentar el guardado con sus datos originales." />
@@ -235,6 +241,7 @@ export function MessagingUsage(props: MessagingUsageProps) {
   };
 
   return <div className={styles.MessagingUsage}>
+    {props.platformRequirement && <PlatformSecurityNotice requirement={props.platformRequirement} consequence={MESSAGING_USAGE_UI_COPY.platformConsequence} onRecheck={props.onReloadCurrent} busy={props.busy} />}
     <section className={styles.MessagingUsage__summary} aria-labelledby={titleId}>
       <h2 id={titleId} className={styles.MessagingUsage__title}>Uso actual</h2>
       {policy ? <SavedUsageSummary policy={policy} countryChoices={props.countryChoices} savedNoticeWarning={savedNoticeWarning} /> : <p className={styles.MessagingUsage__lead}>Todavía no hay países ni cupos guardados. Seguí los pasos para elegirlos; nada se guarda hasta el último paso.</p>}

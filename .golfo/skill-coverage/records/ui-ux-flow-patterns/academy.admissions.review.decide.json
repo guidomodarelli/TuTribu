@@ -2,141 +2,140 @@
   "latest": {
     "baseline": {
       "analyzer": "babel-tokens/1",
-      "branch": "chore/academy-audit-coverage",
-      "commit": "2718f53c946a536caa7a065feab104de23414063",
+      "branch": "feat/admission-review-filters-dialog",
+      "commit": "b2e845f929af5d253483f8fc3481ac11c914912a",
       "files": {
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "c1fed6d0160c63d3",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx": "657902070da1cb49",
         "hooks/use-admission-review-batch-selection.ts": "daf741308d49c7a7",
-        "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts": "a600ca2ed24e41ed",
+        "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts": "431a6ce3acd8d91c",
         "app/api/tribes/[slug]/admissions/request-decisions/route.ts": "957e77ecc40a6143",
         "app/api/tribes/[slug]/admissions/operations/[operationId]/route.ts": "45d7a873b56f93ac",
-        "src/modules/academy-admissions/setup.ts": "4e6b2523d9230ac2",
+        "src/modules/academy-admissions/setup.ts": "6617b843f2eb5059",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts": "750f9fbc68d426b1",
-        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts": "4d37f8e0bc8531b6",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts": "c0cc574c6f4a39e6",
-        "src/modules/shared/infrastructure/database/server-database-client.ts": "895a53cd3c3f72ab",
-        "src/modules/academy-admissions/application/results/admission-review-intent.ts": "1379e303a8b1c3aa",
-        "src/modules/academy-admissions/constants/admission-limits.ts": "2d7d087ec36ae67b",
-        "src/modules/academy-admissions/constants/admission-request.ts": "f65628a88eca20f3",
-        "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts": "c8b82199904ee8de",
-        "src/modules/setup.ts": "b7906aa060d53395",
-        "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts": "a00e903e35a5a6b2",
-        "src/modules/academy-admissions/infrastructure/api/admission-operation-handler.ts": "6e9b8a1300cccb8e",
-        "src/modules/academy-admissions/constants/admission-errors.ts": "4a393e9826800086",
+        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts": "cb3338ef337f2179",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts": "e28ad9623bd04b26",
+        "src/modules/shared/infrastructure/database/server-database-client.ts": "f4f1630c230fe960",
+        "src/modules/academy-admissions/application/results/admission-review-intent.ts": "1770249ce24184f4",
+        "src/modules/academy-admissions/constants/admission-limits.ts": "5908d81b297e842f",
+        "src/modules/academy-admissions/constants/admission-request.ts": "97e3f8cbdd9e6091",
+        "app/api/tribes/[slug]/admissions/admission-route-handlers.ts": "dd525b99ae27cba9",
+        "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts": "4ffad05e944b9fe7",
+        "src/modules/setup.ts": "9a683aa3c016fdd1",
+        "src/modules/academy-admissions/infrastructure/api/admission-operation-handler.ts": "edc7a9836cc02615",
+        "src/modules/academy-admissions/constants/admission-eligibility.ts": "bce203ee234121ec",
+        "src/modules/academy-admissions/constants/admission-errors.ts": "625ba351041012ba",
         "src/modules/academy-admissions/domain/errors/admission-operation-error.ts": "408a9f6569342722",
-        "src/modules/academy-admissions/constants/admission-eligibility.ts": "eb86fa4c334de686",
-        "src/modules/academy-admissions/constants/admission-request-memo.ts": "104cce8b8cc51e7c",
-        "src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader.ts": "43e8bfc124234908",
-        "src/modules/academy-admissions/domain/repositories/admission-policy-management.ts": "911a7b907d80205c",
-        "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts": "4ec882ebcd7e424c",
-        "src/modules/academy-admissions/application/use-cases/apply-admission-proof-use-case.ts": "dee4b85e3a93229c",
-        "src/modules/academy-admissions/application/use-cases/cancel-admission-request-use-case.ts": "3210aa6920b202b9",
-        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts": "39ef54f1b056f8ac",
+        "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts": "f27672613edc5e57",
+        "src/modules/academy-admissions/application/use-cases/cancel-admission-request-use-case.ts": "fcca11fa53af98e8",
         "src/modules/academy-admissions/application/use-cases/decide-admission-request-use-case.ts": "d078e57a58a08156",
         "src/modules/academy-admissions/application/use-cases/decide-admission-requests-batch-use-case.ts": "4b42adb695c63b19",
-        "src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts": "3dd9bec3263f8060",
-        "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts": "b18434bb01f97057",
-        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts": "6c55053dcf6455b5",
-        "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts": "3eee572cc980d1bb",
-        "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts": "a45c2001ff46fc82",
-        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts": "c0d19d1242a258a7",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts": "6ba1774d195d1362",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-use-case.ts": "32ce3498c738b4a4",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts": "fa98601aeadc20ff",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts": "bbf43f471a06f4f4",
-        "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts": "a0f8b0a0eb6c206a",
-        "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts": "a7150fcae47aa276",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts": "52770892f65cb26c",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts": "86012badf6e7e420",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts": "a889662e9d1a6076",
-        "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts": "81a267103c1790ec",
-        "src/modules/academy-admissions/application/use-cases/manage-admission-policy-use-cases.ts": "236bfacc3462ea5a",
-        "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts": "7a58e4c75bc8d806",
-        "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts": "00a163d13e3875d0",
-        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts": "f33c9aea09888035",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts": "de8176d033b2a410",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts": "9bb414db4d7cf332",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts": "0f705208e9025d91",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts": "edc78a8aa7f78fd5",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts": "3956c660070bf0d2",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts": "41a45a53364a1826",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-preparation-reader.ts": "8006d28a34fe9fed",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader.ts": "ac95d41e409ded7b",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts": "23373c62f6487d86",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts": "851ebf1c801387ed",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts": "81583f2658bfd43c",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts": "4335532ca8b55e36",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts": "f6209d7e6d4f5d46",
-        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts": "946aae655bd6888a",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts": "719193147b4b8d87",
-        "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts": "0a50893c92d71ea9",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts": "b8452023495a2fc6",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-reader.ts": "fc35782a966f4d11",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts": "84999c64834467dd",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts": "aff1384ae843d21e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts": "e597b0dc001b8315",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts": "5e7bbc6d54e3d54b",
+        "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts": "f79102a203393801",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts": "5aa3b2697e26620e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts": "ed3804333291231f",
         "src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader.ts": "949dcd7bb54a36e5",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts": "ec64467d5541e55c",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts": "62c26d8677d44a63",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts": "593201e822a6ffa8",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts": "e8993d6841130762",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts": "a8f3ed4e13fb3851",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts": "da6b197b34a09058",
+        "src/modules/academy-admissions/application/use-cases/read-admission-runtime-use-case.ts": "b5a985a5d6788898",
+        "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts": "55295398ff14a9bb",
+        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts": "ab10042d2f7fb30f",
+        "src/modules/academy-admissions/application/use-cases/update-admission-whatsapp-number-use-case.ts": "90514f2d13aee549",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts": "febf726f02bba05b",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts": "a35fc2ef8f5b9105",
+        "src/modules/academy-admissions/application/results/admission-errors.ts": "fb72d69fc226b87c",
+        "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts": "3797854c75c3cc36",
+        "src/modules/academy-admissions/application/use-cases/apply-admission-proof-use-case.ts": "dee4b85e3a93229c",
+        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts": "cbb4c3fb1c07faf0",
+        "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts": "fcd28bfa66ec7b86",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts": "704cbb4d2ccefd1b",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts": "4aa5a32988791100",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts": "514d5577f1d00afb",
+        "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts": "664e9ed01cadb1ad",
+        "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts": "4d01f1ab605e311a",
+        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts": "00b65dd6b96fbe3e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts": "013c81c093a051ed",
+        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts": "946aae655bd6888a",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts": "b226048064e7a4ff",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-reader.ts": "fc35782a966f4d11",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts": "6b3061fffa103ec5",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts": "5a0dc72bf1d8d2a1",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts": "db93cc2fb778d37b",
+        "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts": "8794f6dfff5905c5",
+        "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts": "d1f9085accd6e089",
+        "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts": "7950c573ff737ff2",
+        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts": "de578354b96cd93a",
+        "src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader.ts": "43e8bfc124234908",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts": "d00438f239a076cd",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts": "8f741e06fbd60062",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts": "f9eab04e45f519cf",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts": "b288594f0d82f0bc",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts": "42e27c611e253129",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts": "e0b93de066e8a024",
         "src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget.ts": "b0c7afea43b31224",
         "src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget.ts": "e9debd78327df7a1",
-        "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts": "a8bba9445e7e5688",
-        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts": "a6f64549eca3a91c",
-        "src/modules/academy-admissions/application/use-cases/read-admission-runtime-use-case.ts": "b5a985a5d6788898",
-        "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts": "076816271296c497",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts": "11f6c5c5ee40af06",
         "src/modules/academy-admissions/application/use-cases/resolve-admission-operation-use-case.ts": "f180b08e3436024a",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts": "d703039945b85a6f",
-        "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts": "58bac3670699c2a6",
-        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts": "e8e2dbf25a5b7297",
-        "src/modules/academy-admissions/application/use-cases/update-admission-whatsapp-number-use-case.ts": "90514f2d13aee549",
-        "src/modules/academy-admissions/application/results/admission-errors.ts": "fb72d69fc226b87c",
+        "src/modules/academy-admissions/domain/repositories/admission-policy-management.ts": "60ca45b8e983b9d8",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts": "bd4175ef981d219f",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts": "bff932f0574d2267",
+        "src/modules/academy-admissions/application/use-cases/manage-admission-policy-use-cases.ts": "236bfacc3462ea5a",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-preparation-reader.ts": "8006d28a34fe9fed",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader.ts": "ac95d41e409ded7b",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts": "264f1a92361c76e7",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts": "e17a8c9b2e5b6f07",
+        "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts": "595a39af614af1be",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-authorizer.ts": "668f48a42304ba47",
-        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts": "63777e7a48eb3ea8",
-        "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts": "7950c573ff737ff2",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts": "febf726f02bba05b",
-        "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts": "fb2c88f8f4c42db9",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts": "a41b41fe6eb37214",
+        "src/modules/academy-admissions/constants/admission-request-memo.ts": "104cce8b8cc51e7c",
+        "src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts": "3dd9bec3263f8060",
+        "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts": "05f7fb7e8fb873d8",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts": "29febbf0dd976f4a",
+        "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts": "92b109cb99b76155",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts": "d1a3f02f6f16fcce",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-use-case.ts": "32ce3498c738b4a4",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts": "87cd3909f6a32a98",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts": "fd3126cefcda1f32",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts": "72a4b28cb65abff3",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts": "f53e319dc2cf2b70",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts": "b59eb16a499a2d7f",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts": "497a66a3153ca7ed",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts": "2feb864dfccfc3c6",
+        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts": "3ac4add36b1b346f",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts": "0500bc95284b3de8",
         "src/modules/shared/infrastructure/request-scope/request-memo.ts": "646750641cffbc07",
-        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts": "c7f308ccbaa1356b",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts": "556cf1d24aaf18c2",
+        "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts": "fb2c88f8f4c42db9",
         "src/modules/auth/infrastructure/authenticated-account-provider.ts": "a76accdd1ec14fd4",
         "src/modules/auth/infrastructure/composition/pooled-account-provider.ts": "805c8bac821d637e",
-        "src/modules/auth/infrastructure/better-auth/server-auth-context.ts": "1c98179f3341e101",
-        "src/modules/messaging/constants/messaging-hosting.ts": "8468ad5bd0061a65",
+        "src/modules/auth/infrastructure/better-auth/server-auth-context.ts": "556b82d5bf84566d",
         "src/modules/messaging/constants/messaging-cryptography.ts": "97dbfe553b32757e",
+        "src/modules/messaging/constants/messaging-hosting.ts": "8468ad5bd0061a65",
         "src/modules/messaging/infrastructure/encryption/messaging-cryptography-error.ts": "3127c3691bdf1e48",
-        "src/modules/messaging/infrastructure/config/messaging-security-config.ts": "292dd0c72e179540",
-        "src/modules/academy-admissions/constants/admission-preflight.ts": "591ce9f346092a5b",
-        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts": "d993a84d98b9fdcc",
+        "src/modules/messaging/infrastructure/config/messaging-security-config.ts": "4d31bdd07b620fc6",
+        "src/modules/academy-admissions/constants/admission-preflight.ts": "8fe2e3a114bc50d4",
+        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts": "9987780dfca628c1",
         "src/modules/academy-admissions/domain/repositories/admission-activation-preflight-reader.ts": "fd31e5020e6851c6",
-        "src/modules/product-access/constants/product-access.ts": "9918d8d426c90ab6",
-        "src/modules/tribes/constants/tribe-member-role.ts": "bcd5a756222224ce",
-        "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts": "bb2e910217429680",
-        "src/modules/messaging/domain/repositories/messaging-repositories.ts": "294df4f38b9230a6",
-        "src/modules/shared/infrastructure/database/postgres-pool.ts": "25ae1f2dc4f0ad51",
+        "src/modules/product-access/constants/product-access.ts": "a7f8302f906910ff",
+        "src/modules/messaging/domain/repositories/messaging-repositories.ts": "0d8fc88fa563c294",
+        "src/modules/shared/infrastructure/database/postgres-pool.ts": "2a9c666082de3e89",
         "src/modules/shared/infrastructure/database/server-environment.ts": "cb00db6eec131df8",
+        "src/modules/shared/constants/platform-security.ts": "be45e4de9ad1b51f",
+        "src/modules/shared/domain/value-objects/platform-security-requirement.ts": "b5248758fac343e3",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts": "b801e6c3bb36adf0",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts": "3cb73fd082b826f2"
       },
-      "fingerprint": "sha256:f92c9c394070f318147ec33ac8caa5ddd75281432b03f77d8465624a4c7a161f",
+      "fingerprint": "sha256:b01a486d325f392b12c7caf0b9db65393ae5cc66705eb85d1c5a142af8c9d0da",
       "inputs": {
         "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#<module>": "d414f6d3ee71f10d",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/publishItems": "83e901f531794b36",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/hidePrivate": "69f15d8ca4254629",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/checkViewer": "527733f771f7d736",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/handleResourceFailure": "ec9f0ac1cdf6591e",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyTransitions": "5c23904e6a218498",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/refreshVisibleReview": "6d0bade86aacb24d",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/readCurrent": "2943ec13e133f596",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/launchRead": "8202f1d6c9b02f78",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/send": "4355294c228191e6",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/navigateFilters": "97cd0a7f8ef71df6",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/clearBatch": "76ced9d93aca96f3",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/retryOriginal": "d1fa6c8121a60a86",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability": "c65cf6e184e478ff",
-        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "95265d792d968f38",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/refreshVisibleReview": "93c2002e4aa65933",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/readCurrent": "c5eef19f0dcbdfda",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/launchRead": "ca20dfad8e46dc7e",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability": "e1436dca7f98ab32",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/send": "594efed5392b47ef",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/navigateFilters": "43523ea6ae8b4a14",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyDraft": "12caf90445be0c50",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyFilters": "234172ed733aaccf",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/removeFilter": "a479838a48106d81",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/discardFilterEdits": "0ab3f2509a730dfb",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/changeFilter": "89622655b85742ed",
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell": "c650c45931127831",
         "hooks/use-admission-review-batch-selection.ts#<module>": "d414f6d3ee71f10d",
         "hooks/use-admission-review-batch-selection.ts#useAdmissionReviewBatchSelection/resetConfirmation": "78aa010634834939",
         "pkg:react": "374a4508a198654b",
@@ -150,29 +149,33 @@
         "hooks/use-admission-review-batch-selection.ts#useAdmissionReviewBatchSelection/getSelection": "5577c216bfe95aa0",
         "hooks/use-admission-review-batch-selection.ts#useAdmissionReviewBatchSelection/actions": "f55604ae28eb96b7",
         "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts#<module>": "2da3ec2294295eb1",
-        "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts#POST": "fe2de389fab3372e",
+        "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts#POST": "aef2f445b5738a45",
         "app/api/tribes/[slug]/admissions/request-decisions/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/admissions/request-decisions/route.ts#POST": "f384784acc135b66",
         "app/api/tribes/[slug]/admissions/operations/[operationId]/route.ts#<module>": "2da3ec2294295eb1",
         "app/api/tribes/[slug]/admissions/operations/[operationId]/route.ts#GET": "4d251001cdffcce9",
         "src/modules/academy-admissions/setup.ts#<module>": "f7e3cf85771fe55e",
         "pkg:server-only": "b5339fe42edb5191",
-        "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeScopedQuery": "93def689ed7ec2f3",
-        "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeVerification": "707d588e39064e42",
-        "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule~shell": "644ae422572afd83",
+        "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule": "f8bf23bdaf0bc902",
+        "src/modules/academy-admissions/setup.ts#buildInvitationAndVerificationModules": "7704aa2453a91ada",
+        "src/modules/academy-admissions/setup.ts#AdmissionModuleContext": "0a5929a1969caf34",
+        "src/modules/academy-admissions/setup.ts#createAdmissionContextResolver": "70adab692262a5e4",
+        "src/modules/academy-admissions/setup.ts#buildLedgerModules": "81af45c3ec68cc6c",
+        "src/modules/academy-admissions/setup.ts#buildPolicyModules": "4e33d957ae625f47",
+        "src/modules/academy-admissions/setup.ts#buildReadModules": "5dc1d7df5f997e2d",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/auth/infrastructure/composition/authenticated-account-provider.ts#createRequestAuthenticatedAccountProvider": "b0ee4e19d7633576",
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingRecoveryLock": "ccdc75faf2e9c6db",
-        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingSecurityConfig": "ff19a92afc0c1bd6",
+        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingSecurityConfig": "3fbe806f1930f275",
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#parseHostingKeyrings": "046371f91f62b574",
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#hostingKeyringsSchema": "ee02e8145594232a",
         "pkg:zod": "54793d4376d381b3",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#PostgresAdmissionActivationRepository": "f5905d2f819696d0",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#PostgresAdmissionActivationRepository": "be4c3ac844c8c5ed",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#CatalogRow": "4b590bb763a415ab",
         "pkg:drizzle-orm": "87d2d0f645a6b937",
         "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingSecurityFacts": "534e5cfdde826ce9",
+        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingRecoveryLock": "ccdc75faf2e9c6db",
         "src/modules/shared/infrastructure/database/server-database-client.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/shared/infrastructure/database/server-database-client.ts#createServerDatabaseClient": "c1fc2911dbf12e25",
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_CONNECTION_USAGE~frame": "c19566476439ac67",
@@ -185,13 +188,11 @@
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified": "e10eacca8f2c3dde",
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_TRANSACTION~frame": "fee05eed645ee6b6",
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_TRANSACTION.verifiedSettingValue": "29ffb0560964e71e",
-        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/releaseClient": "213491779015c11e",
-        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/handleCheckedOutClientError": "c8f71f7e7d483d96",
-        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement~shell": "d7e474d36e1aeddd",
+        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement": "2cfe01ae6ed3a6ff",
+        "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease/release": "138db064f499a496",
+        "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease~shell": "99b2b93a8bb71bb0",
         "src/modules/shared/infrastructure/database/server-database-client.ts#createRequestDatabase": "171874e728fb4e91",
-        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/releaseClient": "213491779015c11e",
-        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/handleCheckedOutClientError": "c8f71f7e7d483d96",
-        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction~shell": "e40abcff83a4b559",
+        "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction": "522c40da50de9d84",
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_TRANSACTION.commit": "dda0d84f442d1cb3",
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_TRANSACTION.rollback": "bcf2237ee3247d88",
         "src/modules/shared/infrastructure/database/server-database-client.ts#GUARDED_TRANSACTION_BEGIN": "c77c1737e2523344",
@@ -205,6 +206,7 @@
         "src/modules/shared/infrastructure/database/server-database-client.ts#DATABASE_POOL_OPERATION.maintenanceIdleError": "966af5fb54cc4be4",
         "src/modules/shared/infrastructure/database/server-database-client.ts#GlobalDatabase": "2cfbf140c1c2fdd1",
         "pkg:pg": "c13e8b0181b60b6e",
+        "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingPlatformRequirement": "268c0f3f9bcdbff1",
         "src/modules/academy-admissions/application/results/admission-review-intent.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/results/admission-review-intent.ts#AdmissionBatchReviewSelection": "46592c7eb291b522",
         "src/modules/academy-admissions/constants/admission-limits.ts#<module>": "2da3ec2294295eb1",
@@ -213,232 +215,305 @@
         "src/modules/academy-admissions/constants/admission-request.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS~frame": "a32de5b787688cd0",
         "src/modules/academy-admissions/constants/admission-request.ts#ADMISSION_REQUEST_STATUS.pending": "5703d57ca452e71a",
-        "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#createAdmissionMutationHandlers/mutate": "ed22cb9bfcb284b4",
-        "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#startedSchema": "cea010b4756ce067",
-        "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#createAdmissionMutationHandlers~shell": "100eb73aa0707538",
-        "src/modules/setup.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/setup.ts#createAdmissionRequestModules": "87920f89d995dcad",
+        "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#<module>": "a2021010117a9896",
+        "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#admissionMutationHandlers": "220628ec5023b45e",
         "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts#createAdmissionBatchDecisionHandler": "9ed41396f1dde721",
+        "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts#createAdmissionBatchDecisionHandler": "3526b3466192d6e6",
+        "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts#matchesBatchSelection": "383f2967ce667948",
+        "src/modules/setup.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/setup.ts#createAdmissionRequestModules": "7749a61f0d1611c3",
         "src/modules/academy-admissions/infrastructure/api/admission-operation-handler.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/api/admission-operation-handler.ts#createAdmissionOperationHandler": "05af3279e546e32a",
-        "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "2f799f41481116eb",
-        "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode": "d40fce53bfa2dcc3",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
-        "src/modules/academy-admissions/domain/errors/admission-operation-error.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/domain/errors/admission-operation-error.ts#AdmissionOperationError": "d1979b94743d121f",
+        "src/modules/academy-admissions/infrastructure/api/admission-operation-handler.ts#createAdmissionOperationHandler": "9262a9a6d4715d44",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_ACTION~frame": "aae5c8b7bb17422c",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_ACTION.cancelByManagement": "957ff4c3f332d32d",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_ACTION.cancelOwnRequest": "cb30b2ec3f8ea482",
         "src/modules/academy-admissions/constants/admission-eligibility.ts#ADMISSION_ACTION.readOwnRequest": "153ade061169fae6",
-        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.resourceUnavailable": "e0e65cfe4bfecf20",
-        "src/modules/academy-admissions/constants/admission-request-memo.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/constants/admission-request-memo.ts#ADMISSION_REQUEST_MEMO_KEY~frame": "d353202dc8bbb060",
-        "src/modules/academy-admissions/constants/admission-request-memo.ts#ADMISSION_REQUEST_MEMO_KEY.tribeIdentity": "d18a292f39244400",
-        "src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader.ts#AdmissionMessagingUsagePolicyReader": "6434fa88c22c40fc",
-        "src/modules/academy-admissions/domain/repositories/admission-policy-management.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/domain/repositories/admission-policy-management.ts#AdmissionPolicyPreparationReader": "28d19b809efa6c8d",
+        "src/modules/academy-admissions/constants/admission-errors.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame": "9b1a7be4721b0a02",
+        "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode": "d0803f5c8cbce8f1",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.authenticationRequired": "e8f0fd5231a55b76",
+        "src/modules/academy-admissions/domain/errors/admission-operation-error.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/domain/errors/admission-operation-error.ts#AdmissionOperationError": "d1979b94743d121f",
         "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts#AllowAdmissionRetryUseCase": "42f7c973078f44d6",
-        "src/modules/academy-admissions/application/use-cases/apply-admission-proof-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/apply-admission-proof-use-case.ts#ApplyAdmissionProofUseCase": "03c3d7cdda53e777",
+        "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts#AllowAdmissionRetryUseCase": "7f3b879376dfebe4",
         "src/modules/academy-admissions/application/use-cases/cancel-admission-request-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/use-cases/cancel-admission-request-use-case.ts#CancelAdmissionRequestUseCase": "66283106a38f95fc",
-        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#ContactVerificationUseCases": "135dc63578f5f731",
         "src/modules/academy-admissions/application/use-cases/decide-admission-request-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/use-cases/decide-admission-request-use-case.ts#DecideAdmissionRequestUseCase": "a3e846569596d268",
         "src/modules/academy-admissions/application/use-cases/decide-admission-requests-batch-use-case.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/application/use-cases/decide-admission-requests-batch-use-case.ts#DecideAdmissionRequestsBatchUseCase": "d4b6a16d2ebb9e3b",
-        "src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts#GetAdmissionActivityAndMetricsUseCases": "6fb6bc2d448b8b03",
-        "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#GetAdmissionActivityPageUseCase": "7424e3431b8f7b38",
-        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#GetAdmissionOverviewUseCase": "5c2a0e1daf224442",
-        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#requiresAnotherAccount": "3815f93723d03eee",
-        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#ACCOUNT_CHANGE_DENIAL_REASONS": "79bd9b3b4f00bb09",
-        "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#GetAdmissionPageUseCase": "5925e969f0b57023",
-        "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#GetAdmissionPolicyPageUseCase": "ff15cb481439bb83",
-        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#GetAdmissionPolicyUseCase": "48e248032d36c9b8",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#GetAdmissionReviewHistoryPageUseCase": "9b81c0afb7cdfb65",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-use-case.ts#GetAdmissionReviewHistoryUseCase": "8b56a126b8aac43d",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#GetAdmissionReviewPageUseCase": "01319269fa623247",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#GetAdmissionReviewUseCases": "e8d8166bfa7dac53",
-        "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#GetAllowlistPageUseCase": "e94a3bde158d89db",
         "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts#GetOwnAdmissionUseCases": "dada14c16832e854",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#GetPersonalInvitationManagementPageUseCase": "01c46f49cddd8e1c",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#GetPersonalInvitationOverviewUseCase": "9686c76d2997dfda",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#GetPersonalInvitationPageUseCase": "a180cd2831c79071",
-        "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#ImportAllowlistUseCases": "92d7c85a2a48a9c8",
-        "src/modules/academy-admissions/application/use-cases/manage-admission-policy-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/manage-admission-policy-use-cases.ts#ManageAdmissionPolicyUseCases": "afae1fa823887960",
-        "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#ManageAllowlistUseCases": "2fa77e7cdd62c2a7",
-        "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#ManageCommercialMembershipReviewsUseCases": "c7d12fc842d35838",
-        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#ManagePersonalInvitationsUseCases": "20fb80819130316c",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#PostgresAdmissionActivityReader": "c7e5008a60acd19b",
+        "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts#GetOwnAdmissionUseCases": "c2493cc51284de2b",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#PostgresAdmissionAuthorizationReader": "9ae42bd5a2299d43",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#PostgresAdmissionAuthorizationReader": "2c6a9ab7616d2f1e",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#AdmissionSubmissionActorContext": "6fe356ce81a41c07",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#CurrentActorRow": "42adae962bb7e4ea",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#PostgresAdmissionRequestRepository": "837a8b39c9127a48",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionAuthorizationGuard": "2c1569ce3c16127f",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionBatchEffects": "240529d79b35e0e6",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionBatchFacts": "c6422f3c6871ab51",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionPreparedDecision": "a01e8cba86838e51",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRecordInput": "22d2202d443be8da",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRunCommand": "4e437052b2172988",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#RequestRow": "b62452328a42a2a8",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#assertSubmissionEligible": "ceda2e821eb65857",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#databaseNow": "fe84e58c216e7b7b",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#requestContact": "621dce0ce8b85362",
+        "pkg:libphonenumber-js": "e9372ede62b5ffe0",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#requestEvidence": "4e551989ed07b732",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionRequest": "3de7ccec54d4d379",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionSourceKind": "28655ae87b300c1c",
+        "src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader.ts#PostgresLegacyAdmissionInvitationReader": "9cafa06e17b4b60a",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#PostgresOwnAdmissionRequestReader": "af19e95a52269d4d",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#OwnRequestRow": "8f096f01cafddcad",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#maskedContact": "2c7adb2303679052",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#ownRetryAt": "f685bce557f81845",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#presentedReasons": "d974e1b45e8b562c",
+        "src/modules/academy-admissions/application/use-cases/read-admission-runtime-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/read-admission-runtime-use-case.ts#ReadAdmissionRuntimeUseCase": "f65c59f73a9e93d6",
+        "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#SubmitAcademyEntryUseCase": "a91c69499b9ba058",
+        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#SubmitAdmissionUseCase": "efc4ea58dee653dc",
+        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#admissionSubmissionSource": "c1350de57c997df0",
+        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#declaredWhatsappNumber": "9348e6bb46350da5",
+        "src/modules/academy-admissions/application/use-cases/update-admission-whatsapp-number-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/update-admission-whatsapp-number-use-case.ts#UpdateAdmissionWhatsappNumberUseCase": "2cb2b5f1f7aab614",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#AuthenticatedFeatureDependencies": "eb471ce982e4ff76",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseExecutor": "4b4f199de03268db",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#ResolveAdmissionContextUseCase": "827d03a63c2038c1",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#applicantOf": "c4d0523cf7cb04c0",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#hasValidSensitiveOperation": "d4999ca3c750ba78",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#mayReadAdmissionResource": "942de8fcc0491caa",
+        "src/modules/academy-admissions/application/results/admission-errors.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/results/admission-errors.ts#admissionFailure": "1651d47661d18295",
+        "src/modules/academy-admissions/application/results/admission-errors.ts#AdmissionFailure": "4c518283a565fcf5",
+        "src/modules/academy-admissions/application/results/admission-errors.ts#AdmissionErrorOperation": "ce070d97b60b819a",
+        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#createTransactionAccountProvider": "843658624f513774",
+        "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#createIdentityBoundExecutor": "723a61720e27752e",
+        "src/modules/academy-admissions/application/use-cases/apply-admission-proof-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/apply-admission-proof-use-case.ts#ApplyAdmissionProofUseCase": "03c3d7cdda53e777",
+        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#ContactVerificationUseCases": "f12d1d9818972539",
+        "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#admissionChallengeSource": "520d8adeeb81c5f9",
+        "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#GetAllowlistPageUseCase": "fa8d86b9f3265bb5",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#GetPersonalInvitationManagementPageUseCase": "56551fe2f4572116",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#GetPersonalInvitationOverviewUseCase": "5ec7c04a8b2879c3",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#GetPersonalInvitationPageUseCase": "9b59226e4cc88264",
+        "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#ImportAllowlistUseCases": "41ae889c92a367c4",
+        "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#ManageAllowlistUseCases": "babec1af01231439",
+        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#ManagePersonalInvitationsUseCases": "d719dc3b0fa427d8",
+        "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#confirmInvitationMutation": "28ac1e9577dedaea",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PostgresAdmissionContactVerificationOperations": "95517ab36b70cdb0",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PostgresAdmissionContactVerificationOperations": "1bc268b0f3623526",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#AcademyMembershipStateRow": "609e8bda804cf0f0",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#AdmissionVerificationDatabaseExecutor": "88bf0ca660d91db2",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#ChallengeScopeRow": "d1db196fdb4fe220",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PendingIssuanceRow": "4cfe5ec6a8f32117",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PreparedAdmissionIssuance": "2a97ab20e38fed2e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#PostgresAdmissionOperationReader": "cf624cb49c88bdec",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#RegisteredOperationRow": "7621a9dfb27fcbe0",
+        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts#PostgresAdmissionVerificationDispatchContext": "d77778afc8d5c276",
+        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts#DispatchLineageRow": "9313b093cc996137",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#PostgresAllowlistImportRepository": "8aeb6e940c31d5be",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-reader.ts#PostgresAllowlistReader": "3e31af99626d46df",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#PostgresAllowlistRepository": "bf79eebf6b79470e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#AllowlistAuditOperation": "aaf2ae97df303b7c",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PostgresPersonalInvitationOverviewReader": "99206bbf7ef57b48",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PreviewInvitationRow": "005a8215b8cc5c46",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#invitationRecipientMatches": "9bcc9b9ef1795af6",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#isInvitationTokenAvailable": "b462f2e14250f0fc",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#policyFacts": "f0dc89721470da51",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#PostgresPersonalInvitationRepository": "811d253eb101e511",
+        "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#PreflightAdmissionActivationUseCase": "ee2a3a47f8abd726",
+        "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#ReadCurrentAdmissionChallengeUseCase": "b0ca4ab032674862",
+        "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts#createPostgresAdmissionNotificationObligationWriter": "23d5fecb46138aed",
+        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv": "8d63b6fc7b5894ae",
+        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#AllowlistCsvReader": "942cc557436cecc8",
+        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#decodeAllowlistCsv": "bc73c8d73ebfbf0f",
+        "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.resourceUnavailable": "e0e65cfe4bfecf20",
+        "src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/verification/messaging-usage-policy-reader.ts#AdmissionMessagingUsagePolicyReader": "6434fa88c22c40fc",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#PostgresAdmissionOperationRepository": "f0db10e8f058d2ef",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#PostgresAdmissionOperationRepository": "d10d3501dd4a0429",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#NativeSubmissionAuthorizationRow": "c8bf76a251a4402b",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#NativeSubmissionScope": "cd210bd79cdb2aed",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#OperationAuthorizer": "2cf5f9bcd1c554bc",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#OperationClaim": "69c393d4534fd19e",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#OperationRow": "50bba5aaba160167",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#clock": "bddff967f154f159",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#normalizeBatch": "6d75e0cc336e069f",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PostgresAdmissionOverviewReader": "de09c17f53e9d987",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#ContactChoicePolicyRow": "25800dfa4ed05e1f",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#FOREIGN_CONTACT_OWNER": "bc6bc29765453782",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#OwnAllowlistFactsRow": "d13f17bc5a676454",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PublicOverviewRow": "a6c2df1d28782ea7",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#isAccessDenial": "a1488d9ecce52a7f",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#normalizeBatch": "2274819785f97e8c",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#compareBatchResourceIds": "98e3ad8cd78f3ec7",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#platformSecurityFailure": "c11595a928948a52",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PostgresAdmissionVerificationProofWriter": "13fa4d5c55e4c3b4",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PendingRequestRow": "0e4c8e99e1dbe893",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#ProofApplicationDenialCode": "0e31aa369ee161a7",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#ProofRow": "b58b137d333e90c3",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#bindingConflicts": "03aa18c658234da4",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isProofSecurityChanged": "98ead8fa03cad306",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isSameProofDestination": "d57f0f3b2a9ed0ef",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isUsableChallenge": "01609fa26a65c71e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#proofFromRow": "7e31446664420c79",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#requestContactColumns": "071248c96f47fa29",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#selectContactBinding": "4f9cf8d5c7a7f2ab",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PostgresContactVerificationIssuer": "b7e78cf9b79a6978",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#AdmissionErrorCodeValue": "0ffddaf6a7122977",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CURRENT_CHALLENGE_COLUMNS": "d38843d086a08e41",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CapabilityRow": "619ff6e2c454c046",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CurrentChallengeRow": "0fc69d3c4c1207cf",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PreparedResource": "b813333dd05c3460",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#ResourceRow": "dd4dc3d7d5ac4821",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#channelSenderId": "86fd2f23dfe5bd54",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isChannelMismatch": "15a51648bde26193",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isIssuanceSecurityChanged": "d4ceb29ca07e3ef3",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#issuanceOperationType": "31ff0938659452e6",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#newDiagnosticId": "0a2068ba2e7a93bd",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#senderCapabilityDenial": "018b06d1dfbd1c0c",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#PostgresContactVerificationRepository": "ce5a5594deb676aa",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#ChallengeRow": "819f01c404569def",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#VerificationFailureIdentity": "fa05cba8122a88df",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#challengeFromRow": "2150f48ac318b0d7",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#deniedVerification": "50973a38c01617ff",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isSameDestination": "581e099e5e7c47b4",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isValidationScopeUnavailable": "56ef44c73d9a6520",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#macScopeChanged": "5c7b2581aef9f51c",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#PostgresMessagingContactBudgetRepository": "6ddadb2632b83ea4",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#compareEntryKeys": "f628f73eaf50b7ac",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#PostgresMessagingUsageRepository": "c86c26c23f81a1d6",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestrictions": "d7335609cec39451",
+        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestriction": "ea4ad4018edaa7a6",
+        "src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget.ts#PostgresVerificationFailureBudget": "2317676cea05c48b",
+        "src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget.ts#PostgresVerificationRequestBudget": "aab515d43035a5b5",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-operation-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-operation-use-case.ts#ResolveAdmissionOperationUseCase": "b245cf5e8206d4dd",
+        "src/modules/academy-admissions/domain/repositories/admission-policy-management.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/domain/repositories/admission-policy-management.ts#AdmissionPolicyPreparationReader": "28d19b809efa6c8d",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#GetAdmissionPolicyPageUseCase": "c677f72cd5a71113",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#GetAdmissionPolicyUseCase": "49812d90bfa6917a",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#activationRequirements": "ff129baa4b448716",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#AdmissionPolicyPreparation": "8333ee14a93dde36",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#DraftValidation": "203bf97c676eca67",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#OperationalValidation": "9562291143c86242",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#validationReasons": "046b02f3b351da28",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#admissionPolicyPublicState": "fb67d4812c98c735",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#assertPreparationScope": "a5e4e48312610683",
+        "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#projectAdmissionPolicy": "2b5556680cea1225",
+        "src/modules/academy-admissions/application/use-cases/manage-admission-policy-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/manage-admission-policy-use-cases.ts#ManageAdmissionPolicyUseCases": "afae1fa823887960",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-preparation-reader.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-preparation-reader.ts#PostgresAdmissionPolicyPreparationReader": "c7a82ea36d8adfae",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-reader.ts#PostgresAdmissionPolicyReader": "a496de6351f6fe9b",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#PostgresAdmissionPolicyRepository": "a37bc94e0f47bb99",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#requirementUnmet": "cfe441600b93dbce",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#PostgresAdmissionPolicyRepository": "b50410ab0812d3f9",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#policyPlatformRequirement": "8ff98c85e1f9d9fb",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#requirementUnmet": "7d6cd34230bd2bc3",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#unmetPreparationRequirement": "75469769afec0eeb",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts#PostgresAdmissionPolicyViewFactsReader": "9bb08202055b8e67",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#PostgresAdmissionRequestRepository": "f3456ff1a9ff95d6",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionBatchFacts": "c6422f3c6871ab51",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#RequestRow": "b62452328a42a2a8",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#databaseNow": "fe84e58c216e7b7b",
-        "pkg:libphonenumber-js": "e9372ede62b5ffe0",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#requestEvidence": "4e551989ed07b732",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#PostgresAdmissionReviewHistoryReader": "07e595c03bb7f70e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#PostgresAdmissionReviewReader": "90c6098d5d19d23e",
-        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts#PostgresAdmissionVerificationDispatchContext": "d77778afc8d5c276",
-        "src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context.ts#DispatchLineageRow": "9313b093cc996137",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PostgresAdmissionVerificationProofWriter": "09ebd14ea79aae7c",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PendingRequestRow": "0e4c8e99e1dbe893",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#ProofRow": "b58b137d333e90c3",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts#PostgresAdmissionPolicyViewFactsReader": "de45ec024cf7aee1",
         "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#PostgresAdmissionVerificationReadinessReader": "d60064c8fb9ea61e",
+        "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#PostgresAdmissionVerificationReadinessReader": "b64e876e8ad78a5b",
         "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#CapabilityRow": "eb01b6d35ac4968c",
         "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#ResourceRow": "2fdddb3e46764515",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#PostgresAllowlistImportRepository": "b27684a5d731e82a",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-reader.ts#PostgresAllowlistReader": "3e31af99626d46df",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#PostgresAllowlistRepository": "e075c210d9d8a0cb",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#PostgresCommercialMembershipReviewRepository": "08625acadc61961e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#OWNER_DENIAL_CODES": "9bf04460e33e5332",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ResolutionRow": "0fb7e80eee6bd12a",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ReviewListRow": "7fa52b508f9b285a",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#toIso": "e46fc41ed5b9ca36",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PostgresContactVerificationIssuer": "95abec3f7f100f3c",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CurrentChallengeRow": "3064281bbeff74e1",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PreparedResource": "b813333dd05c3460",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#ResourceRow": "dd4dc3d7d5ac4821",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#PostgresContactVerificationRepository": "03d7664868ee0f1b",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#ChallengeRow": "819f01c404569def",
-        "src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader.ts#PostgresLegacyAdmissionInvitationReader": "9cafa06e17b4b60a",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#PostgresMessagingContactBudgetRepository": "b861bb89e05f8bfa",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#PostgresMessagingUsageRepository": "118d28b6bd2e2d61",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#PostgresOwnAdmissionRequestReader": "2447afc66811b965",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#OwnRequestRow": "8f096f01cafddcad",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#maskedContact": "2c7adb2303679052",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PostgresPersonalInvitationOverviewReader": "04e24f802b9deba1",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PreviewInvitationRow": "005a8215b8cc5c46",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#PostgresPersonalInvitationRepository": "d355e266d3b4315a",
-        "src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget.ts#PostgresVerificationFailureBudget": "2317676cea05c48b",
-        "src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget.ts#PostgresVerificationRequestBudget": "aab515d43035a5b5",
-        "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#PreflightAdmissionActivationUseCase": "dfaf71590e7738f7",
-        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#ReadAdmissionOperationUseCase": "9f0e7668e52c2ffa",
-        "src/modules/academy-admissions/application/use-cases/read-admission-runtime-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/read-admission-runtime-use-case.ts#ReadAdmissionRuntimeUseCase": "f65c59f73a9e93d6",
-        "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#ReadCurrentAdmissionChallengeUseCase": "7f96811847a5970b",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#ResolveAdmissionContextUseCase": "a02c516de3d9655d",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-operation-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-operation-use-case.ts#ResolveAdmissionOperationUseCase": "b245cf5e8206d4dd",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#ResolveAdmissionTribeUseCase": "88952c585d045aef",
-        "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#SubmitAcademyEntryUseCase": "27051fa791659834",
-        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#SubmitAdmissionUseCase": "76bfb3ec25a3bf7d",
-        "src/modules/academy-admissions/application/use-cases/update-admission-whatsapp-number-use-case.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/use-cases/update-admission-whatsapp-number-use-case.ts#UpdateAdmissionWhatsappNumberUseCase": "2cb2b5f1f7aab614",
-        "src/modules/academy-admissions/application/results/admission-errors.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/application/results/admission-errors.ts#admissionFailure": "1651d47661d18295",
-        "src/modules/academy-admissions/application/results/admission-errors.ts#AdmissionFailure": "4c518283a565fcf5",
-        "src/modules/academy-admissions/application/results/admission-errors.ts#AdmissionErrorOperation": "ce070d97b60b819a",
+        "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#isVerifiableResource": "4dfc9a47b3a0547a",
+        "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#resourceSenderId": "296d1eda5979e370",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-authorizer.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-authorizer.ts#authorizeAdmissionPolicy": "1a0237d360d90c3a",
-        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#createAcademyApprovedMembershipWriter": "d1f394107a4cc559",
-        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#applyApprovedAcademyMembership": "aef2e1a3079c4de3",
-        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#MemberRow": "16f29dab324cbc2a",
-        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#mapMember": "458d47d65d73d696",
-        "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts#createPostgresAdmissionNotificationObligationWriter": "23d5fecb46138aed",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#createTransactionAccountProvider": "843658624f513774",
-        "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts#<module>": "f7e3cf85771fe55e",
-        "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts#lockAcademyAdmissionMembershipScope": "81c02f7a428468ba",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#createAdmissionPlatformSecurityReader": "c2db342be494dff0",
+        "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#AdmissionPlatformSecurityReader": "aa598e9bf753cb9c",
+        "src/modules/academy-admissions/constants/admission-request-memo.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/constants/admission-request-memo.ts#ADMISSION_REQUEST_MEMO_KEY~frame": "d353202dc8bbb060",
+        "src/modules/academy-admissions/constants/admission-request-memo.ts#ADMISSION_REQUEST_MEMO_KEY.tribeIdentity": "d18a292f39244400",
+        "src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts#GetAdmissionActivityAndMetricsUseCases": "6fb6bc2d448b8b03",
+        "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#GetAdmissionActivityPageUseCase": "988ab5e83b77d5fa",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#GetAdmissionOverviewUseCase": "0d3c9b7e849e85f6",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#parseOwnRequest": "4205dc5a85facc0f",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#presentAdmissionOverview": "b7f52383ab948953",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#AdmissionOverviewPresentation": "b05199b94f6cffd0",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#requiresAnotherAccount": "3bb73540dc0846a8",
+        "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#ACCOUNT_CHANGE_DENIAL_REASONS": "9b0d2999d53f4d7b",
+        "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#GetAdmissionPageUseCase": "ac1f9d39313d0c87",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#GetAdmissionReviewHistoryPageUseCase": "bfec90ef5c6cc875",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-history-use-case.ts#GetAdmissionReviewHistoryUseCase": "8b56a126b8aac43d",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#GetAdmissionReviewPageUseCase": "75a807cb4734ee4c",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#GetAdmissionReviewUseCases": "dd7e3ca5a1f20750",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#PostgresAdmissionActivityReader": "78f9e4e51b50c6a0",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#PostgresAdmissionOperationReader": "ec39237439aeeb0b",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#RegisteredOperationRow": "7621a9dfb27fcbe0",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#assertRecoveryOwnership": "ddc8daacdd6be78e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PostgresAdmissionOverviewReader": "069e47db6b7d4b33",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#ContactChoicePolicyRow": "25800dfa4ed05e1f",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#FOREIGN_CONTACT_OWNER": "bc6bc29765453782",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#OwnAllowlistFactsRow": "d13f17bc5a676454",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PublicOverviewRow": "a6c2df1d28782ea7",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#allowlistBoundUserId": "ae7c6cd106475332",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#PostgresAdmissionReviewHistoryReader": "f77ce8d1aeee2a28",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#PostgresAdmissionReviewReader": "4d1c2ff56195b307",
+        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#ReadAdmissionOperationUseCase": "af70b8af735cffee",
+        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#assertPolicyOriginal": "07441b4fa07bfce8",
+        "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#recoverOperation": "58408ef1349931c4",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#ResolveAdmissionTribeUseCase": "6f3eeacc278cb735",
         "src/modules/shared/infrastructure/request-scope/request-memo.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/shared/infrastructure/request-scope/request-memo.ts#memoizeForRequest": "943fc2a553509b5e",
         "src/modules/shared/infrastructure/request-scope/request-memo.ts#readRequestMemoTable": "62bf338190a13489",
-        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishField": "9ebc3594b0c8cb55",
-        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishRecord": "a1ef103b94278b42",
-        "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv~shell": "83286acae1cf1a6a",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#createAcademyApprovedMembershipWriter": "d1f394107a4cc559",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#applyApprovedAcademyMembership": "3beb075b945b04de",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#MemberRow": "16f29dab324cbc2a",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#findApplicableDecision": "26b65e41389dc7b5",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApplicableDecision": "300a87c06a2901ef",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApprovedMembershipContext": "ac4982ca27d06317",
+        "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#mapMember": "458d47d65d73d696",
+        "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope.ts#lockAcademyAdmissionMembershipScope": "81c02f7a428468ba",
         "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#readCurrentFeatureSessionContext": "8bd268079dfc7647",
         "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseContext": "efed4110bae1bd4f",
         "src/modules/auth/infrastructure/authenticated-account-provider.ts#<module>": "f7e3cf85771fe55e",
@@ -457,15 +532,13 @@
         "pkg:next": "ef28293b49c7bae1",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isConnectionAcquisitionTimeout": "44f403da21a2a4c0",
         "src/modules/auth/infrastructure/better-auth/server-auth-context.ts#isRetryableBetterAuthSessionFailure": "e7483d4bc461c959",
-        "src/modules/messaging/constants/messaging-hosting.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV~frame": "9b6f1a6a9571957d",
-        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV.recoveryLock": "7287914dd23d3369",
-        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_RECOVERY_LOCK_VALUE~frame": "ae63d182ebdad37e",
-        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_RECOVERY_LOCK_VALUE.unlocked": "4404b136e91bae00",
         "src/modules/messaging/constants/messaging-cryptography.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_CRYPTO_ERROR~frame": "b33fd991a92fbfd1",
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_CRYPTO_ERROR.invalidConfiguration": "c11131f7a5cf7318",
+        "src/modules/messaging/constants/messaging-hosting.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV~frame": "9b6f1a6a9571957d",
         "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV.environment": "37b2935cebef3b73",
+        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV.recoveryLock": "7287914dd23d3369",
         "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV.securityEpoch": "1e5429fee6ca721e",
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_KEY_PURPOSE.credential": "4e18b418d5352ae6",
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_KEY_PURPOSE.otpEnvelope": "24ce40da29a1a90f",
@@ -474,14 +547,17 @@
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_KEY_PURPOSE.contactFingerprint": "6db1eb85e1ba12cd",
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_KEY_PURPOSE.operationPayload": "db66995d571d19d4",
         "src/modules/messaging/constants/messaging-cryptography.ts#MESSAGING_KEY_PURPOSE~frame": "19a85275df9b9f7c",
+        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_RECOVERY_LOCK_VALUE~frame": "ae63d182ebdad37e",
         "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_RECOVERY_LOCK_VALUE.locked": "1782903629c64398",
+        "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_RECOVERY_LOCK_VALUE.unlocked": "4404b136e91bae00",
         "src/modules/messaging/infrastructure/encryption/messaging-cryptography-error.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/infrastructure/encryption/messaging-cryptography-error.ts#MessagingCryptographyError": "377d3c0170f9158e",
         "src/modules/messaging/infrastructure/config/messaging-security-config.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/messaging/infrastructure/config/messaging-security-config.ts#MessagingKeyringInput": "0e59829bffb25ceb",
         "src/modules/messaging/infrastructure/config/messaging-security-config.ts#MessagingSecurityConfig": "ee27f41c7f9a93f2",
         "src/modules/messaging/infrastructure/config/messaging-security-config.ts#MessagingKeyring": "2078dcb8201ccf69",
-        "src/modules/messaging/infrastructure/config/messaging-security-config.ts#createMessagingSecurityConfig": "99723d6f25c77e44",
+        "src/modules/messaging/infrastructure/config/messaging-security-config.ts#createMessagingSecurityConfig": "626643981096cf06",
+        "src/modules/messaging/infrastructure/config/messaging-security-config.ts#importKeyring": "7baf2f9f77b8d815",
         "src/modules/messaging/constants/messaging-hosting.ts#MESSAGING_HOSTING_ENV.keyrings": "aa918c61ad649d0b",
         "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE.permissionDenied": "04dfe24c619dd951",
         "src/modules/academy-admissions/constants/admission-preflight.ts#<module>": "2da3ec2294295eb1",
@@ -494,7 +570,7 @@
         "src/modules/academy-admissions/constants/admission-preflight.ts#ADMISSION_PREFLIGHT_STORAGE_CONSTRAINTS": "f6e51a2cb3948b76",
         "src/modules/academy-admissions/constants/admission-preflight.ts#ADMISSION_PREFLIGHT_STORAGE_TRIGGERS": "5c4e375748dcfbec",
         "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionActivationInventory": "51738acbac273585",
+        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionActivationInventory": "7927fbf0627f2e84",
         "src/modules/academy-admissions/domain/repositories/admission-activation-preflight-reader.ts#<module>": "2da3ec2294295eb1",
         "src/modules/academy-admissions/domain/repositories/admission-activation-preflight-reader.ts#AdmissionActivationInventoryReader": "2945d1813dfec5d6",
         "src/modules/academy-admissions/domain/repositories/admission-activation-preflight-reader.ts#AdmissionActivationPreflightReader": "f80b43968dcb030e",
@@ -503,18 +579,13 @@
         "src/modules/product-access/constants/product-access.ts#TRIBE_ACCESS_MODEL~frame": "2039f541133270fe",
         "src/modules/product-access/constants/product-access.ts#TribeAccessModel": "51275bc9cc8ce611",
         "src/modules/product-access/constants/product-access.ts#TRIBE_ACCESS_MODEL.academy": "e29f68004484ef50",
-        "src/modules/tribes/constants/tribe-member-role.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/tribes/constants/tribe-member-role.ts#TRIBE_MEMBER_ROLE~frame": "b44899d1329180ee",
-        "src/modules/tribes/constants/tribe-member-role.ts#TRIBE_MEMBER_ROLE.tribemate": "cc40ebd2da3fa384",
-        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#evaluateAdmissionActivationPreflight": "fe909101e4898e82",
-        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionPreflightReason": "9816a5b5be2305c4",
-        "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#<module>": "2da3ec2294295eb1",
-        "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#isCommercialMembershipState": "17ee95b6a25406f2",
+        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#evaluateAdmissionActivationPreflight": "f0a40869377e096c",
+        "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionPreflightReason": "351078c91df60c1e",
         "src/modules/messaging/domain/repositories/messaging-repositories.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/domain/repositories/messaging-repositories.ts#MessagingSecurityFacts": "9af494adc0104527",
         "src/modules/shared/infrastructure/database/postgres-pool.ts#<module>": "f7e3cf85771fe55e",
         "src/modules/shared/infrastructure/database/postgres-pool.ts#IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS": "0c7a3866e7d75376",
-        "src/modules/shared/infrastructure/database/postgres-pool.ts#createPostgresPool": "04e4f0fa73872d5b",
+        "src/modules/shared/infrastructure/database/postgres-pool.ts#createPostgresPool": "4b69671ee19d41d8",
         "src/modules/shared/infrastructure/database/postgres-pool.ts#IDLE_IN_TRANSACTION_GUARD~frame": "6af064a88f1a81cd",
         "src/modules/shared/infrastructure/database/postgres-pool.ts#IDLE_IN_TRANSACTION_GUARD.setting": "426ec31ba0c39e76",
         "src/modules/shared/infrastructure/database/postgres-pool.ts#IDLE_IN_TRANSACTION_GUARD.statement": "097eb1b16326b847",
@@ -542,42 +613,60 @@
         "src/modules/shared/infrastructure/database/server-environment.ts#getServerMaintenanceDatabaseEnvironment": "75676b9d2d06c066",
         "src/modules/shared/infrastructure/database/server-environment.ts#DATABASE_MAINTENANCE_URL_ENV": "9dd3da6508b7b2fa",
         "src/modules/shared/infrastructure/database/server-environment.ts#DATABASE_MIGRATION_URL_ENV": "4f18bcf8451a8274",
+        "src/modules/shared/constants/platform-security.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT~frame": "d43b1aca3e7e3485",
+        "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.recoveryLocked": "dbe866877f347412",
+        "src/modules/shared/domain/value-objects/platform-security-requirement.ts#<module>": "2da3ec2294295eb1",
+        "src/modules/shared/domain/value-objects/platform-security-requirement.ts#PlatformSecurityRequirement": "208a1b39fa4ef832",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#<module>": "f7e3cf85771fe55e",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#classifyMessagingPlatformSecurityFailure": "8e309aedffd54e90",
+        "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#UNCONFIGURED_SECURITY_FAILURES": "abf4aed2aa57cbe2",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts#<module>": "2da3ec2294295eb1",
         "src/modules/messaging/domain/value-objects/messaging-key-purpose.ts#MessagingKeyPurpose": "a16ec278b92f281f"
       },
-      "uncommittedFiles": []
+      "uncommittedFiles": [
+        "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx"
+      ]
     },
     "evidence": [
       {
-        "kind": "test",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T15:39:22.211Z",
-        "source": "attested",
-        "summary": "pnpm exec vitest run tests/unit/components/admission-activity-container.test.tsx tests/unit/components/academy-admission-review.test.tsx tests/unit/components/academy-admission-review-history.test.tsx tests/unit/components/academy-admissions-allowlist.test.tsx tests/unit/components/academy-invitation-management.test.tsx tests/unit/components/allowlist-import-container.test.tsx tests/unit/lib/admission-list-pages.test.ts tests/unit/hooks/use-allowlist-workflow.test.tsx: Tests 122 passed (122) (corrida una vez sobre el código mergeado en feature/academy-admissions-spec)"
-      },
-      {
         "kind": "review",
         "outcome": "pass",
-        "recordedAt": "2026-10-26T15:39:22.629Z",
+        "recordedAt": "2026-11-03T14:22:40.414Z",
         "source": "attested",
-        "summary": "Estados: Ver más acumula sin duplicados y su carga y error quedan junto al botón; las relecturas y filtros conservan lo mostrado con aria-busy y descartan respuestas viejas; la bandeja y el historial muestran los datos del servidor al hidratar y habilitan las acciones tras el chequeo de cuenta; la importación selecciona todas las válidas sin cambiar el contrato; el doble montaje de desarrollo ya no se toma como restauración."
+        "summary": "Checklist liviano de ui-ux-flow-patterns sobre los filtros de la bandeja: búsqueda con Enter, diálogo con validación de fechas junto al campo y error que queda abierto en el diálogo, descarte de ediciones al cerrar, chips con quitar y foco, estados deshabilitados durante lectura o decisión, contador accesible."
+      },
+      {
+        "command": "pnpm exec vitest run tests/unit/components/academy-admission-review.test.tsx",
+        "durationMs": 45476,
+        "exitCode": 0,
+        "kind": "test",
+        "outcome": "pass",
+        "outputSha256": "fcc353e16f0b833c98fa22fcf4c4dacaf7c166708fa2e076f2e933f70a772cbd",
+        "recordedAt": "2026-11-03T14:23:27.351Z",
+        "source": "witnessed",
+        "summary": "exit code 0"
       },
       {
         "kind": "browser",
-        "outcome": "pass",
-        "recordedAt": "2026-10-26T15:39:23.054Z",
+        "outcome": "skipped",
+        "recordedAt": "2026-11-03T14:25:38.176Z",
         "source": "attested",
-        "summary": "Chromium y WebKit a 390 y 1280 en https://dev.tutribu.app: Ver más entradas suma 25 a 27 sin duplicados con aria-busy; la importación elige las 55 válidas de 60 filas; la actividad no se oculta al releer ni al filtrar y suma el hecho anterior; la bandeja muestra la solicitud una sola vez al hidratar y el historial carga en next dev (4/4; antes Ver más dejaba 2, no había selección total, la actividad se vaciaba y la bandeja pasaba por vacía)."
+        "summary": "La suite nativa admission-review-filters-browser falla en main en bounded_empty_initial_page: la primera solicitud sembrada ya no se clasifica como excepción, así que el recorrido no llega a los filtros. El layout y el diálogo de SearchFilterBar se midieron en golfo-ui con Playwright (Chromium y WebKit, 1440 y 390).",
+        "tool": "playwright"
       }
     ],
     "limitations": [
-      "Solo se revisaron las listas del líder que cambia este PR; el resto de cada unidad queda para su propia auditoría."
+      "Sin recorrido en navegador real de TuTribu: la suite nativa de filtros falla en main por su fixture antes de llegar a los filtros.",
+      "Sin lector de pantalla."
     ],
-    "mode": "full",
-    "pendingChecks": [],
-    "recordedAt": "2026-10-26T15:39:24.361Z",
+    "mode": "incremental",
+    "pendingChecks": [
+      "Corregir el fixture de admission-review-filters-browser y recapturar los marcos del manual de filtros."
+    ],
+    "recordedAt": "2026-11-03T14:25:40.186Z",
     "result": "partial",
-    "runId": "20261026T153921Z-1d4da9",
+    "runId": "20261103T142121Z-b320d1",
     "scope": {
       "decision": "full",
       "reasons": [
@@ -586,9 +675,1119 @@
       ],
       "relevantChangesAtBegin": [
         {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyDraft",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyFilters",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/applyTransitions",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/batchAvailability",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/changeFilter",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/checkViewer",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/clearBatch",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/discardFilterEdits",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/handleResourceFailure",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/hidePrivate",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/launchRead",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/navigateFilters",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/publishItems",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/readCurrent",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/refreshVisibleReview",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/removeFilter",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/retryOriginal",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer/send",
+          "reason": "visible or interactive code changed"
+        },
+        {
           "change": "modified",
           "key": "app/(platform)/[slug]/academia/admissions/admission-review-container.tsx#AdmissionReviewContainer~shell",
           "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "app/api/tribes/[slug]/admissions/admission-route-handlers.ts#admissionMutationHandlers",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "app/api/tribes/[slug]/admissions/requests/[requestId]/decision/route.ts#POST",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/allow-admission-retry-use-case.ts#AllowAdmissionRetryUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#admissionChallengeSource",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/contact-verification-use-cases.ts#ContactVerificationUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-activity-page-use-case.ts#GetAdmissionActivityPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#ACCOUNT_CHANGE_DENIAL_REASONS",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#AdmissionOverviewPresentation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#GetAdmissionOverviewUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#parseOwnRequest",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#presentAdmissionOverview",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-overview-use-case.ts#requiresAnotherAccount",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-page-use-case.ts#GetAdmissionPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-page-use-case.ts#GetAdmissionPolicyPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#activationRequirements",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#AdmissionPolicyPreparation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#admissionPolicyPublicState",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#assertPreparationScope",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#DraftValidation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#GetAdmissionPolicyUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#OperationalValidation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#projectAdmissionPolicy",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-policy-use-case.ts#validationReasons",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-history-page-use-case.ts#GetAdmissionReviewHistoryPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-page-use-case.ts#GetAdmissionReviewPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases.ts#GetAdmissionReviewUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-allowlist-page-use-case.ts#GetAllowlistPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-own-admission-use-cases.ts#GetOwnAdmissionUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-management-page-use-case.ts#GetPersonalInvitationManagementPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-overview-use-case.ts#GetPersonalInvitationOverviewUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/get-personal-invitation-page-use-case.ts#GetPersonalInvitationPageUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/import-allowlist-use-cases.ts#ImportAllowlistUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/manage-allowlist-use-cases.ts#ManageAllowlistUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#<module>",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/application/use-cases/manage-commercial-membership-reviews-use-cases.ts#ManageCommercialMembershipReviewsUseCases",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#confirmInvitationMutation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/manage-personal-invitations-use-cases.ts#ManagePersonalInvitationsUseCases",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts#PreflightAdmissionActivationUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#assertPolicyOriginal",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#ReadAdmissionOperationUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case.ts#recoverOperation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/read-current-admission-challenge-use-case.ts#ReadCurrentAdmissionChallengeUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#applicantOf",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#hasValidSensitiveOperation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#mayReadAdmissionResource",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case.ts#ResolveAdmissionContextUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case.ts#ResolveAdmissionTribeUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/submit-academy-entry-use-case.ts#SubmitAcademyEntryUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#admissionSubmissionSource",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#declaredWhatsappNumber",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/application/use-cases/submit-admission-use-case.ts#SubmitAdmissionUseCase",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/constants/admission-errors.ts#ADMISSION_ERROR_CODE~frame",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/constants/admission-errors.ts#AdmissionErrorCode",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#<module>",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/domain/entities/commercial-membership-review.ts#isCommercialMembershipState",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionActivationInventory",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#AdmissionPreflightReason",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/domain/policies/admission-activation-preflight.ts#evaluateAdmissionActivationPreflight",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts#createAdmissionBatchDecisionHandler",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-batch-decision-handler.ts#matchesBatchSelection",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#<module>",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#createAdmissionMutationHandlers/mutate",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#createAdmissionMutationHandlers~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-mutation-handlers.ts#startedSchema",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/api/admission-operation-handler.ts#createAdmissionOperationHandler",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#AllowlistCsvReader",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#decodeAllowlistCsv",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishField",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv/finishRecord",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/api/allowlist-csv-parser.ts#parseAllowlistCsv~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#AdmissionPlatformSecurityReader",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/admission-platform-security.ts#createAdmissionPlatformSecurityReader",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/composition/identity-bound-executor.ts#createIdentityBoundExecutor",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository.ts#PostgresAdmissionActivationRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader.ts#PostgresAdmissionActivityReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts#PostgresAdmissionAuthorizationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#AcademyMembershipStateRow",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations.ts#PostgresAdmissionContactVerificationOperations",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#assertRecoveryOwnership",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader.ts#PostgresAdmissionOperationReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#compareBatchResourceIds",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#isAccessDenial",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#NativeSubmissionScope",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#normalizeBatch",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#OperationAuthorizer",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#platformSecurityFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts#PostgresAdmissionOperationRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#allowlistBoundUserId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-overview-reader.ts#PostgresAdmissionOverviewReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#policyPlatformRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#PostgresAdmissionPolicyRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-repository.ts#requirementUnmet",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-policy-view-facts-reader.ts#PostgresAdmissionPolicyViewFactsReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionAuthorizationGuard",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionBatchEffects",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionPreparedDecision",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRecordInput",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#AdmissionRunCommand",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#assertSubmissionEligible",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#PostgresAdmissionRequestRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#requestContact",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionRequest",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts#submissionSourceKind",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-history-reader.ts#PostgresAdmissionReviewHistoryReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-review-reader.ts#PostgresAdmissionReviewReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#bindingConflicts",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isProofSecurityChanged",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isSameProofDestination",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#isUsableChallenge",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#PostgresAdmissionVerificationProofWriter",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#ProofApplicationDenialCode",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#proofFromRow",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#requestContactColumns",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer.ts#selectContactBinding",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-import-repository.ts#PostgresAllowlistImportRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#AllowlistAuditOperation",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-allowlist-repository.ts#PostgresAllowlistRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#<module>",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#OWNER_DENIAL_CODES",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#PostgresCommercialMembershipReviewRepository",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ResolutionRow",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#ReviewListRow",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-commercial-membership-review-repository.ts#toIso",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#AdmissionErrorCodeValue",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CapabilityRow",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#channelSenderId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CURRENT_CHALLENGE_COLUMNS",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#CurrentChallengeRow",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isChannelMismatch",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#isIssuanceSecurityChanged",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#issuanceOperationType",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#newDiagnosticId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#PostgresContactVerificationIssuer",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-issuer.ts#senderCapabilityDenial",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#challengeFromRow",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#deniedVerification",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isSameDestination",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#isValidationScopeUnavailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#macScopeChanged",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#PostgresContactVerificationRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-contact-verification-repository.ts#VerificationFailureIdentity",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#ownRetryAt",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#PostgresOwnAdmissionRequestReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader.ts#presentedReasons",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#invitationRecipientMatches",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#isInvitationTokenAvailable",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#policyFacts",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-overview-reader.ts#PostgresPersonalInvitationOverviewReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository.ts#PostgresPersonalInvitationRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#AdmissionModuleContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeScopedQuery",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule/executeVerification",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/academy-admissions/setup.ts#buildAcademyAdmissionsModule~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#buildInvitationAndVerificationModules",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#buildLedgerModules",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#buildPolicyModules",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#buildReadModules",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/academy-admissions/setup.ts#createAdmissionContextResolver",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#AuthenticatedFeatureDependencies",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts#FeatureAccountDatabaseExecutor",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingPlatformRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/config/messaging-hosting-security.ts#readMessagingHostingSecurityConfig",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#classifyMessagingPlatformSecurityFailure",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-platform-security-failure.ts#UNCONFIGURED_SECURITY_FAILURES",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/config/messaging-security-config.ts#createMessagingSecurityConfig",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/config/messaging-security-config.ts#importKeyring",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#isVerifiableResource",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#PostgresAdmissionVerificationReadinessReader",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-admission-verification-readiness-reader.ts#resourceSenderId",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#compareEntryKeys",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts#PostgresMessagingContactBudgetRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestriction",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#parsePlatformRestrictions",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-repository.ts#PostgresMessagingUsageRepository",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/setup.ts#createAdmissionRequestModules",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT.recoveryLocked",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/constants/platform-security.ts#PLATFORM_SECURITY_REQUIREMENT~frame",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#<module>",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/domain/value-objects/platform-security-requirement.ts#PlatformSecurityRequirement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/shared/infrastructure/database/postgres-pool.ts#createPostgresPool",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease/release",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#createIdempotentClientRelease~shell",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/handleCheckedOutClientError",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement/releaseClient",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedStatement~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/handleCheckedOutClientError",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction/releaseClient",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/shared/infrastructure/database/server-database-client.ts#runWithGuardedTransaction~shell",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/tribes/constants/tribe-member-role.ts#<module>",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/tribes/constants/tribe-member-role.ts#TRIBE_MEMBER_ROLE.tribemate",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "removed",
+          "key": "src/modules/tribes/constants/tribe-member-role.ts#TRIBE_MEMBER_ROLE~frame",
+          "reason": "code no longer reached by the unit: check that no state lost its feedback"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApplicableDecision",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "modified",
+          "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#applyApprovedAcademyMembership",
+          "reason": "visible or interactive code changed"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#ApprovedMembershipContext",
+          "reason": "new visible or interactive code"
+        },
+        {
+          "change": "added",
+          "key": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts#findApplicableDecision",
+          "reason": "new visible or interactive code"
         }
       ],
       "suggestedScope": [
@@ -608,7 +1807,7 @@
       "name": "ui-ux-flow-patterns",
       "version": "1.5.0"
     },
-    "report": "runs/20261026T153921Z-1d4da9.json"
+    "report": "runs/20261103T142121Z-b320d1.json"
   },
   "schemaVersion": 1,
   "skill": "ui-ux-flow-patterns",
